@@ -6,11 +6,16 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        var builder = WebApplication.CreateBuilder(args);
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
+
+        string kgsmPath = builder.Configuration["Kgsm:Path"];
+        string kgsmSocketPath = builder.Configuration["Kgsm:SocketPath"];
+
         builder.Services
-            .AddSingleton(new KgsmInterop("", ""))
+            .AddSingleton<KgsmEventState>()
+            .AddSingleton(new KgsmInterop(kgsmPath, kgsmSocketPath))
             .AddSingleton<KgsmEventListener>()
             .AddLogging(options => options.AddConsole())
             .AddRazorComponents()

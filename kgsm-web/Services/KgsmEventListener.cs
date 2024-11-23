@@ -7,11 +7,13 @@ using TheKrystalShip.KGSM.Lib;
 public class KgsmEventListener
 {
     private readonly KgsmInterop _interop;
+    private readonly KgsmEventState _eventState;
     private readonly ILogger<KgsmEventListener> _logger;
 
-    public KgsmEventListener(KgsmInterop interop, ILogger<KgsmEventListener> logger)
+    public KgsmEventListener(KgsmInterop interop, KgsmEventState eventState, ILogger<KgsmEventListener> logger)
     {
         _interop = interop;
+        _eventState = eventState;
         _logger = logger;
     }
 
@@ -19,17 +21,23 @@ public class KgsmEventListener
     {
         _interop.Events.RegisterHandler<InstanceStartedData>(OnInstanceStartedAsync);
         _interop.Events.RegisterHandler<InstanceInstalledData>(OnInstanceInstalledAsync);
+
+        _logger.LogInformation($"Registered event handlers");
     }
 
     public async Task OnInstanceInstalledAsync(InstanceInstalledData data)
     {
-        _logger.LogInformation($"Received installation data: ({data.InstanceId}) {data.Blueprint}");
+        string @event = $"Received installation data: Blueprint {data.Blueprint}, Instance ID {data.InstanceId}";
+        _logger.LogInformation(@event);
+        _eventState.AddEvent(@event);
         await Task.CompletedTask;
     }
 
     private async Task OnInstanceStartedAsync(InstanceStartedData data)
     {
-        _logger.LogInformation($"Received started data: {data.InstanceId}");
+        string @event = $"Received started data: {data.InstanceId}";
+        _logger.LogInformation(@event);
+        _eventState.AddEvent(@event);
         await Task.CompletedTask;
     }
 }
