@@ -20,6 +20,7 @@ public class KgsmEventListener
     public void Initialize()
     {
         _interop.Events.RegisterHandler<InstanceStartedData>(OnInstanceStartedAsync);
+        _interop.Events.RegisterHandler<InstanceStoppedData>(OnInstanceStoppedAsync);
         _interop.Events.RegisterHandler<InstanceInstalledData>(OnInstanceInstalledAsync);
 
         _logger.LogInformation($"Registered event handlers");
@@ -36,6 +37,14 @@ public class KgsmEventListener
     private async Task OnInstanceStartedAsync(InstanceStartedData data)
     {
         string @event = $"Received started data: {data.InstanceId}";
+        _logger.LogInformation(@event);
+        _eventState.AddEvent(@event);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnInstanceStoppedAsync(InstanceStoppedData data)
+    {
+        string @event = $"Received stopped data: {data.InstanceId}";
         _logger.LogInformation(@event);
         _eventState.AddEvent(@event);
         await Task.CompletedTask;

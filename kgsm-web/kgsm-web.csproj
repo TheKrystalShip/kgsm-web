@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="0.3.1-alpha" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="0.4.1-alpha" />
   </ItemGroup>
 
 </Project>

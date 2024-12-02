@@ -1,4 +1,3 @@
-
 namespace TheKrystalShip.KGSM.Web.Services;
 
 public class KgsmEventState

@@ -8,10 +8,11 @@ public class Program
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-        // Add services to the container.
+        // Doesn't quite work, TODO
+        builder.WebHost.UseKestrel().UseUrls("http://0.0.0.0:5183");
 
-        string kgsmPath = builder.Configuration["Kgsm:Path"];
-        string kgsmSocketPath = builder.Configuration["Kgsm:SocketPath"];
+        string kgsmPath = builder.Configuration["Kgsm:Path"] ?? "";
+        string kgsmSocketPath = builder.Configuration["Kgsm:SocketPath"] ?? "";
 
         builder.Services
             .AddSingleton<KgsmEventState>()
