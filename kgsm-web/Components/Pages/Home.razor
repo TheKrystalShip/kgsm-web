@@ -12,6 +12,8 @@
 
 <h1>KGSM Instances</h1>
 
+<button class="btn btn-primary" @onclick="@(e => eventState.LoadInstances())">Reload</button>
+
 <table class="table">
   <thead>
     <tr>
@@ -21,7 +23,7 @@
     </tr>
   </thead>
   <tbody>
-    @foreach (Instance instance in instances.Values)
+    @foreach (Instance instance in eventState.Instances.Values)
     {
       <tr>
         <td>@instance.Name</td>
@@ -41,11 +43,6 @@
   </tbody>
 </table>
 
-@* @foreach (Instance instance in instances.Values)
-{
-  <p>@instance.ToString()</p>
-} *@
-
 <h2>Action log</h2>
 
 @foreach (string action in eventState.Events)
@@ -54,13 +51,8 @@
 }
 
 @code {
-  private int currentCount = 0;
-
-  public Dictionary<string, Instance> instances = new();
-
   protected override void OnInitialized()
   {
-    instances = interop.GetInstances();
-    eventState.OnChange += StateHasChanged;
+    eventState.OnChange += async () => await InvokeAsync(StateHasChanged);
   }
 }

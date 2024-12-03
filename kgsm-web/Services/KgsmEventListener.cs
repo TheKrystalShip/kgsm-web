@@ -1,7 +1,5 @@
 namespace TheKrystalShip.KGSM.Web.Services;
 
-using System;
-
 using TheKrystalShip.KGSM.Lib;
 
 public class KgsmEventListener
@@ -22,6 +20,7 @@ public class KgsmEventListener
         _interop.Events.RegisterHandler<InstanceStartedData>(OnInstanceStartedAsync);
         _interop.Events.RegisterHandler<InstanceStoppedData>(OnInstanceStoppedAsync);
         _interop.Events.RegisterHandler<InstanceInstalledData>(OnInstanceInstalledAsync);
+        _interop.Events.RegisterHandler<InstanceUninstalledData>(OnInstanceUninstalledAsync);
 
         _logger.LogInformation($"Registered event handlers");
     }
@@ -39,6 +38,7 @@ public class KgsmEventListener
         string @event = $"Received started data: {data.InstanceId}";
         _logger.LogInformation(@event);
         _eventState.AddEvent(@event);
+        _eventState.OnInstanceStarted(data.InstanceId);
         await Task.CompletedTask;
     }
 
@@ -47,6 +47,16 @@ public class KgsmEventListener
         string @event = $"Received stopped data: {data.InstanceId}";
         _logger.LogInformation(@event);
         _eventState.AddEvent(@event);
+        _eventState.OnInstanceStopped(data.InstanceId);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnInstanceUninstalledAsync(InstanceUninstalledData data)
+    {
+        string @event = $"Received uninstalled data: {data.InstanceId}";
+        _logger.LogInformation(@event);
+        _eventState.AddEvent(@event);
+        _eventState.OnInstanceUninstalled(data.InstanceId);
         await Task.CompletedTask;
     }
 }
