@@ -1,6 +1,8 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "KGSM",
+  "name": "KGSM Admin Panel",
+  "description": "KGSM Web Admin Panel for managing the KGSM system",
+  "version": "1.0.0",
   "icons": [
     {
       "src": "favicon.ico",

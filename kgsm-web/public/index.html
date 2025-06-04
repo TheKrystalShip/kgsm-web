@@ -3,13 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="application-name" content="KGSM Admin Panel" />
+    <meta name="author" content="Krystal Game Server Manager Team" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <!-- <meta name="theme-color" content="#12151f" /> -->
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="KGSM Web Admin Panel - Manage your game servers with ease"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png">
+
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -24,20 +30,48 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>KGSM Web Admin Panel</title>
+    <!-- Add Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>You need to enable JavaScript to run the KGSM Web Admin Panel.</noscript>
     <div id="root"></div>
+    
+    <!-- Loading screen that shows while app initializes -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #12151f; color: #f0f4f8; font-family: 'Inter', sans-serif; z-index: 9999;">
+      <div style="width: 50px; height: 50px; border: 3px solid rgba(79, 134, 247, 0.3); border-radius: 50%; border-top-color: #4f86f7; animation: spin 1s ease-in-out infinite;"></div>
+      <h2 style="margin-top: 20px; font-weight: 500;">Loading KGSM Admin Panel</h2>
+      <p style="margin-top: 10px; opacity: 0.7;">© Krystal Game Server Manager</p>
+    </div>
+
+    <script>
+      // Hide loading screen when the app is loaded
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            loadingScreen.style.transition = 'opacity 0.5s ease';
+            setTimeout(function() {
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        }, 300);
+      });
+    </script>
+
+    <style>
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
     <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
+      KGSM Web Admin Panel - June 2025
+      A modern web application for managing game server instances.
+      See README.md for more information.
     -->
   </body>
 </html>
