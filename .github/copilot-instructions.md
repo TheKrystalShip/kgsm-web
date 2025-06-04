@@ -26,6 +26,7 @@
 - **Context API**: Use React Context for global state only when necessary. Prefer local state or state management libraries for complex scenarios.
 - **CSS Modules or CSS-in-JS**: Use CSS Modules, styled-components, or emotion for component-scoped styles.
 - **Accessibility**: Follow accessibility best practices (ARIA attributes, semantic HTML).
+- **Files**: Do not create .new files for existing components. Instead, modify existing files.
 
 ## Documentation
 

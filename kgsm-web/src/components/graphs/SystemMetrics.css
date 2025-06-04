@@ -1,6 +1,38 @@
 /* System metrics styles */
 .metrics-container {
   margin-bottom: 0;
+  scroll-behavior: smooth;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.metric-card {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.metric-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.metric-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.metric-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.metric-card:nth-child(4) {
+  animation-delay: 0.4s;
 }
 
 .metrics-header {
@@ -43,7 +75,8 @@
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.25rem;
+  gap: 1.5rem;
+  padding: 0.5rem 0.25rem;
 }
 
 .metric-card {
@@ -64,8 +97,122 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--gradient-green);
   z-index: 1;
+}
+
+/* CPU Cores Card Styles */
+.cpu-cores-card::before {
+  background-image: linear-gradient(to right, var(--color-blue), var(--color-green));
+}
+
+.cpu-cores-list {
+  margin-top: 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-green) var(--bg-secondary);
+}
+
+.cpu-cores-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cpu-cores-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-green);
+  border-radius: 3px;
+}
+
+.cpu-cores-list::-webkit-scrollbar-track {
+  background-color: var(--bg-secondary);
+}
+
+.core-item {
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  background-color: var(--bg-tertiary);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.core-item:hover {
+  background-color: var(--bg-hover);
+  transform: translateX(2px);
+}
+
+.core-item.expanded {
+  background-color: var(--bg-hover);
+}
+
+.core-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.core-name {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.core-usage {
+  display: flex;
+  align-items: center;
+  width: 120px;
+  position: relative;
+}
+
+.core-usage-bar {
+  height: 6px;
+  background-color: var(--color-green);
+  border-radius: 3px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: width 0.3s ease;
+}
+
+.core-usage-text {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.core-details {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.8rem;
+}
+
+.core-stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.core-speed {
+  margin-top: 0.4rem;
+  font-family: monospace;
+  color: var(--text-tertiary);
+}
+
+/* Add different colored tops for each metric card */
+.metric-card:nth-child(1)::before {
+  background: var(--gradient-green);
+}
+
+.metric-card:nth-child(2)::before {
+  background: linear-gradient(135deg, var(--color-orange) 0%, #f58a1f 100%);
+}
+
+.metric-card:nth-child(3)::before {
+  background: linear-gradient(135deg, var(--color-blue) 0%, #2f75e6 100%);
+}
+
+.metric-card:nth-child(4)::before {
+  background: linear-gradient(135deg, var(--color-purple) 0%, #7859bc 100%);
 }
 
 .metric-card:hover {
@@ -103,6 +250,14 @@
   display: flex;
   align-items: center;
   color: var(--text-primary);
+  transition: all 0.3s ease;
+  padding: 0.25rem 0;
+  letter-spacing: 0.25px;
+}
+
+.metric-card:hover .metric-title {
+  transform: translateX(4px);
+  letter-spacing: 0.5px;
 }
 
 .metric-title::before {
@@ -111,9 +266,28 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--color-blue);
   margin-right: 8px;
+}
+
+/* Match indicator colors to the card tops */
+.metric-card:nth-child(1) .metric-title::before {
+  background-color: var(--color-green);
+  box-shadow: 0 0 5px var(--color-green);
+}
+
+.metric-card:nth-child(2) .metric-title::before {
+  background-color: var(--color-orange);
+  box-shadow: 0 0 5px var(--color-orange);
+}
+
+.metric-card:nth-child(3) .metric-title::before {
+  background-color: var(--color-blue);
   box-shadow: 0 0 5px var(--color-blue);
+}
+
+.metric-card:nth-child(4) .metric-title::before {
+  background-color: var(--color-purple);
+  box-shadow: 0 0 5px var(--color-purple);
 }
 
 .chart-placeholder {
@@ -148,25 +322,75 @@
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+              box-shadow 0.25s ease, 
+              border-left-width 0.25s ease;
+}
+
+.stat-item:hover {
+  border-left-width: 5px;
+  padding-left: 0.2rem;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateY(3px);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.stat-item:hover::after {
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .stat-label {
   font-size: 0.7rem;
   color: var(--text-secondary);
   margin-bottom: 2px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .stat-value {
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   margin-top: 0.25rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover .stat-value {
+  transform: scale(1.05);
+  letter-spacing: 0.2px;
 }
 
 .stat-secondary {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   margin-top: 0.25rem;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover .stat-secondary {
+  opacity: 1;
+  color: var(--text-primary);
 }
 
 .cpu-stats,
@@ -179,13 +403,118 @@
   gap: 0.75rem;
 }
 
-/* Styling for network stats */
-.network-stats .download {
+/* Responsive adjustments for smaller screens */
+@media (max-width: 480px) {
+  .metric-stats {
+    flex-direction: column;
+  }
+  
+  .cpu-stats,
+  .memory-stats,
+  .disk-stats,
+  .network-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .stat-item {
+    width: 100%;
+    margin-bottom: 0.5rem;
+    border-left-width: 4px;
+  }
+}
+
+/* CPU Stats styling */
+.cpu-min {
+  border-left: 3px solid #18a66a; /* darker green */
+}
+
+.cpu-max {
+  border-left: 3px solid #ff6b6b; /* red */
+}
+
+.cpu-avg {
+  border-left: 3px solid var(--color-green);
+}
+
+.cpu-min:hover {
+  box-shadow: 0 0 12px rgba(24, 166, 106, 0.3);
+}
+
+.cpu-max:hover {
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.3);
+}
+
+.cpu-avg:hover {
+  box-shadow: 0 0 12px rgba(35, 209, 135, 0.3);
+}
+
+/* Memory Stats styling */
+.memory-total {
+  border-left: 3px solid var(--color-purple);
+}
+
+.memory-used {
+  border-left: 3px solid var(--color-orange);
+}
+
+.memory-free {
+  border-left: 3px solid #4cc48a; /* light green */
+}
+
+.memory-total:hover {
+  box-shadow: 0 0 12px rgba(159, 122, 234, 0.3);
+}
+
+.memory-used:hover {
+  box-shadow: 0 0 12px rgba(253, 164, 66, 0.3);
+}
+
+.memory-free:hover {
+  box-shadow: 0 0 12px rgba(76, 196, 138, 0.3);
+}
+
+/* Disk Stats styling */
+.disk-total {
+  border-left: 3px solid var(--color-purple);
+}
+
+.disk-used {
+  border-left: 3px solid var(--color-orange);
+}
+
+.disk-free {
+  border-left: 3px solid #4cc48a; /* light green */
+}
+
+.disk-total:hover {
+  box-shadow: 0 0 12px rgba(159, 122, 234, 0.3);
+}
+
+.disk-used:hover {
+  box-shadow: 0 0 12px rgba(253, 164, 66, 0.3);
+}
+
+.disk-free:hover {
+  box-shadow: 0 0 12px rgba(76, 196, 138, 0.3);
+}
+
+/* Network Stats styling */
+.network-stats .network-download {
   border-left: 3px solid var(--color-blue);
 }
 
-.network-stats .upload {
+.network-stats .network-upload {
   border-left: 3px solid var(--color-green);
+}
+
+/* Add hover animation for the download/upload traffic */
+.network-stats .network-download:hover {
+  box-shadow: 0 0 12px rgba(74, 140, 255, 0.3);
+}
+
+.network-stats .network-upload:hover {
+  box-shadow: 0 0 12px rgba(35, 209, 135, 0.3);
 }
 
 .stat-section {

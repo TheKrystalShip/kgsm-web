@@ -51,6 +51,7 @@ export interface SystemMetrics {
     totalDisk: number; // Total disk space in GB
     cpuCores: number; // Number of CPU cores
     cpuModel?: string; // CPU model name
+    uptime?: number; // System uptime in seconds
   };
 }
 
@@ -63,10 +64,11 @@ class SystemMetricsService {
 
   // Store system information
   private systemInfo = {
-    totalMemory: 16384, // Default: 16 GB in MB
+    totalMemory: 32768, // Updated: 32 GB in MB
     totalDisk: 1000,    // Default: 1 TB in GB
     cpuCores: 8,         // Default: 8 cores
-    cpuModel: 'Unknown CPU' // Default: Unknown CPU model
+    cpuModel: 'Unknown CPU', // Default: Unknown CPU model
+    uptime: 0           // Default uptime in seconds
   };
 
   constructor() {
@@ -195,12 +197,19 @@ class SystemMetricsService {
           totalMemory: sysInfo?.totalMemory || this.systemInfo.totalMemory,
           totalDisk: sysInfo?.totalDisk || this.systemInfo.totalDisk,
           cpuCores: sysInfo?.cpuCores || this.systemInfo.cpuCores,
-          cpuModel: sysInfo?.cpuModel || this.systemInfo.cpuModel
+          cpuModel: sysInfo?.cpuModel || this.systemInfo.cpuModel,
+          uptime: sysInfo?.uptime || this.systemInfo.uptime
         };
         
         // Store CPU model in systemInfo if available
         if (sysInfo?.cpuModel) {
           this.systemInfo.cpuModel = sysInfo.cpuModel;
+        }
+        
+        // Update uptime if not provided by API (for simulation/demo purposes)
+        if (!sysInfo?.uptime) {
+          // Increment uptime by the polling interval (typically 5 seconds)
+          this.systemInfo.uptime += 5;
         }
       }
       
@@ -218,6 +227,33 @@ class SystemMetricsService {
       
       throw error;
     }
+  }
+
+  /**
+   * Formats uptime in seconds to a human-readable string
+   * @param uptimeSeconds Uptime in seconds
+   * @returns Formatted uptime string (e.g., "3d 12h 45m 30s")
+   */
+  public formatUptime(uptimeSeconds: number): string {
+    const days = Math.floor(uptimeSeconds / 86400);
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const seconds = Math.floor(uptimeSeconds % 60);
+    
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+    
+    return parts.join(' ');
+  }
+  
+  /**
+   * Get the current system uptime in seconds
+   */
+  public getUptime(): number {
+    return this.systemInfo.uptime;
   }
 
   /**
