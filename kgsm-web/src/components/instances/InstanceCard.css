@@ -1,0 +1,168 @@
+/* Instance card styles */
+.instance-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-left: 3px solid var(--bg-tertiary);
+}
+
+.instance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.instance-card-header {
+  padding: 1rem;
+  background-color: var(--bg-tertiary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.instance-name-container {
+  display: flex;
+  align-items: center;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  position: relative;
+}
+
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: pulse 2s infinite;
+}
+
+.status-active {
+  background-color: var(--color-green);
+  box-shadow: 0 0 5px var(--color-green);
+}
+
+.status-active::after {
+  background-color: var(--color-green);
+}
+
+.status-inactive {
+  background-color: var(--color-orange);
+  box-shadow: 0 0 5px var(--color-orange);
+}
+
+.status-inactive::after {
+  background-color: var(--color-orange);
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+}
+
+.instance-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.instance-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}
+
+.instance-details {
+  padding: 1rem;
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: right;
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instance-actions {
+  padding: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.instance-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.confirm-uninstall {
+  width: 100%;
+}
+
+.confirm-uninstall p {
+  margin-bottom: 1rem;
+  color: var(--error);
+  text-align: center;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.confirm-actions .btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}

@@ -1,0 +1,62 @@
+/* Blueprint install modal styles */
+.blueprint-install-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.blueprint-details {
+  background-color: var(--bg-tertiary);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+}
+
+.blueprint-details h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.details-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  color: var(--text-primary);
+}
+
+.warning {
+  grid-column: 1 / -1;
+  background-color: rgba(253, 164, 66, 0.1); /* Using our orange color with transparency */
+  padding: 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid var(--warning);
+  justify-content: center;
+}
+
+.input-help {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.error-message {
+  color: var(--error);
+  background-color: rgba(255, 107, 107, 0.1); /* Using our error color with transparency */
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid var(--error);
+}

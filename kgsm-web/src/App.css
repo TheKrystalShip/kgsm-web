@@ -1,0 +1,32 @@
+/* App-specific styles */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  display: flex;
+  flex-grow: 1;
+}
+
+.content-area {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+/* Media queries for responsive layout */
+@media (min-width: 1600px) {
+  .content-area {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .content-area {
+    padding: 1rem;
+  }
+}

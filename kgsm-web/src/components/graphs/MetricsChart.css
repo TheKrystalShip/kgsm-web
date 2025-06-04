@@ -1,0 +1,15 @@
+/* Metrics chart styles */
+.metrics-chart {
+  position: relative;
+}
+
+.empty-chart {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  font-style: italic;
+  color: var(--text-secondary);
+}

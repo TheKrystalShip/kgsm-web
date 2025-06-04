@@ -1,0 +1,137 @@
+/* System metrics styles */
+.metrics-container {
+  margin-bottom: 2rem;
+}
+
+.metrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.timeframe-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-top: 3px solid var(--color-green);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Different colored tops for different metric types */
+.metric-card.network-card {
+  border-top-color: var(--color-blue);
+}
+
+.metric-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.chart-placeholder {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.metric-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bg-tertiary);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: var(--border-radius);
+  background-color: var(--bg-tertiary);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-top: 0.25rem;
+}
+
+.stat-secondary {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.cpu-stats,
+.memory-stats,
+.disk-stats,
+.network-stats {
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.75rem;
+}
+
+/* Styling for network stats */
+.network-stats .download {
+  border-left: 3px solid var(--color-blue);
+}
+
+.network-stats .upload {
+  border-left: 3px solid var(--color-green);
+}
+
+.stat-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stat-section h4 {
+  margin: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .metrics-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
