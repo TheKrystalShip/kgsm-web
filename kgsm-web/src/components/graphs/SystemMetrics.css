@@ -1,6 +1,6 @@
 /* System metrics styles */
 .metrics-container {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .metrics-header {
@@ -13,6 +13,31 @@
 .timeframe-selector {
   display: flex;
   gap: 0.5rem;
+}
+
+.cpu-model {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+  opacity: 0.8;
+}
+
+.cpu-model-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+}
+
+.cpu-model-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.cpu-cores {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .metrics-grid {

@@ -1,20 +1,10 @@
 /* Instance list styles */
 .instance-list-container {
-  margin-bottom: 2.5rem;
+  margin-bottom: 0;
   position: relative;
 }
 
-.instance-list-container::before {
-  content: "";
-  position: absolute;
-  top: -15px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background-image: linear-gradient(to right, var(--color-purple), var(--color-blue));
-  border-radius: 3px;
-  opacity: 0.7;
-}
+/* Removed the ::before element since FoldableSection already provides a nice top border */
 
 .instance-grid {
   display: grid;

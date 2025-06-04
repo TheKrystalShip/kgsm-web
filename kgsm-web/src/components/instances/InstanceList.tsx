@@ -26,7 +26,6 @@ const InstanceList: React.FC = () => {
   if (loading) {
     return (
       <div className="instance-list-container">
-        <div className="section-title">Server Instances</div>
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading instances...</p>
@@ -39,7 +38,6 @@ const InstanceList: React.FC = () => {
   if (error) {
     return (
       <div className="instance-list-container">
-        <div className="section-title">Server Instances</div>
         <div className="error-container">
           <p>Failed to load instances: {error.message}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
@@ -57,7 +55,6 @@ const InstanceList: React.FC = () => {
   if (instanceArray.length === 0) {
     return (
       <div className="instance-list-container">
-        <div className="section-title">Server Instances</div>
         <div className="empty-state">
           <p>No game server instances found.</p>
           <p>Use the blueprints above to install a new game server.</p>
@@ -68,7 +65,6 @@ const InstanceList: React.FC = () => {
 
   return (
     <div className="instance-list-container">
-      <div className="section-title">Server Instances</div>
       <div className="instance-grid">
         {instanceArray.map((instance) => (
           <InstanceCard

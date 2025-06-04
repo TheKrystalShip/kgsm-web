@@ -42,7 +42,6 @@ const BlueprintList: React.FC = () => {
   if (loading) {
     return (
       <div className="blueprint-list-container">
-        <div className="section-title">Available Game Servers</div>
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading blueprints...</p>
@@ -55,7 +54,6 @@ const BlueprintList: React.FC = () => {
   if (error) {
     return (
       <div className="blueprint-list-container">
-        <div className="section-title">Available Game Servers</div>
         <div className="error-container">
           <p>Failed to load blueprints: {error.message}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
@@ -71,8 +69,6 @@ const BlueprintList: React.FC = () => {
 
   return (
     <div className="blueprint-list-container">
-      <div className="section-title">Available Game Servers</div>
-      
       <div className="blueprint-carousel-wrapper">
         <div className="carousel-shadow carousel-shadow-left"></div>
         <div className="carousel-shadow carousel-shadow-right"></div>

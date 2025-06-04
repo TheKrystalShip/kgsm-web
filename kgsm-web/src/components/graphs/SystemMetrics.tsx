@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSystemMetrics } from '../../hooks/useSystemMetrics';
 import { TimeFrame } from '../../services/systemMetricsService';
 import MetricsChart from './MetricsChart';
@@ -51,7 +51,6 @@ const SystemMetrics: React.FC = () => {
   if (loading && !metrics) {
     return (
       <div className="metrics-container">
-        <div className="section-title">System Resource Usage</div>
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading metrics...</p>
@@ -64,7 +63,6 @@ const SystemMetrics: React.FC = () => {
   if (error) {
     return (
       <div className="metrics-container">
-        <div className="section-title">System Resource Usage</div>
         <div className="error-container">
           <p>Failed to load metrics: {error.message}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
@@ -82,7 +80,7 @@ const SystemMetrics: React.FC = () => {
   return (
     <div className="metrics-container">
       <div className="metrics-header">
-        <div className="section-title">System Resource Usage</div>
+        <div className="cpu-model">{cpuModel}</div>
         <div className="timeframe-selector">
           {timeframeOptions.map((option) => (
             <button
@@ -104,7 +102,7 @@ const SystemMetrics: React.FC = () => {
             <>
               {metrics.cpuModel && (
                 <div className="cpu-model-info">
-                  <span className="cpu-model">{metrics.cpuModel}</span>
+                  <span className="cpu-model-text">{metrics.cpuModel}</span>
                   <span className="cpu-cores">({metrics.systemInfo?.cpuCores || 0} Cores)</span>
                 </div>
               )}

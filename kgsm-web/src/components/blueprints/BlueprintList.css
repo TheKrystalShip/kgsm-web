@@ -1,20 +1,10 @@
 /* Blueprint list styles */
 .blueprint-list-container {
-  margin-bottom: 2.5rem;
+  margin-bottom: 0;
   position: relative;
 }
 
-.blueprint-list-container::before {
-  content: "";
-  position: absolute;
-  top: -15px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background-image: linear-gradient(to right, var(--color-blue), var(--color-green));
-  border-radius: 3px;
-  opacity: 0.7;
-}
+/* Removed the ::before element since FoldableSection already provides a nice top border */
 
 .blueprint-carousel-wrapper {
   position: relative;
