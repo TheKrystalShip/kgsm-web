@@ -43,9 +43,6 @@ const SystemMetrics: React.FC = () => {
 
   // Array of available timeframe options
   const timeframeOptions: TimeFrame[] = ['10s', '1m', '5m', '1h', '24h'];
-  
-  // Get CPU model information
-  const cpuModel = metrics?.cpuModel || metrics?.systemInfo?.cpuModel || 'Unknown CPU';
 
   // If loading, show loading indicator
   if (loading && !metrics) {
@@ -80,7 +77,7 @@ const SystemMetrics: React.FC = () => {
   return (
     <div className="metrics-container">
       <div className="metrics-header">
-        <div className="cpu-model">{cpuModel}</div>
+        <div className="cpu-model"></div>
         <div className="timeframe-selector">
           {timeframeOptions.map((option) => (
             <button
