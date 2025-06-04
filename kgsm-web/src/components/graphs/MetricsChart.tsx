@@ -78,10 +78,10 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
 
   return (
     <div className="metrics-chart">
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={240}>
         {!stacked ? (
-          <LineChart data={processedData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <LineChart data={processedData} margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatXAxis}
@@ -130,9 +130,9 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
                   data={processedData.filter((item) => item[lineDataKey] === type)}
                   name={String(type)}
                   stroke={index === 0 ? color : secondaryColor}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
+                  strokeWidth={2.5}
+                  dot={{ r: 0 }}
+                  activeDot={{ r: 5, strokeWidth: 1, stroke: '#ffffff' }}
                   isAnimationActive={false}
                 />
               ))
@@ -142,9 +142,9 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
                 type="monotone"
                 dataKey={dataKey}
                 stroke={color}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
+                strokeWidth={2.5}
+                dot={{ r: 0 }}
+                activeDot={{ r: 5, strokeWidth: 1, stroke: '#ffffff' }}
                 isAnimationActive={false}
               />
             )}
@@ -166,8 +166,8 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
           </LineChart>
         ) : (
           // Stacked area chart for disk usage
-          <AreaChart data={processedData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <AreaChart data={processedData} margin={{ top: 5, right: 20, left: 5, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatXAxis}

@@ -1,68 +1,124 @@
 /* Instance card styles */
 .instance-card {
   background-color: var(--bg-secondary);
-  border-radius: var(--border-radius);
+  background-image: var(--gradient-card);
+  border-radius: var(--border-radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border-left: 3px solid var(--bg-tertiary);
+  border-left: 4px solid var(--bg-tertiary);
+  position: relative;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .instance-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .instance-card-header {
-  padding: 1rem;
-  background-color: var(--bg-tertiary);
+  padding: 1.1rem 1.35rem;
+  background: linear-gradient(to right, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  position: relative;
+  overflow: hidden;
+}
+
+.instance-card-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+}
+
+.instance-card-header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    ellipse at top left,
+    rgba(255, 255, 255, 0.05),
+    transparent 70%
+  );
 }
 
 .instance-name-container {
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 2;
 }
 
 .status-indicator {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  margin-right: 0.75rem;
+  margin-right: 1rem;
   position: relative;
+  z-index: 2;
+}
+
+.status-indicator::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8), transparent);
+  opacity: 0.4;
 }
 
 .status-indicator::after {
   content: '';
   position: absolute;
-  top: -2px;
-  left: -2px;
-  width: 16px;
-  height: 16px;
+  top: -4px;
+  left: -4px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   opacity: 0.3;
   animation: pulse 2s infinite;
+  z-index: -1;
 }
 
 .status-active {
-  background-color: var(--color-green);
-  box-shadow: 0 0 5px var(--color-green);
+  background: radial-gradient(circle at 30% 30%, #34eb9e, var(--color-green));
+  box-shadow: 
+    0 0 10px var(--color-green),
+    inset 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
 .status-active::after {
   background-color: var(--color-green);
+  filter: blur(2px);
 }
 
 .status-inactive {
-  background-color: var(--color-orange);
-  box-shadow: 0 0 5px var(--color-orange);
+  background: radial-gradient(circle at 30% 30%, #ffc280, var(--color-orange));
+  box-shadow: 
+    0 0 10px var(--color-orange),
+    inset 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
 .status-inactive::after {
   background-color: var(--color-orange);
+  filter: blur(2px);
 }
 
 @keyframes pulse {
@@ -82,17 +138,43 @@
 
 .instance-name {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 500;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.02em;
+  position: relative;
+}
+
+.instance-name::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background-image: linear-gradient(to right, var(--color-blue), transparent);
+  transition: width 0.3s ease;
+}
+
+.instance-card:hover .instance-name::after {
+  width: 50px;
 }
 
 .instance-status {
   font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.25rem 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 1rem;
   border-radius: 12px;
   color: var(--text-primary);
-  background-color: var(--bg-secondary);
+  background-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  z-index: 2;
 }
 
 .instance-details {

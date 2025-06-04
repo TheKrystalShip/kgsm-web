@@ -7,6 +7,10 @@ import BlueprintList from './components/blueprints/BlueprintList';
 import InstanceList from './components/instances/InstanceList';
 import SystemMetrics from './components/graphs/SystemMetrics';
 import './App.css';
+import './components/common/Button.css';
+import './components/common/Card.css';
+import './components/common/Forms.css';
+import './components/common/Input.css';
 
 /**
  * Main application component

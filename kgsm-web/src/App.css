@@ -8,12 +8,28 @@
 .main-content {
   display: flex;
   flex-grow: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.main-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 15vh;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.15), transparent);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .content-area {
   flex: 1;
-  padding: 1.5rem;
+  padding: 2rem 2.5rem;
   overflow-y: auto;
+  position: relative;
+  perspective: 1000px;
 }
 
 /* Media queries for responsive layout */

@@ -1,11 +1,35 @@
 /* Blueprint list styles */
 .blueprint-list-container {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+
+.blueprint-list-container::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-image: linear-gradient(to right, var(--color-blue), var(--color-green));
+  border-radius: 3px;
+  opacity: 0.7;
 }
 
 .blueprint-carousel-wrapper {
   position: relative;
   margin: 0 -1.5rem;
+  padding: 1rem 0;
+}
+
+.blueprint-carousel-wrapper::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background-image: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.07), transparent);
 }
 
 .blueprint-carousel {
@@ -13,6 +37,31 @@
   padding: 1rem 0;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS devices */
+  position: relative;
+}
+
+.blueprint-carousel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  background: linear-gradient(to right, var(--bg-primary), transparent);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.blueprint-carousel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50px;
+  background: linear-gradient(to left, var(--bg-primary), transparent);
+  z-index: 5;
+  pointer-events: none;
 }
 
 .blueprint-list {
@@ -28,9 +77,9 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  background-color: var(--color-dark-blue);
+  width: 44px;
+  height: 44px;
+  background-image: var(--gradient-blue);
   color: var(--color-light-gray);
   border: none;
   border-radius: 50%;
@@ -38,14 +87,29 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
+  opacity: 0.85;
+  transition: all 0.3s ease;
   z-index: 10;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md), 0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+.scroll-indicator::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0.6;
 }
 
 .scroll-indicator:hover {
   opacity: 1;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.scroll-indicator:active {
+  transform: translateY(-50%) scale(0.95);
 }
 
 .scroll-left {
@@ -62,11 +126,43 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
   background-color: var(--bg-secondary);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-lg);
   text-align: center;
-  gap: 1rem;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  position: relative;
+}
+
+.loading-container {
+  background-image: var(--gradient-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.error-container {
+  border-left: 4px solid var(--error);
+  background-image: linear-gradient(to right, rgba(255, 107, 107, 0.1), rgba(255, 107, 107, 0.02), transparent);
 }
 
 /* Hide scrollbar but keep functionality */

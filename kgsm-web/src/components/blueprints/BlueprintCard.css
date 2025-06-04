@@ -2,12 +2,55 @@
 .blueprint-card {
   position: relative;
   width: 180px;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-md);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: var(--bg-secondary);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.blueprint-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.1), transparent 80%);
+  z-index: 2;
+}
+
+.blueprint-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent, 
+    rgba(255, 255, 255, 0.1), 
+    transparent
+  );
+  transform: rotate(30deg);
+  transition: transform 0.5s ease;
+  z-index: 3;
+  opacity: 0;
+}
+
+.blueprint-card:hover {
+  transform: translateY(-8px) scale(1.02) rotateY(5deg);
+  box-shadow: var(--shadow-elevate), 0 5px 15px rgba(35, 209, 135, 0.2);
+  z-index: 2;
+}
+
+.blueprint-card:hover::after {
+  transform: translateX(100%) rotate(30deg);
+  opacity: 1;
 }
 
 .blueprint-image {
@@ -16,6 +59,8 @@
   overflow: hidden;
   background-color: var(--bg-tertiary);
   position: relative;
+  transform-origin: bottom center;
+  transition: transform 0.3s ease;
 }
 
 .blueprint-image::before {
@@ -25,47 +70,134 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(41, 64, 85, 0.2) 0%, rgba(35, 209, 135, 0.2) 100%);
+  background: linear-gradient(135deg, 
+    rgba(41, 64, 85, 0.5) 0%, 
+    rgba(35, 209, 135, 0.4) 100%
+  );
+  z-index: 1;
+  transition: all 0.3s ease;
+  mix-blend-mode: overlay;
+}
+
+.blueprint-card:hover .blueprint-image::before {
+  background: linear-gradient(135deg, 
+    rgba(74, 140, 255, 0.5) 0%, 
+    rgba(35, 209, 135, 0.6) 100%
+  );
+}
+
+.blueprint-card:hover .blueprint-image {
+  transform: scale(1.05);
 }
 
 .blueprint-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity 0.3s ease;
+  transition: all 0.5s ease;
+  filter: brightness(0.9) contrast(1.1);
+}
+
+.blueprint-card:hover .blueprint-image img {
+  filter: brightness(1.1) contrast(1.2);
 }
 
 .blueprint-info {
-  padding: 0.5rem;
-  background-color: var(--bg-tertiary);
+  padding: 0.9rem;
+  background: linear-gradient(to bottom, 
+    var(--bg-secondary) 0%, 
+    rgba(30, 42, 56, 0.95) 100%
+  );
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.blueprint-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
 }
 
 .blueprint-name {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.02em;
+  position: relative;
+}
+
+.blueprint-name::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background-color: var(--color-green);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.blueprint-card:hover .blueprint-name::after {
+  width: 60px;
 }
 
 .blueprint-install-btn {
-  background-color: var(--color-green);
+  background-image: var(--gradient-green);
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 0.25rem 0;
+  padding: 0.35rem 0;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(35, 209, 135, 0.3);
+  position: relative;
+  overflow: hidden;
 }
 
 .blueprint-install-btn:hover {
-  background-color: #1fb978; /* Slightly darker shade of green */
+  box-shadow: 0 4px 8px rgba(35, 209, 135, 0.4);
+  transform: translateY(-1px);
+}
+
+.blueprint-install-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.7s ease;
+}
+
+.blueprint-install-btn:hover::before {
+  left: 100%;
 }
 
 /* No overlay styles needed anymore */

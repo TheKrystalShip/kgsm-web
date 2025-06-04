@@ -5,7 +5,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,14 +16,16 @@
 
 .modal-content {
   background-color: var(--bg-secondary);
-  border-radius: var(--border-radius);
+  background-image: var(--gradient-card);
+  border-radius: var(--border-radius-lg);
   padding: 1.5rem;
   max-width: 90%;
   width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-elevate);
   animation: slideIn 0.3s ease-in-out;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .modal-header {

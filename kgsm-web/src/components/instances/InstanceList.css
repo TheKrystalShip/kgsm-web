@@ -1,12 +1,36 @@
 /* Instance list styles */
 .instance-list-container {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+
+.instance-list-container::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-image: linear-gradient(to right, var(--color-purple), var(--color-blue));
+  border-radius: 3px;
+  opacity: 0.7;
 }
 
 .instance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+  position: relative;
+}
+
+.instance-grid::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background-image: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.07), transparent);
 }
 
 .empty-state {
@@ -14,15 +38,55 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
+  padding: 3.5rem;
   background-color: var(--bg-secondary);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-lg);
   text-align: center;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  background-image: var(--gradient-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-state::before {
+  content: "";
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(74, 140, 255, 0.1) 0%, transparent 70%);
+  top: -100px;
+  left: -100px;
+  border-radius: 50%;
 }
 
 .empty-state p {
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
   color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.empty-state .btn {
+  margin-top: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-state .btn::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(rgba(255, 255, 255, 0.3), transparent);
+  top: -100px;
+  left: 0;
+  transform: rotate(35deg) translateX(-20px);
+  transition: transform 0.5s ease;
+}
+
+.empty-state .btn:hover::after {
+  transform: rotate(35deg) translate(300px, 0);
 }
 
 /* Responsive styles */
