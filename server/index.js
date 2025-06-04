@@ -255,13 +255,95 @@ async function getNetworkUsage() {
   }
 }
 
+// Track previous CPU time info for calculating per-core usage
+let prevCpuInfo = null;
+let cpuCoreHistory = [];
+
+/**
+ * Get CPU usage for each core and total
+ * @returns {Object} - CPU usage stats for total and per-core
+ */
+async function getCpuUsage() {
+  const cpus = os.cpus();
+  const cpuCount = cpus.length;
+  const now = Date.now();
+  
+  // Get CPU model name from the first core (all cores are typically the same)
+  const cpuModel = cpus.length > 0 ? cpus[0].model : 'Unknown CPU';
+  
+  // Get overall CPU usage from load average
+  const cpuLoad = os.loadavg()[0]; // 1 minute load average
+  const cpuUsagePercent = (cpuLoad / cpuCount) * 100; // Convert to percentage
+  
+  // Calculate per-core usage
+  let coreUsage = [];
+  
+  if (prevCpuInfo) {
+    coreUsage = cpus.map((cpu, index) => {
+      const prev = prevCpuInfo[index];
+      
+      // Calculate delta times
+      const prevTotal = Object.values(prev.times).reduce((acc, time) => acc + time, 0);
+      const currentTotal = Object.values(cpu.times).reduce((acc, time) => acc + time, 0);
+      
+      const prevIdle = prev.times.idle;
+      const currentIdle = cpu.times.idle;
+      
+      // Calculate deltas
+      const totalDelta = currentTotal - prevTotal;
+      const idleDelta = currentIdle - prevIdle;
+      
+      // Calculate usage percentage (time spent not idle)
+      const usagePercent = totalDelta > 0 ? 100 - (idleDelta / totalDelta * 100) : 0;
+      
+      return {
+        core: index,
+        usage: Math.min(Math.round(usagePercent * 100) / 100, 100), // Round to 2 decimal points and cap at 100%
+        model: cpu.model,
+        speed: cpu.speed
+      };
+    });
+  } else {
+    // First run, initialize with zeros
+    coreUsage = cpus.map((cpu, index) => ({
+      core: index,
+      usage: 0,
+      model: cpu.model,
+      speed: cpu.speed
+    }));
+  }
+  
+  // Store current CPU info for next calculation
+  prevCpuInfo = cpus;
+  
+  // Add current timestamp to each data point
+  const currentData = {
+    timestamp: now,
+    cores: coreUsage,
+    average: Math.min(cpuUsagePercent, 100) // Cap at 100%
+  };
+  
+  // Add to history
+  cpuCoreHistory.push(currentData);
+  
+  // Limit history size (keep last 300 points - 5 minutes at 1s interval)
+  if (cpuCoreHistory.length > 300) {
+    cpuCoreHistory.shift();
+  }
+  
+  return {
+    current: Math.min(cpuUsagePercent, 100), // Overall CPU usage
+    cores: coreUsage, // Per-core usage
+    history: cpuCoreHistory, // Historical data
+    model: cpuModel // CPU model name
+  };
+}
+
 // Get system metrics
 app.get('/api/system/metrics', async (req, res) => {
   try {
-    // CPU usage (percentage)
-    const cpuLoad = os.loadavg()[0]; // 1 minute load average
-    const cpuCount = os.cpus().length;
-    const cpuUsage = (cpuLoad / cpuCount) * 100; // Convert to percentage
+    // CPU usage (percentage) - now with per-core stats
+    const cpuUsage = await getCpuUsage();
     
     // Memory usage (percentage and raw)
     const totalMemory = os.totalmem();
@@ -278,7 +360,10 @@ app.get('/api/system/metrics', async (req, res) => {
     const networkUsage = await getNetworkUsage();
     
     res.json({
-      cpu: Math.min(cpuUsage, 100), // Cap at 100%
+      cpu: cpuUsage.current, // Overall CPU percentage
+      cpuCores: cpuUsage.cores, // Per-core usage
+      cpuHistory: cpuUsage.history, // CPU history data
+      cpuModel: cpuUsage.model, // CPU model name
       memory: {
         percent: memoryUsage,
         total: totalMemoryMB, // Total memory in MB
@@ -290,7 +375,8 @@ app.get('/api/system/metrics', async (req, res) => {
       systemInfo: {
         totalMemory: totalMemoryMB, // Total memory in MB
         totalDisk: diskUsage.total || 0, // Total disk in GB
-        cpuCores: cpuCount
+        cpuCores: cpuUsage.cores.length,
+        cpuModel: cpuUsage.model // CPU model included in system info
       }
     });
   } catch (error) {

@@ -20,8 +20,10 @@
   position: relative;
   margin: 0 -1.5rem;
   padding: 1rem 0;
+  overflow: hidden; /* This ensures the shadows don't extend outside the wrapper */
 }
 
+/* Bottom line shadow effect */
 .blueprint-carousel-wrapper::after {
   content: "";
   position: absolute;
@@ -32,6 +34,32 @@
   background-image: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.07), transparent);
 }
 
+/* Fixed shadow overlays - separating from pseudo-elements to avoid conflicts */
+.carousel-shadow {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 10;
+  pointer-events: none; /* Allow clicks to pass through */
+}
+
+.carousel-shadow-left {
+  left: 0;
+  background: linear-gradient(to right, var(--bg-primary), rgba(0, 0, 0, 0));
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.carousel-shadow-right {
+  right: 0;
+  background: linear-gradient(to left, var(--bg-primary), rgba(0, 0, 0, 0));
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
 .blueprint-carousel {
   overflow-x: auto;
   padding: 1rem 0;
@@ -40,29 +68,7 @@
   position: relative;
 }
 
-.blueprint-carousel::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 50px;
-  background: linear-gradient(to right, var(--bg-primary), transparent);
-  z-index: 5;
-  pointer-events: none;
-}
-
-.blueprint-carousel::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 50px;
-  background: linear-gradient(to left, var(--bg-primary), transparent);
-  z-index: 5;
-  pointer-events: none;
-}
+/* Remove the scrolling shadows from the carousel itself */
 
 .blueprint-list {
   display: flex;

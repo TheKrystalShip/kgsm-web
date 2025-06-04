@@ -74,6 +74,9 @@ const BlueprintList: React.FC = () => {
       <div className="section-title">Available Game Servers</div>
       
       <div className="blueprint-carousel-wrapper">
+        <div className="carousel-shadow carousel-shadow-left"></div>
+        <div className="carousel-shadow carousel-shadow-right"></div>
+        
         <button className="scroll-indicator scroll-left" onClick={handleScrollLeft}>
           ←
         </button>

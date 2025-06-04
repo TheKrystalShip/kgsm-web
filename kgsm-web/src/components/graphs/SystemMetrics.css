@@ -48,9 +48,26 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* Different colored tops for different metric types */
-.metric-card.network-card::before {
-  background: var(--gradient-blue);
+.cpu-model-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--bg-primary);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cpu-model {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.cpu-cores {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
 }
 
 .metric-title {

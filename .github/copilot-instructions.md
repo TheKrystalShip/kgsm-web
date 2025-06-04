@@ -16,6 +16,7 @@
 - **Error Handling**: Use try-catch blocks judiciously. Log errors with meaningful messages.
 - **Validation**: Validate user input both on client and server sides.
 - **Separation of Concerns**: Keep UI, business logic, and data access separate (e.g., use custom hooks for data fetching).
+- **Styles**: Use CSS Modules, styled-components, or emotion for styling. Avoid inline styles unless necessary.
 
 ## React-Specific Best Practices
 

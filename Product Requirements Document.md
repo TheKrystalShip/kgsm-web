@@ -11,6 +11,70 @@ A website that allows control over KGSM game server instances built with React a
 - The site is developed and deployed on a Arch linux machine.
 - It will run behind Nginx.
 
+### Website functionality
+
+- The users should be able to authenticate with third party accounts like Microsoft, Google and GitHub, no local accounts are allowed.
+- A authentication bypass should be in place for local development, so that no account login is required.
+- The website should not require a database or any sort of permanent storage solution and should not store anything on the server side if it can be avoided.
+- The homepage dashboard should have different sections:
+  - A section for available blueprint that can be used to create new instances.
+  - A section with currently installed instance and their current state (Running, Stopped).
+  - A section with system graphs to show resource usage.
+
+### Website design
+
+- The interface should be modern, clean with emphasis on usability.
+- There must be a toggle for white and dark theme for the entire website.
+- Dark mode should be very prominent throughout the design of the website, avoid bright colors for big elements as much as possible.
+- Avoid using CSS frameworks, vanilla CSS will do just fine.
+- The design must be responsive, and it should make use of the space efficiently on big screens/resolutions like 4k.
+
+### Graphs
+
+- The home page should display a dashboard with various system graphs.
+- The data for these graphs has to be fetched from the machine itself, not mocks.
+- Graphs should be live updating with detailed historical information and statistics like highest, lowest, average.
+- History should be kept around peak usage metrics in order to determine the cause at a later date.
+- The graphs should be colored with different colors depending on the graphs.
+- The graphs should allow the user to select different time-frames, like 10 seconds, 1 minute, 5 minutes, 1 hour, 24 hours.
+  - CPU Graph:
+    - Display CPU model name
+    - Display number of CPU cores
+    - Display graph with usage for individual cores, as well as overall CPU usage from 0% to 100%
+    - Display Min CPU usage
+    - Display Max CPU usage
+    - Display Average CPU usage
+  - Memory graph:
+    - Display total available system memory in GB
+    - Display used memory
+    - Display free memory
+    - Display graph with used and free memory over time in human readable format
+  - Disk graph:
+    - Display total storage capacity
+    - Display used storage
+    - Display free storage
+    - should show total storage space, used storage space and free storage space, in GB in a human readable format.
+  - Network graph:
+    - Display download traffic
+    - Display upload traffic
+    - Display ping to connected user's computer
+
+### KGSM Blueprints
+
+- The dashboard should include a section at the top, like a carousel, to display all the available blueprint from which instances can be created
+- Each blueprint should display the game case cover, like Steam's library.
+- Hovering over a blueprint should display an animation to indicate focus.
+- Clicking on a blueprint should show a popup window with a small form that allows the user to create a new instance from it.
+
+### KGSM Instances
+
+- The dashboard should show the currently available game instances, the ones that are installed through KGSM.
+- Each instance should show some basic information about them, like install date, instance id, install location, installed version, etc.
+- Each instance should have buttons that allow for Starting, Stopping, Restarting and Uninstalling the instance, each button colored accordingly.
+- Uninstalling should prompt the user for confirmation through a popup or an alert.
+- Clicking on an instance should open a popup window, with live logs and an input that can be used to sent commands to the instance.
+- The design of the popup window should resemble a terminal window
+
 ### Interoperability
 
 - Interoperability is done through a service layer, which will be in charge of calling KGSM directly.
@@ -529,49 +593,3 @@ A website that allows control over KGSM game server instances built with React a
       }
     }
     ```
-
-### Website functionality
-
-- The users should be able to authenticate with third party accounts like Microsoft, Google and GitHub, no local accounts are allowed.
-- A authentication bypass should be in place for local development, so that no account login is required.
-- The website should not require a database or any sort of permanent storage solution and should not store anything on the server side if it can be avoided.
-- The homepage dashboard should have different sections:
-  - A section for available blueprint that can be used to create new instances.
-  - A section with currently installed instance and their current state (Running, Stopped).
-  - A section with system graphs to show resource usage.
-
-### Website design
-
-- The interface should be modern, clean with emphasis on usability.
-- There must be a toggle for white and dark theme for the entire website.
-- Dark mode should be very prominent throughout the design of the website, avoid bright colors for big elements as much as possible.
-- Avoid using CSS frameworks, vanilla CSS will do just fine.
-- The design must be responsive, and it should make use of the space efficiently on big screens/resolutions like 4k.
-
-### Graphs
-
-- The home page should display a dashboard with statistics like CPU usage, Memory usage, Disk space used/free.
-- Graphs should be live updating with detailed historical information and statistics like highest, lowest, average.
-- History should be kept around peak usage metrics in order to determine the cause at a later date.
-- The graphs should be colored with different colors depending on the graphs.
-- The graphs should allow the user to select different time-frames, like 10 seconds, 1 minute, 5 minutes, 1 hour, 24 hours.
-- CPU graph should show percentage usage, from 0% to 100%
-- Memory graph show show Memory usage in GB or MB, total system memory, memory used and free memory, in human readable format.
-- Disk space graph should show total storage space, used storage space and free storage space, in GB in a human readable format.
-- Network graph should display network traffic and ping to the user connected to the website.
-
-### KGSM Blueprints
-
-- The dashboard should include a section at the top, like a carousel, to display all the available blueprint from which instances can be created
-- Each blueprint should display the game case cover, like Steam's library.
-- Hovering over a blueprint should display an animation to indicate focus.
-- Clicking on a blueprint should show a popup window with a small form that allows the user to create a new instance from it.
-
-### KGSM Instances
-
-- The dashboard should show the currently available game instances, the ones that are installed through KGSM.
-- Each instance should show some basic information about them, like install date, instance id, install location, installed version, etc.
-- Each instance should have buttons that allow for Starting, Stopping, Restarting and Uninstalling the instance, each button colored accordingly.
-- Uninstalling should prompt the user for confirmation through a popup or an alert.
-- Clicking on an instance should open a popup window, with live logs and an input that can be used to sent commands to the instance.
-- The design of the popup window should resemble a terminal window

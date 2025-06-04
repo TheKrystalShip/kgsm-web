@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSystemMetrics } from '../../hooks/useSystemMetrics';
 import { TimeFrame } from '../../services/systemMetricsService';
 import MetricsChart from './MetricsChart';
@@ -44,6 +44,9 @@ const SystemMetrics: React.FC = () => {
   // Array of available timeframe options
   const timeframeOptions: TimeFrame[] = ['10s', '1m', '5m', '1h', '24h'];
   
+  // Get CPU model information
+  const cpuModel = metrics?.cpuModel || metrics?.systemInfo?.cpuModel || 'Unknown CPU';
+
   // If loading, show loading indicator
   if (loading && !metrics) {
     return (
@@ -99,6 +102,12 @@ const SystemMetrics: React.FC = () => {
           <h3 className="metric-title">CPU Usage</h3>
           {metrics && metrics.cpu.length > 0 ? (
             <>
+              {metrics.cpuModel && (
+                <div className="cpu-model-info">
+                  <span className="cpu-model">{metrics.cpuModel}</span>
+                  <span className="cpu-cores">({metrics.systemInfo?.cpuCores || 0} Cores)</span>
+                </div>
+              )}
               <MetricsChart 
                 data={metrics.cpu} 
                 dataKey="value" 
