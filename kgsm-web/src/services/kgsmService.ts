@@ -163,6 +163,21 @@ class KgsmService {
   }
 
   /**
+   * Update an instance to the latest version
+   */
+  async updateInstance(instanceName: string, version?: string): Promise<any> {
+    try {
+      const response = await axios.post(`${this.apiEndpoint}/instances/${instanceName}/update`, {
+        version
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to update instance ${instanceName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get instance logs
    */
   async getInstanceLogs(instanceName: string): Promise<string> {

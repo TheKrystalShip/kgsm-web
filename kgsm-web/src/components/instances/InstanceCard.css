@@ -208,37 +208,53 @@
 }
 
 .instance-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 1rem;
-  display: flex;
-  gap: 0.5rem;
 }
 
-.instance-actions .btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
+.button-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.button-row:first-child {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.instance-actions button {
+  min-width: 0;
+  height: 36px;
+  white-space: nowrap;
   justify-content: center;
-  gap: 0.5rem;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9rem;
 }
 
-.btn-icon {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-/* Responsive icon sizing for different button sizes */
-.btn-sm .btn-icon {
-  width: 0.7rem;
-  height: 0.7rem;
-}
-
-.btn-lg .btn-icon {
-  width: 0.95rem;
-  height: 0.95rem;
+.instance-actions button .btn-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .confirm-uninstall {
-  width: 100%;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 
 .confirm-uninstall p {
@@ -258,4 +274,24 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+}
+
+.instance-actions button[title] {
+  position: relative;
+}
+
+.instance-actions button[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-bottom: 8px;
 }

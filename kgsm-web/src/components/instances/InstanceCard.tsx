@@ -40,6 +40,12 @@ const CloseIcon = () => (
   </svg>
 );
 
+const UpdateIcon = () => (
+  <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path fill="currentColor" d="M256 8C119.034 8 8 119.033 8 256s111.034 248 248 248 248-111.034 248-248S392.967 8 256 8zm0 448c-110.532 0-200-89.451-200-200 0-110.531 89.451-200 200-200 110.532 0 200 89.451 200 200 0 110.532-89.451 200-200 200zm-32-316v116h-67c-10.7 0-16 12.9-8.5 20.5l99 99c4.7 4.7 12.3 4.7 17 0l99-99c7.6-7.6 2.2-20.5-8.5-20.5h-67V140c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12z"/>
+  </svg>
+);
+
 interface InstanceCardProps {
   instance: KgsmInstance;
   onOpenConsole: (instance: KgsmInstance) => void;
@@ -49,7 +55,7 @@ interface InstanceCardProps {
  * Component for displaying a single server instance as a card
  */
 const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) => {
-  const { startInstance, stopInstance, restartInstance, uninstallInstance } = useInstances();
+  const { startInstance, stopInstance, restartInstance, updateInstance, uninstallInstance } = useInstances();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState<boolean>(false);
 
@@ -88,6 +94,13 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
   const handleUninstall = async () => {
     setIsProcessing('uninstall');
     await uninstallInstance(instance.Name);
+    setIsProcessing(null);
+  };
+
+  // Handle update instance button click
+  const handleUpdate = async () => {
+    setIsProcessing('update');
+    await updateInstance(instance.Name);
     setIsProcessing(null);
   };
 
@@ -136,56 +149,67 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
       <div className="instance-actions">
         {!showUninstallConfirm ? (
           <>
-            <button
-              className="btn btn-primary"
-              onClick={() => onOpenConsole(instance)}
-            >
-              <TerminalIcon /> Console
-            </button>
-            {instance.Status === 'active' ? (
-              <>
-                <button
-                  className="btn btn-warning"
-                  onClick={handleRestart}
-                  disabled={!!isProcessing}
-                >
-                  {isProcessing === 'restart' ? 
-                    'Restarting...' : 
-                    <><RestartIcon /> Restart</>
-                  }
-                </button>
-                <button
-                  className="btn btn-error"
-                  onClick={handleStop}
-                  disabled={!!isProcessing}
-                >
-                  {isProcessing === 'stop' ? 
-                    'Stopping...' : 
-                    <><StopIcon /> Stop</>
-                  }
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  className="btn btn-success"
-                  onClick={handleStart}
-                  disabled={!!isProcessing}
-                >
-                  {isProcessing === 'start' ? 
-                    'Starting...' : 
-                    <><PlayIcon /> Start</>
-                  }
-                </button>
-                <button
-                  className="btn btn-error"
-                  onClick={() => setShowUninstallConfirm(true)}
-                  disabled={!!isProcessing}
-                >
-                  <TrashIcon /> Uninstall
-                </button>
-              </>
-            )}
+            <div className="button-row">
+              <button
+                className="btn btn-success"
+                onClick={handleStart}
+                disabled={!!isProcessing || instance.Status === 'active'}
+              >
+                {isProcessing === 'start' ? 
+                  'Starting...' : 
+                  <><PlayIcon /> Start</>
+                }
+              </button>
+              <button
+                className="btn btn-warning"
+                onClick={handleRestart}
+                disabled={!!isProcessing || instance.Status === 'inactive'}
+              >
+                {isProcessing === 'restart' ? 
+                  'Restarting...' : 
+                  <><RestartIcon /> Restart</>
+                }
+              </button>
+              <button
+                className="btn btn-error"
+                onClick={handleStop}
+                disabled={!!isProcessing || instance.Status === 'inactive'}
+              >
+                {isProcessing === 'stop' ? 
+                  'Stopping...' : 
+                  <><StopIcon /> Stop</>
+                }
+              </button>
+            </div>
+            
+            <div className="button-row">
+              <button
+                className="btn btn-primary"
+                onClick={() => onOpenConsole(instance)}
+                disabled={!!isProcessing}
+              >
+                <TerminalIcon /> Console
+              </button>
+              <button
+                className="btn btn-warning"
+                onClick={handleUpdate}
+                disabled={!!isProcessing || instance.Status === 'active'}
+                title={instance.Status === 'active' ? "Stop the server first to update" : undefined}
+              >
+                {isProcessing === 'update' ? 
+                  'Updating...' : 
+                  <><UpdateIcon /> Update</>
+                }
+              </button>
+              <button
+                className="btn btn-error"
+                onClick={() => setShowUninstallConfirm(true)}
+                disabled={!!isProcessing || instance.Status === 'active'}
+                title={instance.Status === 'active' ? "Stop the server first to uninstall" : undefined}
+              >
+                <TrashIcon /> Uninstall
+              </button>
+            </div>
           </>
         ) : (
           <div className="confirm-uninstall">

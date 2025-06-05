@@ -76,6 +76,17 @@ export const useInstances = () => {
     }
   }, [fetchInstances]);
 
+  // Update an instance to the latest version
+  const updateInstance = useCallback(async (instanceName: string) => {
+    try {
+      await kgsmService.updateInstance(instanceName);
+      // Refresh instances to get updated version info
+      fetchInstances();
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(`Failed to update instance: ${instanceName}`));
+    }
+  }, [fetchInstances]);
+
   // Uninstall an instance
   const uninstallInstance = useCallback(async (instanceName: string) => {
     try {
@@ -104,6 +115,7 @@ export const useInstances = () => {
     startInstance,
     stopInstance,
     restartInstance,
+    updateInstance,
     uninstallInstance
   };
 };
