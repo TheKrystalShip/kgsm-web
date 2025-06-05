@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchMetrics, selectTimeframe, selectLastUpdated } from '../../store/metricsSlice';
+import { fetchMetrics, selectTimeframe, selectLastUpdated, selectUpdateInterval } from '../../store/metricsSlice';
 
 /**
  * Component that fetches metrics data at regular intervals
@@ -9,6 +9,7 @@ import { fetchMetrics, selectTimeframe, selectLastUpdated } from '../../store/me
 const MetricsDataFetcher: React.FC = () => {
   const dispatch = useAppDispatch();
   const timeframe = useAppSelector(selectTimeframe);
+  const updateInterval = useAppSelector(selectUpdateInterval);
   const lastUpdated = useAppSelector(selectLastUpdated);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -16,14 +17,14 @@ const MetricsDataFetcher: React.FC = () => {
     // Fetch metrics immediately on mount or timeframe change
     dispatch(fetchMetrics(timeframe));
     
-    // Set up polling every 10 seconds
+    // Set up polling with the specified interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
     
     intervalRef.current = setInterval(() => {
       dispatch(fetchMetrics(timeframe));
-    }, 10000);
+    }, updateInterval);
     
     // Clean up on unmount
     return () => {
@@ -32,7 +33,7 @@ const MetricsDataFetcher: React.FC = () => {
         intervalRef.current = null;
       }
     };
-  }, [dispatch, timeframe]);
+  }, [dispatch, timeframe, updateInterval]);
 
   return null; // This component doesn't render anything
 };

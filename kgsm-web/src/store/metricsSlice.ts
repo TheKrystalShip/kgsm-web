@@ -11,6 +11,7 @@ import { RootState } from './index';
 interface MetricsState {
   data: SystemMetrics | null;
   timeframe: TimeFrame;
+  updateInterval: number; // New: update interval in milliseconds
   loading: boolean;
   error: string | null;
   lastUpdated: number | null;
@@ -20,6 +21,7 @@ interface MetricsState {
 const initialState: MetricsState = {
   data: null,
   timeframe: '1m',
+  updateInterval: 10000, // Default: 10 seconds
   loading: false,
   error: null,
   lastUpdated: null,
@@ -60,6 +62,9 @@ const metricsSlice = createSlice({
     setTimeframe: (state, action: PayloadAction<TimeFrame>) => {
       state.timeframe = action.payload;
     },
+    setUpdateInterval: (state, action: PayloadAction<number>) => {
+      state.updateInterval = action.payload;
+    },
     clearMetrics: (state) => {
       state.data = null;
       state.lastUpdated = null;
@@ -84,7 +89,7 @@ const metricsSlice = createSlice({
 });
 
 // Export actions and reducer
-export const { setTimeframe, clearMetrics } = metricsSlice.actions;
+export const { setTimeframe, setUpdateInterval, clearMetrics } = metricsSlice.actions;
 export default metricsSlice.reducer;
 
 // Basic selectors
@@ -92,6 +97,7 @@ const getMetricsState = (state: RootState) => state.metrics;
 export const selectMetricsLoading = (state: RootState) => state.metrics.loading;
 export const selectMetricsError = (state: RootState) => state.metrics.error;
 export const selectTimeframe = (state: RootState) => state.metrics.timeframe;
+export const selectUpdateInterval = (state: RootState) => state.metrics.updateInterval;
 export const selectLastUpdated = (state: RootState) => state.metrics.lastUpdated;
 
 // Create memoized selectors using createSelector

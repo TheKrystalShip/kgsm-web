@@ -8,6 +8,7 @@ import {
   NetworkMetricCard 
 } from './metrics';
 import MetricsDataFetcher from './MetricsDataFetcher';
+import UpdateIntervalSelector from './metrics/UpdateIntervalSelector';
 import { TimeFrame } from '../../services/systemMetricsService';
 import './SystemMetrics.css';
 
@@ -30,16 +31,19 @@ const SystemMetrics: React.FC = () => {
       <MetricsDataFetcher />
       
       <div className="metrics-header">
-        <div className="timeframe-selector">
-          {timeframeOptions.map((option) => (
-            <button
-              key={option}
-              className={`btn btn-sm ${option === timeframe ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => handleTimeframeChange(option)}
-            >
-              {option}
-            </button>
-          ))}
+        <div className="metrics-controls">
+          <div className="timeframe-selector">
+            {timeframeOptions.map((option) => (
+              <button
+                key={option}
+                className={`btn btn-sm ${option === timeframe ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => handleTimeframeChange(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <UpdateIntervalSelector className="update-interval" />
         </div>
       </div>
       

@@ -42,9 +42,19 @@
   margin-bottom: 1.5rem;
 }
 
+.metrics-controls {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
 .timeframe-selector {
   display: flex;
   gap: 0.5rem;
+}
+
+.update-interval {
+  min-width: 150px;
 }
 
 .cpu-model {
