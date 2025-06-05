@@ -22,7 +22,7 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
   const [command, setCommand] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch instance logs
@@ -65,21 +65,35 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
 
   // Start polling for logs when modal opens
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
     if (isOpen) {
+      // Initial fetch
       fetchLogs();
       
-      const interval = setInterval(fetchLogs, 5000);
-      setPollingInterval(interval);
-      
-      return () => {
-        if (interval) clearInterval(interval);
-      };
+      // Set up new polling interval
+      interval = setInterval(fetchLogs, 5000);
+      intervalRef.current = interval;
     } else {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      // Modal is closed, clear any existing interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
-  }, [isOpen, instance.Name, fetchLogs, pollingInterval]);
+    
+    // Clean up when component unmounts or dependencies change
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+      // Also clear the ref in case it wasn't cleared elsewhere
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isOpen, instance.Name, fetchLogs]);
 
   // Scroll to bottom when logs update
   useEffect(() => {

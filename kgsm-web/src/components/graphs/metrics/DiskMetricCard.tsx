@@ -1,8 +1,16 @@
 import React from 'react';
-import { useDiskMetrics } from '../../../hooks/metrics';
 import { TimeFrame } from '../../../services/systemMetricsService';
 import { DiskChart } from '../charts';
 import '../SystemMetrics.css';
+import { useAppSelector } from '../../../store/hooks';
+import { 
+  selectDiskMetrics, 
+  selectMetricsLoading, 
+  selectMetricsError, 
+  selectSystemInfo, 
+  selectDiskUsedStatistics,
+  selectDiskFreeStatistics 
+} from '../../../store/metricsSlice';
 
 interface DiskMetricCardProps {
   timeframe: TimeFrame;
@@ -12,41 +20,51 @@ interface DiskMetricCardProps {
  * Component that displays Disk metrics chart and statistics
  */
 const DiskMetricCard: React.FC<DiskMetricCardProps> = ({ timeframe }) => {
-  const { usedData, freeData, loading, error, totalDisk, formatValue, getStatistics } = useDiskMetrics(timeframe);
+  const diskMetrics = useAppSelector(selectDiskMetrics);
+  const loading = useAppSelector(selectMetricsLoading);
+  const error = useAppSelector(selectMetricsError);
+  const systemInfo = useAppSelector(selectSystemInfo);
+  const totalDisk = systemInfo?.totalDisk || 0;
+  
+  // Get disk statistics using memoized selectors
+  const usedStats = useAppSelector(selectDiskUsedStatistics);
+  const freeStats = useAppSelector(selectDiskFreeStatistics);
+  
+  // Format disk values to readable format
+  const formatValue = (value: number): string => {
+    if (value >= 1024) {
+      return `${(value / 1024).toFixed(1)} TB`;
+    }
+    return `${value.toFixed(1)} GB`;
+  };
+
+  // Combine disk statistics
+  const stats = {
+    usedAvg: usedStats.avg,
+    freeAvg: freeStats.avg
+  };
 
   return (
     <div className="metric-card">
       <h3 className="metric-title">Disk Space</h3>
-      {usedData.length > 0 ? (
+      {diskMetrics.used && diskMetrics.used.length > 0 ? (
         <>
           <div className="disk-chart">
             <DiskChart timeframe={timeframe} />
           </div>
           <div className="metric-stats disk-stats">
-            {(() => {
-              const usedValues = usedData.map(d => d.rawValue || 0);
-              const freeValues = freeData.map(d => d.rawValue || 0);
-              
-              const usedAvg = getStatistics(usedValues).avg;
-              const freeAvg = getStatistics(freeValues).avg;
-              
-              return (
-                <>
-                  <div className="stat-item disk-total">
-                    <span className="stat-label">Total:</span>
-                    <span className="stat-value">{formatValue(totalDisk)}</span>
-                  </div>
-                  <div className="stat-item disk-used">
-                    <span className="stat-label">Used:</span>
-                    <span className="stat-value">{formatValue(usedAvg)}</span>
-                  </div>
-                  <div className="stat-item disk-free">
-                    <span className="stat-label">Free:</span>
-                    <span className="stat-value">{formatValue(freeAvg)}</span>
-                  </div>
-                </>
-              );
-            })()}
+            <div className="stat-item disk-total">
+              <span className="stat-label">Total:</span>
+              <span className="stat-value">{formatValue(totalDisk)}</span>
+            </div>
+            <div className="stat-item disk-used">
+              <span className="stat-label">Used:</span>
+              <span className="stat-value">{formatValue(stats.usedAvg)}</span>
+            </div>
+            <div className="stat-item disk-free">
+              <span className="stat-label">Free:</span>
+              <span className="stat-value">{formatValue(stats.freeAvg)}</span>
+            </div>
           </div>
         </>
       ) : (

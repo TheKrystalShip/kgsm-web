@@ -1,11 +1,14 @@
 import React from 'react';
-import { useTimeframeSelection, useSystemUptime } from '../../hooks/metrics';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { setTimeframe, selectTimeframe } from '../../store/metricsSlice';
 import { 
   CPUMetricCard, 
   MemoryMetricCard, 
   DiskMetricCard, 
   NetworkMetricCard 
 } from './metrics';
+import MetricsDataFetcher from './MetricsDataFetcher';
+import { TimeFrame } from '../../services/systemMetricsService';
 import './SystemMetrics.css';
 
 /**
@@ -13,17 +16,26 @@ import './SystemMetrics.css';
  * Acts as a lightweight shell to hold the individual metric cards
  */
 const SystemMetrics: React.FC = () => {
-  const { timeframe, timeframeOptions, changeTimeframe } = useTimeframeSelection('1m');
+  const dispatch = useAppDispatch();
+  const timeframe = useAppSelector(selectTimeframe);
+  const timeframeOptions: TimeFrame[] = ['10s', '1m', '5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h'];
+
+  const handleTimeframeChange = (option: TimeFrame) => {
+    dispatch(setTimeframe(option));
+  };
 
   return (
     <div className="metrics-container">
+      {/* This component handles data fetching at regular intervals */}
+      <MetricsDataFetcher />
+      
       <div className="metrics-header">
         <div className="timeframe-selector">
           {timeframeOptions.map((option) => (
             <button
               key={option}
               className={`btn btn-sm ${option === timeframe ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => changeTimeframe(option)}
+              onClick={() => handleTimeframeChange(option)}
             >
               {option}
             </button>

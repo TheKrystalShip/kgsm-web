@@ -55,7 +55,7 @@ export interface SystemMetrics {
   };
 }
 
-export type TimeFrame = '10s' | '1m' | '5m' | '1h' | '24h';
+export type TimeFrame = '10s' | '1m' | '5m' | '15m' | '30m' | '1h' | '3h' | '6h' | '12h' | '24h';
 
 class SystemMetricsService {
   private apiEndpoint: string;

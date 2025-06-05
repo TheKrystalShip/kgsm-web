@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Provider } from 'react-redux';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/layout/Header';
@@ -7,6 +8,7 @@ import BlueprintList from './components/blueprints/BlueprintList';
 import InstanceList from './components/instances/InstanceList';
 import SystemMetrics from './components/graphs/SystemMetrics';
 import FoldableSection from './components/common/FoldableSection';
+import store from './store';
 import './App.css';
 import './components/common/Button.css';
 import './components/common/Card.css';
@@ -18,13 +20,14 @@ import './components/common/Input.css';
  */
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <div className="app-container">
-            <Header />
-            <div className="main-content">
-              <div className="content-area">
+    <Provider store={store}>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <div className="app-container">
+              <Header />
+              <div className="main-content">
+                <div className="content-area">
                 <Routes>
                   <Route
                     path="/"
@@ -86,6 +89,7 @@ const App: React.FC = () => {
         </Router>
       </AuthProvider>
     </ThemeProvider>
+  </Provider>
   );
 };
 
