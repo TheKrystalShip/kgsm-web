@@ -20,12 +20,21 @@
   border-radius: var(--border-radius-lg);
   padding: 1.5rem;
   max-width: 90%;
-  width: 500px;
+  width: 800px; /* Increased from 500px for more horizontal space */
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-elevate);
   animation: slideIn 0.3s ease-in-out;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Special case for console modal to use more screen space */
+.modal-content[data-modal-type="console"] {
+  width: 90%;
+  max-width: 1200px; /* Much wider for console logs */
+  height: 85vh; /* Take up more vertical space */
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -59,6 +68,14 @@
   margin-bottom: 1.5rem;
 }
 
+/* For console modal, make the body take all available space */
+.modal-content[data-modal-type="console"] .modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -76,7 +93,14 @@
   }
 }
 
-/* Make modal full-screen on small devices */
+/* Make modal full-screen on small devices, apply responsive sizing on medium screens */
+@media (max-width: 900px) {
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+  }
+}
+
 @media (max-width: 600px) {
   .modal-content {
     width: 100%;

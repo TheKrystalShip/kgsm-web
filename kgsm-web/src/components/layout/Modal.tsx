@@ -7,12 +7,14 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  width?: string;
+  modalType?: string; // Added to support different modal styles
 }
 
 /**
  * Reusable modal component
  */
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, width, modalType }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Handle clicking outside the modal to close it
@@ -48,7 +50,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
 
   return (
     <div className="modal-backdrop" data-testid="modal-backdrop">
-      <div className="modal-content" ref={modalRef}>
+      <div 
+        className="modal-content" 
+        ref={modalRef} 
+        data-modal-type={modalType}
+        style={width && !modalType ? { width: width, maxWidth: '95%' } : undefined}
+      >
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
           <button 

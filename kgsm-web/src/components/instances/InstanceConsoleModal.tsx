@@ -22,8 +22,11 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
   const [command, setCommand] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [autoScroll, setAutoScroll] = useState<boolean>(true); // Set to true by default
+  const [newLogsIndicator, setNewLogsIndicator] = useState<boolean>(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
 
   // Fetch instance logs and append to existing logs
   const fetchLogs = useCallback(async () => {
@@ -43,11 +46,26 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
         // This handles cases where the server returns all logs each time
         if (logsData.includes(prevLogs)) {
           const newContent = logsData.substring(logsData.indexOf(prevLogs) + prevLogs.length);
+          // Show indicator if there's new content and auto-scroll is off
+          if (newContent) {
+            if (!autoScroll) {
+              setNewLogsIndicator(true);
+            } else {
+              setNewLogsIndicator(false);
+            }
+          }
           return prevLogs + (newContent || '');
+        } else {      // If logs don't contain previous logs, probably restarted or logs were rotated
+      // Add a separator and append the new logs
+      // Show indicator if there's new content and auto-scroll is off
+      if (logsData !== prevLogs) {
+        if (!autoScroll) {
+          setNewLogsIndicator(true);
         } else {
-          // If logs don't contain previous logs, probably restarted or logs were rotated
-          // Add a separator and append the new logs
-          return prevLogs + '\n\n--- Log continued at ' + new Date().toLocaleString() + ' ---\n\n' + logsData;
+          setNewLogsIndicator(false);
+        }
+      }
+      return prevLogs + '\n\n--- Log continued at ' + new Date().toLocaleString() + ' ---\n\n' + logsData;
         }
       });
       
@@ -64,7 +82,7 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
         setLogs(`[${new Date().toISOString()}] Mock logs for ${instance.Name}\n`.repeat(10));
       }
     }
-  }, [instance.Name, isLoading, logs.length]);
+  }, [instance.Name, isLoading, logs.length, autoScroll]);
 
   // Handle sending command to the server
   const handleSendCommand = async () => {
@@ -78,6 +96,9 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
       
       // Clear the command input
       setCommand('');
+      
+      // Re-enable auto-scrolling when user sends a command
+      setAutoScroll(true);
       
       // Fetch logs again to see the result of the command
       setTimeout(fetchLogs, 1000);
@@ -118,12 +139,22 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     };
   }, [isOpen, instance.Name, fetchLogs]);
 
-  // Scroll to bottom when logs update
-  useEffect(() => {
-    if (consoleEndRef.current) {
-      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Function to scroll terminal to bottom
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTo({
+        top: terminalRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
     }
-  }, [logs]);
+  }, []);
+
+  // Scroll terminal to bottom when logs update only if autoScroll is enabled or on initial load
+  useEffect(() => {
+    if ((autoScroll || isLoading) && terminalRef.current && consoleEndRef.current) {
+      scrollToBottom(false);
+    }
+  }, [logs, autoScroll, isLoading, scrollToBottom]);
 
   // Handle Enter key press in command input
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -132,11 +163,30 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     }
   };
 
+  // Handle scrolling in terminal
+  const handleTerminalScroll = useCallback(() => {
+    if (terminalRef.current) {
+      // Check if user has scrolled up away from bottom
+      const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
+      const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 20; // 20px threshold
+      
+      // Only change autoScroll if user scrolled away from bottom
+      if (!isScrolledToBottom && autoScroll) {
+        setAutoScroll(false);
+      } else if (isScrolledToBottom && !autoScroll) {
+        // User manually scrolled to bottom, re-enable auto-scroll
+        setAutoScroll(true);
+        setNewLogsIndicator(false);
+      }
+    }
+  }, [autoScroll]);
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`${instance.Name} Console`}
+      modalType="console"
     >
       <div className="instance-console-container">
         <div className="console-info">
@@ -151,6 +201,13 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
           {instance.PID && instance.PID !== 'None' && (
             <div className="console-pid">PID: {instance.PID}</div>
           )}
+          <div 
+            className={`auto-scroll-toggle ${autoScroll ? 'active' : ''}`}
+            onClick={() => setAutoScroll(prev => !prev)}
+            title={autoScroll ? "Auto-scroll enabled" : "Auto-scroll disabled"}
+          >
+            Auto-scroll {autoScroll ? 'ON' : 'OFF'}
+          </div>
         </div>
         
         <div className="console-terminal">
@@ -168,7 +225,19 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
             </div>
           ) : (
             <>
-              <div className="terminal">
+              <div className="terminal" ref={terminalRef} onScroll={handleTerminalScroll}>
+                {newLogsIndicator && !autoScroll && (
+                  <button 
+                    className="new-logs-indicator"
+                    onClick={() => {
+                      setAutoScroll(true);
+                      setNewLogsIndicator(false);
+                      scrollToBottom(true); // Scroll with smooth animation
+                    }}
+                  >
+                    New logs available ↓
+                  </button>
+                )}
                 <pre>{logs}</pre>
                 <div ref={consoleEndRef}></div>
               </div>
