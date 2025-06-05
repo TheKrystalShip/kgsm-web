@@ -25,23 +25,46 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch instance logs
+  // Fetch instance logs and append to existing logs
   const fetchLogs = useCallback(async () => {
     try {
       setError(null);
+      // Get logs from the KGSM service
       const logsData = await kgsmService.getInstanceLogs(instance.Name);
-      setLogs(logsData);
+
+      // If this is the first fetch, set the logs directly
+      // Otherwise, append new logs if different from existing logs
+      setLogs(prevLogs => {
+        if (!prevLogs || prevLogs.length === 0 || isLoading) {
+          return logsData;
+        }
+        
+        // If the new logs contain the old logs, show only the new content
+        // This handles cases where the server returns all logs each time
+        if (logsData.includes(prevLogs)) {
+          const newContent = logsData.substring(logsData.indexOf(prevLogs) + prevLogs.length);
+          return prevLogs + (newContent || '');
+        } else {
+          // If logs don't contain previous logs, probably restarted or logs were rotated
+          // Add a separator and append the new logs
+          return prevLogs + '\n\n--- Log continued at ' + new Date().toLocaleString() + ' ---\n\n' + logsData;
+        }
+      });
+      
       setIsLoading(false);
     } catch (err) {
-      setError('Failed to fetch logs');
+      // Don't set error if we already have some logs - just continue with existing logs
+      if (logs.length === 0) {
+        setError('Failed to fetch logs');
+      }
       setIsLoading(false);
       
       // In development, set mock logs
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === 'development' && logs.length === 0) {
         setLogs(`[${new Date().toISOString()}] Mock logs for ${instance.Name}\n`.repeat(10));
       }
     }
-  }, [instance.Name]);
+  }, [instance.Name, isLoading, logs.length]);
 
   // Handle sending command to the server
   const handleSendCommand = async () => {
@@ -71,8 +94,8 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
       // Initial fetch
       fetchLogs();
       
-      // Set up new polling interval
-      interval = setInterval(fetchLogs, 5000);
+      // Set up new polling interval (use 3 seconds to get more frequent updates)
+      interval = setInterval(fetchLogs, 3000);
       intervalRef.current = interval;
     } else {
       // Modal is closed, clear any existing interval

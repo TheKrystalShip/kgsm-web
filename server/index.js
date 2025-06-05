@@ -131,12 +131,66 @@ app.post('/api/kgsm/instances/:name/restart', async (req, res) => {
   }
 });
 
+/**
+ * Execute KGSM logs command with a timeout to prevent hanging
+ * @param {string} instanceName - Instance name to get logs for
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<string>} - Command output
+ */
+async function runKgsmLogsCommand(instanceName, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    // Use child_process.spawn for better control over the process
+    const { spawn } = require('child_process');
+    let output = '';
+    
+    // Use --tail to limit the number of log lines returned
+    const process = spawn('kgsm', ['-i', instanceName, '--logs', '--tail', '100']);
+    
+    // Set a timeout to kill the process after the specified time
+    const timeout = setTimeout(() => {
+      process.kill();
+      resolve(output); // Resolve with whatever output we have so far
+    }, timeoutMs);
+    
+    process.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    
+    process.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+    });
+    
+    process.on('close', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0 && code !== null) { // null means process was killed
+        reject(new Error(`Process exited with code ${code}`));
+      } else {
+        resolve(output);
+      }
+    });
+    
+    process.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
 // Get instance logs
 app.get('/api/kgsm/instances/:name/logs', async (req, res) => {
   try {
     const name = req.params.name;
-    const output = await runKgsmCommand(`-i ${name} --logs`);
-    res.send(output); // Send as plain text
+    // Get timeout from query param or use default
+    const timeout = req.query.timeout ? parseInt(req.query.timeout, 10) : 3000;
+    
+    // Use the special logs command function with timeout
+    const output = await runKgsmLogsCommand(name, timeout);
+    
+    if (!output || output.trim() === '') {
+      res.send('No logs available or server is not running');
+    } else {
+      res.send(output); // Send as plain text
+    }
   } catch (error) {
     res.status(500).json({ error: `Failed to get logs: ${error.message}` });
   }
