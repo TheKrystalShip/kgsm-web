@@ -6,11 +6,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/layout/Header';
 import { HomePage, InstancesPage, BlueprintsPage, SystemPage } from './pages';
 import store from './store';
-import './App.css';
-import './components/common/Button.css';
-import './components/common/Card.css';
-import './components/common/Forms.css';
-import './components/common/Input.css';
 
 /**
  * Main application component

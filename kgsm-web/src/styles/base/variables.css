@@ -1,0 +1,114 @@
+/**
+ * Design System Variables
+ *
+ * Core design tokens for the KGSM Web UI
+ */
+
+:root {
+  /* Color palette - preserving existing colors */
+  --color-dark-blue: #294055;
+  --color-light-gray: #e6e2e6;
+  --color-green: #23d187;
+  --color-orange: #fda442;
+  --color-blue: #4a8cff;
+  --color-purple: #9f7aea;
+  --color-red: #ff6b6b;
+
+  /* Theme colors - dark theme (default) */
+  --bg-primary: var(--color-dark-blue);
+  --bg-secondary: #1e2a38;
+  --bg-tertiary: #35506a;
+  --text-primary: var(--color-light-gray);
+  --text-secondary: #c5c1c5;
+  --accent-primary: var(--color-green);
+  --accent-secondary: var(--color-orange);
+  --accent-tertiary: var(--color-blue);
+
+  /* Semantic colors */
+  --success: var(--color-green);
+  --warning: var(--color-orange);
+  --error: var(--color-red);
+  --info: var(--color-blue);
+
+  /* Effects */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.15);
+  --shadow-elevate: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.15);
+
+  /* Gradients */
+  --gradient-blue: linear-gradient(135deg, var(--color-dark-blue) 0%, #3a5c7c 100%);
+  --gradient-green: linear-gradient(135deg, var(--color-green) 0%, #18a66a 100%);
+  --gradient-orange: linear-gradient(135deg, var(--color-orange) 0%, #f58a1f 100%);
+  --gradient-card: linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.05) 100%);
+
+  /* Layout */
+  --header-height: 64px;
+  --sidebar-width: 240px;
+  --page-padding: 2rem;
+
+  /* Shapes */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-pill: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* Spacing - following 8pt grid system */
+  --space-1: 4px;    /* 0.25rem */
+  --space-2: 8px;    /* 0.5rem */
+  --space-3: 12px;   /* 0.75rem */
+  --space-4: 16px;   /* 1rem */
+  --space-5: 20px;   /* 1.25rem */
+  --space-6: 24px;   /* 1.5rem */
+  --space-8: 32px;   /* 2rem */
+  --space-10: 40px;  /* 2.5rem */
+  --space-12: 48px;  /* 3rem */
+  --space-16: 64px;  /* 4rem */
+
+  /* Typography */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-md: 1.125rem;   /* 18px */
+  --font-size-lg: 1.25rem;    /* 20px */
+  --font-size-xl: 1.5rem;     /* 24px */
+  --font-size-2xl: 1.75rem;   /* 28px */
+  --font-size-3xl: 2rem;      /* 32px */
+
+  /* Z-index layers */
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-primary: var(--color-light-gray);
+  --bg-secondary: #f5f1f5;
+  --bg-tertiary: #d6d2d6;
+  --text-primary: var(--color-dark-blue);
+  --text-secondary: #405b77;
+
+  /* Adjust shadow for light theme */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.07), 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-elevate: 0 20px 25px rgba(0, 0, 0, 0.07), 0 10px 10px rgba(0, 0, 0, 0.1);
+
+  /* Adjust gradient for light theme */
+  --gradient-card: linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.05) 100%);
+}

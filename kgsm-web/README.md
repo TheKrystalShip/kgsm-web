@@ -66,6 +66,11 @@ src/
 ├── models/               # TypeScript interfaces and type definitions
 ├── pages/                # Page components (routes)
 ├── services/             # Business logic and data processing
+├── styles/               # Centralized styling system
+│   ├── base/             # Base styles and variables
+│   ├── components/       # Component-specific styles
+│   ├── themes/           # Theme variations
+│   ├── utilities/        # Utility classes
 ├── utils/                # Helper functions and utilities
 └── App.tsx               # Main application component
 ```
@@ -75,3 +80,47 @@ This structure follows these principles:
 - Feature-based organization within categories
 - Static typing with TypeScript
 - Clear dependency boundaries
+
+## CSS Structure
+
+The CSS has been organized based on Material Design principles with utility classes:
+
+```
+styles/
+├── base/                 # Core styles
+│   ├── variables.css     # Design tokens and variables
+│   ├── reset.css         # CSS reset
+│   ├── typography.css    # Typography system
+│   ├── layout.css        # Layout utilities
+├── components/           # Component styles
+│   ├── buttons.css       # Button components
+│   ├── cards.css         # Card components
+│   ├── forms.css         # Form components
+│   ├── modals.css        # Modal dialogs
+├── utilities/            # Utility classes
+│   ├── spacing.css       # Margin and padding utilities
+│   ├── display.css       # Display and visibility utilities
+│   ├── effects.css       # Effects and animations
+├── index.css             # Main entry point that imports all styles
+```
+
+### CSS Usage Guidelines
+
+1. **No component-level imports**: Components no longer need to import their own CSS files
+2. **Use utility classes**: Prefer utility classes for small adjustments
+3. **Component classes follow BEM**: Use BEM naming for component-specific styles
+4. **Variables for everything**: Use CSS variables for colors, spacing, etc.
+5. **Responsive by default**: All components should work on mobile and desktop
+
+### Example
+
+```jsx
+// Instead of:
+import './Button.css';
+
+// Just use the components directly:
+<button className="btn btn-primary">Click me</button>
+
+// With utility classes:
+<button className="btn btn-primary mt-4 mb-2">Click me</button>
+```
