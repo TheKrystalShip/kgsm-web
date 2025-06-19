@@ -22,15 +22,6 @@
 - **Views**: Views should never contain business logic. They should only render UI based on props and state.
 - **Styles**: Use CSS Modules, styled-components, or emotion for styling. Avoid inline styles unless necessary.
 
-## React-Specific Best Practices
-
-- **Props and State**: Use props for parent-child communication and state for local component data.
-- **PropTypes/TypeScript**: Use PropTypes or TypeScript interfaces for component props validation.
-- **Event Handling**: Use event handler naming conventions (e.g., `handleClick`, `onChange`).
-- **Context API**: Use React Context for global state only when necessary. Prefer local state or state management libraries for complex scenarios.
-- **CSS Modules or CSS-in-JS**: Use CSS Modules, styled-components, or emotion for component-scoped styles.
-- **Accessibility**: Follow accessibility best practices (ARIA attributes, semantic HTML).
-
 ## Documentation
 
 - **JSDoc/TypeScript Comments**: Document components, functions, and complex logic with clear comments.

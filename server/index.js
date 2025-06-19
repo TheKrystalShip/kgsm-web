@@ -66,7 +66,7 @@ app.post('/api/kgsm/instances', async (req, res) => {
       return res.status(400).json({ error: 'Blueprint name is required' });
     }
     
-    let command = `--install ${blueprint}`;
+    let command = `--create ${blueprint}`;
     
     if (instanceId) {
       command += ` --id ${instanceId}`;
@@ -144,7 +144,7 @@ async function runKgsmLogsCommand(instanceName, timeoutMs = 3000) {
     let output = '';
     
     // Use --tail to limit the number of log lines returned
-    const process = spawn('kgsm', ['-i', instanceName, '--logs', '--tail', '100']);
+    const process = spawn('kgsm', ['-i', instanceName, '--logs', '--follow']);
     
     // Set a timeout to kill the process after the specified time
     const timeout = setTimeout(() => {

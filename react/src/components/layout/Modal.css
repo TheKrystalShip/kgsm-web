@@ -19,9 +19,9 @@
   background-image: var(--gradient-card);
   border-radius: var(--border-radius-lg);
   padding: 1.5rem;
-  max-width: 90%;
-  width: 800px; /* Increased from 500px for more horizontal space */
-  max-height: 90vh;
+  max-width: 95%;
+  width: 800px; /* Default width */
+  max-height: 95vh;
   overflow-y: auto;
   box-shadow: var(--shadow-elevate);
   animation: slideIn 0.3s ease-in-out;
@@ -30,9 +30,9 @@
 
 /* Special case for console modal to use more screen space */
 .modal-content[data-modal-type="console"] {
-  width: 90%;
-  max-width: 1200px; /* Much wider for console logs */
-  height: 85vh; /* Take up more vertical space */
+  width: 95%;
+  max-width: 1400px; /* Much wider for console logs */
+  height: 90vh; /* Take up more vertical space */
   display: flex;
   flex-direction: column;
 }
@@ -66,6 +66,14 @@
 
 .modal-body {
   margin-bottom: 1.5rem;
+}
+
+/* For console modal, make the body take all available space */
+.modal-content[data-modal-type="console"] .modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
 }
 
 /* For console modal, make the body take all available space */

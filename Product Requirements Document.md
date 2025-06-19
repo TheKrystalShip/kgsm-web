@@ -2,7 +2,8 @@
 
 ---
 
-A website that allows control over KGSM game server instances built with React and TypeScript.
+A website that allows control over KGSM game server instances.
+Simple, modular, extensible and designed with CLEAN code and SOLID principles.
 
 ## Requirements
 
@@ -13,21 +14,52 @@ A website that allows control over KGSM game server instances built with React a
 
 ### Website functionality
 
+#### Auth
 - The users should be able to authenticate with third party accounts like Microsoft, Google and GitHub, no local accounts are allowed.
 - A authentication bypass should be in place for local development, so that no account login is required.
-- The website should not require a database or any sort of permanent storage solution and should not store anything on the server side if it can be avoided.
+
+#### Views
 - The homepage dashboard should have different sections:
   - A section for available blueprint that can be used to create new instances.
   - A section with currently installed instance and their current state (Running, Stopped).
   - A section with system graphs to show resource usage.
+- A dedicated area for documentation, which should render markdown documents, for now it will have placeholder files.
+- A view that displays detailed information about a blueprint.
+- A view that displays detailed information about an instance.
+- A view that displays detailed informationa about system usage and metrics.
+
+#### Logic
+- It should use a reactive state store that will be the source of truth for information to be displayed on the site.
+- It should have dedicated service files for any outside communication.
+- It should use simple components, designed with one purpose.
+- Components should be standalone, they should not depend on the view they are displayed on to style themselver or fetch data.
+- Components will fetch data from the state store exclussively.
+- Component might call services to perform actions, but never to read data directly.
+- All services should end up writing their responses into the state store.
+- Views should be composed of components, with minimal business logic.
 
 ### Website design
 
+#### Styles
 - The interface should be modern, clean with emphasis on usability.
+- Make use of smooth animations with an emphasis on snappiness and a general feel of speed on the site.
+- Gradients should be used to add texture to elements.
 - There must be a toggle for white and dark theme for the entire website.
 - Dark mode should be very prominent throughout the design of the website, avoid bright colors for big elements as much as possible.
-- Avoid using CSS frameworks, vanilla CSS will do just fine.
-- The design must be responsive, and it should make use of the space efficiently on big screens/resolutions like 4k.
+- CSS will be simply vanilla, ensuring broad compatibility between browsers.
+- Color palette:
+   #294055
+   #e6e2e6
+   #23d187
+   #fda442
+   #4a8cff
+   #9f7aea
+- Shades of the color palette should be used to supplement.
+- Shadows should be used to provide a sense of depths and element stacking.
+
+#### Responsiveness
+- The site should take full advantage of the screen real-estate, avoid wasted space.
+- The design must be responsive, and it should make use of the space efficiently on big screens/resolutions like 4k, 1440p.
 
 ### Graphs
 
