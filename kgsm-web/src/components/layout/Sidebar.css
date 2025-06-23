@@ -79,13 +79,19 @@
 }
 
 .sidebar-icon {
-  font-size: 1.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+}
+
+.sidebar-icon-svg {
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  transition: all 0.3s ease;
 }
 
 .sidebar-label {
