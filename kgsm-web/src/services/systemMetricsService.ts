@@ -151,12 +151,16 @@ class SystemMetricsService {
           totalMemory: sysInfo?.totalMemory || this.systemInfo.totalMemory,
           totalDisk: sysInfo?.totalDisk || this.systemInfo.totalDisk,
           cpuCores: sysInfo?.cpuCores || this.systemInfo.cpuCores,
-          cpuModel: sysInfo?.cpuModel || this.systemInfo.cpuModel,
+          cpuModel: sysInfo?.cpuModel || response.data.cpuModel || this.systemInfo.cpuModel,
           uptime: sysInfo?.uptime || this.systemInfo.uptime
         };
       } else {
         // Update uptime if not provided by API (for simulation/demo purposes)
         this.systemInfo.uptime += 5;
+        // Also update CPU model from top-level if available
+        if (response.data.cpuModel) {
+          this.systemInfo.cpuModel = response.data.cpuModel;
+        }
       }
 
       const metrics = this.getFilteredMetrics('1m'); // Default to 1 minute timeframe
@@ -211,7 +215,8 @@ class SystemMetricsService {
         rx: this.metrics.network.rx.filter(m => m.timestamp >= cutoffTime),
         tx: this.metrics.network.tx.filter(m => m.timestamp >= cutoffTime),
         total: this.metrics.network.total
-      } : undefined
+      } : undefined,
+      systemInfo: this.systemInfo
     };
   }
 

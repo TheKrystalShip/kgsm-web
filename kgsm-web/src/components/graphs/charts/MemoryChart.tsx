@@ -3,7 +3,7 @@ import { TimeFrame } from '../../../models/system';
 import BaseChart from './BaseChart';
 import { useAppSelector } from '../../../store/hooks';
 import {
-  selectProcessedMemoryData,
+  selectMemoryMetrics,
   selectMetricsLoading,
   selectMetricsError,
   selectAdjustedTotalMemory
@@ -17,7 +17,7 @@ interface MemoryChartProps {
  * Component for rendering memory usage charts using central Redux store
  */
 const MemoryChart: React.FC<MemoryChartProps> = ({ timeframe }) => {
-  const processedData = useAppSelector(selectProcessedMemoryData);
+  const memoryData = useAppSelector(selectMemoryMetrics);
   const loading = useAppSelector(selectMetricsLoading);
   const error = useAppSelector(selectMetricsError);
   const totalMemory = useAppSelector(selectAdjustedTotalMemory);
@@ -30,15 +30,38 @@ const MemoryChart: React.FC<MemoryChartProps> = ({ timeframe }) => {
     return `${Math.round(value)} MB`;
   };
 
-  // Process data to ensure we're using rawValue
-  const memoizedProcessedData = useMemo(() => {
-    return processedData.map(m => ({
-      ...m,
-      value: m.rawValue || m.value
-    }));
-  }, [processedData]);
+  // Process data to create used and free memory entries similar to disk chart
+  const processedData = useMemo(() => {
+    if (!memoryData || memoryData.length === 0) return [];
 
-  if (loading && (!processedData || processedData.length === 0)) {
+    const result: any[] = [];
+
+    memoryData.forEach(item => {
+      const usedMemory = item.rawValue || item.value;
+      const freeMemory = Math.max(0, totalMemory - usedMemory);
+
+      // Add used memory entry
+      result.push({
+        ...item,
+        value: usedMemory,
+        type: 'Used'
+      });
+
+      // Add free memory entry
+      result.push({
+        ...item,
+        value: freeMemory,
+        type: 'Free'
+      });
+    });
+
+    return result;
+  }, [memoryData, totalMemory]);
+
+  // Check if we have used data entries
+  const hasData = processedData.some(item => item.type === 'Used');
+
+  if (loading && !hasData) {
     return <div className="loading-chart">Loading memory data...</div>;
   }
 
@@ -46,17 +69,20 @@ const MemoryChart: React.FC<MemoryChartProps> = ({ timeframe }) => {
     return <div className="error-chart">Error loading memory data</div>;
   }
 
-  if (!processedData || processedData.length === 0) {
+  if (!hasData) {
     return <div className="empty-chart">No memory data available</div>;
   }
 
   return (
     <BaseChart
-      data={memoizedProcessedData}
+      data={processedData}
       dataKey="value"
       color="var(--color-orange)"
+      secondaryColor="var(--color-green)"
+      stacked={true}
+      multipleLines={true}
+      lineDataKey="type"
       displayInGB={true}
-      domainMax={totalMemory}
       totalValue={totalMemory}
       formatValue={formatValue}
     />

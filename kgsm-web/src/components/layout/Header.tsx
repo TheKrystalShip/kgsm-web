@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import HamburgerMenu from './HamburgerMenu';
 import './Header.css';
+
+interface HeaderProps {
+  isSidebarOpen: boolean;
+  onSidebarToggle: () => void;
+}
 
 /**
  * Header component for the application
- * 
- * Displays the application logo, title, theme toggle, and user authentication controls
+ *
+ * Displays the application logo, title, theme toggle, hamburger menu, and user authentication controls
  * with modern design elements that match the overall website aesthetic
  */
-const Header: React.FC = () => {
+const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onSidebarToggle }) => {
   const { isAuthenticated, user, login, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
-  
+
   // Add scroll effect for enhanced header appearance
   useEffect(() => {
     const handleScroll = () => {
@@ -32,6 +38,10 @@ const Header: React.FC = () => {
   return (
     <header className={`header ${scrolled ? 'header-scrolled' : ''}`}>
       <div className="header-left">
+        <HamburgerMenu
+          isOpen={isSidebarOpen}
+          onToggle={onSidebarToggle}
+        />
         <div className="logo-container">
           <svg className="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
             <path d="M25 5C14.35 5 5.6 12.65 5.6 22c0 3.9 1.45 7.45 3.85 10.4-2.5 4.2-5.35 7.15-5.35 7.15-.35.35-.5.85-.4 1.3.1.45.45.85.9 1.05 0 0 1.2.5 3.1.5 3.25 0 7.2-1.15 10.8-4.5 2.2.65 4.55 1.1 7 1.1 10.15 0 18.4-7.15 18.4-16.05C43.9 12.65 35.65 5 25 5zM15 19c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm10 0c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm10 0c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z" fill="currentColor"/>
@@ -45,7 +55,7 @@ const Header: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="header-controls">
         {/* Theme toggle button with better icon representation */}
         <button
@@ -71,7 +81,7 @@ const Header: React.FC = () => {
             </svg>
           )}
         </button>
-        
+
         {/* Authentication controls */}
         {isAuthenticated ? (
           <div className="user-menu">

@@ -117,6 +117,11 @@ export const selectCPUCoresData = createSelector(
   (metricsState) => metricsState.data?.cpuCores || []
 );
 
+export const selectCPUCoresHistory = createSelector(
+  [getMetricsState],
+  (metricsState) => metricsState.data?.cpuHistory || []
+);
+
 export const selectMemoryMetrics = createSelector(
   [getMetricsState],
   (metricsState): SystemMetric[] => metricsState.data?.memory || []
@@ -163,14 +168,19 @@ export const selectSystemInfo = createSelector(
   (metricsState) => {
     // Return systemInfo if it exists, or create a default with service default values
     if (metricsState.data?.systemInfo) {
-      return metricsState.data.systemInfo;
+      // Use top-level cpuModel as fallback if systemInfo.cpuModel is not available
+      const cpuModel = metricsState.data.systemInfo.cpuModel || metricsState.data.cpuModel || 'Unknown CPU';
+      return {
+        ...metricsState.data.systemInfo,
+        cpuModel
+      };
     }
-    // Provide sensible defaults if we don't have system info
+    // Provide sensible defaults if we don't have system info, but try to use top-level cpuModel
     return {
       totalMemory: 32768, // 32 GB in MB
       totalDisk: 1000,    // 1 TB in GB
       cpuCores: 8,
-      cpuModel: 'Unknown CPU',
+      cpuModel: metricsState.data?.cpuModel || 'Unknown CPU',
       uptime: 0
     };
   }

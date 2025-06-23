@@ -50,8 +50,8 @@ const DiskChart: React.FC<DiskChartProps> = ({ timeframe }) => {
     <BaseChart
       data={processedData}
       dataKey="value"
-      color="var(--color-green)"
-      secondaryColor="var(--color-orange)"
+      color="var(--color-orange)"
+      secondaryColor="var(--color-green)"
       stacked={true}
       multipleLines={true}
       lineDataKey="type"

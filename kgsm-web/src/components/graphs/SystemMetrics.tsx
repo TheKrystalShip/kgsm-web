@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setTimeframe, selectTimeframe } from '../../store/metricsSlice';
 import {
-  CPUMetricCard,
+  CPUCoresMetricCard,
   MemoryMetricCard,
   DiskMetricCard,
   NetworkMetricCard
@@ -48,17 +48,15 @@ const SystemMetrics: React.FC = () => {
       </div>
 
       <div className="metrics-grid">
-        {/* CPU Usage Chart */}
-        <CPUMetricCard timeframe={timeframe} />
+        {/* CPU Cores Chart - Full Width */}
+        <CPUCoresMetricCard timeframe={timeframe} />
 
-        {/* Memory Usage Chart */}
-        <MemoryMetricCard timeframe={timeframe} />
-
-        {/* Disk Usage Chart */}
-        <DiskMetricCard timeframe={timeframe} />
-
-        {/* Network Traffic Chart */}
-        <NetworkMetricCard timeframe={timeframe} />
+        {/* Secondary Row - Memory, Disk, Network */}
+        <div className="metrics-secondary-row">
+          <MemoryMetricCard timeframe={timeframe} />
+          <DiskMetricCard timeframe={timeframe} />
+          <NetworkMetricCard timeframe={timeframe} />
+        </div>
       </div>
     </div>
   );

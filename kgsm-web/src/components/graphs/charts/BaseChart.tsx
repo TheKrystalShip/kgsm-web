@@ -78,7 +78,24 @@ const BaseChart: React.FC<BaseChartProps> = ({
       ? Array.from(new Set(data.map((item) => item[lineDataKey])))
       : [];
 
-  if (data.length === 0) {
+  // For multiple lines, we need to restructure the data so each timestamp has values for all line types
+  const processedData = multipleLines && lineDataKey ? (() => {
+    const timestampMap = new Map();
+
+    // Group data by timestamp
+    data.forEach(item => {
+      const timestamp = item.timestamp;
+      if (!timestampMap.has(timestamp)) {
+        timestampMap.set(timestamp, { timestamp });
+      }
+      const entry = timestampMap.get(timestamp);
+      entry[item[lineDataKey]] = item[dataKey];
+    });
+
+    return Array.from(timestampMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+  })() : data;
+
+  if (processedData.length === 0) {
     return <div className="empty-chart">No data available</div>;
   }
 
@@ -115,7 +132,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
     <ResponsiveContainer width="100%" height={240}>
       {!stacked ? (
         <LineChart
-          data={data}
+          data={processedData}
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
         >
           <CartesianGrid
@@ -158,8 +175,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
               <Line
                 key={type}
                 type="monotone"
-                dataKey={dataKey}
-                data={data.filter((item) => item[lineDataKey] === type)}
+                dataKey={String(type)}
                 name={String(type)}
                 stroke={index === 0 ? color : secondaryColor}
                 strokeWidth={2.5}
@@ -199,7 +215,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
       ) : (
         // Stacked area chart
         <AreaChart
-          data={data}
+          data={processedData}
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
         >
           <CartesianGrid
@@ -222,8 +238,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
               <Area
                 key={type}
                 type="monotone"
-                dataKey={dataKey}
-                data={data.filter((item) => item[lineDataKey] === type)}
+                dataKey={String(type)}
                 name={String(type)}
                 stackId="1"
                 stroke={index === 0 ? color : secondaryColor}
