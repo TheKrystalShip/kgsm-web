@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import './Modal.css';
 
 interface ModalProps {
   isOpen: boolean;
@@ -50,17 +49,17 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
 
   return (
     <div className="modal-backdrop" data-testid="modal-backdrop">
-      <div 
-        className="modal-content" 
-        ref={modalRef} 
+      <div
+        className="modal-content"
+        ref={modalRef}
         data-modal-type={modalType}
         style={width && !modalType ? { width: width, maxWidth: '95%' } : undefined}
       >
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <button 
-            className="modal-close" 
-            onClick={onClose} 
+          <button
+            className="modal-close"
+            onClick={onClose}
             aria-label="Close modal"
           >
             ×

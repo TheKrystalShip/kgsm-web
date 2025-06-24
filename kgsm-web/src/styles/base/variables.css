@@ -48,6 +48,10 @@
   --sidebar-width: 240px;
   --page-padding: 2rem;
 
+  /* Legacy compatibility - keeping for backward compatibility */
+  --border-radius: var(--border-radius-md);
+  --transition-speed: var(--transition-base);
+
   /* Shapes */
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
@@ -94,6 +98,11 @@
   --z-index-modal: 1050;
   --z-index-popover: 1060;
   --z-index-tooltip: 1070;
+
+  /* Cutting mat theme - inspired by precision tools */
+  --cutting-mat-grid-opacity: 0.08;
+  --cutting-mat-grid-fine: 0.03;
+  --cutting-mat-registration: 0.06;
 }
 
 /* Light theme */

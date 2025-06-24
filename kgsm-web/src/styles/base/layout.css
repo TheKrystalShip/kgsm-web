@@ -17,6 +17,17 @@
   flex-grow: 1;
   position: relative;
   z-index: 1;
+  height: calc(100vh - 70px); /* Adjust based on header height */
+  margin-left: var(--sidebar-width); /* Account for fixed sidebar */
+  overflow-y: auto;
+
+  /* Hide scrollbar but keep functionality */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.main-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 
 .main-content::before {
@@ -34,8 +45,10 @@
 .content-area {
   flex: 1;
   padding: var(--page-padding);
-  overflow-y: auto;
+  padding-bottom: calc(var(--page-padding) + var(--space-8)); /* Extra bottom padding */
   position: relative;
+  perspective: 1000px;
+  min-width: 0; /* Allows flex item to shrink */
 }
 
 /* Container */
@@ -249,6 +262,16 @@
 }
 
 @media (max-width: 768px) {
+  .main-content {
+    height: calc(100vh - 60px); /* Adjust for mobile header height */
+    margin-left: 0; /* No sidebar margin on mobile */
+  }
+
+  .content-area {
+    padding: 1rem;
+    padding-bottom: calc(1rem + var(--space-6)); /* Extra bottom padding for mobile */
+  }
+
   .md\:grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -260,6 +283,10 @@
 }
 
 @media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    margin-left: 220px; /* Adjust for smaller sidebar on tablets */
+  }
+
   .grid-cols-4 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
