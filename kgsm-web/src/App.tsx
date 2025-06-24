@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
+import Footer from './components/layout/Footer';
 import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage } from './pages';
 import store from './store';
 
@@ -28,11 +29,11 @@ const App: React.FC = () => {
                 isSidebarOpen={isSidebarOpen}
                 onSidebarToggle={toggleSidebar}
               />
+              <Sidebar
+                isOpen={isSidebarOpen}
+                onToggle={toggleSidebar}
+              />
               <div className="main-content">
-                <Sidebar
-                  isOpen={isSidebarOpen}
-                  onToggle={toggleSidebar}
-                />
                 <div className="content-area">
                   <Routes>
                     <Route path="/" element={<HomePage />} />
@@ -42,6 +43,7 @@ const App: React.FC = () => {
                     <Route path="/docs" element={<DocsPage />} />
                   </Routes>
                 </div>
+                <Footer />
               </div>
             </div>
           </Router>
