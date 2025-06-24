@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -7,51 +7,59 @@ import { SidebarProvider } from './contexts/SidebarContext';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
-import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage } from './pages';
+import PageTransition from './components/common/PageTransition';
+import { useDataPrefetch } from './hooks/useDataPrefetch';
 import store from './store';
 
 /**
- * Main application component
+ * App content component that uses the prefetch hook
+ * Separated to ensure Redux store is available
  */
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Prefetch data when app loads
+  useDataPrefetch();
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <AuthProvider>
-          <SidebarProvider>
-            <Router>
-              <div className="app-container">
-                <Header
-                  isSidebarOpen={isSidebarOpen}
-                  onSidebarToggle={toggleSidebar}
-                />
-                <Sidebar
-                  isOpen={isSidebarOpen}
-                  onToggle={toggleSidebar}
-                />
-                <div className="main-content">
-                  <div className="content-area">
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/instances" element={<InstancesPage />} />
-                      <Route path="/blueprints" element={<BlueprintsPage />} />
-                      <Route path="/system" element={<SystemPage />} />
-                      <Route path="/docs" element={<DocsPage />} />
-                    </Routes>
-                  </div>
-                  <Footer />
+    <ThemeProvider>
+      <AuthProvider>
+        <SidebarProvider>
+          <Router>
+            <div className="app-container">
+              <Header
+                isSidebarOpen={isSidebarOpen}
+                onSidebarToggle={toggleSidebar}
+              />
+              <Sidebar
+                isOpen={isSidebarOpen}
+                onToggle={toggleSidebar}
+              />
+              <div className="main-content">
+                <div className="content-area">
+                  <PageTransition />
                 </div>
+                <Footer />
               </div>
-            </Router>
-          </SidebarProvider>
-        </AuthProvider>
-      </ThemeProvider>
+            </div>
+          </Router>
+        </SidebarProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+};
+
+/**
+ * Main application component
+ */
+const App: React.FC = () => {
+  return (
+    <Provider store={store}>
+      <AppContent />
     </Provider>
   );
 };

@@ -124,12 +124,13 @@ const BaseChart: React.FC<BaseChartProps> = ({
           new Date(timestamp).toLocaleTimeString()
         }
         formatter={formatTooltipValue}
+        animationDuration={0}
       />
     ),
   };
 
   return (
-    <ResponsiveContainer width="100%" height={240}>
+    <ResponsiveContainer width="100%" height={240} debounce={1}>
       {!stacked ? (
         <LineChart
           data={processedData}
@@ -179,9 +180,10 @@ const BaseChart: React.FC<BaseChartProps> = ({
                 name={String(type)}
                 stroke={index === 0 ? color : secondaryColor}
                 strokeWidth={2.5}
-                dot={{ r: 0 }}
+                dot={false}
                 activeDot={{ r: 5, strokeWidth: 1, stroke: "#ffffff" }}
                 isAnimationActive={false}
+                connectNulls={false}
               />
             ))
           ) : (
@@ -191,9 +193,10 @@ const BaseChart: React.FC<BaseChartProps> = ({
               dataKey={dataKey}
               stroke={color}
               strokeWidth={2.5}
-              dot={{ r: 0 }}
+              dot={false}
               activeDot={{ r: 5, strokeWidth: 1, stroke: "#ffffff" }}
               isAnimationActive={false}
+              connectNulls={false}
             />
           )}
 
@@ -245,6 +248,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
                 fill={index === 0 ? color : secondaryColor}
                 fillOpacity={0.5}
                 isAnimationActive={false}
+                connectNulls={false}
               />
             ))}
 
