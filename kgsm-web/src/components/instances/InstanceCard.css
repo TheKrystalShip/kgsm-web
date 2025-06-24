@@ -146,21 +146,6 @@
   position: relative;
 }
 
-.instance-name::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 0;
-  width: 30px;
-  height: 2px;
-  background-image: linear-gradient(to right, var(--color-blue), transparent);
-  transition: width 0.3s ease;
-}
-
-.instance-card:hover .instance-name::after {
-  width: 50px;
-}
-
 .instance-status {
   font-size: 0.85rem;
   font-weight: 600;

@@ -152,11 +152,6 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
           >
             Auto-scroll {autoScroll ? 'ON' : 'OFF'}
           </div>
-          {process.env.NODE_ENV === 'development' && (
-            <div className="console-debug">
-              {connectionType}
-            </div>
-          )}
         </div>
 
         <div className="console-terminal">

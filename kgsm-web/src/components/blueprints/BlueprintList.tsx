@@ -142,12 +142,12 @@ const BlueprintList: React.FC = () => {
 
           <button
             className="refresh-btn"
-            onClick={refreshBlueprints}
-            disabled={loading}
+            onClick={silentRefreshBlueprints}
+            disabled={loading || silentRefresh}
             title="Refresh blueprints"
           >
             <svg
-              className={`refresh-icon ${loading ? 'spinning' : ''}`}
+              className={`refresh-icon ${loading || silentRefresh ? 'spinning' : ''}`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 512 512"
             >

@@ -338,15 +338,6 @@
   font-size: 11px;
 }
 
-.console-debug {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--surface-secondary);
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--border-radius-sm);
-  font-family: 'Courier New', monospace;
-}
-
 .console-connection {
   display: flex;
   align-items: center;

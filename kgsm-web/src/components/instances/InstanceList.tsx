@@ -169,12 +169,12 @@ const InstanceList: React.FC = () => {
 
           <button
             className="refresh-btn"
-            onClick={refreshInstances}
-            disabled={loading}
+            onClick={silentRefreshInstances}
+            disabled={loading || silentRefresh}
             title="Refresh instances"
           >
             <svg
-              className={`refresh-icon ${loading ? 'spinning' : ''}`}
+              className={`refresh-icon ${loading || silentRefresh ? 'spinning' : ''}`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 512 512"
             >
