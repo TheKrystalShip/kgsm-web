@@ -36,7 +36,7 @@ const MemoryMetricCard: React.FC<MemoryMetricCardProps> = ({ timeframe }) => {
   const adjustedTotalMemory = Math.max(totalMemory, stats.avg);
 
   return (
-    <div className="metric-card">
+    <div className="metric-card metric-card-memory">
       <h3 className="metric-title">Memory Usage</h3>
       {data && data.length > 0 ? (
         <>

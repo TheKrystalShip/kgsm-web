@@ -105,6 +105,7 @@
   position: relative;
   overflow: hidden;
   transition: transform 0.3s, box-shadow 0.3s;
+  will-change: transform; /* Performance hint for GPU acceleration */
 }
 
 .metric-card::before {
@@ -115,6 +116,26 @@
   right: 0;
   height: 3px;
   z-index: 1;
+}
+
+.metric-card-cpu-cores::before {
+  /* background-image: linear-gradient(to right, var(--color-blue), var(--color-green)); */
+  background: var(--gradient-purple);
+}
+
+.metric-card-memory::before {
+  /* background-image: linear-gradient(to right, var(--color-purple), var(--color-green)); */
+  background: var(--gradient-green);
+}
+
+.metric-card-disk::before {
+  /* background-image: linear-gradient(to right, var(--color-orange), var(--color-green)); */
+  background: var(--gradient-orange);
+}
+
+.metric-card-network::before {
+  /* background-image: linear-gradient(to right, var(--color-blue), var(--color-green)); */
+  background: var(--gradient-blue);
 }
 
 /* CPU Cores Card Styles */
@@ -298,23 +319,6 @@
   color: var(--text-tertiary);
 }
 
-/* Add different colored tops for each metric card */
-.metric-card:nth-child(1)::before {
-  background: var(--gradient-green);
-}
-
-.metric-card:nth-child(2)::before {
-  background: linear-gradient(135deg, var(--color-orange) 0%, #f58a1f 100%);
-}
-
-.metric-card:nth-child(3)::before {
-  background: linear-gradient(135deg, var(--color-blue) 0%, #2f75e6 100%);
-}
-
-.metric-card:nth-child(4)::before {
-  background: linear-gradient(135deg, var(--color-purple) 0%, #7859bc 100%);
-}
-
 .metric-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
@@ -421,7 +425,7 @@
   background-color: var(--bg-tertiary);
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
+  /* backdrop-filter: blur(8px); */ /* Removed for performance */
   position: relative;
   overflow: hidden;
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),

@@ -18,7 +18,7 @@ interface CPUCoresMetricCardProps {
 /**
  * Component that displays CPU cores metrics chart and statistics
  */
-const CPUCoresMetricCard: React.FC<CPUCoresMetricCardProps> = ({ timeframe, maxCores = 16 }) => {
+const CPUCoresMetricCard: React.FC<CPUCoresMetricCardProps> = ({ timeframe, maxCores = 8 }) => {
   const coresData = useAppSelector(selectCPUCoresData);
   const loading = useAppSelector(selectMetricsLoading);
   const error = useAppSelector(selectMetricsError);
@@ -50,7 +50,7 @@ const CPUCoresMetricCard: React.FC<CPUCoresMetricCardProps> = ({ timeframe, maxC
   const cpuModel = systemInfo?.cpuModel || 'Unknown CPU';
 
   return (
-    <div className="metric-card cpu-cores-card">
+    <div className="metric-card metric-card-cpu-cores">
       <h3 className="metric-title">CPU Cores ({coreStats.totalCores} cores)</h3>
 
       {/* CPU Model Info */}

@@ -31,7 +31,7 @@ const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ timeframe }) => {
   };
 
   return (
-    <div className="metric-card network-card">
+    <div className="metric-card metric-card-network">
       <h3 className="metric-title">Network Traffic</h3>
       {rxData.length > 0 ? (
         <>

@@ -45,7 +45,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({ timeframe }) => {
   };
 
   return (
-    <div className="metric-card">
+    <div className="metric-card metric-card-disk">
       <h3 className="metric-title">Disk Space</h3>
       {diskMetrics.used && diskMetrics.used.length > 0 ? (
         <>

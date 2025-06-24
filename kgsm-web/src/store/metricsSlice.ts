@@ -21,7 +21,7 @@ interface MetricsState {
 const initialState: MetricsState = {
   data: null,
   timeframe: '1m',
-  updateInterval: 10000, // Default: 10 seconds
+  updateInterval: 30000, // Default: 30 seconds (reduced for performance)
   loading: false,
   error: null,
   lastUpdated: null,

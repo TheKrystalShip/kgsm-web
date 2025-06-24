@@ -10,7 +10,7 @@
   --color-orange: #fda442;
   --color-blue: #4a8cff;
   --color-purple: #9f7aea;
-  
+
   /* Dark theme - default */
   --bg-primary: var(--color-dark-blue);
   --bg-secondary: #1e2a38; /* Darker shade of dark blue */
@@ -23,19 +23,20 @@
   --warning: var(--color-orange);
   --error: #ff6b6b; /* Reddish color that fits with the palette */
   --info: #64b5f6; /* Light blue that works with the palette */
-  
+
   /* Shadows */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.15);
   --shadow-elevate: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.15);
-  
+
   /* Gradients */
   --gradient-blue: linear-gradient(135deg, var(--color-dark-blue) 0%, #3a5c7c 100%);
   --gradient-green: linear-gradient(135deg, var(--color-green) 0%, #18a66a 100%);
   --gradient-orange: linear-gradient(135deg, var(--color-orange) 0%, #f58a1f 100%);
+  --gradient-purple: linear-gradient(135deg, var(--color-purple) 0%, #7859bc 100%);
   --gradient-card: linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.05) 100%);
-  
+
   /* Layout */
   --header-height: 64px;
   --sidebar-width: 240px;
@@ -52,11 +53,11 @@
   --text-secondary: #405b77; /* Lighter shade of dark blue */
   --accent-primary: var(--color-green);
   --accent-secondary: var(--color-orange);
-  
+
   /* Light theme specific */
   --gradient-blue: linear-gradient(135deg, #3a5c7c 0%, var(--color-dark-blue) 100%);
   --gradient-card: linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.05) 100%);
-  
+
   /* Adjust shadow for light theme */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -471,7 +472,7 @@ code {
 /* Glass effect */
 .glass-effect {
   background-color: rgba(30, 42, 56, 0.7);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -498,7 +499,7 @@ code {
 /* Enhanced buttons with glassy effect */
 .btn-glass {
   background-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }

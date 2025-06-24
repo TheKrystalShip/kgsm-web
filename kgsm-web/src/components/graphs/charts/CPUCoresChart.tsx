@@ -14,7 +14,7 @@ interface CPUCoresChartProps {
  * Component for rendering individual CPU core usage charts
  * Optimized for frequent updates with memoization and data limiting
  */
-const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 16 }) => {
+const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 8 }) => {
   const cpuHistory = useAppSelector(selectCPUCoresHistory);
   const loading = useAppSelector(selectMetricsLoading);
   const error = useAppSelector(selectMetricsError);
