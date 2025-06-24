@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fetchBlueprints, installBlueprint, clearError, clearInstallError } from '../store/blueprintsSlice';
+import { usePreferences } from '../contexts/PreferencesContext';
 
 /**
  * Custom hook for managing blueprints with Redux store
@@ -8,6 +9,8 @@ import { fetchBlueprints, installBlueprint, clearError, clearInstallError } from
  */
 export const useBlueprintsStore = () => {
   const dispatch = useAppDispatch();
+  const { preferences } = usePreferences();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const {
     blueprints,
     loading,
@@ -27,6 +30,30 @@ export const useBlueprintsStore = () => {
       dispatch(fetchBlueprints({}));
     }
   }, [dispatch, isCached, loading]);
+
+  // Auto-update effect - background refresh when enabled
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    // Set up auto-update if enabled and data is cached
+    if (preferences.enableBlueprintsAutoUpdate && isCached) {
+      // Auto-refresh every 60 seconds when cached
+      intervalRef.current = setInterval(() => {
+        dispatch(fetchBlueprints({ silent: true }));
+      }, 60000);
+    }
+
+    // Cleanup on unmount or when preferences change
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [dispatch, preferences.enableBlueprintsAutoUpdate, isCached]);
 
   // Refresh blueprints (manual refresh)
   const refreshBlueprints = () => {

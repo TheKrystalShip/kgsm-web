@@ -16,6 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useSidebar } from '../../contexts/SidebarContext';
+import { usePreferences } from '../../contexts/PreferencesContext';
 import DraggableSidebarItem from './DraggableSidebarItem';
 import './Sidebar.css';
 
@@ -28,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const { sidebarItems, reorderItems, resetOrder } = useSidebar();
+  const { preferences } = usePreferences();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -86,53 +88,70 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       <aside className={`sidebar ${isOpen ? 'open' : ''} ${isDragging && isMobile ? 'mobile-dragging' : ''}`}>
         <div className="sidebar-content">
           <nav className="sidebar-nav">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={sidebarItems.map(item => item.id)}
-                strategy={verticalListSortingStrategy}
+            {preferences.enableDragAndDrop ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
               >
-                <ul className="sidebar-menu">
-                  {sidebarItems.map((item) => (
-                    <DraggableSidebarItem
-                      key={item.id}
-                      item={item}
-                      onLinkClick={handleLinkClick}
-                      isMobile={isMobile}
-                    />
-                  ))}
-                </ul>
-              </SortableContext>
-            </DndContext>
+                <SortableContext
+                  items={sidebarItems.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="sidebar-menu">
+                    {sidebarItems.map((item) => (
+                      <DraggableSidebarItem
+                        key={item.id}
+                        item={item}
+                        onLinkClick={handleLinkClick}
+                        isMobile={isMobile}
+                        isDragDisabled={!preferences.enableDragAndDrop}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <ul className="sidebar-menu">
+                {sidebarItems.map((item) => (
+                  <DraggableSidebarItem
+                    key={item.id}
+                    item={item}
+                    onLinkClick={handleLinkClick}
+                    isMobile={isMobile}
+                    isDragDisabled={true}
+                  />
+                ))}
+              </ul>
+            )}
 
             {/* Mobile drag feedback */}
-            {isMobile && isDragging && (
+            {isMobile && isDragging && preferences.enableDragAndDrop && (
               <div className="mobile-drag-feedback">
                 <p>Drag to reorder items</p>
               </div>
             )}
           </nav>
 
-          {/* Help text for drag and drop */}
-          <div className="sidebar-help">
-            <p className="sidebar-help-text">
-              <svg className="sidebar-help-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                <path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/>
-              </svg>
-              {isMobile ? 'Long press and drag to reorder' : 'Hover and drag to reorder'}
-            </p>
-            <button
-              className="sidebar-reset-btn"
-              onClick={resetOrder}
-              title="Reset to default order"
-            >
-              Reset Order
-            </button>
-          </div>
+          {/* Help text for drag and drop - only show if drag and drop is enabled */}
+          {preferences.enableDragAndDrop && (
+            <div className="sidebar-help">
+              <p className="sidebar-help-text">
+                <svg className="sidebar-help-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                  <path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/>
+                </svg>
+                {isMobile ? 'Long press and drag to reorder' : 'Hover and drag to reorder'}
+              </p>
+              <button
+                className="sidebar-reset-btn"
+                onClick={resetOrder}
+                title="Reset to default order"
+              >
+                Reset Order
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

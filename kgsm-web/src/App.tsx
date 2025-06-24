@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SidebarProvider } from './contexts/SidebarContext';
+import { PreferencesProvider } from './contexts/PreferencesContext';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
@@ -26,30 +27,32 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SidebarProvider>
-          <Router>
-            <div className="app-container">
-              <Header
-                isSidebarOpen={isSidebarOpen}
-                onSidebarToggle={toggleSidebar}
-              />
-              <Sidebar
-                isOpen={isSidebarOpen}
-                onToggle={toggleSidebar}
-              />
-              <div className="main-content">
-                <div className="content-area">
-                  <PageTransition />
+    <PreferencesProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <SidebarProvider>
+            <Router>
+              <div className="app-container">
+                <Header
+                  isSidebarOpen={isSidebarOpen}
+                  onSidebarToggle={toggleSidebar}
+                />
+                <Sidebar
+                  isOpen={isSidebarOpen}
+                  onToggle={toggleSidebar}
+                />
+                <div className="main-content">
+                  <div className="content-area">
+                    <PageTransition />
+                  </div>
+                  <Footer />
                 </div>
-                <Footer />
               </div>
-            </div>
-          </Router>
-        </SidebarProvider>
-      </AuthProvider>
-    </ThemeProvider>
+            </Router>
+          </SidebarProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </PreferencesProvider>
   );
 };
 

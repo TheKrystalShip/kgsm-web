@@ -1,16 +1,18 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage } from '../../pages';
+import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage, PreferencesPage } from '../../pages';
+import { usePreferences } from '../../contexts/PreferencesContext';
 import './PageTransition.css';
 
 // Default page order for fallback
-const DEFAULT_PAGE_ORDER = ['/', '/blueprints', '/instances', '/system', '/docs'];
+const DEFAULT_PAGE_ORDER = ['/', '/blueprints', '/instances', '/system', '/docs', '/preferences'];
 
 /**
  * Wrapper component that provides smooth directional fade transitions between pages
  */
 const PageTransition: React.FC = () => {
   const location = useLocation();
+  const { preferences } = usePreferences();
   const [displayLocation, setDisplayLocation] = useState(location);
   const [transitionStage, setTransitionStage] = useState('fade-in');
   const [transitionDirection, setTransitionDirection] = useState<'up' | 'down' | 'none'>('none');
@@ -40,6 +42,12 @@ const PageTransition: React.FC = () => {
 
   useEffect(() => {
     if (location.pathname !== displayLocation.pathname && !isTransitioning) {
+      // Skip transitions if animations are disabled or reduced motion is enabled
+      if (!preferences.enableAnimations || preferences.reduceMotion) {
+        setDisplayLocation(location);
+        return;
+      }
+
       const direction = getTransitionDirection(displayLocation.pathname, location.pathname);
 
       setIsTransitioning(true);
@@ -58,7 +66,7 @@ const PageTransition: React.FC = () => {
         setIsTransitioning(false);
       }, 200);
     }
-  }, [location.pathname, displayLocation.pathname, isTransitioning, getTransitionDirection, location]);
+  }, [location.pathname, displayLocation.pathname, isTransitioning, getTransitionDirection, location, preferences.enableAnimations, preferences.reduceMotion]);
 
   useEffect(() => {
     return () => {
@@ -80,6 +88,8 @@ const PageTransition: React.FC = () => {
         return <SystemPage />;
       case '/docs':
         return <DocsPage />;
+      case '/preferences':
+        return <PreferencesPage />;
       default:
         return <HomePage />;
     }

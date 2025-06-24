@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchInstances,
@@ -10,6 +10,7 @@ import {
   clearError,
   clearActionError
 } from '../store/instancesSlice';
+import { usePreferences } from '../contexts/PreferencesContext';
 
 /**
  * Custom hook for managing instances with Redux store
@@ -17,6 +18,8 @@ import {
  */
 export const useInstancesStore = () => {
   const dispatch = useAppDispatch();
+  const { preferences } = usePreferences();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const {
     instances,
     loading,
@@ -40,6 +43,30 @@ export const useInstancesStore = () => {
       dispatch(fetchInstances({}));
     }
   }, [dispatch, isCached, loading]);
+
+  // Auto-update effect - background refresh when enabled
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    // Set up auto-update if enabled and data is cached
+    if (preferences.enableInstancesAutoUpdate && isCached) {
+      // Auto-refresh every 60 seconds when cached
+      intervalRef.current = setInterval(() => {
+        dispatch(fetchInstances({ silent: true }));
+      }, 60000);
+    }
+
+    // Cleanup on unmount or when preferences change
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [dispatch, preferences.enableInstancesAutoUpdate, isCached]);
 
   // Refresh instances (manual refresh)
   const refreshInstances = () => {
