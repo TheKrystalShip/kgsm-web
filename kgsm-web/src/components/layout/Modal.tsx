@@ -47,10 +47,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
 
   if (!isOpen) return null;
 
+  // Determine modal size based on modalType
+  const getModalSizeClass = () => {
+    if (modalType === 'console') return 'modal-dialog-xl';
+    return '';
+  };
+
   return (
-    <div className="modal-backdrop" data-testid="modal-backdrop">
+    <div className={`modal ${isOpen ? 'show' : ''}`} data-testid="modal-backdrop">
       <div
-        className="modal-content"
+        className={`modal-dialog ${getModalSizeClass()}`}
         ref={modalRef}
         data-modal-type={modalType}
         style={width && !modalType ? { width: width, maxWidth: '95%' } : undefined}
