@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -33,13 +34,15 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
 
     // Prevent scrolling of the body when modal is open
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      // Add modal-open class to body to prevent scrolling
+      document.body.classList.add('modal-open');
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleEscapeKey);
     }
 
     return () => {
-      document.body.style.overflow = 'auto';
+      // Remove modal-open class from body
+      document.body.classList.remove('modal-open');
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscapeKey);
     };
@@ -53,7 +56,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
     return '';
   };
 
-  return (
+  // Create the modal content
+  const modalContent = (
     <div className={`modal ${isOpen ? 'show' : ''}`} data-testid="modal-backdrop">
       <div
         className={`modal-dialog ${getModalSizeClass()}`}
@@ -76,6 +80,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
       </div>
     </div>
   );
+
+  // Render the modal using a portal to bypass parent container constraints
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;

@@ -88,7 +88,7 @@
   content: '';
   position: absolute;
   top: -4px;
-  left: 6px;
+  left: -4px;
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -110,14 +110,14 @@
 }
 
 .status-inactive {
-  background: radial-gradient(circle at 30% 30%, #ffc280, var(--color-orange));
+  background: radial-gradient(circle at 30% 30%, #ff8080, var(--color-red));
   box-shadow:
-    0 0 10px var(--color-orange),
+    0 0 10px var(--color-red),
     inset 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
 .status-inactive::after {
-  background-color: var(--color-orange);
+  background-color: var(--color-red);
   filter: blur(2px);
 }
 

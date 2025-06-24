@@ -40,6 +40,7 @@
   --gradient-blue: linear-gradient(135deg, var(--color-blue) 0%, #2f75e6 100%);
   --gradient-green: linear-gradient(135deg, var(--color-green) 0%, #18a66a 100%);
   --gradient-orange: linear-gradient(135deg, var(--color-orange) 0%, #f58a1f 100%);
+  --gradient-red: linear-gradient(135deg, var(--color-red) 0%, #ff3333 100%);
   --gradient-purple: linear-gradient(135deg, var(--color-purple) 0%, #7859bc 100%);
   --gradient-card: linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.05) 100%);
 
@@ -94,8 +95,8 @@
   --z-index-dropdown: 1000;
   --z-index-sticky: 1020;
   --z-index-fixed: 1030;
-  --z-index-modal-backdrop: 1040;
-  --z-index-modal: 1050;
+  --z-index-modal-backdrop: 9998;
+  --z-index-modal: 9999;
   --z-index-popover: 1060;
   --z-index-tooltip: 1070;
 

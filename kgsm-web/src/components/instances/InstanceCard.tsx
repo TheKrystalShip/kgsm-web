@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { KgsmInstance } from '../../models/kgsm';
-import { useInstances } from '../../hooks/useInstances';
+import { useInstancesStore } from '../../hooks/useInstancesStore';
 import './InstanceCard.css';
 
 // Import SVG icons directly instead of using react-icons
@@ -55,9 +55,37 @@ interface InstanceCardProps {
  * Component for displaying a single server instance as a card
  */
 const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) => {
-  const { startInstance, stopInstance, restartInstance, updateInstance, uninstallInstance } = useInstances();
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const {
+    startInstance,
+    stopInstance,
+    restartInstance,
+    updateInstance,
+    uninstallInstance,
+    starting,
+    stopping,
+    restarting,
+    updating,
+    uninstalling
+  } = useInstancesStore();
   const [showUninstallConfirm, setShowUninstallConfirm] = useState<boolean>(false);
+
+  // Check if this specific instance is being processed
+  const isProcessing = (action: string) => {
+    switch (action) {
+      case 'start': return starting === instance.Name;
+      case 'stop': return stopping === instance.Name;
+      case 'restart': return restarting === instance.Name;
+      case 'update': return updating === instance.Name;
+      case 'uninstall': return uninstalling === instance.Name;
+      default: return false;
+    }
+  };
+
+  const isAnyProcessing = starting === instance.Name ||
+                         stopping === instance.Name ||
+                         restarting === instance.Name ||
+                         updating === instance.Name ||
+                         uninstalling === instance.Name;
 
   // Format the installation date
   const formatDate = (dateString: string) => {
@@ -71,37 +99,28 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
 
   // Handle start instance button click
   const handleStart = async () => {
-    setIsProcessing('start');
     await startInstance(instance.Name);
-    setIsProcessing(null);
   };
 
   // Handle stop instance button click
   const handleStop = async () => {
-    setIsProcessing('stop');
     await stopInstance(instance.Name);
-    setIsProcessing(null);
   };
 
   // Handle restart instance button click
   const handleRestart = async () => {
-    setIsProcessing('restart');
     await restartInstance(instance.Name);
-    setIsProcessing(null);
   };
 
   // Handle uninstall instance button click
   const handleUninstall = async () => {
-    setIsProcessing('uninstall');
     await uninstallInstance(instance.Name);
-    setIsProcessing(null);
+    setShowUninstallConfirm(false);
   };
 
   // Handle update instance button click
   const handleUpdate = async () => {
-    setIsProcessing('update');
     await updateInstance(instance.Name);
-    setIsProcessing(null);
   };
 
   // Get blueprint name from path
@@ -153,9 +172,9 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-success"
                 onClick={handleStart}
-                disabled={!!isProcessing || instance.Status === 'active'}
+                disabled={isAnyProcessing || instance.Status === 'active'}
               >
-                {isProcessing === 'start' ?
+                {isProcessing('start') ?
                   'Starting...' :
                   <><PlayIcon /> Start</>
                 }
@@ -163,9 +182,9 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-warning"
                 onClick={handleRestart}
-                disabled={!!isProcessing || instance.Status === 'inactive'}
+                disabled={isAnyProcessing || instance.Status === 'inactive'}
               >
-                {isProcessing === 'restart' ?
+                {isProcessing('restart') ?
                   'Restarting...' :
                   <><RestartIcon /> Restart</>
                 }
@@ -173,9 +192,9 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-error"
                 onClick={handleStop}
-                disabled={!!isProcessing || instance.Status === 'inactive'}
+                disabled={isAnyProcessing || instance.Status === 'inactive'}
               >
-                {isProcessing === 'stop' ?
+                {isProcessing('stop') ?
                   'Stopping...' :
                   <><StopIcon /> Stop</>
                 }
@@ -186,17 +205,17 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-primary"
                 onClick={() => onOpenConsole(instance)}
-                disabled={!!isProcessing}
+                disabled={isAnyProcessing}
               >
                 <TerminalIcon /> Console
               </button>
               <button
                 className="btn btn-warning"
                 onClick={handleUpdate}
-                disabled={!!isProcessing || instance.Status === 'active'}
+                disabled={isAnyProcessing || instance.Status === 'active'}
                 title={instance.Status === 'active' ? "Stop the server first to update" : undefined}
               >
-                {isProcessing === 'update' ?
+                {isProcessing('update') ?
                   'Updating...' :
                   <><UpdateIcon /> Update</>
                 }
@@ -204,7 +223,7 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-error"
                 onClick={() => setShowUninstallConfirm(true)}
-                disabled={!!isProcessing || instance.Status === 'active'}
+                disabled={isAnyProcessing || instance.Status === 'active'}
                 title={instance.Status === 'active' ? "Stop the server first to uninstall" : undefined}
               >
                 <TrashIcon /> Uninstall
@@ -218,16 +237,16 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
               <button
                 className="btn btn-secondary"
                 onClick={() => setShowUninstallConfirm(false)}
-                disabled={isProcessing === 'uninstall'}
+                disabled={isProcessing('uninstall')}
               >
                 <CloseIcon /> Cancel
               </button>
               <button
                 className="btn btn-error"
                 onClick={handleUninstall}
-                disabled={isProcessing === 'uninstall'}
+                disabled={isProcessing('uninstall')}
               >
-                {isProcessing === 'uninstall' ?
+                {isProcessing('uninstall') ?
                   'Uninstalling...' :
                   <><TrashIcon /> Confirm Uninstall</>
                 }

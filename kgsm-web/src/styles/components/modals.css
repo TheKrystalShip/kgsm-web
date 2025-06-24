@@ -11,16 +11,17 @@
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: var(--z-index-modal-backdrop);
   transition: opacity var(--transition-base);
   opacity: 1;
+  overflow: hidden;
 }
 
 .modal-backdrop.show {
@@ -34,14 +35,18 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: var(--z-index-modal);
   pointer-events: auto;
   transition: all var(--transition-base);
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .modal.show {
@@ -57,14 +62,16 @@
   margin: var(--space-4);
   background-color: var(--bg-secondary);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-elevate);
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  transform: scale(0.9);
+  transform: scale(0.95);
   opacity: 0;
   transition: transform var(--transition-base), opacity var(--transition-base);
   overflow: hidden;
+  z-index: var(--z-index-modal);
+  isolation: isolate;
 }
 
 .modal.show .modal-dialog {
@@ -214,6 +221,8 @@
   max-height: 85vh;
   width: 90vw;
   height: 85vh;
+  margin: 0;
+  border-radius: var(--border-radius-lg);
 }
 
 [data-modal-type="console"] .modal-body {
@@ -221,12 +230,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 [data-modal-type="console"] .instance-console-container {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 [data-modal-type="console"] .console-terminal {
@@ -234,9 +245,19 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 [data-modal-type="console"] .terminal {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
 }

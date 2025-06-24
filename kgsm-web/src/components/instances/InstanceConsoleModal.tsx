@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../layout/Modal';
 import { KgsmInstance } from '../../models/kgsm';
 import kgsmService from '../../services/kgsmService';
+import { useLogStream } from '../../hooks/useLogStream';
 import './InstanceConsoleModal.css';
 
 interface InstanceConsoleModalProps {
@@ -18,71 +19,31 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const [logs, setLogs] = useState<string>('');
   const [command, setCommand] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [autoScroll, setAutoScroll] = useState<boolean>(true); // Set to true by default
+  const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [newLogsIndicator, setNewLogsIndicator] = useState<boolean>(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const consoleEndRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch instance logs and append to existing logs
-  const fetchLogs = useCallback(async () => {
-    try {
-      setError(null);
-      // Get logs from the KGSM service
-      const logsData = await kgsmService.getInstanceLogs(instance.Name);
+  // Use the new WebSocket log streaming hook
+  const {
+    logs,
+    isConnected,
+    isLoading,
+    error,
+    connectionType,
+    reconnect,
+  } = useLogStream({
+    instanceName: instance.Name,
+    enabled: isOpen,
+    fallbackToPolling: true,
+    pollingInterval: 3000
+  });
 
-      // If this is the first fetch, set the logs directly
-      // Otherwise, append new logs if different from existing logs
-      setLogs(prevLogs => {
-        if (!prevLogs || prevLogs.length === 0 || isLoading) {
-          return logsData;
-        }
-
-        // If the new logs contain the old logs, show only the new content
-        // This handles cases where the server returns all logs each time
-        if (logsData.includes(prevLogs)) {
-          const newContent = logsData.substring(logsData.indexOf(prevLogs) + prevLogs.length);
-          // Show indicator if there's new content and auto-scroll is off
-          if (newContent) {
-            if (!autoScroll) {
-              setNewLogsIndicator(true);
-            } else {
-              setNewLogsIndicator(false);
-            }
-          }
-          return prevLogs + (newContent || '');
-        } else {      // If logs don't contain previous logs, probably restarted or logs were rotated
-      // Add a separator and append the new logs
-      // Show indicator if there's new content and auto-scroll is off
-      if (logsData !== prevLogs) {
-        if (!autoScroll) {
-          setNewLogsIndicator(true);
-        } else {
-          setNewLogsIndicator(false);
-        }
-      }
-      return prevLogs + '\n\n--- Log continued at ' + new Date().toLocaleString() + ' ---\n\n' + logsData;
-        }
-      });
-
-      setIsLoading(false);
-    } catch (err) {
-      // Don't set error if we already have some logs - just continue with existing logs
-      if (logs.length === 0) {
-        setError('Failed to fetch logs');
-      }
-      setIsLoading(false);
-
-      // In development, set mock logs
-      if (process.env.NODE_ENV === 'development' && logs.length === 0) {
-        setLogs(`[${new Date().toISOString()}] Mock logs for ${instance.Name}\n`.repeat(10));
-      }
-    }
-  }, [instance.Name, isLoading, logs.length, autoScroll]);
+  // Enhanced onClose handler
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   // Handle sending command to the server
   const handleSendCommand = async () => {
@@ -91,53 +52,17 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     try {
       await kgsmService.sendCommand(instance.Name, command);
 
-      // Add the command to the logs with a prefix
-      setLogs(prev => `${prev}\n> ${command}`);
-
       // Clear the command input
       setCommand('');
 
       // Re-enable auto-scrolling when user sends a command
       setAutoScroll(true);
 
-      // Fetch logs again to see the result of the command
-      setTimeout(fetchLogs, 1000);
+      // Command output will appear in the log stream automatically
     } catch (err) {
-      setError('Failed to send command');
+      console.error('Failed to send command:', err);
     }
   };
-
-  // Start polling for logs when modal opens
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    if (isOpen) {
-      // Initial fetch
-      fetchLogs();
-
-      // Set up new polling interval (use 3 seconds to get more frequent updates)
-      interval = setInterval(fetchLogs, 3000);
-      intervalRef.current = interval;
-    } else {
-      // Modal is closed, clear any existing interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    // Clean up when component unmounts or dependencies change
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-      // Also clear the ref in case it wasn't cleared elsewhere
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isOpen, instance.Name, fetchLogs]);
 
   // Function to scroll terminal to bottom
   const scrollToBottom = useCallback((smooth = false) => {
@@ -149,12 +74,12 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     }
   }, []);
 
-  // Scroll terminal to bottom when logs update only if autoScroll is enabled or on initial load
+  // Scroll terminal to bottom when logs update only if autoScroll is enabled
   useEffect(() => {
-    if ((autoScroll || isLoading) && terminalRef.current && consoleEndRef.current) {
+    if (autoScroll && terminalRef.current && consoleEndRef.current) {
       scrollToBottom(false);
     }
-  }, [logs, autoScroll, isLoading, scrollToBottom]);
+  }, [logs, autoScroll, scrollToBottom]); // Removed isLoading from dependencies
 
   // Handle Enter key press in command input
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -181,10 +106,21 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     }
   }, [autoScroll]);
 
+  // Show new logs indicator when logs update and user has scrolled away
+  useEffect(() => {
+    if (!autoScroll && terminalRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = terminalRef.current;
+      const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 20;
+      if (!isScrolledToBottom) {
+        setNewLogsIndicator(true);
+      }
+    }
+  }, [logs, autoScroll]);
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={`${instance.Name} Console`}
       modalType="console"
     >
@@ -201,6 +137,14 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
           {instance.PID && instance.PID !== 'None' && (
             <div className="console-pid">PID: {instance.PID}</div>
           )}
+          <div className="console-connection">
+            <span
+              className={`connection-indicator ${
+                isConnected ? 'connected' : 'disconnected'
+              }`}
+            ></span>
+            <span>{connectionType === 'websocket' ? 'WebSocket' : connectionType === 'polling' ? 'Polling' : 'Disconnected'}</span>
+          </div>
           <div
             className={`auto-scroll-toggle ${autoScroll ? 'active' : ''}`}
             onClick={() => setAutoScroll(prev => !prev)}
@@ -208,6 +152,11 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
           >
             Auto-scroll {autoScroll ? 'ON' : 'OFF'}
           </div>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="console-debug">
+              {connectionType}
+            </div>
+          )}
         </div>
 
         <div className="console-terminal">
@@ -219,7 +168,7 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
           ) : error ? (
             <div className="console-error">
               <p>{error}</p>
-              <button onClick={fetchLogs} className="btn btn-primary btn-sm">
+              <button onClick={reconnect} className="btn btn-primary btn-sm">
                 Retry
               </button>
             </div>

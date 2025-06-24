@@ -155,6 +155,66 @@ class KgsmService {
   }
 
   /**
+   * Get instance logs with client tracking
+   */
+  async getInstanceLogsWithClient(instanceName: string, clientId: string): Promise<{ logs: string; clientId: string }> {
+    try {
+      const response = await axios.get(`${this.apiEndpoint}/instances/${instanceName}/logs`, {
+        params: { clientId }
+      });
+
+      return {
+        logs: response.data,
+        clientId: response.headers['x-client-id'] || clientId
+      };
+    } catch (error) {
+      console.error(`Failed to get logs for instance ${instanceName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Disconnect client from log stream
+   */
+  async disconnectFromLogs(instanceName: string, clientId: string): Promise<any> {
+    try {
+      const response = await axios.post(`${this.apiEndpoint}/instances/${instanceName}/logs/disconnect`, {
+        clientId
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to disconnect from logs for instance ${instanceName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop log processes for an instance (cleanup)
+   */
+  async stopInstanceLogs(instanceName: string): Promise<any> {
+    try {
+      const response = await axios.post(`${this.apiEndpoint}/instances/${instanceName}/logs/stop`);
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to stop log processes for instance ${instanceName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get log process status for debugging
+   */
+  async getLogStatus(): Promise<any> {
+    try {
+      const response = await axios.get(`${this.apiEndpoint}/logs/status`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get log status:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Send command to instance
    */
   async sendCommand(instanceName: string, command: string): Promise<any> {

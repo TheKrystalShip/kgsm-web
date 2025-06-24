@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { SidebarProvider } from './contexts/SidebarContext';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
@@ -23,30 +24,32 @@ const App: React.FC = () => {
     <Provider store={store}>
       <ThemeProvider>
         <AuthProvider>
-          <Router>
-            <div className="app-container">
-              <Header
-                isSidebarOpen={isSidebarOpen}
-                onSidebarToggle={toggleSidebar}
-              />
-              <Sidebar
-                isOpen={isSidebarOpen}
-                onToggle={toggleSidebar}
-              />
-              <div className="main-content">
-                <div className="content-area">
-                  <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/instances" element={<InstancesPage />} />
-                    <Route path="/blueprints" element={<BlueprintsPage />} />
-                    <Route path="/system" element={<SystemPage />} />
-                    <Route path="/docs" element={<DocsPage />} />
-                  </Routes>
+          <SidebarProvider>
+            <Router>
+              <div className="app-container">
+                <Header
+                  isSidebarOpen={isSidebarOpen}
+                  onSidebarToggle={toggleSidebar}
+                />
+                <Sidebar
+                  isOpen={isSidebarOpen}
+                  onToggle={toggleSidebar}
+                />
+                <div className="main-content">
+                  <div className="content-area">
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/instances" element={<InstancesPage />} />
+                      <Route path="/blueprints" element={<BlueprintsPage />} />
+                      <Route path="/system" element={<SystemPage />} />
+                      <Route path="/docs" element={<DocsPage />} />
+                    </Routes>
+                  </div>
+                  <Footer />
                 </div>
-                <Footer />
               </div>
-            </div>
-          </Router>
+            </Router>
+          </SidebarProvider>
         </AuthProvider>
       </ThemeProvider>
     </Provider>

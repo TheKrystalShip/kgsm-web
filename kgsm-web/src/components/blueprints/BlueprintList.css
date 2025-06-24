@@ -1,135 +1,262 @@
-/* Blueprint list styles */
-.blueprint-list-container {
-  margin-bottom: 0;
-  position: relative;
+/* Blueprint Library Styles - Steam-like Grid Layout */
+.blueprint-library-container {
+  padding: 0;
+  /* background-color: var(--bg-primary); */
+  min-height: 100vh;
 }
 
-/* Removed the ::before element since FoldableSection already provides a nice top border */
-
-.blueprint-carousel-wrapper {
-  position: relative;
-  margin: 0 -1.5rem;
-  padding: 1rem 0;
-  overflow: hidden; /* This ensures the shadows don't extend outside the wrapper */
+/* Library Header */
+.library-header {
+  /* background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(41, 64, 85, 0.95) 100%); */
+  /* border-bottom: 1px solid rgba(255, 255, 255, 0.1); */
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+  /* box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); */
 }
 
-/* Bottom line shadow effect */
-.blueprint-carousel-wrapper::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 10%;
-  right: 10%;
-  height: 2px;
-  background-image: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.07), transparent);
+.library-title {
+  margin-bottom: 1.5rem;
 }
 
-/* Fixed shadow overlays - separating from pseudo-elements to avoid conflicts */
-.carousel-shadow {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  width: 80px;
-  z-index: 10;
-  pointer-events: none; /* Allow clicks to pass through */
+.library-title h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.carousel-shadow-left {
-  left: 0;
-  background: linear-gradient(to right, var(--bg-primary), rgba(0, 0, 0, 0));
-  position: absolute;
-  top: 0;
-  bottom: 0;
-}
-
-.carousel-shadow-right {
-  right: 0;
-  background: linear-gradient(to left, var(--bg-primary), rgba(0, 0, 0, 0));
-  position: absolute;
-  top: 0;
-  bottom: 0;
-}
-
-.blueprint-carousel {
-  overflow-x: auto;
-  padding: 1rem 0;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS devices */
-  position: relative;
-}
-
-/* Remove the scrolling shadows from the carousel itself */
-
-.blueprint-list {
+.library-meta {
   display: flex;
-  gap: 1.5rem;
-  padding: 0 4rem; /* Add padding on both sides for the scroll buttons */
-  min-width: min-content;
-  padding-bottom: 10px; /* Add padding to show the scroll indicators */
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-/* Scroll indicators */
-.scroll-indicator {
+.library-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.library-updated {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.refresh-indicator {
+  color: var(--color-green);
+  opacity: 1;
+}
+
+/* Search and Filter Controls */
+.library-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-container {
+  position: relative;
+  flex: 1;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+.search-icon {
   position: absolute;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  background-image: var(--gradient-blue);
-  color: var(--color-light-gray);
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0.85;
-  transition: all 0.3s ease;
-  z-index: 10;
-  box-shadow: var(--shadow-md), 0 0 0 3px rgba(255, 255, 255, 0.05);
-}
-
-.scroll-indicator::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), transparent);
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
   opacity: 0.6;
 }
 
-.scroll-indicator:hover {
-  opacity: 1;
-  transform: translateY(-50%) scale(1.05);
-  box-shadow: var(--shadow-lg), 0 0 0 3px rgba(255, 255, 255, 0.08);
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
 }
 
-.scroll-indicator:active {
-  transform: translateY(-50%) scale(0.95);
+.search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 
-.scroll-left {
-  left: 1.5rem;
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-green);
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(35, 209, 135, 0.1);
 }
 
-.scroll-right {
-  right: 1.5rem;
+.sort-container {
+  position: relative;
 }
 
+.sort-select {
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--color-green);
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(35, 209, 135, 0.1);
+}
+
+/* Refresh Button */
+.refresh-btn {
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-green);
+  box-shadow: 0 0 0 3px rgba(35, 209, 135, 0.1);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s ease;
+}
+
+.refresh-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Blueprint Grid - 5 columns layout matching dashboard */
+.blueprint-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.5rem;
+  position: relative;
+  margin-bottom: 0;
+}
+
+/* Add bottom border similar to dashboard */
+.blueprint-grid::after {
+  content: "";
+  position: absolute;
+  bottom: -20px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background-image: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.07), transparent);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  margin: 2rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-image: var(--gradient-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-state::before {
+  content: "";
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(74, 140, 255, 0.1) 0%, transparent 70%);
+  top: -100px;
+  left: -100px;
+  border-radius: 50%;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 1.5rem;
+  opacity: 0.3;
+}
+
+.empty-state-icon svg {
+  width: 100%;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+.empty-state h3 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+  opacity: 0.8;
+}
+
+/* Loading and Error States */
 .loading-container,
 .error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 2rem;
+  padding: 4rem 2rem;
   background-color: var(--bg-secondary);
-  border-radius: var(--border-radius-lg);
+  border-radius: 12px;
   text-align: center;
-  gap: 1.25rem;
-  box-shadow: var(--shadow-md);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  position: relative;
+  gap: 1.5rem;
+  margin: 2rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .loading-container {
@@ -157,23 +284,95 @@
 }
 
 .error-container {
-  border-left: 4px solid var(--error);
+  border-left: 4px solid var(--color-red);
   background-image: linear-gradient(to right, rgba(255, 107, 107, 0.1), rgba(255, 107, 107, 0.02), transparent);
 }
 
-/* Hide scrollbar but keep functionality */
-.blueprint-carousel {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--color-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
-.blueprint-carousel::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-/* Responsive styles */
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .blueprint-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .blueprint-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .blueprint-list {
+  .library-header {
+    padding: 1.5rem 1rem 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .library-title h2 {
+    font-size: 1.5rem;
+  }
+
+  .library-meta {
+    gap: 0.5rem;
+  }
+
+  .library-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .search-container {
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .refresh-btn {
+    align-self: flex-end;
+    width: 44px;
+  }
+
+  .blueprint-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
+  }
+
+  .empty-state,
+  .loading-container,
+  .error-container {
+    margin: 1rem 0;
+    padding: 3rem 1.5rem;
+  }
+
+  .empty-state-icon {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .blueprint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .library-header {
+    padding: 1rem;
+  }
+
+  .library-title h2 {
+    font-size: 1.25rem;
   }
 }
