@@ -486,21 +486,31 @@
 /* Responsive adjustments for smaller screens */
 @media (max-width: 480px) {
   .metric-stats {
-    flex-direction: column;
+    flex-direction: row;
+    gap: 0.4rem;
   }
 
   .cpu-stats,
   .memory-stats,
   .disk-stats,
   .network-stats {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-direction: row;
+    gap: 0.4rem;
   }
 
   .stat-item {
-    width: 100%;
-    margin-bottom: 0.5rem;
-    border-left-width: 4px;
+    flex: 1;
+    min-width: 0;
+    padding: 0.3rem 0.2rem;
+    border-left-width: 3px;
+  }
+
+  .stat-label {
+    font-size: 0.65rem;
+  }
+
+  .stat-value {
+    font-size: 0.9rem;
   }
 }
 
@@ -627,22 +637,30 @@
   }
 
   .metrics-controls {
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
     gap: 1rem;
     width: 100%;
+    justify-content: space-between;
   }
 
   .timeframe-selector {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   .timeframe-dropdown {
     min-width: 120px;
     width: 100%;
+    max-width: 200px;
+  }
+
+  .update-interval {
+    flex: 1;
+    min-width: 0;
     max-width: 200px;
   }
 

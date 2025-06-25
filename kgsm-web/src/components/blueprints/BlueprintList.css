@@ -26,28 +26,7 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.library-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
 
-.library-count {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  opacity: 0.8;
-}
-
-.library-updated {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-
-.refresh-indicator {
-  color: var(--color-green);
-  opacity: 1;
-}
 
 /* Search and Filter Controls */
 .library-controls {
@@ -125,6 +104,37 @@
   box-shadow: 0 0 0 3px rgba(35, 209, 135, 0.1);
 }
 
+/* Refresh Section */
+.refresh-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.refresh-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+}
+
+.library-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.library-updated {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.refresh-indicator {
+  color: var(--color-green);
+  opacity: 1;
+}
+
 /* Refresh Button */
 .refresh-btn {
   padding: 0.75rem;
@@ -167,10 +177,10 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Blueprint Grid - 5 columns layout matching dashboard */
+/* Blueprint Grid - 6 columns layout for better space utilization */
 .blueprint-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 1.5rem;
   position: relative;
   margin-bottom: 0;
@@ -303,13 +313,19 @@
 }
 
 /* Responsive Design */
-@media (max-width: 1400px) {
+@media (max-width: 1600px) {
+  .blueprint-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 1300px) {
   .blueprint-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1000px) {
   .blueprint-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -325,24 +341,22 @@
     font-size: 1.5rem;
   }
 
-  .library-meta {
-    gap: 0.5rem;
-  }
-
   .library-controls {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
     gap: 0.75rem;
+    flex-wrap: nowrap;
   }
 
   .search-container {
-    min-width: unset;
+    flex: 1;
+    min-width: 0;
     max-width: unset;
   }
 
-  .refresh-btn {
-    align-self: flex-end;
-    width: 44px;
+  .sort-container {
+    flex-shrink: 0;
+    min-width: 140px;
   }
 
   .blueprint-grid {
@@ -365,11 +379,12 @@
 
 @media (max-width: 480px) {
   .blueprint-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
 
   .library-header {
-    padding: 1rem;
+    padding: 1rem 0rem;
   }
 
   .library-title h2 {

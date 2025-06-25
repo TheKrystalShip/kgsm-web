@@ -46,12 +46,10 @@ const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ timeframe }) => {
                 <div className="stat-item download network-download">
                   <span className="stat-label">Download:</span>
                   <span className="stat-value">{formatValue(totalData.rxSpeed)}</span>
-                  <span className="stat-secondary">Total: {totalData.rx.toFixed(2)} MB</span>
                 </div>
                 <div className="stat-item upload network-upload">
                   <span className="stat-label">Upload:</span>
                   <span className="stat-value">{formatValue(totalData.txSpeed)}</span>
-                  <span className="stat-secondary">Total: {totalData.tx.toFixed(2)} MB</span>
                 </div>
               </>
             )}

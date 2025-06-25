@@ -174,7 +174,7 @@ const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 8 }
           </ResponsiveContainer>
         </div>
 
-        {/* Most Active Cores - Right Side */}
+        {/* Most Active Cores - Right Side on Desktop, Bottom on Mobile */}
         <div className="cpu-cores-sidebar">
           <div className="top-cores-section">
             <h4>Most Active Cores</h4>
