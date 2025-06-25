@@ -98,7 +98,19 @@ export const useLogStream = ({
     setIsLoading(true);
     setConnectionType('websocket');
 
-    const socket = io('http://localhost:3001', {
+    // Get the WebSocket server URL
+    const getSocketUrl = (): string => {
+      // Allow override via environment variable for mobile testing
+      if (process.env.REACT_APP_SOCKET_URL) {
+        return process.env.REACT_APP_SOCKET_URL;
+      }
+
+      // Use the current host with port 3001 for development
+      const currentHost = window.location.hostname;
+      return `http://${currentHost}:3001`;
+    };
+
+    const socket = io(getSocketUrl(), {
       transports: ['websocket', 'polling'],
       timeout: 5000,
       retries: 3

@@ -31,6 +31,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:no-auth": "REACT_APP_BYPASS_AUTH=true react-scripts build",
+    "build:with-auth": "REACT_APP_BYPASS_AUTH=false react-scripts build",
+    "start:no-auth": "REACT_APP_BYPASS_AUTH=true react-scripts start",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

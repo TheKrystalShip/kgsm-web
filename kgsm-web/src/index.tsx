@@ -10,22 +10,32 @@ const domain = process.env.REACT_APP_AUTH0_DOMAIN || '';
 const clientId = process.env.REACT_APP_AUTH0_CLIENT_ID || '';
 const audience = process.env.REACT_APP_AUTH0_AUDIENCE || '';
 
+// Check if authentication should be bypassed completely
+const bypassAuth = process.env.REACT_APP_BYPASS_AUTH === 'true' || process.env.NODE_ENV === 'development';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 
+// Conditionally wrap with Auth0Provider based on bypass setting
+const AppWithAuth = bypassAuth ? (
+  <App />
+) : (
+  <Auth0Provider
+    domain={domain}
+    clientId={clientId}
+    authorizationParams={{
+      redirect_uri: window.location.origin,
+      audience: audience
+    }}
+  >
+    <App />
+  </Auth0Provider>
+);
+
 root.render(
   <React.StrictMode>
-    <Auth0Provider
-      domain={domain}
-      clientId={clientId}
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: audience
-      }}
-    >
-      <App />
-    </Auth0Provider>
+    {AppWithAuth}
   </React.StrictMode>
 );
 

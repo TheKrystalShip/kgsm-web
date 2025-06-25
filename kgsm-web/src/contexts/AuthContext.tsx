@@ -39,6 +39,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [localIsAuthenticated, setLocalIsAuthenticated] = useState<boolean>(false);
   const [localIsLoading, setLocalIsLoading] = useState<boolean>(true);
 
+  // Check if authentication should be bypassed completely
+  const bypassAuth = process.env.REACT_APP_BYPASS_AUTH === 'true' || process.env.NODE_ENV === 'development';
+
+  // Only use Auth0 if not bypassed
+  let auth0Data = {
+    user: null as any,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null as Error | null,
+    loginWithRedirect: () => {},
+    logout: (options?: any) => {}
+  };
+
+  try {
+    if (!bypassAuth) {
+      const auth0Result = useAuth0();
+      auth0Data = {
+        user: auth0Result.user || null,
+        isAuthenticated: auth0Result.isAuthenticated,
+        isLoading: auth0Result.isLoading,
+        error: auth0Result.error || null,
+        loginWithRedirect: auth0Result.loginWithRedirect,
+        logout: auth0Result.logout
+      };
+    }
+  } catch (error) {
+    // Auth0 hook not available, continue with bypass mode
+    console.log('Auth0 not available, using bypass mode');
+  }
+
   const {
     user: auth0User,
     isAuthenticated: auth0IsAuthenticated,
@@ -46,14 +76,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: auth0Error,
     loginWithRedirect,
     logout: auth0Logout,
-  } = useAuth0();
-
-  // Check if we're in development mode for bypass
-  const isDev = process.env.NODE_ENV === 'development';
+  } = auth0Data;
 
   useEffect(() => {
-    // If in development, create a mock user for authentication bypass
-    if (isDev) {
+    // If authentication is bypassed, create a mock user
+    if (bypassAuth) {
       setTimeout(() => {
         setLocalUser({
           id: 'local-dev-id',
@@ -65,11 +92,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setLocalIsLoading(false);
       }, 500); // Simulate loading
     }
-  }, [isDev]);
+  }, [bypassAuth]);
 
   // Map Auth0 user to our user format when authenticated
   useEffect(() => {
-    if (!isDev && auth0IsAuthenticated && auth0User) {
+    if (!bypassAuth && auth0IsAuthenticated && auth0User) {
       const mappedUser: User = {
         id: auth0User.sub || '',
         name: auth0User.name || '',
@@ -79,14 +106,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       };
       setLocalUser(mappedUser);
       setLocalIsAuthenticated(true);
-    } else if (!isDev) {
+    } else if (!bypassAuth) {
       setLocalIsAuthenticated(false);
     }
-    
-    if (!isDev) {
+
+    if (!bypassAuth) {
       setLocalIsLoading(auth0IsLoading);
     }
-  }, [isDev, auth0IsAuthenticated, auth0User, auth0IsLoading]);
+  }, [bypassAuth, auth0IsAuthenticated, auth0User, auth0IsLoading]);
 
   // Determine auth provider based on the user's sub identifier
   const determineProvider = (sub: string): 'google' | 'microsoft' | 'github' | 'local' => {
@@ -97,7 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const login = () => {
-    if (isDev) {
+    if (bypassAuth) {
       setLocalIsAuthenticated(true);
     } else {
       loginWithRedirect();
@@ -105,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    if (isDev) {
+    if (bypassAuth) {
       setLocalUser(null);
       setLocalIsAuthenticated(false);
     } else {
@@ -117,7 +144,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: localIsAuthenticated,
     user: localUser,
     isLoading: localIsLoading,
-    error: auth0Error ?? null,
+    error: auth0Error,
     login,
     logout
   };

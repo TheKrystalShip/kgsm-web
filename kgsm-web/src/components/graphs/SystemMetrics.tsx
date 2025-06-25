@@ -9,6 +9,7 @@ import {
 } from './metrics';
 import MetricsDataFetcher from './MetricsDataFetcher';
 import UpdateIntervalSelector from './metrics/UpdateIntervalSelector';
+import Dropdown from '../common/Dropdown';
 import { TimeFrame } from '../../models/system';
 import './SystemMetrics.css';
 
@@ -20,6 +21,12 @@ const SystemMetrics: React.FC = () => {
   const dispatch = useAppDispatch();
   const timeframe = useAppSelector(selectTimeframe);
   const timeframeOptions: TimeFrame[] = ['10s', '1m', '5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h'];
+
+  // Convert timeframe options to dropdown format
+  const dropdownOptions = timeframeOptions.map(option => ({
+    value: option,
+    label: option
+  }));
 
   const handleTimeframeChange = (option: TimeFrame) => {
     dispatch(setTimeframe(option));
@@ -33,15 +40,15 @@ const SystemMetrics: React.FC = () => {
       <div className="metrics-header">
         <div className="metrics-controls">
           <div className="timeframe-selector">
-            {timeframeOptions.map((option) => (
-              <button
-                key={option}
-                className={`btn btn-sm ${option === timeframe ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => handleTimeframeChange(option)}
-              >
-                {option}
-              </button>
-            ))}
+            <label htmlFor="timeframe-dropdown" className="timeframe-label">
+              Timeframe:
+            </label>
+            <Dropdown
+              options={dropdownOptions}
+              value={timeframe}
+              onChange={handleTimeframeChange}
+              className="timeframe-dropdown"
+            />
           </div>
           <UpdateIntervalSelector className="update-interval" />
         </div>

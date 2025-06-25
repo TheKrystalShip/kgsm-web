@@ -276,9 +276,9 @@
   .sidebar {
     position: fixed;
     left: -250px;
-    top: 70px; /* Account for header height */
+    top: var(--header-height); /* Use header height variable instead of hardcoded 70px */
     bottom: 0;
-    z-index: 1000;
+    z-index: 90; /* Lower than header (100) so header shadow shows over sidebar */
     transition: left 0.3s ease;
     width: 250px;
     box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
@@ -345,12 +345,12 @@
 /* Mobile overlay */
 .sidebar-overlay {
   position: fixed;
-  top: 70px; /* Account for header height */
+  top: var(--header-height); /* Use header height variable instead of hardcoded 70px */
   left: 0;
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 89; /* Lower than sidebar (90) and much lower than header (100) */
   backdrop-filter: blur(2px);
   animation: fadeIn 0.3s ease;
 }

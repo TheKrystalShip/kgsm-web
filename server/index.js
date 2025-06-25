@@ -14,9 +14,20 @@ const execPromise = promisify(exec);
 
 const app = express();
 const server = createServer(app);
+
+// CORS configuration for development - allow local network access
+const allowedOrigins = [
+  'http://localhost:3000',
+  /^http:\/\/localhost:\d+$/,              // Allow localhost on any port
+  /^http:\/\/127\.0\.0\.1:\d+$/,           // Allow 127.0.0.1 on any port
+  /^http:\/\/192\.168\.\d+\.\d+:3000$/,    // Allow any 192.168.x.x:3000
+  /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,     // Allow any 10.x.x.x:3000
+  /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:3000$/ // Allow 172.16-31.x.x:3000
+];
+
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.1.128:3000"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
@@ -24,7 +35,27 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors()); // Allow cross-origin requests
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    // Check if origin matches allowed patterns
+    const allowed = allowedOrigins.some(pattern => {
+      if (typeof pattern === 'string') {
+        return pattern === origin;
+      } else {
+        return pattern.test(origin);
+      }
+    });
+
+    if (allowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+})); // Allow cross-origin requests with dynamic origin checking
 app.use(express.json()); // Parse JSON request bodies
 
 /**
