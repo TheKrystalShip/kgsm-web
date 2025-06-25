@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { KgsmBlueprint } from '../../models/kgsm';
 import imageService from '../../services/imageService';
 import ImageWithFallback from '../common/ImageWithFallback';
@@ -13,10 +13,33 @@ interface BlueprintCardProps {
  * Component for displaying a single blueprint as a Steam library-style card
  */
 const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onSelect }) => {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+  // Effect to fetch the image source asynchronously
+  useEffect(() => {
+    if (!blueprint || !blueprint.Name) {
+      return;
+    }
+
+    const fetchImageSrc = async () => {
+      try {
+        const src = await imageService.getGameImageSrc(blueprint.Name, blueprint.AppId);
+        setImageSrc(src);
+      } catch (error) {
+        console.warn(`Failed to fetch image for ${blueprint.Name}:`, error);
+        // Fallback to placeholder
+        setImageSrc(imageService.getPlaceholderImage(blueprint.Name));
+      }
+    };
+
+    fetchImageSrc();
+  }, [blueprint, blueprint?.Name, blueprint?.AppId]);
+
   // Safety check - prevent rendering invalid blueprints
   if (!blueprint || !blueprint.Name) {
     return null;
   }
+
   // Handle install button click
   const handleInstallClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
@@ -29,20 +52,28 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onSelect }) =>
     onSelect(blueprint);
   };
 
-  // Get the image source from the imageService
-  const getImageSrc = () => {
-    return imageService.getGameImageSrc(blueprint.Name, blueprint.AppId);
-  };
-
   return (
     <div className="blueprint-card" onClick={handleCardClick}>
       <div className="blueprint-image-container">
-        <ImageWithFallback
-          src={getImageSrc()}
-          alt={`${blueprint.Name} cover`}
-          placeholderText={blueprint.Name}
-          className="blueprint-image"
-        />
+        {imageSrc ? (
+          <ImageWithFallback
+            src={imageSrc}
+            alt={`${blueprint.Name} cover`}
+            placeholderText={blueprint.Name}
+            className="blueprint-image"
+          />
+        ) : (
+          <div className="blueprint-image placeholder-image" style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-secondary)',
+            minHeight: '200px'
+          }}>
+            <span>{blueprint.Name}</span>
+          </div>
+        )}
 
         {/* Hover overlay with install button */}
         <div className="blueprint-overlay">
