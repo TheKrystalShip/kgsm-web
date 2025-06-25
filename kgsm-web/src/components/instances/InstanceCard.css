@@ -8,12 +8,12 @@
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   border-left: 4px solid var(--bg-tertiary);
   position: relative;
-  backdrop-filter: blur(5px);
+  /* backdrop-filter: blur(5px); */ /* Disabled for performance - causes GPU usage */
   border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .instance-card:hover {
-  transform: translateY(-3px);
+  /* transform: translateY(-3px); */ /* Disabled for performance - causes GPU usage */
   box-shadow: var(--shadow-lg);
 }
 
@@ -93,7 +93,7 @@
   height: 22px;
   border-radius: 50%;
   opacity: 0.3;
-  animation: pulse 2s infinite;
+  /* animation: pulse 2s infinite; */ /* Disabled for performance - causes continuous GPU usage */
   z-index: -1;
 }
 
@@ -121,6 +121,8 @@
   filter: blur(2px);
 }
 
+/* Pulse animation disabled for performance - was causing continuous GPU usage */
+/*
 @keyframes pulse {
   0% {
     transform: scale(1);
@@ -135,6 +137,7 @@
     opacity: 0.3;
   }
 }
+*/
 
 .instance-name {
   margin: 0;
@@ -156,7 +159,7 @@
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(2px);
+  /* backdrop-filter: blur(2px); */ /* Disabled for performance - causes GPU usage */
   border: 1px solid rgba(255, 255, 255, 0.05);
   position: relative;
   z-index: 2;

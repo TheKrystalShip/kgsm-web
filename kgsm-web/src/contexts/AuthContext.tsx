@@ -42,8 +42,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check if authentication should be bypassed completely
   const bypassAuth = process.env.REACT_APP_BYPASS_AUTH === 'true' || process.env.NODE_ENV === 'development';
 
-  // Only use Auth0 if not bypassed
-  let auth0Data = {
+  // Always call useAuth0 hook, but handle the case where it might not be available
+  let auth0Result = {
     user: null as any,
     isAuthenticated: false,
     isLoading: false,
@@ -53,15 +53,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   try {
+    // Always call the hook to satisfy React's rules of hooks
+    const auth0Hook = useAuth0();
     if (!bypassAuth) {
-      const auth0Result = useAuth0();
-      auth0Data = {
-        user: auth0Result.user || null,
-        isAuthenticated: auth0Result.isAuthenticated,
-        isLoading: auth0Result.isLoading,
-        error: auth0Result.error || null,
-        loginWithRedirect: auth0Result.loginWithRedirect,
-        logout: auth0Result.logout
+      auth0Result = {
+        user: auth0Hook.user || null,
+        isAuthenticated: auth0Hook.isAuthenticated,
+        isLoading: auth0Hook.isLoading,
+        error: auth0Hook.error || null,
+        loginWithRedirect: auth0Hook.loginWithRedirect,
+        logout: auth0Hook.logout
       };
     }
   } catch (error) {
@@ -76,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: auth0Error,
     loginWithRedirect,
     logout: auth0Logout,
-  } = auth0Data;
+  } = auth0Result;
 
   useEffect(() => {
     // If authentication is bypassed, create a mock user

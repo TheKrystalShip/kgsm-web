@@ -14,7 +14,7 @@ interface CPUCoresChartProps {
  * Component for rendering individual CPU core usage charts
  * Optimized for frequent updates with memoization and data limiting
  */
-const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 8 }) => {
+const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 4 }) => {
   const cpuHistory = useAppSelector(selectCPUCoresHistory);
   const loading = useAppSelector(selectMetricsLoading);
   const error = useAppSelector(selectMetricsError);
@@ -111,7 +111,7 @@ const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 8 }
     <div className="cpu-cores-chart-container">
       <div className="cpu-cores-chart-layout">
         <div className="cpu-cores-chart-main">
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={280} debounce={100}>
             <LineChart
               data={processedData}
               margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
@@ -137,6 +137,8 @@ const CPUCoresChart: React.FC<CPUCoresChartProps> = ({ timeframe, maxCores = 8 }
                   new Date(timestamp).toLocaleTimeString()
                 }
                 formatter={formatTooltip}
+                animationDuration={0}
+                isAnimationActive={false}
                 contentStyle={{
                   backgroundColor: 'var(--bg-secondary)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',

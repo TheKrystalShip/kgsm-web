@@ -62,6 +62,7 @@ body {
 }
 
 /* Subtle animation for the cutting mat background */
+/* Disabled for performance - was causing high GPU usage on mobile
 @media (prefers-reduced-motion: no-preference) {
   body {
     animation: cutting-mat-breathe 10s ease-in-out infinite;
@@ -76,6 +77,7 @@ body {
     background-size: 50px 50px, 205px 205px;
   }
 }
+*/
 
 /* Responsive settings */
 html {

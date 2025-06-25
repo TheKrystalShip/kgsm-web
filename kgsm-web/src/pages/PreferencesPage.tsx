@@ -147,7 +147,52 @@ const PreferencesPage: React.FC = () => {
           />
         </PreferenceSection>
 
-                {/* Auto-Update Preferences */}
+        {/* Performance Preferences */}
+        <PreferenceSection
+          title="Performance"
+          description="Optimize performance and reduce resource usage (especially helpful on mobile devices)"
+        >
+          <TogglePreference
+            label="Enable Chart Animations"
+            description="Show smooth animations in charts and graphs (may increase GPU usage)"
+            value={preferences.enableChartAnimations}
+            onChange={(value) => updatePreference('enableChartAnimations', value)}
+          />
+          <TogglePreference
+            label="Enable Background Effects"
+            description="Show animated background patterns (may increase GPU usage)"
+            value={preferences.enableBackgroundEffects}
+            onChange={(value) => updatePreference('enableBackgroundEffects', value)}
+          />
+          <TogglePreference
+            label="Enable Backdrop Effects"
+            description="Show blur and glass effects behind elements (high GPU usage)"
+            value={preferences.enableBackdropEffects}
+            onChange={(value) => updatePreference('enableBackdropEffects', value)}
+          />
+          <div className="preference-item">
+            <div className="preference-info">
+              <label className="preference-label">CPU Cores Displayed</label>
+              <p className="preference-description">
+                Limit the number of CPU cores shown in charts (lower = better performance)
+              </p>
+            </div>
+            <div className="preference-control">
+              <select
+                value={preferences.maxCpuCores}
+                onChange={(e) => updatePreference('maxCpuCores', parseInt(e.target.value))}
+                className="preference-select"
+              >
+                <option value={2}>2 cores</option>
+                <option value={4}>4 cores</option>
+                <option value={8}>8 cores</option>
+                <option value={16}>16 cores</option>
+              </select>
+            </div>
+          </div>
+        </PreferenceSection>
+
+        {/* Auto-Update Preferences */}
         <PreferenceSection
           title="Auto-Update"
           description="Control automatic updates for different data types"

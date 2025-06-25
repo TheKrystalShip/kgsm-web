@@ -24,7 +24,7 @@ export const useLogStream = ({
   instanceName,
   enabled,
   fallbackToPolling = true,
-  pollingInterval = 3000
+  pollingInterval = 5000
 }: UseLogStreamOptions): LogStreamState & {
   reconnect: () => void;
   clearLogs: () => void;

@@ -125,12 +125,13 @@ const BaseChart: React.FC<BaseChartProps> = ({
         }
         formatter={formatTooltipValue}
         animationDuration={0}
+        isAnimationActive={false}
       />
     ),
   };
 
   return (
-    <ResponsiveContainer width="100%" height={240} debounce={1}>
+    <ResponsiveContainer width="100%" height={240} debounce={100}>
       {!stacked ? (
         <LineChart
           data={processedData}
@@ -148,7 +149,14 @@ const BaseChart: React.FC<BaseChartProps> = ({
             tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
           />
           {sharedAxisConfig.YAxis}
-          {sharedAxisConfig.Tooltip}
+          <Tooltip
+            labelFormatter={(timestamp: number) =>
+              new Date(timestamp).toLocaleTimeString()
+            }
+            formatter={formatTooltipValue}
+            animationDuration={0}
+            isAnimationActive={false}
+          />
 
           {totalValue && (
             <ReferenceLine
@@ -233,7 +241,14 @@ const BaseChart: React.FC<BaseChartProps> = ({
             tick={{ fontSize: 12, fill: "var(--text-secondary)" }}
           />
           {sharedAxisConfig.YAxis}
-          {sharedAxisConfig.Tooltip}
+          <Tooltip
+            labelFormatter={(timestamp: number) =>
+              new Date(timestamp).toLocaleTimeString()
+            }
+            formatter={formatTooltipValue}
+            animationDuration={0}
+            isAnimationActive={false}
+          />
 
           {multipleLines &&
             lineDataKey &&

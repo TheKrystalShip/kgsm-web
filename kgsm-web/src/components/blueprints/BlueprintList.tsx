@@ -4,6 +4,7 @@ import { useBlueprintsStore } from '../../hooks/useBlueprintsStore';
 import BlueprintCard from './BlueprintCard';
 import BlueprintInstallModal from './BlueprintInstallModal';
 import { KgsmBlueprint } from '../../models/kgsm';
+import Dropdown from '../common/Dropdown';
 import './BlueprintList.css';
 
 /**
@@ -147,14 +148,15 @@ const BlueprintList: React.FC = () => {
           </div>
 
           <div className="sort-container">
-            <select
+            <Dropdown
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'name' | 'recent')}
-              className="sort-select"
-            >
-              <option value="name">Sort by Name</option>
-              <option value="recent">Recently Added</option>
-            </select>
+              onChange={(value) => setSortBy(value as 'name' | 'recent')}
+              options={[
+                { value: 'name', label: 'Sort by Name' },
+                { value: 'recent', label: 'Recently Added' }
+              ]}
+              placeholder="Sort by..."
+            />
           </div>
         </div>
       </div>

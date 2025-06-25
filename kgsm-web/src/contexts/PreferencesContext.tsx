@@ -27,6 +27,14 @@ export interface PreferencesState {
   // Sound preferences
   enableSounds: boolean;
   enableNotificationSounds: boolean;
+
+  // Performance preferences
+  maxCpuCores: number;
+  enableChartAnimations: boolean;
+  enableBackgroundEffects: boolean;
+  enableBackdropEffects: boolean;
+  logUpdateInterval: number;
+  metricsUpdateInterval: number;
 }
 
 interface PreferencesContextType {
@@ -69,6 +77,14 @@ const defaultPreferences: PreferencesState = {
   // Sound preferences
   enableSounds: false,
   enableNotificationSounds: false,
+
+  // Performance preferences
+  maxCpuCores: 4,
+  enableChartAnimations: false,
+  enableBackgroundEffects: false,
+  enableBackdropEffects: false,
+  logUpdateInterval: 5000,
+  metricsUpdateInterval: 60000,
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -125,6 +141,7 @@ export const PreferencesProvider: React.FC<PreferencesProviderProps> = ({ childr
     root.style.setProperty('--enable-gradients', preferences.enableGradients ? '1' : '0');
     root.style.setProperty('--enable-shadows', preferences.enableShadows ? '1' : '0');
     root.style.setProperty('--enable-transparency', preferences.enableTransparency ? '1' : '0');
+    root.style.setProperty('--enable-backdrop-effects', preferences.enableBackdropEffects ? '1' : '0');
 
     // Apply focus indicators
     if (!preferences.focusIndicators) {

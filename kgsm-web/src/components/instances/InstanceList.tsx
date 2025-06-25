@@ -3,6 +3,7 @@ import { useInstancesStore } from '../../hooks/useInstancesStore';
 import InstanceCard from './InstanceCard';
 import InstanceConsoleModal from './InstanceConsoleModal';
 import { KgsmInstance } from '../../models/kgsm';
+import Dropdown from '../common/Dropdown';
 import './InstanceList.css';
 
 /**
@@ -174,14 +175,15 @@ const InstanceList: React.FC = () => {
           </div>
 
           <div className="sort-container">
-            <select
+            <Dropdown
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'name' | 'status')}
-              className="sort-select"
-            >
-              <option value="name">Sort by Name</option>
-              <option value="status">Sort by Status</option>
-            </select>
+              onChange={(value) => setSortBy(value as 'name' | 'status')}
+              options={[
+                { value: 'name', label: 'Sort by Name' },
+                { value: 'status', label: 'Sort by Status' }
+              ]}
+              placeholder="Sort by..."
+            />
           </div>
         </div>
       </div>

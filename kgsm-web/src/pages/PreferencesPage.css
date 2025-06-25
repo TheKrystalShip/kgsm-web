@@ -104,9 +104,9 @@
 }
 
 .preference-control {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
 }
 
 /* Toggle Switch */
@@ -335,7 +335,7 @@
 
 .btn-danger:hover:not(:disabled) {
   background: #dc2626;
-  transform: translateY(-1px);
+  /* transform: translateY(-1px); */ /* Disabled for performance - causes GPU usage */
 }
 
 .btn:focus {
@@ -462,4 +462,27 @@
 
 .preference-item:hover {
   transform: calc(var(--enable-hover-effects, 1) * translateY(-1px));
+}
+
+.preference-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  min-width: 120px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preference-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.preference-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
