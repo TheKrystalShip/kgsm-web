@@ -8,7 +8,8 @@ import axios from 'axios';
 import { ENDPOINTS } from '../api/config';
 import {
   KgsmInstancesResponse,
-  KgsmBlueprintsResponse
+  KgsmBlueprintsResponse,
+  KgsmInstanceStatus
 } from '../models/kgsm';
 
 /**
@@ -30,6 +31,20 @@ class KgsmService {
       return response.data;
     } catch (error) {
       console.error('Failed to get instances:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get instance status
+   */
+  async getInstanceStatus(instanceName: string, fast: boolean = false): Promise<KgsmInstanceStatus> {
+    try {
+      const params = fast ? { fast: 'true' } : {};
+      const response = await axios.get(`${this.apiEndpoint}/instances/${instanceName}/status`, { params });
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to get instance status for ${instanceName}:`, error);
       throw error;
     }
   }

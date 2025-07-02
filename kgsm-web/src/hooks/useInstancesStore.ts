@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchInstances,
+  fetchInstanceStatus,
+  fetchInstanceStatusFast,
   startInstance,
   stopInstance,
   restartInstance,
@@ -22,6 +24,7 @@ export const useInstancesStore = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const {
     instances,
+    instanceStatuses,
     loading,
     silentRefresh,
     error,
@@ -31,7 +34,8 @@ export const useInstancesStore = () => {
     restarting,
     updating,
     uninstalling,
-    actionError
+    actionError,
+    statusLoading
   } = useAppSelector((state) => state.instances);
 
   // Check if instances are cached (have been loaded before)
@@ -142,6 +146,20 @@ export const useInstancesStore = () => {
     dispatch(clearActionError());
   };
 
+  // Fetch instance status
+  const handleFetchInstanceStatus = async (instanceName: string, fast: boolean = false) => {
+    try {
+      if (fast) {
+        await dispatch(fetchInstanceStatusFast(instanceName)).unwrap();
+      } else {
+        await dispatch(fetchInstanceStatus(instanceName)).unwrap();
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
   // Format last updated timestamp
   const getLastUpdatedText = (): string | null => {
     if (!lastUpdated) return null;
@@ -180,6 +198,10 @@ export const useInstancesStore = () => {
     updating,
     uninstalling,
 
+    // Additional states
+    instanceStatuses,
+    statusLoading,
+
     // Actions
     refreshInstances,
     silentRefreshInstances,
@@ -190,5 +212,6 @@ export const useInstancesStore = () => {
     uninstallInstance: handleUninstallInstance,
     clearError: handleClearError,
     clearActionError: handleClearActionError,
+    fetchInstanceStatus: handleFetchInstanceStatus,
   };
 };

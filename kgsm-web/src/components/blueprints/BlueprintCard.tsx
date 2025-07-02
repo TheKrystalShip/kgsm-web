@@ -23,7 +23,7 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onSelect }) =>
 
     const fetchImageSrc = async () => {
       try {
-        const src = await imageService.getGameImageSrc(blueprint.Name, blueprint.AppId);
+        const src = await imageService.getGameImageSrc(blueprint.Name, blueprint.SteamAppId);
         setImageSrc(src);
       } catch (error) {
         console.warn(`Failed to fetch image for ${blueprint.Name}:`, error);
@@ -33,7 +33,7 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onSelect }) =>
     };
 
     fetchImageSrc();
-  }, [blueprint, blueprint?.Name, blueprint?.AppId]);
+  }, [blueprint, blueprint?.Name, blueprint?.SteamAppId]);
 
   // Safety check - prevent rendering invalid blueprints
   if (!blueprint || !blueprint.Name) {

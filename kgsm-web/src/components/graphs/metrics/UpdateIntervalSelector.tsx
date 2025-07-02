@@ -5,6 +5,9 @@ import Dropdown from '../../common/Dropdown';
 import './UpdateIntervalSelector.css';
 
 const intervals = [
+  { value: 1000, label: '1 second' },
+  { value: 5000, label: '5 seconds' },
+  { value: 10000, label: '10 seconds' },
   { value: 30000, label: '30 seconds' },
   { value: 60000, label: '1 minute' },
   { value: 300000, label: '5 minutes' },

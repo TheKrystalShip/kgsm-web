@@ -163,7 +163,7 @@ class SystemMetricsService {
         }
       }
 
-      const metrics = this.getFilteredMetrics('1m'); // Default to 1 minute timeframe
+      const metrics = this.getFilteredMetrics('1h'); // Default to 1 hour timeframe
       metrics.systemInfo = this.systemInfo;
 
       return metrics;
@@ -266,7 +266,7 @@ class SystemMetricsService {
       case '6h': return now - 6 * 60 * 60 * 1000;
       case '12h': return now - 12 * 60 * 60 * 1000;
       case '24h': return now - 24 * 60 * 60 * 1000;
-      default: return now - 60 * 1000; // Default to 1m
+      default: return now - 60 * 60 * 1000; // Default to 1h
     }
   }
 

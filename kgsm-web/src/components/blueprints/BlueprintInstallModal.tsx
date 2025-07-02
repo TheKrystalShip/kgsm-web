@@ -84,25 +84,25 @@ const BlueprintInstallModal: React.FC<BlueprintInstallModalProps> = ({
               <span className="detail-label">Name:</span>
               <span className="detail-value">{blueprint.Name}</span>
             </div>
-            {blueprint.Port && (
+            {blueprint.Ports && (
               <div className="detail-item">
-                <span className="detail-label">Port:</span>
-                <span className="detail-value">{blueprint.Port}</span>
+                <span className="detail-label">Ports:</span>
+                <span className="detail-value">{blueprint.Ports}</span>
               </div>
             )}
-            {blueprint.AppId && blueprint.AppId !== "0" && (
+            {blueprint.SteamAppId && blueprint.SteamAppId !== "0" && (
               <div className="detail-item">
                 <span className="detail-label">Steam App ID:</span>
-                <span className="detail-value">{blueprint.AppId}</span>
+                <span className="detail-value">{blueprint.SteamAppId}</span>
               </div>
             )}
-            {blueprint.LaunchBin && (
+            {blueprint.ExecutableFile && (
               <div className="detail-item">
-                <span className="detail-label">Launch Binary:</span>
-                <span className="detail-value">{blueprint.LaunchBin}</span>
+                <span className="detail-label">Executable:</span>
+                <span className="detail-value">{blueprint.ExecutableFile}</span>
               </div>
             )}
-            {blueprint.SteamAccountRequired === "1" && (
+            {blueprint.IsSteamAccountRequired === "1" && (
               <div className="detail-item warning">
                 <span className="detail-value">
                   ⚠️ Steam account required for installation

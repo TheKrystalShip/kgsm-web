@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage, PreferencesPage } from '../../pages';
+import { HomePage, InstancesPage, BlueprintsPage, SystemPage, DocsPage, PreferencesPage, InstanceDetailsPage } from '../../pages';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import './PageTransition.css';
 
@@ -77,6 +77,11 @@ const PageTransition: React.FC = () => {
   }, []);
 
   const getPageComponent = (pathname: string) => {
+    // Check for instance details route pattern
+    if (pathname.startsWith('/instances/')) {
+      return <InstanceDetailsPage />;
+    }
+
     switch (pathname) {
       case '/':
         return <HomePage />;

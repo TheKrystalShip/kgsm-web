@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { KgsmInstancesResponse } from '../models/kgsm';
+import { KgsmInstancesResponse, KgsmInstanceStatus } from '../models/kgsm';
 import kgsmService from '../services/kgsmService';
 
 // Async thunk for fetching instances
@@ -8,6 +8,24 @@ export const fetchInstances = createAsyncThunk(
   async (options: { silent?: boolean } = {}) => {
     const data = await kgsmService.getInstances();
     return { data, timestamp: Date.now() };
+  }
+);
+
+// Async thunk for fetching instance status (normal)
+export const fetchInstanceStatus = createAsyncThunk(
+  'instances/fetchInstanceStatus',
+  async (instanceName: string) => {
+    const data = await kgsmService.getInstanceStatus(instanceName, false);
+    return { instanceName, data, timestamp: Date.now() };
+  }
+);
+
+// Async thunk for fetching instance status (fast)
+export const fetchInstanceStatusFast = createAsyncThunk(
+  'instances/fetchInstanceStatusFast',
+  async (instanceName: string) => {
+    const data = await kgsmService.getInstanceStatus(instanceName, true);
+    return { instanceName, data, timestamp: Date.now() };
   }
 );
 
@@ -58,6 +76,7 @@ export const uninstallInstance = createAsyncThunk(
 
 interface InstancesState {
   instances: KgsmInstancesResponse;
+  instanceStatuses: Record<string, KgsmInstanceStatus>; // Separate state for status data
   loading: boolean;
   silentRefresh: boolean; // For background updates
   error: string | null;
@@ -69,10 +88,13 @@ interface InstancesState {
   updating: string | null; // Instance name being updated
   uninstalling: string | null; // Instance name being uninstalled
   actionError: string | null;
+  // Status loading state
+  statusLoading: Record<string, boolean>; // Track loading state per instance
 }
 
 const initialState: InstancesState = {
   instances: {},
+  instanceStatuses: {},
   loading: false,
   silentRefresh: false,
   error: null,
@@ -83,6 +105,7 @@ const initialState: InstancesState = {
   updating: null,
   uninstalling: null,
   actionError: null,
+  statusLoading: {},
 };
 
 const instancesSlice = createSlice({
@@ -119,6 +142,34 @@ const instancesSlice = createSlice({
         state.loading = false;
         state.silentRefresh = false;
         state.error = action.error.message || 'Failed to fetch instances';
+      })
+      // Fetch instance status cases
+      .addCase(fetchInstanceStatus.pending, (state, action) => {
+        state.statusLoading[action.meta.arg] = true;
+        state.error = null;
+      })
+      .addCase(fetchInstanceStatus.fulfilled, (state, action) => {
+        state.statusLoading[action.payload.instanceName] = false;
+        state.instanceStatuses[action.payload.instanceName] = action.payload.data;
+        state.error = null;
+      })
+      .addCase(fetchInstanceStatus.rejected, (state, action) => {
+        state.statusLoading[action.meta.arg] = false;
+        state.error = action.error.message || 'Failed to fetch instance status';
+      })
+      // Fetch instance status fast cases
+      .addCase(fetchInstanceStatusFast.pending, (state, action) => {
+        state.statusLoading[action.meta.arg] = true;
+        state.error = null;
+      })
+      .addCase(fetchInstanceStatusFast.fulfilled, (state, action) => {
+        state.statusLoading[action.payload.instanceName] = false;
+        state.instanceStatuses[action.payload.instanceName] = action.payload.data;
+        state.error = null;
+      })
+      .addCase(fetchInstanceStatusFast.rejected, (state, action) => {
+        state.statusLoading[action.meta.arg] = false;
+        state.error = action.error.message || 'Failed to fetch instance status';
       })
       // Start instance cases
       .addCase(startInstance.pending, (state, action) => {

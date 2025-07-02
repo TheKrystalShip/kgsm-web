@@ -1,0 +1,236 @@
+.instance-console {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.console-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.console-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.9rem;
+}
+
+.console-status,
+.console-pid,
+.console-connection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-active {
+  background-color: var(--success-color);
+}
+
+.status-inactive {
+  background-color: var(--error-color);
+}
+
+.connection-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.connection-indicator.connected {
+  background-color: var(--success-color);
+}
+
+.connection-indicator.disconnected {
+  background-color: var(--error-color);
+}
+
+.auto-scroll-toggle {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.auto-scroll-toggle.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.auto-scroll-toggle:not(.active) {
+  background-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.auto-scroll-toggle:hover {
+  opacity: 0.8;
+}
+
+.console-terminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.console-loading,
+.console-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.console-loading .spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.console-error p {
+  margin-bottom: 15px;
+  color: var(--error-color);
+}
+
+.terminal {
+  flex: 1;
+  background-color: var(--terminal-bg, #1e1e1e);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 15px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow-y: auto;
+  position: relative;
+  color: var(--terminal-text, #ffffff);
+}
+
+.terminal pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.new-logs-indicator {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.2s;
+}
+
+.new-logs-indicator:hover {
+  opacity: 0.8;
+}
+
+.terminal-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  background-color: var(--terminal-bg, #1e1e1e);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.prompt {
+  color: var(--terminal-text, #ffffff);
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.terminal-input input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--terminal-text, #ffffff);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.terminal-input input::placeholder {
+  color: var(--text-secondary);
+}
+
+.terminal-input input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-input .btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .console-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .console-info {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .terminal {
+    font-size: 0.8rem;
+    padding: 10px;
+  }
+
+  .terminal-input {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .console-info {
+    font-size: 0.8rem;
+  }
+
+  .terminal {
+    font-size: 0.75rem;
+    padding: 8px;
+  }
+}

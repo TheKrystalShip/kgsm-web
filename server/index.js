@@ -91,10 +91,29 @@ app.get('/api/kgsm/blueprints', async (req, res) => {
 // Get all instances
 app.get('/api/kgsm/instances', async (req, res) => {
   try {
-    const output = await runKgsmCommand('--instances --json --detailed');
+    const output = await runKgsmCommand('--instances --detailed --json');
     res.json(JSON.parse(output));
   } catch (error) {
     res.status(500).json({ error: `Failed to get instances: ${error.message}` });
+  }
+});
+
+// Get instance status
+app.get('/api/kgsm/instances/:name/status', async (req, res) => {
+  try {
+    const name = req.params.name;
+    const fast = req.query.fast === 'true';
+
+    let command = `--instance ${name} --status`;
+    if (fast) {
+      command += ' --fast';
+    }
+    command += ' --json';
+
+    const output = await runKgsmCommand(command);
+    res.json(JSON.parse(output));
+  } catch (error) {
+    res.status(500).json({ error: `Failed to get instance status: ${error.message}` });
   }
 });
 

@@ -1,31 +1,35 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Modal from '../layout/Modal';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { KgsmInstance } from '../../models/kgsm';
-import kgsmService from '../../services/kgsmService';
+import { useInstancesStore } from '../../hooks/useInstancesStore';
 import { useLogStream } from '../../hooks/useLogStream';
-import './InstanceConsoleModal.css';
+import kgsmService from '../../services/kgsmService';
+import './InstanceConsole.css';
 
-interface InstanceConsoleModalProps {
+interface InstanceConsoleProps {
   instance: KgsmInstance;
-  isOpen: boolean;
-  onClose: () => void;
 }
 
 /**
- * Modal for displaying and interacting with server instance console
+ * Console component for viewing server logs and sending commands
  */
-const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
-  instance,
-  isOpen,
-  onClose
-}) => {
+const InstanceConsole: React.FC<InstanceConsoleProps> = ({ instance }) => {
   const [command, setCommand] = useState<string>('');
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [newLogsIndicator, setNewLogsIndicator] = useState<boolean>(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
-  // Use the new WebSocket log streaming hook
+  // Get instance status from Redux store
+  const { instanceStatuses, fetchInstanceStatus } = useInstancesStore();
+  const status = instanceStatuses[instance.name];
+  const isRunning = status?.status === true;
+
+  // Fetch status when component mounts (fast for initial load)
+  useEffect(() => {
+    fetchInstanceStatus(instance.name, true);
+  }, [instance.name, fetchInstanceStatus]);
+
+  // Use the WebSocket log streaming hook
   const {
     logs,
     isConnected,
@@ -34,23 +38,18 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     connectionType,
     reconnect,
   } = useLogStream({
-    instanceName: instance.Name,
-    enabled: isOpen,
+    instanceName: instance.name,
+    enabled: true,
     fallbackToPolling: true,
     pollingInterval: 3000
   });
-
-  // Enhanced onClose handler
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
 
   // Handle sending command to the server
   const handleSendCommand = async () => {
     if (!command.trim()) return;
 
     try {
-      await kgsmService.sendCommand(instance.Name, command);
+      await kgsmService.sendCommand(instance.name, command);
 
       // Clear the command input
       setCommand('');
@@ -79,7 +78,7 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
     if (autoScroll && terminalRef.current && consoleEndRef.current) {
       scrollToBottom(false);
     }
-  }, [logs, autoScroll, scrollToBottom]); // Removed isLoading from dependencies
+  }, [logs, autoScroll, scrollToBottom]);
 
   // Handle Enter key press in command input
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -118,29 +117,14 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
   }, [logs, autoScroll]);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title={`${instance.Name} Console`}
-      modalType="console"
-    >
-      <div className="instance-console-container">
+    <div className="instance-console">
+      <div className="console-header">
+        <h3>Console</h3>
         <div className="console-info">
-          <div className="console-status">
-            <span
-              className={`status-indicator ${
-                instance.Status === 'active' ? 'status-active' : 'status-inactive'
-              }`}
-            ></span>
-            <span>{instance.Status === 'active' ? 'Running' : 'Stopped'}</span>
-          </div>
-          {instance.PID && instance.PID !== 'None' && (
-            <div className="console-pid">PID: {instance.PID}</div>
-          )}
           <div className="console-connection">
             <span
-              className={`connection-indicator ${
-                isConnected ? 'connected' : 'disconnected'
+              className={`status-indicator ${
+                isConnected ? 'status-active' : 'status-inactive'
               }`}
             ></span>
             <span>{connectionType === 'websocket' ? 'WebSocket' : connectionType === 'polling' ? 'Polling' : 'Disconnected'}</span>
@@ -153,62 +137,62 @@ const InstanceConsoleModal: React.FC<InstanceConsoleModalProps> = ({
             Auto-scroll {autoScroll ? 'ON' : 'OFF'}
           </div>
         </div>
+      </div>
 
-        <div className="console-terminal">
-          {isLoading ? (
-            <div className="console-loading">
-              <div className="spinner"></div>
-              <p>Loading logs...</p>
+      <div className="console-terminal">
+        {isLoading ? (
+          <div className="console-loading">
+            <div className="spinner"></div>
+            <p>Loading logs...</p>
+          </div>
+        ) : error ? (
+          <div className="console-error">
+            <p>{error}</p>
+            <button onClick={reconnect} className="btn btn-primary btn-sm">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="terminal" ref={terminalRef} onScroll={handleTerminalScroll}>
+              {newLogsIndicator && !autoScroll && (
+                <button
+                  className="new-logs-indicator"
+                  onClick={() => {
+                    setAutoScroll(true);
+                    setNewLogsIndicator(false);
+                    scrollToBottom(true); // Scroll with smooth animation
+                  }}
+                >
+                  New logs available ↓
+                </button>
+              )}
+              <pre>{logs}</pre>
+              <div ref={consoleEndRef}></div>
             </div>
-          ) : error ? (
-            <div className="console-error">
-              <p>{error}</p>
-              <button onClick={reconnect} className="btn btn-primary btn-sm">
-                Retry
+            <div className="terminal-input">
+              <span className="prompt">$</span>
+              <input
+                type="text"
+                value={command}
+                onChange={(e) => setCommand(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isRunning ? "Enter command..." : "Server not running"}
+                disabled={!isRunning}
+              />
+              <button
+                onClick={handleSendCommand}
+                disabled={!command.trim() || !isRunning}
+                className="btn btn-primary btn-sm"
+              >
+                Send
               </button>
             </div>
-          ) : (
-            <>
-              <div className="terminal" ref={terminalRef} onScroll={handleTerminalScroll}>
-                {newLogsIndicator && !autoScroll && (
-                  <button
-                    className="new-logs-indicator"
-                    onClick={() => {
-                      setAutoScroll(true);
-                      setNewLogsIndicator(false);
-                      scrollToBottom(true); // Scroll with smooth animation
-                    }}
-                  >
-                    New logs available ↓
-                  </button>
-                )}
-                <pre>{logs}</pre>
-                <div ref={consoleEndRef}></div>
-              </div>
-              <div className="terminal-input">
-                <span className="prompt">$</span>
-                <input
-                  type="text"
-                  value={command}
-                  onChange={(e) => setCommand(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={instance.Status === 'active' ? "Enter command..." : "Server not running"}
-                  disabled={instance.Status !== 'active'}
-                />
-                <button
-                  onClick={handleSendCommand}
-                  disabled={!command.trim() || instance.Status !== 'active'}
-                  className="btn btn-primary btn-sm"
-                >
-                  Send
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
-    </Modal>
+    </div>
   );
 };
 
-export default InstanceConsoleModal;
+export default InstanceConsole;

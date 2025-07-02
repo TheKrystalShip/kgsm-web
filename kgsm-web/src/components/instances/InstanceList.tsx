@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useInstancesStore } from '../../hooks/useInstancesStore';
 import InstanceCard from './InstanceCard';
-import InstanceConsoleModal from './InstanceConsoleModal';
-import { KgsmInstance } from '../../models/kgsm';
 import Dropdown from '../common/Dropdown';
 import './InstanceList.css';
 
@@ -18,10 +16,10 @@ const InstanceList: React.FC = () => {
     isCached,
     lastUpdatedText,
     refreshInstances,
-    silentRefreshInstances
+    silentRefreshInstances,
+    instanceStatuses
   } = useInstancesStore();
 
-  const [selectedInstance, setSelectedInstance] = useState<KgsmInstance | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'status'>('name');
 
@@ -37,45 +35,39 @@ const InstanceList: React.FC = () => {
     }
   }, [isCached, silentRefreshInstances]);
 
-  // Opens the console modal for an instance
-  const handleOpenConsole = (instance: KgsmInstance) => {
-    setSelectedInstance(instance);
-  };
-
-  // Closes the console modal
-  const handleCloseConsole = () => {
-    setSelectedInstance(null);
-  };
-
-  // Get array of instances from the object and apply filtering/sorting
+  // Process and filter instances
   const instanceArray = useMemo(() => {
-    const array = Object.values(instances) as KgsmInstance[];
+    const array = Object.values(instances);
 
     // Filter out any empty/invalid instances
     const validInstances = array.filter(instance =>
-      instance && instance.Name && instance.Name.trim() !== ''
+      instance && instance.name && instance.name.trim() !== ''
     );
 
     // Filter by search term
     const filtered = validInstances.filter(instance =>
-      instance.Name.toLowerCase().includes(searchTerm.toLowerCase())
+      instance.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Sort instances
     return filtered.sort((a, b) => {
       if (sortBy === 'name') {
-        return a.Name.localeCompare(b.Name);
+        return a.name.localeCompare(b.name);
       }
       if (sortBy === 'status') {
+        // Get status from Redux store for both instances
+        const aStatus = instanceStatuses[a.name]?.status === true;
+        const bStatus = instanceStatuses[b.name]?.status === true;
+
         // Active instances first, then by name
-        if (a.Status !== b.Status) {
-          return a.Status === 'active' ? -1 : 1;
+        if (aStatus !== bStatus) {
+          return aStatus ? -1 : 1;
         }
-        return a.Name.localeCompare(b.Name);
+        return a.name.localeCompare(b.name);
       }
-      return a.Name.localeCompare(b.Name);
+      return a.name.localeCompare(b.name);
     });
-  }, [instances, searchTerm, sortBy]);
+  }, [instances, instanceStatuses, searchTerm, sortBy]);
 
   // If loading, show loading indicator
   if (loading) {
@@ -192,21 +184,11 @@ const InstanceList: React.FC = () => {
       <div className="instance-grid">
         {instanceArray.map((instance) => (
           <InstanceCard
-            key={instance.Name}
+            key={instance.name}
             instance={instance}
-            onOpenConsole={handleOpenConsole}
           />
         ))}
       </div>
-
-      {/* Instance console modal */}
-      {selectedInstance && (
-        <InstanceConsoleModal
-          instance={selectedInstance}
-          isOpen={!!selectedInstance}
-          onClose={handleCloseConsole}
-        />
-      )}
     </div>
   );
 };

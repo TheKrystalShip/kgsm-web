@@ -84,7 +84,7 @@ const defaultPreferences: PreferencesState = {
   enableBackgroundEffects: false,
   enableBackdropEffects: false,
   logUpdateInterval: 5000,
-  metricsUpdateInterval: 60000,
+  metricsUpdateInterval: 5000,
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);

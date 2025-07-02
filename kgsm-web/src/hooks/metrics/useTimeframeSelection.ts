@@ -4,7 +4,7 @@ import { TimeFrame } from '../../models/system';
 /**
  * Custom hook for managing timeframe selection across all metric charts
  */
-export const useTimeframeSelection = (defaultTimeframe: TimeFrame = '1m') => {
+export const useTimeframeSelection = (defaultTimeframe: TimeFrame = '1h') => {
   const [timeframe, setTimeframe] = useState<TimeFrame>(defaultTimeframe);
 
   // Available timeframe options

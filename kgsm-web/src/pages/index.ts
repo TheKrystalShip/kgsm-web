@@ -10,3 +10,4 @@ export { default as BlueprintsPage } from './BlueprintsPage';
 export { default as SystemPage } from './SystemPage';
 export { default as DocsPage } from './DocsPage';
 export { default as PreferencesPage } from './PreferencesPage';
+export { default as InstanceDetailsPage } from './InstanceDetailsPage';

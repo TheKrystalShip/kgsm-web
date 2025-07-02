@@ -34,8 +34,8 @@ export const useDataPrefetch = () => {
             return 'instances';
           }),
 
-          // Fetch metrics with default 1m timeframe
-          dispatch(fetchMetrics('1m')).unwrap().then(() => {
+          // Fetch metrics with default 1h timeframe
+          dispatch(fetchMetrics('1h')).unwrap().then(() => {
             console.log('✅ Metrics prefetched successfully');
             return 'metrics';
           }),

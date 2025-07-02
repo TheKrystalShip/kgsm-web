@@ -87,10 +87,10 @@
 .status-indicator::after {
   content: '';
   position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 22px;
-  height: 22px;
+  top: -6.5px;
+  left: -6.5px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   opacity: 0.3;
   /* animation: pulse 2s infinite; */ /* Disabled for performance - causes continuous GPU usage */
@@ -152,7 +152,7 @@
 .instance-status {
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 0.25rem 1rem;
+  padding: 1rem;
   border-radius: 12px;
   color: var(--text-primary);
   background-color: rgba(0, 0, 0, 0.2);

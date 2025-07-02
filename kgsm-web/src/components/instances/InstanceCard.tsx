@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { KgsmInstance } from '../../models/kgsm';
 import { useInstancesStore } from '../../hooks/useInstancesStore';
 import './InstanceCard.css';
@@ -22,70 +23,63 @@ const RestartIcon = () => (
   </svg>
 );
 
-const TerminalIcon = () => (
-  <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
-    <path fill="currentColor" d="M257.981 272.971L63.638 467.314c-9.373 9.373-24.569 9.373-33.941 0L7.029 444.647c-9.357-9.357-9.375-24.522-.04-33.901L161.011 256 6.99 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L257.981 239.03c9.373 9.372 9.373 24.568 0 33.941zM640 456v-32c0-13.255-10.745-24-24-24H312c-13.255 0-24 10.745-24 24v32c0 13.255 10.745 24 24 24h304c13.255 0 24-10.745 24-24z" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-    <path fill="currentColor" d="M268 416h24a12 12 0 0 0 12-12V188a12 12 0 0 0-12-12h-24a12 12 0 0 0-12 12v216a12 12 0 0 0 12 12zM432 80h-82.41l-34-56.7A48 48 0 0 0 274.41 0H173.59a48 48 0 0 0-41.16 23.3L98.41 80H16A16 16 0 0 0 0 96v16a16 16 0 0 0 16 16h16v336a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128h16a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16zM171.84 50.91A6 6 0 0 1 177 48h94a6 6 0 0 1 5.15 2.91L293.61 80H154.39zM368 464H80V128h288zm-212-48h24a12 12 0 0 0 12-12V188a12 12 0 0 0-12-12h-24a12 12 0 0 0-12 12v216a12 12 0 0 0 12 12z" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 352 512">
-    <path fill="currentColor" d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z" />
-  </svg>
-);
-
-const UpdateIcon = () => (
+const ViewDetailsIcon = () => (
   <svg className="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <path fill="currentColor" d="M256 8C119.034 8 8 119.033 8 256s111.034 248 248 248 248-111.034 248-248S392.967 8 256 8zm0 448c-110.532 0-200-89.451-200-200 0-110.531 89.451-200 200-200 110.532 0 200 89.451 200 200 0 110.532-89.451 200-200 200zm-32-316v116h-67c-10.7 0-16 12.9-8.5 20.5l99 99c4.7 4.7 12.3 4.7 17 0l99-99c7.6-7.6 2.2-20.5-8.5-20.5h-67V140c0-6.6-5.4-12-12-12h-40c-6.6 0-12 5.4-12 12z"/>
+    <path fill="currentColor" d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/>
   </svg>
 );
 
 interface InstanceCardProps {
   instance: KgsmInstance;
-  onOpenConsole: (instance: KgsmInstance) => void;
 }
 
 /**
  * Component for displaying a single server instance as a card
  */
-const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) => {
+const InstanceCard: React.FC<InstanceCardProps> = ({ instance }) => {
+  const navigate = useNavigate();
   const {
     startInstance,
     stopInstance,
     restartInstance,
-    updateInstance,
-    uninstallInstance,
+    fetchInstanceStatus,
+    instanceStatuses,
+    statusLoading,
     starting,
     stopping,
-    restarting,
-    updating,
-    uninstalling
+    restarting
   } = useInstancesStore();
-  const [showUninstallConfirm, setShowUninstallConfirm] = useState<boolean>(false);
+
+  // Get status for this specific instance
+  const status = instanceStatuses[instance.name];
+  const isStatusLoading = statusLoading[instance.name] || false;
+
+  // Fetch instance status on mount and set up refresh interval
+  useEffect(() => {
+    // Initial fetch with fast flag for quick loading
+    fetchInstanceStatus(instance.name, true);
+
+    // Refresh status every 10 seconds with normal flag for complete data
+    const interval = setInterval(() => {
+      fetchInstanceStatus(instance.name, false);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [instance.name, fetchInstanceStatus]);
 
   // Check if this specific instance is being processed
   const isProcessing = (action: string) => {
     switch (action) {
-      case 'start': return starting === instance.Name;
-      case 'stop': return stopping === instance.Name;
-      case 'restart': return restarting === instance.Name;
-      case 'update': return updating === instance.Name;
-      case 'uninstall': return uninstalling === instance.Name;
+      case 'start': return starting === instance.name;
+      case 'stop': return stopping === instance.name;
+      case 'restart': return restarting === instance.name;
       default: return false;
     }
   };
 
-  const isAnyProcessing = starting === instance.Name ||
-                         stopping === instance.Name ||
-                         restarting === instance.Name ||
-                         updating === instance.Name ||
-                         uninstalling === instance.Name;
+  const isAnyProcessing = starting === instance.name ||
+                         stopping === instance.name ||
+                         restarting === instance.name;
 
   // Format the installation date
   const formatDate = (dateString: string) => {
@@ -99,36 +93,43 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
 
   // Handle start instance button click
   const handleStart = async () => {
-    await startInstance(instance.Name);
+    await startInstance(instance.name);
   };
 
   // Handle stop instance button click
   const handleStop = async () => {
-    await stopInstance(instance.Name);
+    await stopInstance(instance.name);
   };
 
   // Handle restart instance button click
   const handleRestart = async () => {
-    await restartInstance(instance.Name);
+    await restartInstance(instance.name);
   };
 
-  // Handle uninstall instance button click
-  const handleUninstall = async () => {
-    await uninstallInstance(instance.Name);
-    setShowUninstallConfirm(false);
-  };
-
-  // Handle update instance button click
-  const handleUpdate = async () => {
-    await updateInstance(instance.Name);
+  // Handle view details button click
+  const handleViewDetails = () => {
+    navigate(`/instances/${instance.name}`);
   };
 
   // Get blueprint name from path
   const getBlueprintName = () => {
-    const pathParts = instance.Blueprint.split('/');
+    const pathParts = instance.blueprint_file.split('/');
     const filename = pathParts[pathParts.length - 1];
-    return filename.replace('.bp', '');
+    return filename.replace('.bp', '').replace('.docker-compose.yml', '');
   };
+
+  // Get current version info
+  const getCurrentVersion = () => {
+    if (status?.version?.current) {
+      // Clean up the version string by extracting just the version number
+      const versionMatch = status.version.current.match(/(\d+\.[\d.]+)/);
+      return versionMatch ? versionMatch[1] : 'Unknown';
+    }
+    return 'Unknown';
+  };
+
+  // Determine if instance is running
+  const isRunning = status?.status === true;
 
   return (
     <div className="instance-card">
@@ -136,13 +137,16 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
         <div className="instance-name-container">
           <span
             className={`status-indicator ${
-              instance.Status === 'active' ? 'status-active' : 'status-inactive'
+              isRunning ? 'status-active' : 'status-inactive'
             }`}
           ></span>
-          <h3 className="instance-name">{instance.Name}</h3>
+          <h3 className="instance-name">{instance.name}</h3>
         </div>
         <div className="instance-status">
-          {instance.Status === 'active' ? 'Running' : 'Stopped'}
+          {isStatusLoading && !status ? 'Loading...' : (isRunning ? 'Running' : 'Stopped')}
+          {status?.process?.pid && (
+            <span className="pid-info"> (PID: {status.process.pid})</span>
+          )}
         </div>
       </div>
 
@@ -152,108 +156,80 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onOpenConsole }) 
           <span className="detail-value">{getBlueprintName()}</span>
         </div>
         <div className="detail-row">
+          <span className="detail-label">Runtime:</span>
+          <span className="detail-value">{instance.runtime}</span>
+        </div>
+        <div className="detail-row">
           <span className="detail-label">Version:</span>
-          <span className="detail-value">{instance.Version}</span>
+          <span className="detail-value">
+            {getCurrentVersion()}
+            {status?.version?.updates_available && (
+              <span className="update-available"> (Update Available)</span>
+            )}
+          </span>
         </div>
         <div className="detail-row">
           <span className="detail-label">Installed:</span>
-          <span className="detail-value">{formatDate(instance.InstallationDate)}</span>
+          <span className="detail-value">{formatDate(instance.install_datetime)}</span>
         </div>
         <div className="detail-row">
           <span className="detail-label">Location:</span>
-          <span className="detail-value">{instance.Directory}</span>
+          <span className="detail-value">{instance.working_dir}</span>
         </div>
+        {status?.resources?.disk_usage && (
+          <div className="detail-row">
+            <span className="detail-label">Disk Usage:</span>
+            <span className="detail-value">{status.resources.disk_usage}</span>
+          </div>
+        )}
+        {status?.backups?.count !== undefined && (
+          <div className="detail-row">
+            <span className="detail-label">Backups:</span>
+            <span className="detail-value">{status.backups.count}</span>
+          </div>
+        )}
       </div>
 
       <div className="instance-actions">
-        {!showUninstallConfirm ? (
-          <>
-            <div className="button-row">
-              <button
-                className="btn btn-success"
-                onClick={handleStart}
-                disabled={isAnyProcessing || instance.Status === 'active'}
-              >
-                {isProcessing('start') ?
-                  'Starting...' :
-                  <><PlayIcon /> Start</>
-                }
-              </button>
-              <button
-                className="btn btn-warning"
-                onClick={handleRestart}
-                disabled={isAnyProcessing || instance.Status === 'inactive'}
-              >
-                {isProcessing('restart') ?
-                  'Restarting...' :
-                  <><RestartIcon /> Restart</>
-                }
-              </button>
-              <button
-                className="btn btn-error"
-                onClick={handleStop}
-                disabled={isAnyProcessing || instance.Status === 'inactive'}
-              >
-                {isProcessing('stop') ?
-                  'Stopping...' :
-                  <><StopIcon /> Stop</>
-                }
-              </button>
-            </div>
-
-            <div className="button-row">
-              <button
-                className="btn btn-primary"
-                onClick={() => onOpenConsole(instance)}
-                disabled={isAnyProcessing}
-              >
-                <TerminalIcon /> Console
-              </button>
-              <button
-                className="btn btn-warning"
-                onClick={handleUpdate}
-                disabled={isAnyProcessing || instance.Status === 'active'}
-                title={instance.Status === 'active' ? "Stop the server first to update" : undefined}
-              >
-                {isProcessing('update') ?
-                  'Updating...' :
-                  <><UpdateIcon /> Update</>
-                }
-              </button>
-              <button
-                className="btn btn-error"
-                onClick={() => setShowUninstallConfirm(true)}
-                disabled={isAnyProcessing || instance.Status === 'active'}
-                title={instance.Status === 'active' ? "Stop the server first to uninstall" : undefined}
-              >
-                <TrashIcon /> Uninstall
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="confirm-uninstall">
-            <p>Are you sure you want to uninstall this server?</p>
-            <div className="confirm-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowUninstallConfirm(false)}
-                disabled={isProcessing('uninstall')}
-              >
-                <CloseIcon /> Cancel
-              </button>
-              <button
-                className="btn btn-error"
-                onClick={handleUninstall}
-                disabled={isProcessing('uninstall')}
-              >
-                {isProcessing('uninstall') ?
-                  'Uninstalling...' :
-                  <><TrashIcon /> Confirm Uninstall</>
-                }
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="button-row">
+          <button
+            className="btn btn-success"
+            onClick={handleStart}
+            disabled={isAnyProcessing || isRunning}
+          >
+            {isProcessing('start') ?
+              'Starting...' :
+              <><PlayIcon /> Start</>
+            }
+          </button>
+          <button
+            className="btn btn-warning"
+            onClick={handleRestart}
+            disabled={isAnyProcessing || !isRunning}
+          >
+            {isProcessing('restart') ?
+              'Restarting...' :
+              <><RestartIcon /> Restart</>
+            }
+          </button>
+          <button
+            className="btn btn-error"
+            onClick={handleStop}
+            disabled={isAnyProcessing || !isRunning}
+          >
+            {isProcessing('stop') ?
+              'Stopping...' :
+              <><StopIcon /> Stop</>
+            }
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleViewDetails}
+            disabled={isAnyProcessing}
+          >
+            <ViewDetailsIcon /> Details
+          </button>
+        </div>
       </div>
     </div>
   );
