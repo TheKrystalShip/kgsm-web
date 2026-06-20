@@ -1,0 +1,24 @@
+{
+  "name": "krystal-control-panel",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "smoke": "node scripts/smoke-routes.mjs && node scripts/smoke-mount.mjs",
+    "smoke:live": "node scripts/smoke-live.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
+    "vite": "^6.0.5"
+  }
+}

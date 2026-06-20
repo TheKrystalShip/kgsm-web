@@ -1,0 +1,267 @@
+/* ============================================================
+   Krystal Design System — Design Tokens
+   ------------------------------------------------------------
+   Single source of truth for color, type, spacing, radius,
+   shadow, motion. Import this file in every Krystal artefact.
+   ============================================================ */
+
+/* ---- Brand fonts (local) -------------------------------------
+   Inter and JetBrains Mono are uploaded as variable fonts in /fonts.
+   We map the full weight range so the rest of the stylesheet can keep
+   using normal font-weight numbers (400 / 500 / 600 / 700).
+   --------------------------------------------------------------- */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-VariableFont_opsz_wght.ttf") format("truetype-variations");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-Italic-VariableFont_opsz_wght.ttf") format("truetype-variations");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-VariableFont_wght.ttf") format("truetype-variations");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: italic;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf") format("truetype-variations");
+}
+
+:root {
+  /* ---------- COLOR — Canvas & surfaces (dark only) -------- */
+  --canvas:          #0B0F14;   /* page background */
+  --surface-0:       #0E141C;   /* sidebar, very subtle lift */
+  --surface-1:       #11161D;   /* primary card */
+  --surface-2:       #161C25;   /* nested card / hovered surface */
+  --surface-3:       #1C242F;   /* input fill, pressed surface */
+
+  /* ---------- COLOR — Borders ------------------------------ */
+  --border-subtle:   rgba(255, 255, 255, 0.06);
+  --border-strong:   rgba(255, 255, 255, 0.12);
+  --border-accent:   rgba(64, 160, 192, 0.50);     /* focus / active */
+
+  /* ---------- COLOR — Foreground --------------------------- */
+  --fg-1:            #F2F5F9;   /* primary text */
+  --fg-2:            #B8C2D0;   /* secondary text */
+  --fg-3:            #7C8899;   /* muted / labels */
+  --fg-4:            #515E70;   /* placeholder / disabled */
+  --fg-inverse:      #0B0F14;   /* text on light or teal surfaces */
+
+  /* ---------- COLOR — Brand & accent -----------------------
+     Sampled from The Krystal Ship logo cloud (#40A0C0). */
+  --krystal-teal:        #40A0C0;
+  --krystal-teal-hover:  #5DB5D2;
+  --krystal-teal-press:  #2F89A8;
+  --krystal-teal-dim:    rgba(64, 160, 192, 0.14);
+  --krystal-teal-ring:   rgba(64, 160, 192, 0.35);
+
+  /* Brand ink — the black stencil of the wordmark. Use for emphasis on light. */
+  --krystal-ink:         #0F1115;
+
+  /* ---------- COLOR — Semantic ----------------------------- */
+  --success:        #22C55E;
+  --success-bg:     rgba(34, 197, 94, 0.14);
+  --success-fg:     #4ADE80;
+
+  --danger:         #EF4444;
+  --danger-bg:      rgba(239, 68, 68, 0.14);
+  --danger-fg:      #FB7185;
+
+  --warning:        #F59E0B;
+  --warning-bg:     rgba(245, 158, 11, 0.14);
+  --warning-fg:     #FBBF24;
+
+  --update:         #F97316;   /* restart / update orange */
+  --update-bg:      rgba(249, 115, 22, 0.14);
+  --update-fg:      #FB923C;
+
+  --info:           #38BDF8;
+  --info-bg:        rgba(56, 189, 248, 0.14);
+  --info-fg:        #7DD3FC;
+
+  /* ---------- TYPE — Families ------------------------------ */
+  --font-ui:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---------- TYPE — Scale (in px, then declared as rem) --- */
+  --text-xs:    12px;
+  --text-sm:    13px;
+  --text-base:  14px;
+  --text-md:    15px;
+  --text-lg:    17px;
+  --text-xl:    20px;
+  --text-2xl:   24px;
+  --text-3xl:   28px;
+  --text-4xl:   34px;
+  --text-5xl:   44px;
+
+  /* ---------- TYPE — Weights ------------------------------- */
+  --w-regular:  400;  /* @kind font */
+  --w-medium:   500;  /* @kind font */
+  --w-semibold: 600;  /* @kind font */
+  --w-bold:     700;  /* @kind font */
+
+  /* ---------- TYPE — Line heights -------------------------- */
+  --lh-tight:   1.2;   /* @kind font */
+  --lh-snug:    1.35;  /* @kind font */
+  --lh-normal:  1.5;   /* @kind font */
+  --lh-loose:   1.7;   /* @kind font */
+
+  /* ---------- SPACING — 4px scale -------------------------- */
+  --s-0:   0;   /* @kind spacing */
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:   12px;
+  --s-4:   16px;
+  --s-5:   20px;
+  --s-6:   24px;
+  --s-8:   32px;
+  --s-10:  40px;
+  --s-12:  48px;
+  --s-16:  64px;
+  --s-20:  80px;
+
+  /* ---------- RADIUS --------------------------------------- */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   12px;
+  --r-xl:   16px;
+  --r-pill: 999px;
+
+  /* ---------- SHADOW & ELEVATION --------------------------- */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-2: 0 8px 24px rgba(0,0,0,0.45);
+  --shadow-pop: 0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px var(--border-strong);
+  --ring-focus: 0 0 0 3px var(--krystal-teal-ring);
+
+  /* ---------- MOTION --------------------------------------- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);     /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);  /* @kind other */
+  --d-fast:  90ms;   /* @kind other */
+  --d-base:  140ms;  /* @kind other */
+  --d-slow:  240ms;  /* @kind other */
+
+  /* ---------- LAYOUT --------------------------------------- */
+  --sidebar-w: 240px;     /* @kind spacing */
+  --topbar-h:  56px;      /* @kind spacing */
+  --content-max: 1280px;  /* @kind spacing */
+  --gutter:    32px;      /* @kind spacing */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   ============================================================ */
+
+html, body {
+  background: var(--canvas);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Display & headings --------------------------------- */
+.k-display, h1.display {
+  font-size: var(--text-5xl);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+}
+h1, .k-h1 {
+  font-size: var(--text-3xl);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+h2, .k-h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.005em;
+  color: var(--fg-1);
+}
+h3, .k-h3 {
+  font-size: var(--text-xl);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+h4, .k-h4 {
+  font-size: var(--text-lg);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+
+/* ---- Body --------------------------------------------- */
+p, .k-body {
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  color: var(--fg-2);
+}
+.k-body-strong { color: var(--fg-1); font-weight: var(--w-medium); }
+.k-muted   { color: var(--fg-3); }
+.k-small   { font-size: var(--text-sm); color: var(--fg-3); }
+
+/* ---- Labels & eyebrows -------------------------------- */
+.k-label {
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---- Monospace ---------------------------------------- */
+.k-mono, code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.k-console {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+}
+
+/* ---- Links -------------------------------------------- */
+a, .k-link {
+  color: var(--krystal-teal);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out);
+}
+a:hover, .k-link:hover {
+  color: var(--krystal-teal-hover);
+  border-bottom-color: var(--krystal-teal-hover);
+}
+
+/* ---- Focus ring (universal) --------------------------- */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--r-md);
+}

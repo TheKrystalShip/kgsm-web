@@ -1,0 +1,151 @@
+/* ============================================================================
+   Consumer surfaces — Join / connect, server note (MOTD), login persona switch.
+   Loaded after kit.css; reuses the same tokens so it reads as one system.
+   ============================================================================ */
+
+/* ---- Join / connect (server hero) ---- */
+.connect { display: flex; flex-direction: column; gap: 8px; }
+.connect__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.connect__join {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 18px 0 16px;
+  border-radius: var(--r-md); border: 1px solid transparent;
+  background: var(--success); color: var(--fg-inverse);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--success) 35%, transparent);
+  transition: filter var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out);
+}
+.connect__join:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.connect__join.is-disabled {
+  background: var(--surface-3); color: var(--fg-4);
+  box-shadow: none; cursor: not-allowed; pointer-events: none;
+  border-color: var(--border-subtle);
+}
+.connect__addr {
+  font-family: var(--font-mono); font-size: 13.5px; color: var(--fg-2);
+  background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+}
+.connect__copy {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 38px; padding: 0 14px;
+  background: transparent; color: var(--fg-2);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.connect__copy:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.connect__note {
+  display: flex; align-items: flex-start; gap: 6px;
+  color: var(--fg-3); font-size: 12px; line-height: 1.45; max-width: 540px;
+}
+.connect__note > svg { flex-shrink: 0; margin-top: 1px; color: var(--fg-4); }
+
+/* ---- Join button on a server card (tile variant) ---- */
+.connect-tile {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1; height: 32px; border-radius: var(--r-md);
+  background: var(--success); color: var(--fg-inverse);
+  border: 1px solid transparent;
+  font-family: var(--font-ui); font-size: 12.5px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  transition: filter var(--d-fast) var(--ease-out);
+}
+.connect-tile:hover { filter: brightness(1.08); }
+.connect-tile--copy { background: var(--surface-3); color: var(--fg-2); border-color: var(--border-subtle); }
+.connect-tile--copy:hover { color: var(--fg-1); border-color: var(--border-strong); filter: none; }
+.connect-tile--off {
+  background: var(--surface-2); color: var(--fg-4);
+  border-color: var(--border-subtle); cursor: not-allowed; pointer-events: none;
+}
+
+/* ---- Server note (MOTD) — rendered inside the shared BriefCard shell ---- */
+/* BriefCard (.chat-brief) supplies the card chrome + titled header; these style
+   only the body it wraps. */
+.motd__body {
+  padding: 12px 14px 14px;
+  color: var(--fg-1); font-size: 14px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* empty-state invitation (operators only) */
+.motd__empty {
+  display: block; width: 100%; text-align: left;
+  padding: 12px 14px 14px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--fg-3); font-size: 13px; line-height: 1.5; font-family: var(--font-ui);
+  transition: color var(--d-fast) var(--ease-out);
+}
+.motd__empty:hover { color: var(--fg-2); }
+
+/* edit mode */
+.motd__edit { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.motd__input {
+  width: 100%; min-height: 84px; resize: vertical;
+  background: var(--surface-3); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); padding: 10px 12px;
+  color: var(--fg-1); font-family: var(--font-ui); font-size: 14px; line-height: 1.55;
+}
+.motd__input:focus { outline: none; border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.motd__input::placeholder { color: var(--fg-4); }
+.motd__foot { display: flex; align-items: center; gap: 12px; }
+.motd__count { color: var(--fg-4); font-size: 11.5px; font-family: var(--font-mono); }
+.motd__actions { margin-left: auto; display: flex; gap: 8px; }
+.motd__btn {
+  height: 32px; padding: 0 14px; border-radius: var(--r-md);
+  background: transparent; color: var(--fg-2); border: 1px solid var(--border-subtle);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.motd__btn:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.motd__btn--primary { background: var(--krystal-teal); color: var(--fg-inverse); border-color: transparent; }
+.motd__btn--primary:hover { background: var(--krystal-teal-hover); color: var(--fg-inverse); }
+
+/* ---- Console read-only strip (viewers) ---- */
+.console-card__readonly {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 16px; flex-shrink: 0;
+  border-top: 1px solid var(--border-subtle); background: var(--surface-1);
+  color: var(--fg-3); font-size: 12px;
+}
+.console-card__readonly > svg { color: var(--fg-4); }
+
+/* ---- Server-card connect row (Join / Copy under the lifecycle controls) ---- */
+.server-tile__connect { display: flex; gap: 6px; }
+
+/* ---- Server-card note snippet ---- */
+/* Always reserves two lines so cards with and without a note keep equal height
+   and their metric rows line up across the grid. */
+.server-tile__notice {
+  color: var(--fg-3); font-size: 12px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; margin-top: -2px;
+  min-height: calc(12px * 1.4 * 2);
+}
+.server-tile__notice--empty { color: var(--fg-4); font-style: italic; }
+
+/* ---- Login "Preview as" persona switch ---- */
+.login-persona { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.login-persona__label {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--fg-3); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.login-persona__label > svg { color: var(--fg-4); }
+.login-persona__seg {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
+  background: var(--surface-3); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); padding: 4px;
+}
+.login-persona__opt {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 34px; border-radius: var(--r-sm); white-space: nowrap;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--fg-3); font-family: var(--font-ui); font-size: 12.5px; font-weight: 600;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.login-persona__opt > svg { flex-shrink: 0; }
+.login-persona__opt:hover { color: var(--fg-1); }
+.login-persona__opt.is-on { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
+.login-persona__hint { color: var(--fg-4); font-size: 12px; line-height: 1.4; min-height: 16px; }
