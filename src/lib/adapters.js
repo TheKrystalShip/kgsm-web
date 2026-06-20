@@ -143,3 +143,11 @@ export function adaptAlerts(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
   return rows.map((a) => ({ ...a }));
 }
+
+// ---- Me (caller identity + tier) ---------------------------------------
+// /me drives the per-host tier (the persona / route gate). Honest passthrough;
+// tier falls back to "none" (secure-by-default), never a fabricated role.
+export function adaptMe(be) {
+  if (!be) return be;
+  return { user: be.user || null, tier: be.tier || "none", scopes: be.scopes || [] };
+}

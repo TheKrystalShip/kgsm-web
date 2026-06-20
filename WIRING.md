@@ -184,6 +184,15 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
 2. **Assistant chat** — FE `ChatPage` does a raw Ollama-shaped `fetch` to the wrong route. Rewrite onto `POST /api/v1/assistant/turn` (SSE, `{prompt,think,tools}`), routed through the `api` seam.
 3. **Host discovery / registry** — no base-URL capture in the FE (see §1, §7).
+3b. **OAuth token handoff (backend gap, decision owed)** — `/auth/discord/callback`
+    returns `CallbackResult` as **JSON** (`AuthController.cs:120`); it never hands the
+    minted access/refresh tokens back to the SPA, so a real Discord login can't
+    complete from the browser. The FE session layer is ready (`bootstrap`/`tokenOf`/
+    refresh); only token *acquisition* is missing. Fix is a **kgsm-api change** (sign-off
+    required): callback `302`s to an allowlisted SPA URL with tokens in the URL
+    **fragment** (`#access=…&refresh=…` — never the query: fragments don't reach server
+    logs / `Referer`), or popup + `postMessage`. Until then the live FE runs against an
+    **auth-disabled** backend (tier resolves via `/me`, slice 4).
 4. **Honest-unknown UI** — players/ip/uptime/per-process/sensors have no source: render "unknown" (preferred) or hide; never fabricate.
 
 ## 7. Open decisions
@@ -258,6 +267,31 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 >   `network.required[]`, but the FE never calls the detail endpoint (list omits
 >   `network`; the detail GET is defined-but-unused, §3). Needs the detail-GET wired
 >   first → its own slice (6, with `network.patch`).
+
+> **Slice 4 — Auth/Me (FE half) — DONE (2026-06-21).** Wires the per-host tier from
+> `GET /me` so the persona/route gate works against the live backend (no more forced
+> "Preview as admin" lens). Files: `adapters.js` (`adaptMe` — honest passthrough,
+> tier→`none` secure-by-default), `apiClient.js` (live transport now injects the
+> selected host's bearer when held — `liveBearer()`; null under
+> `KGSM_API_AUTH_DISABLED`, so calls go out unauthenticated and that mode accepts
+> them; adapt `/me`), `sessionStore.js` (LIVE `bootstrap` resolves tier from `/me`
+> instead of the fake callback; **reactive bootstrap as hosts hydrate** — seed runs
+> before the live host exists, the mirror of the game-name timing fix; `seed` never
+> fabricates a tier/token in LIVE; `scheduleRefresh` guarded to token-only so an
+> auth-disabled host doesn't fire a spurious refresh; `refresh` re-confirms via
+> `/me`; new `tokenOf`). Verified: build + mock smoke green; live smoke drops the
+> persona force and proves `GET /me` → `hotrod: admin` ungates fleet/host-deep-dive
+> on its own (and the admin tier now renders the operator lifecycle controls).
+> **THE BACKEND GAP (decision owed — see §6).** A real Discord login can't complete
+> from the SPA: `/auth/discord/start` 302s to Discord, but the callback
+> (`AuthController.cs:120`) returns `CallbackResult` **as JSON** with no handoff back
+> to the SPA — the browser lands on the API origin showing raw JSON, and the minted
+> access+refresh tokens never reach the SPA. So today the live FE only works against
+> an **auth-disabled** backend. Closing this is a **kgsm-api change** (sign-off
+> required, security-sensitive): the callback should `302` to an allowlisted SPA URL
+> with tokens in the **fragment** (`#access=…&refresh=…` — fragments never hit server
+> logs / Referer), or a popup + `postMessage`. The FE session layer above is already
+> shaped for it (`bootstrap`/`tokenOf`/refresh) — only token *acquisition* is missing.
 
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
@@ -410,7 +444,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a). Remaining A: job-derived status (→ slice 5/3), server-ports card (→ slice 6, needs detail-GET wired).
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **A**, but **audit + integrations are backend-500-blocked** (recreate dev DB). Alerts needs the initial GET wired.
-- **Auth / Me** — **A**, self-contained slice (OAuth flow + `/me` tier + refresh store). Unblocks the fleet/dashboard *persona* gate.
+- **Auth / Me** — FE half **DONE** (slice 4): `/me`-driven per-host tier ungates fleet/dashboard against an auth-disabled backend; bearer injected when held. **Blocked for real login** on a kgsm-api change — the OAuth callback returns JSON, never hands a token back to the SPA (decision owed, §6/§8).
 - **Diagnostics (host)** — **half A (done), half B**: the per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is **additive kgsm-api work against the existing monitor Snapshot** — the highest-value enrichment. The rest (sensors, processes, cpu model, device/smart, iface ip/mac) is **C** (monitor slices) → honest-unknown until then.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).

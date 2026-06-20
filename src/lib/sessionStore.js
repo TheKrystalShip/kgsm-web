@@ -1,4 +1,5 @@
 import { api } from "./apiClient.js";
+import { LIVE } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
 
@@ -48,6 +49,9 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   const isDenied = (id) => statusOf(id) === "denied";
   const isLive = (id) => statusOf(id) === "live";
   const tierOf = (id) => { const r = getRec(id); return r ? r.tier : null; };
+  // The live bearer for a host (the seam injects it on every call). Null unless
+  // we actually hold one — auth-disabled hosts are "live" with no token.
+  const tokenOf = (id) => { const r = getRec(id); return r && r.status === "live" ? (r.token || null) : null; };
 
   function setRec(id, partial, persist) {
     store.setState(s => ({ byHost: { ...s.byHost, [id]: { ...(s.byHost[id] || {}), ...partial } } }));
@@ -94,6 +98,8 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   function clearTimer(id) { if (timers[id]) { clearTimeout(timers[id]); delete timers[id]; } }
   function scheduleRefresh(id) {
     clearTimer(id);
+    const r = getRec(id);
+    if (!r || !r.token) return;   // no token (e.g. auth-disabled) → nothing to rotate
     timers[id] = setTimeout(() => refresh(id), Math.round(ACCESS_TTL_MS * PROACTIVE_AT));
   }
 
@@ -104,6 +110,30 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     opts = opts || {};
     const interactive = !!opts.interactive;
     setRec(id, { status: "bootstrapping", error: null });
+
+    // Live backend: identity + tier come from GET /me (the seam injects the
+    // bearer when we hold one). Auth-disabled hosts answer 200 tier=admin with no
+    // token; an auth-enabled host with no bearer answers 401 → login_required.
+    // The interactive Discord bounce is a BACKEND GAP — the callback returns JSON
+    // with no SPA token handoff (WIRING.md §6), so a real login can't complete
+    // from here yet; tier resolution + route gating work against an auth-disabled
+    // host today and self-heal once the handoff lands.
+    if (LIVE) {
+      return api.get("/me").then(me => {
+        const now = Date.now();
+        setRec(id, {
+          status: "live", tier: (me && me.tier) || "none",
+          token: (me && me.token) || null,
+          exp: now + ACCESS_TTL_MS, capExp: now + SESSION_CAP_MS, error: null,
+        }, true);
+        scheduleRefresh(id);
+        return "live";
+      }, err => {
+        const unauth = err && (err.code === 401 || err.status === 401);
+        setRec(id, { status: "expired", error: unauth ? "login_required" : "unreachable" });
+        return unauth ? "login_required" : "error";
+      });
+    }
 
     // Silent SSO needs a live discord.com session. Without one — and without an
     // interactive prompt — the IdP answers login_required.
@@ -140,6 +170,9 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   function refresh(id) {
     const rec = getRec(id);
     if (!rec || rec.status === "denied") return Promise.resolve(statusOf(id));
+    // Live: no refresh-token store yet (real login is a backend gap), so re-confirm
+    // identity/tier via GET /me rather than the token-rotation endpoint.
+    if (LIVE) return bootstrap(id, { interactive: false });
     if (rec.capExp && Date.now() >= rec.capExp) return bootstrap(id, { interactive: false });
     return api.post("/auth/session/refresh", { host: id })
       .then(res => {
@@ -213,6 +246,15 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // use via ensure().
   function seed() {
     const hosts = (hostsStore && hostsStore.getState().list) || [];
+    // Live mode: NEVER fabricate a tier/token from host flags. Resume a persisted
+    // in-tab session if present; otherwise leave the host unbootstrapped — the
+    // reactive block below bootstraps it from GET /me as the host list hydrates.
+    if (LIVE) {
+      const live = {};
+      hosts.forEach(h => { const p = readSession(h.id); if (p) { live[h.id] = p; if (p.status === "live") scheduleRefresh(h.id); } });
+      store.setState({ byHost: live });
+      return;
+    }
     const byHost = {};
     hosts.forEach(h => {
       const persisted = readSession(h.id);
@@ -234,6 +276,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.isDenied = isDenied;
   store.isLive = isLive;
   store.tierOf = tierOf;
+  store.tokenOf = tokenOf;
   store.bootstrap = bootstrap;
   store.refresh = refresh;
   store.ensure = ensure;
@@ -255,5 +298,20 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   const TIER_LABEL = { admin: "Admin", operator: "Operator", viewer: "Viewer", none: "No role" };
 
   seed();
+
+  // Live mode: bootstrap each host's tier from GET /me as the host list hydrates.
+  // hostsStore loads async, so seed() runs before the live host exists — without
+  // this the gated surfaces would stay at tier `none` and redirect to the viewer
+  // home. Idempotent: only hosts with no session are bootstrapped (bootstrap
+  // flips status off `none` synchronously, so none is bootstrapped twice).
+  if (LIVE && hostsStore) {
+    const bootstrapNewHosts = () => {
+      (hostsStore.getState().list || []).forEach(h => {
+        if (statusOf(h.id) === "none") { register(h); ensure(h.id); }
+      });
+    };
+    hostsStore.subscribe(bootstrapNewHosts);
+    bootstrapNewHosts();
+  }
 
 export { TIER_LABEL, sessionStore };

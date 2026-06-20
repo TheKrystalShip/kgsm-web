@@ -278,16 +278,26 @@ import("./stores.js").then((m) => { storesNs = m; });
     e.userMessage = env.message || "The server returned an error.";
     return e;
   }
+  // The selected host's bearer, when we hold a live one. Null under
+  // KGSM_API_AUTH_DISABLED (no token is minted) → the call goes out
+  // unauthenticated, which that mode accepts. Reuses the same late-bound
+  // sessionStore/storesNs refs as the host-auth gate below (no init cycle).
+  function liveBearer() {
+    try {
+      const id = storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id;
+      if (sessionStore && sessionStore.tokenOf && id && id !== "all") return sessionStore.tokenOf(id);
+    } catch (e) {}
+    return null;
+  }
   async function liveFetch(method, path, body) {
+    const headers = body != null
+      ? { "Content-Type": "application/json", Accept: "application/json" }
+      : { Accept: "application/json" };
+    const tok = liveBearer();
+    if (tok) headers.Authorization = "Bearer " + tok;
     let res;
     try {
-      res = await fetch(API_V1 + path, {
-        method,
-        headers: body != null
-          ? { "Content-Type": "application/json", Accept: "application/json" }
-          : { Accept: "application/json" },
-        body: body != null ? JSON.stringify(body) : undefined,
-      });
+      res = await fetch(API_V1 + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
     } catch (e) { markFailure(); throw netError(); }
     markSuccess();                   // the host answered → reachable
     if (res.status === 204) return null;
@@ -303,6 +313,7 @@ import("./stores.js").then((m) => { storesNs = m; });
     if (path === "/library") return adapt.adaptLibrary(json);
     if (path === "/audit") return adapt.adaptAudit(json);
     if (path === "/alerts") return adapt.adaptAlerts(json);
+    if (path === "/me") return adapt.adaptMe(json);
     if (/^\/servers\/[^/?]+$/.test(path)) return adapt.adaptServer(json);
     if (/^\/hosts\/[^/?]+$/.test(path)) return adapt.adaptHost(json);
     return json;

@@ -158,12 +158,13 @@ try {
     svList.every((s) => byId.has(s.blueprint) && s.game === byId.get(s.blueprint));
   assert(joinOk, `game name joined via /library by blueprint (${svList.length} servers, ${libList.length} catalog)`);
 
-  // ---- Phase 3: admin-persona render of the gated read surfaces -----------
-  // Pre-auth the persona is tier `none`, so fleet/library/audit/alerts redirect
-  // to servers. Flip on the "Preview as admin" lens (the post-auth state slice 4
-  // will produce) and render them LIVE — this is the only test of the host /
-  // diagnostics / alerts honest-unknown code this slice added.
-  w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "dev", provider: "discord", stay: true, role: "admin", persona: "admin", id: "u_dev" }));
+  // ---- Phase 3: gated surfaces, ungated by the /me-driven tier ------------
+  // Auth is now wired: the per-host tier comes from GET /me (admin, since the
+  // backend runs auth-disabled) — NOT a forced "Preview as" lens. So fleet /
+  // library / audit / alerts must render without bouncing to the viewer home,
+  // proving the tier resolution + persona gate work against the live backend.
+  // (No `persona` key here on purpose — the gate must come from /me alone.)
+  w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "dev", provider: "discord", stay: true, id: "u_dev" }));
   const FAB = /0 cores|load 0\.0|CPU 0%/;          // fabricated zero readouts must NOT appear
   const GATED = [
     { hash: "#/fleet",         label: "Fleet (admin)",        must: ["Fleet"] },
@@ -210,6 +211,14 @@ try {
   const libHtml2 = await nav("#/library");
   assert(libHtml2.includes("1 server") && !libHtml2.includes("2 servers"),
     "library cards count per blueprint (1 each, not the match-all 2)");
+
+  // The gate is driven by the /me tier, not a persona override: confirm the live
+  // host's session resolved to admin (auth-disabled → admin) from GET /me.
+  const ss = await vite.ssrLoadModule("/src/lib/sessionStore.js");
+  const hid = (st.hostsStore.getState().list[0] || {}).id;
+  let tier = null;
+  for (let i = 0; i < 30; i++) { tier = ss.sessionStore.tierOf(hid); if (tier && tier !== "none") break; await sleep(100); }
+  assert(tier === "admin", `tier resolved from GET /me (${hid} → ${tier}); gates via /me, not a persona lens`);
   root.unmount();
 } finally {
   console.error = origErr;
