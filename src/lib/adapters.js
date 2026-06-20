@@ -138,10 +138,30 @@ export function adaptAudit(page) {
 }
 
 // ---- Alerts -------------------------------------------------------------
-// api returns { data:[Alert] }; the FE alerts store consumes an array.
+// api returns { data:[Alert] }; the FE alerts store consumes an array. The
+// honest backend shape carries no `icon` — an icon is PRESENTATION, not a
+// measured fact (like SERVER_STATUS maps a run-state to a label), so we derive
+// one from the alert's real `source`/`severity`. Only the watchdog crash
+// producer is live today (M6·a), so source→icon is the honest common path; the
+// severity map is the forward-compat fallback for producers that land later.
+const ALERT_ICON_BY_SOURCE = {
+  watchdog: "alert-triangle",
+  "host-monitor": "server",
+  metrics: "gauge",
+  assistant: "sparkles",
+};
+const ALERT_ICON_BY_SEVERITY = { danger: "alert-triangle", warn: "circle-alert", info: "info" };
+function alertIcon(a) {
+  return ALERT_ICON_BY_SOURCE[a.source] || ALERT_ICON_BY_SEVERITY[a.severity] || "circle-alert";
+}
 export function adaptAlerts(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
-  return rows.map((a) => ({ ...a }));
+  // Honest passthrough of every field the API sources (id/severity/source/title/
+  // detail/serverId/hostId/anchor/status/raisedAt/escalated/attempts/resolvedAt/
+  // resolution) plus a derived display icon. `prompt`/`autoResolves` are demo-only
+  // (no upstream source) → left absent, never fabricated: the assistant falls back
+  // to a generic ask and the live panel has no mock-monitor resolve button.
+  return rows.map((a) => ({ ...a, icon: a.icon || alertIcon(a) }));
 }
 
 // ---- Me (caller identity + tier) ---------------------------------------

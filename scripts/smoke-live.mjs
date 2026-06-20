@@ -113,6 +113,17 @@ try {
     assert(diag.hostCapacityMeters(metricsDownHost).length === 0, "hostCapacityMeters([] when metrics down — no fabricated meters)");
   }
 
+  // Alerts adapter: the API carries no `icon` (presentation, not a measured
+  // fact) → derive one from the honest source/severity, pass everything else
+  // through. Deterministic (live /alerts is empty until a crash fires), so feed
+  // a synthetic watchdog crash record and assert the derive + passthrough.
+  const adaptedAlerts = adapt.adaptAlerts({ data: [
+    { id: "crash:x", severity: "danger", source: "watchdog", title: "t", detail: "d",
+      serverId: "x", hostId: "h", status: "firing", raisedAt: "2026-06-20T00:00:00Z", escalated: false, attempts: 1 },
+  ] });
+  assert(adaptedAlerts.length === 1 && adaptedAlerts[0].icon === "alert-triangle" && adaptedAlerts[0].status === "firing",
+    "adaptAlerts derives an icon from source + passes status through");
+
   // ---- Phase 2: live UI render (viewer-reachable routes) ------------------
   // Mount once, navigate via hashchange (the App's own listener). NOTE: with no
   // per-host session yet, the frontend persona is tier "none" → admin surfaces
@@ -191,8 +202,8 @@ try {
     { hash: "#/fleet",         label: "Fleet (admin)",        must: ["Fleet"] },
     { hash: "#/fleet/hotrod",  label: "Host deep-dive (admin)", must: ["hotrod"], noFab: true },
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
-    { hash: "#/audit",         label: "Audit (admin, 500→empty)", must: [] },
-    { hash: "#/alerts",        label: "Alerts (admin, live empty)", must: [] },
+    { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
+    { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
   ];
   for (const c of GATED) {
     errors.length = 0;
@@ -220,6 +231,38 @@ try {
   // alerts must NOT carry the demo fixtures in live mode (they'd read as real).
   const alertsHtml = await nav("#/alerts");
   assert(!/won.t stay up|backups 94% full|zombie/i.test(alertsHtml), "alerts: no fixture leakage in live mode");
+
+  // Alerts read is now wired live (was deliberately empty before this slice):
+  // the store hydrates from GET /alerts (firing + 24h resolved), so its feed must
+  // match the live count exactly — proving the fetch ran and no fixtures leaked.
+  const aApi = await vite.ssrLoadModule("/src/lib/alertsApi.js");
+  await aApi.alertsStore.refresh().catch(() => {});
+  const rawAlerts = await (await fetch(API + "/api/v1/alerts")).json();
+  const liveAlertCount = (rawAlerts.data || []).length;
+  assert(typeof aApi.alertsStore.refresh === "function", "alertsStore.refresh wired (live hydrate)");
+  assert(aApi.alertsStore.getState().list.length === liveAlertCount,
+    `alerts hydrated from GET /alerts (${liveAlertCount} live, no fixtures)`);
+
+  // Render-with-data: live /alerts is empty and the mock smoke's fixtures carry
+  // their own icon, so the adaptAlerts→AlertCard composition (with a DERIVED
+  // icon) renders nowhere else. Inject two API-shaped alerts via ingest — a
+  // watchdog crash (the live producer → alert-triangle) and a host-monitor one
+  // (a fallback → server) — and assert both titles + their derived lucide glyphs
+  // render, then retract so the no-fixture-leakage invariant stays clean.
+  const synth = (id, source) => adapt.adaptAlerts({ data: [
+    { id, severity: "danger", source, title: `SMOKE ${source} alert`, detail: "synthetic",
+      serverId: "factorio-test", hostId: "hotrod", status: "firing",
+      raisedAt: "2026-06-20T00:00:00Z", escalated: false, attempts: 1 },
+  ] })[0];
+  aApi.KrystalAlerts.ingest({ kind: "raise", alert: synth("crash:smoke", "watchdog") });
+  aApi.KrystalAlerts.ingest({ kind: "raise", alert: synth("hm:smoke", "host-monitor") });
+  const renderHtml = await nav("#/alerts");
+  assert(renderHtml.includes("SMOKE watchdog alert") && renderHtml.includes("SMOKE host-monitor alert"),
+    "alerts render-with-data: adaptAlerts→AlertCard shows the titles");
+  assert(renderHtml.includes("lucide-triangle-alert") && renderHtml.includes("lucide-server"),
+    "alerts render-with-data: derived icons resolve to real lucide glyphs (source→icon)");
+  aApi.KrystalAlerts.ingest({ kind: "retract", id: "crash:smoke" });
+  aApi.KrystalAlerts.ingest({ kind: "retract", id: "hm:smoke" });
 
   // GamePage instances are scoped by blueprint, not the null===null match-all:
   // the factorio blueprint detail must list factorio-test and NOT terraria-hardmode.

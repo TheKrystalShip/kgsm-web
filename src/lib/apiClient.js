@@ -174,6 +174,8 @@ import("./stores.js").then((m) => { storesNs = m; });
       const st = storesNs && storesNs[name];
       if (st && st.refresh) st.refresh().catch(() => {});
     });
+    // alertsStore lives in alertsApi.js (late-bound above), not the stores ns.
+    if (alertsStore && alertsStore.refresh) alertsStore.refresh().catch(() => {});
   }
   // One host's link dropped (dev toggle, backend down, or a transient blip).
   // Don't blank its data: start the shared polling fallback + its reconnect loop.
@@ -306,16 +308,19 @@ import("./stores.js").then((m) => { storesNs = m; });
     if (!res.ok) throw apiError(res.status, json);
     return json;
   }
-  // Map a logical FE path onto its response adapter (GET only; writes pass through).
+  // Map a logical FE path onto its response adapter (GET only; writes pass
+  // through). Match on the path WITHOUT its query string so paginated/filtered
+  // reads (e.g. /alerts?status=resolved, /audit?cursor=…) still hit their adapter.
   function adaptResponse(path, json) {
-    if (path === "/servers") return adapt.adaptServers(json);
-    if (path === "/hosts") return adapt.adaptHosts(json);
-    if (path === "/library") return adapt.adaptLibrary(json);
-    if (path === "/audit") return adapt.adaptAudit(json);
-    if (path === "/alerts") return adapt.adaptAlerts(json);
-    if (path === "/me") return adapt.adaptMe(json);
-    if (/^\/servers\/[^/?]+$/.test(path)) return adapt.adaptServer(json);
-    if (/^\/hosts\/[^/?]+$/.test(path)) return adapt.adaptHost(json);
+    const base = path.split("?")[0];
+    if (base === "/servers") return adapt.adaptServers(json);
+    if (base === "/hosts") return adapt.adaptHosts(json);
+    if (base === "/library") return adapt.adaptLibrary(json);
+    if (base === "/audit") return adapt.adaptAudit(json);
+    if (base === "/alerts") return adapt.adaptAlerts(json);
+    if (base === "/me") return adapt.adaptMe(json);
+    if (/^\/servers\/[^/]+$/.test(base)) return adapt.adaptServer(json);
+    if (/^\/hosts\/[^/]+$/.test(base)) return adapt.adaptHost(json);
     return json;
   }
   const liveGet = (path) => liveFetch("GET", path).then((j) => adaptResponse(path, j));

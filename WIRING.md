@@ -98,7 +98,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `PATCH /alerts/{id}` (defined, **unused**) | — (alerts read-only) | ✅ | FE never calls it; fine |
 | `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ❌ | **rewrite** — wrong route *and* wrong shape; route through the seam |
 | — (FE doesn't call) | `GET /api/v1/me` → `{user,tier,scopes}` | ➕ | FE currently derives tier from the callback; could/should use `/me` |
-| — (FE doesn't call) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ➕ | FE seeds alerts from fixtures + stream only; needs an initial GET for the firing set |
+| `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✅ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
 | — (FE: `DiscordPage`/settings) | `GET/PATCH /api/v1/integrations[/{provider}]`, `POST …/test` (Admin) | ➕ | backend built (Discord+Slack); FE settings UI not wired to it — verify FE call sites |
 
 ## 4. Realtime matrix (topic → message type)
@@ -205,16 +205,20 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 Backend was live at `http://127.0.0.1:8097` with `KGSM_API_AUTH_DISABLED` (so `/me`
 → `dev (auth disabled)`, admin). Real responses **confirmed the schemas in §5**.
 Surprises found by probing:
-- **`GET /api/v1/audit` → HTTP 500** (`internal_error`) on every variant (no params,
-  `?limit`, `?severity`, `?serverId`). The query code (`AuditQueries.PageAsync`) is
-  correct, so this is a **runtime** failure on the running instance — most likely the
-  documented `EnsureCreated` stale-DB drift (kgsm-api CLAUDE.md gotcha: a schema change
-  no-ops on an existing DB → the `AuditEntry` table/columns are out of date → queries 500).
-  Fix = recreate the dev DB on the backend (not a kgsm-web change). Confirm from the
-  kgsm-api journal. Blocks the audit read slice (the FE already degrades: error→empty, no crash).
-- **`GET /api/v1/integrations` → HTTP 500** (`internal_error`). Same shape (admin-gated;
-  reached here under auth-disabled). Likely the same DB-state cause; confirm from the
-  journal. Blocks the integrations slice.
+- ~~**`GET /api/v1/audit` → HTTP 500**~~ **RESOLVED (slice 3, 2026-06-21).** Root cause
+  confirmed: the running `:8097` instance (a manually-launched dev backend, env replicated
+  from `/proc`) was pointed at `KGSM_API_DB=/tmp/upnp-e2e.db`, a leftover UPnP-e2e DB that
+  had been **truncated to 0 bytes** → its schema was gone → `AuditQueries.PageAsync` 500'd
+  (same family as the documented `EnsureCreated` stale-DB drift). Fix = **recreate the dev
+  DB**: stop the stale process, delete the 0-byte file, relaunch the (rebuilt) binary with
+  the *same* env. On the empty file `EnsureCreated` rebuilds the full schema (`AuditEntry`
+  **+** `IntegrationEntity`, both in `AppDbContext`) → `/audit` returns `{data:[],nextCursor}`
+  and a real emitted `instance-started` event flowed through to a `server.start` row (render
+  path live-verified). New PID + exact command surfaced to the user.
+- ~~**`GET /api/v1/integrations` → HTTP 500**~~ **RESOLVED (same DB recreate, side-effect).**
+  `IntegrationEntity` lives in the same `AppDbContext`, so the fresh schema fixed it too;
+  now `200` (`[{provider:"discord",…},{provider:"slack",…}]`). Integrations *wiring* is a
+  later slice (not in scope here) — only the 500 is cleared.
 - `GET /servers/{id}` detail correctly carries the `network` block
   (`firewall:"absent"`, `required:[{port,proto,open:null}]`). Host detail omits
   `network` honestly when the firewall is absent.
@@ -316,8 +320,17 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 2. **Slice 1 (read-only): hosts + servers** — wire `hostsStore`/`serversStore` GETs
    through the adapter; status-vocab remap; honest-unknown rendering. Verify against
    a live single host with auth disabled.
-3. **Slice 2: audit + library + alerts (GET)** — unwrap `{data}`, wire filters,
-   tolerate unknown enums.
+3. **Slice 2: audit + library + alerts (GET)** — **DONE (2026-06-21).** Audit + library
+   already hydrated live (cold boot + passthrough adapters); the DB recreate (§7b) cleared
+   the `/audit` 500 → both live-verified (audit render-path proven with a real emitted row).
+   Alerts (deliberately empty in LIVE before) now hydrates from `GET /alerts?status=firing`
+   **+** `?status=resolved&since=24h` via a new `alertsStore.refresh()` (self-hydrates on LIVE
+   load; `rehydrateAll` re-pulls it on reconnect). `adaptAlerts` derives a display `icon`
+   from the honest `source`/`severity` (API carries none — presentation, not a measured
+   fact) and passes every sourced field through; `prompt`/`autoResolves` stay absent (demo-
+   only). `adaptResponse` now matches on the base path (`split("?")[0]`) so filtered/paged
+   reads still hit their adapter. Verified: build green, mock smoke green, `smoke:live` green
+   (+icon-derive, +alerts-hydrate, +audit/alerts live render).
 4. **Auth** — real OAuth (`start`/`callback`/`refresh` + bearer + refresh store),
    tier from `/me`, the 401/403/`login_required` machine on real responses.
 5. **Realtime** — WS client on `/api/v1/stream`, subscribe protocol, topic/type
@@ -413,13 +426,13 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `actor{name,provider}` | `actor{kind,name,provider}` | **A** | pass `kind` |
 | `action` (broad enum) | closed vocab | **A** | tolerate unknown → generic icon |
 | `severity/target/summary/meta/serverId/hostId` | same | **A** | passthrough |
-| ⚠ **blocked**: live `GET /audit` → **500** | — | — | recreate backend dev DB (§7b) first |
+| ✅ **live-verified (slice 3)**: dev DB recreated (§7b) → `/audit` 200; a real emitted `server.start` row flows through `adaptAudit` and renders | — | — | DONE |
 
-### Alert (`AlertsPage`, `NeedsAttention`, `ContextualAlerts`)
+### Alert (`AlertsPage`, `NeedsAttention`, `ContextualAlerts`) — **DONE (slice 3)**
 | FE | BE | Bucket | Action |
 |---|---|---|---|
-| read from store only (no GET) | `GET /alerts?status=&since=` `{data}` | **A** | wire initial GET |
-| `icon` | — | **A** | derive from `severity`/`source` |
+| read from store only (no GET) | `GET /alerts?status=&since=` `{data}` | **A** | ✅ `alertsStore.refresh()` hydrates firing + 24h resolved |
+| `icon` | — | **A** | ✅ derive from `source` (then `severity`) in `adaptAlerts` |
 | `severity` danger/warn | `info/warn/danger` | **A** | handle `info` |
 | `anchor.serverId` | top-level `serverId` | **A** | read top-level |
 | `source/status/raisedAt/escalated/attempts/resolution/resolvedAt` | same | **A** | passthrough |
@@ -460,7 +473,7 @@ Cheap-wins-first falls out of the buckets above:
 
 - **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a). Remaining A: job-derived status (→ slice 5/3), server-ports card (→ slice 6, needs detail-GET wired).
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups). `ping_ms` = B (client RTT); `region` = D.
-- **Audit / Alerts / Library** — **A**, but **audit + integrations are backend-500-blocked** (recreate dev DB). Alerts needs the initial GET wired.
+- **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts now hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Remaining (later slices): audit keyset paging + `audit.append` live-prepend; the live `alerts` WS push (realtime, slice 5).
 - **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
 - **Diagnostics (host)** — **half A (done), half B**: the per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is **additive kgsm-api work against the existing monitor Snapshot** — the highest-value enrichment. The rest (sensors, processes, cpu model, device/smart, iface ip/mac) is **C** (monitor slices) → honest-unknown until then.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.

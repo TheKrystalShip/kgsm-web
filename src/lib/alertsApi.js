@@ -117,6 +117,25 @@ import { createStore } from "./store.js";
   if (!LIVE) store.subscribe(() => save(store.getState().list));
   const alertsStore = store;
 
+  // Live hydrate/backfill (architecture.html §3·j). Pull the current firing
+  // conditions + the 24h resolved rear-view and replace the feed wholesale; the
+  // `alerts` WS stream then keeps it live via ingest() (raise/resolve/retract).
+  // Both queries hit the same /alerts endpoint (so they succeed or fail
+  // together) — on failure we leave the feed untouched rather than blank it.
+  // Mock mode is driven by buildSeed() + the mock-monitor, so refresh is a
+  // no-op there — never clobber the demo feed with a fetch.
+  alertsStore.refresh = () => {
+    if (!LIVE) return Promise.resolve(store.getState().list);
+    return Promise.all([
+      api.get("/alerts?status=firing"),
+      api.get("/alerts?status=resolved&since=24h"),
+    ]).then(([firing, resolved]) => {
+      const list = [...(firing || []), ...(resolved || [])];
+      store.setState({ list });
+      return list;
+    });
+  };
+
   const setItem = (id, patch) =>
     store.setState(s => ({ list: s.list.map(a => (a.id === id ? { ...a, ...patch } : a)) }));
 
@@ -172,5 +191,9 @@ import { createStore } from "./store.js";
     else if (m.type === "alert.resolve") KrystalAlerts.ingest({ kind: "resolve", id: m.data.id, resolution: m.data.resolution });
     else if (m.type === "alert.retract") KrystalAlerts.ingest({ kind: "retract", id: m.data.id });
   });
+
+  // Live cold boot: hydrate once from REST on load (mirrors the stores.js cold
+  // boot for the other surfaces). Mock mode keeps its synchronous seed above.
+  if (LIVE) { try { alertsStore.refresh().catch(() => {}); } catch (e) {} }
 
 export { KrystalAlerts, alertsStore };
