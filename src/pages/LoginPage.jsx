@@ -1,5 +1,7 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
+import { takeOAuthError } from "../lib/authRedirect.js";
+import { API_BASE, LIVE } from "../lib/config.js";
 
 // LoginPage — the unauthenticated landing surface.
 //
@@ -72,13 +74,22 @@ function LoginPage({ onLogin }) {
   // operator on another, viewer on a third); this lens just fixes a single role
   // for testing. "admin" is the default — the panel as it is today.
   const [persona, setPersona] = React.useState("admin");
+  // A failed/denied OAuth round-trip lands back here with #error=… (captured +
+  // stashed in main.jsx); surface it once so the user isn't left guessing.
+  const [error] = React.useState(() => takeOAuthError());
 
   const handleProvider = (provider) => {
     if (busy) return;
+    // Live backend: a real OAuth bounce is a full-page navigation to the host's
+    // /auth/discord/start; the callback 302s back with the session in the URL
+    // fragment (captured in main.jsx → completeOAuthLogin). The fake round-trip
+    // below stays for fixture mode (no VITE_API_BASE).
+    if (LIVE && provider === "discord" && API_BASE) {
+      setBusy(provider);
+      window.location.href = API_BASE + "/auth/discord/start?prompt=consent";
+      return;
+    }
     setBusy(provider);
-    // Real product: window.location = `${KRYSTAL_API_BASE}/auth/${provider}/start?stay=${stay ? 1 : 0}`
-    // The OAuth callback would land on /auth/callback, set a session cookie,
-    // and redirect back into the app. We fake the round-trip here.
     setTimeout(() => {
       const profile = FAKE_PROFILES[provider] || FAKE_PROFILES.discord;
       onLogin({ ...profile, stay, persona });
@@ -96,6 +107,14 @@ function LoginPage({ onLogin }) {
 
         <div className="login-card">
           <div className="login-card__heading">Sign in to Krystal</div>
+          {error && (
+            <div className="login-card__error" role="alert">
+              <Icon name="alert-triangle" size={14} />
+              {error === "denied"
+                ? "Your Discord account doesn’t have a role on this host."
+                : "Sign-in didn’t complete — please try again."}
+            </div>
+          )}
           <div className="login-card__sub">Use the same Discord account you use with the crew. Your servers and roles come along with you.</div>
 
           <button

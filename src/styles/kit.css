@@ -925,6 +925,14 @@ body { overflow: hidden; }
 .login-card__sub {
   font-size: 13.5px; color: var(--fg-3); margin-top: -10px;
 }
+.login-card__error {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: var(--danger-fg, var(--danger));
+  background: var(--danger-bg, rgba(239, 68, 68, 0.1));
+  border: 1px solid var(--danger-border, rgba(239, 68, 68, 0.28));
+  border-radius: 8px; padding: 9px 11px;
+}
+.login-card__error > svg { flex-shrink: 0; color: var(--danger); }
 
 /* OAuth buttons */
 .oauth-btn {

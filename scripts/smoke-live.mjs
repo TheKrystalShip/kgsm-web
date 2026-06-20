@@ -34,7 +34,7 @@ const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></
 });
 const w = dom.window;
 globalThis.window = w;
-for (const k of ["document", "localStorage", "sessionStorage", "HTMLElement", "Node", "getComputedStyle", "DOMParser", "Event", "CustomEvent", "navigator"]) {
+for (const k of ["document", "localStorage", "sessionStorage", "HTMLElement", "Node", "getComputedStyle", "DOMParser", "Event", "CustomEvent", "navigator", "location", "history"]) {
   try { if (!globalThis[k]) globalThis[k] = w[k]; } catch {}
 }
 w.matchMedia = w.matchMedia || ((q) => ({ matches: false, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }));
@@ -63,6 +63,27 @@ try {
     fail++;
   } else {
     console.log(`✓ config wired live → ${cfg.API_V1}`);
+  }
+
+  // ---- OAuth fragment capture (mechanical) --------------------------------
+  // Simulate the kgsm-api callback redirect landing on the SPA with the session
+  // in the URL fragment; the SPA must parse + stash + strip it before the hash
+  // router sees it (the real Discord consent round-trip is owed-to-human).
+  const assertEarly = (cond, label) => { console.log(`${cond ? "✓" : "✗"} ${label}`); if (!cond) fail++; };
+  {
+    const ar = await vite.ssrLoadModule("/src/lib/authRedirect.js");
+    w.history.replaceState(null, "", "/#access=tok_AAA&refresh=tok_BBB");
+    const cap = ar.captureOAuthFragment();
+    assertEarly(cap && cap.access === "tok_AAA" && cap.refresh === "tok_BBB", "OAuth fragment parsed (access+refresh)");
+    assertEarly(!String(w.location.hash || "").includes("access="), "OAuth fragment stripped from URL after capture");
+    const p = ar.takePendingTokens();
+    assertEarly(p && p.access === "tok_AAA", "pending tokens stashed for the session layer");
+    assertEarly(ar.takePendingTokens() === null, "pending tokens are one-shot (no replay)");
+    w.history.replaceState(null, "", "/#error=denied");
+    const cerr = ar.captureOAuthFragment();
+    assertEarly(cerr && cerr.error === "denied", "OAuth error fragment parsed (#error=denied)");
+    assertEarly(ar.takeOAuthError() === "denied", "OAuth error surfaced one-shot to LoginPage");
+    w.history.replaceState(null, "", "/");   // clean slate for the render phases
   }
 
   // ---- Phase 1: data-level honest mapping (persona-independent) -----------

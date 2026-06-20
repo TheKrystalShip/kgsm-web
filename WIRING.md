@@ -184,15 +184,12 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
 2. **Assistant chat** — FE `ChatPage` does a raw Ollama-shaped `fetch` to the wrong route. Rewrite onto `POST /api/v1/assistant/turn` (SSE, `{prompt,think,tools}`), routed through the `api` seam.
 3. **Host discovery / registry** — no base-URL capture in the FE (see §1, §7).
-3b. **OAuth token handoff (backend gap, decision owed)** — `/auth/discord/callback`
-    returns `CallbackResult` as **JSON** (`AuthController.cs:120`); it never hands the
-    minted access/refresh tokens back to the SPA, so a real Discord login can't
-    complete from the browser. The FE session layer is ready (`bootstrap`/`tokenOf`/
-    refresh); only token *acquisition* is missing. Fix is a **kgsm-api change** (sign-off
-    required): callback `302`s to an allowlisted SPA URL with tokens in the URL
-    **fragment** (`#access=…&refresh=…` — never the query: fragments don't reach server
-    logs / `Referer`), or popup + `postMessage`. Until then the live FE runs against an
-    **auth-disabled** backend (tier resolves via `/me`, slice 4).
+3b. **OAuth token handoff — BUILT (slice 4b; one manual browser login owed).** The
+    callback now 302s to `KGSM_API_AUTH_FRONTEND_URL` with the session in the URL
+    **fragment** (`#access=…&refresh=…` | `#error=…`), and the SPA captures+strips it
+    at boot (`authRedirect.js`). Mechanically verified; the real Discord consent
+    round-trip is owed-to-human. Refresh-token *rotation* (>15-min sessions) and
+    multi-host token routing remain deferred.
 4. **Honest-unknown UI** — players/ip/uptime/per-process/sensors have no source: render "unknown" (preferred) or hide; never fabricate.
 
 ## 7. Open decisions
@@ -292,6 +289,26 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > with tokens in the **fragment** (`#access=…&refresh=…` — fragments never hit server
 > logs / Referer), or a popup + `postMessage`. The FE session layer above is already
 > shaped for it (`bootstrap`/`tokenOf`/refresh) — only token *acquisition* is missing.
+
+> **Slice 4b — OAuth fragment handoff — BUILT (2026-06-21; one manual browser
+> login owed).** Closes the gap above (chosen mechanism: fragment redirect).
+> **kgsm-api** (`feat/oauth-frontend-redirect` `56e5aa8`): `KGSM_API_AUTH_FRONTEND_URL`
+> + the callback 302s to it with the session in the URL **fragment**
+> (`#access=…&refresh=…` | `#error=…`), never the query; single fixed target (no
+> open-redirect); CSRF gate unchanged; blank → unchanged JSON (215/215 tests green,
+> +2 redirect tests). **kgsm-web**: `authRedirect.js` (capture+strip the fragment
+> before the hash router reads it; `completeOAuthLogin` resolves the app-shell
+> identity from `/me` before mount → no LoginPage flash), `main.jsx` (async boot),
+> `sessionStore` (adopts the handed-back token for the lone host before its `/me`
+> tier call — single-host; multi-host token routing still deferred), `LoginPage`
+> (LIVE Discord button → full-page `…/auth/discord/start`; surfaces a captured
+> `#error`). Verified MECHANICALLY: build + mock smoke green; live smoke parses/
+> strips/one-shot-stashes the fragment + the error. **OWED — one human browser
+> login** (real Discord consent can't be driven headlessly). **Still deferred:**
+> refresh-token *rotation* — sessions are valid for the 15-min access TTL, then a
+> re-login (the FE stores the refresh token but doesn't yet call the rotation
+> endpoint; that's the fast-follow). Multi-host token routing (which host issued a
+> token) — single-host only today.
 
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
@@ -444,7 +461,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a). Remaining A: job-derived status (→ slice 5/3), server-ports card (→ slice 6, needs detail-GET wired).
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **A**, but **audit + integrations are backend-500-blocked** (recreate dev DB). Alerts needs the initial GET wired.
-- **Auth / Me** — FE half **DONE** (slice 4): `/me`-driven per-host tier ungates fleet/dashboard against an auth-disabled backend; bearer injected when held. **Blocked for real login** on a kgsm-api change — the OAuth callback returns JSON, never hands a token back to the SPA (decision owed, §6/§8).
+- **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
 - **Diagnostics (host)** — **half A (done), half B**: the per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is **additive kgsm-api work against the existing monitor Snapshot** — the highest-value enrichment. The rest (sensors, processes, cpu model, device/smart, iface ip/mac) is **C** (monitor slices) → honest-unknown until then.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).

@@ -1,4 +1,5 @@
 import { api } from "./apiClient.js";
+import { takePendingTokens } from "./authRedirect.js";
 import { LIVE } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
@@ -119,11 +120,24 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     // from here yet; tier resolution + route gating work against an auth-disabled
     // host today and self-heal once the handoff lands.
     if (LIVE) {
+      // Adopt a token just handed back by the OAuth fragment redirect, if any
+      // (single-host: the lone host owns it). Set it BEFORE /me so the bearer
+      // rides the tier call (auth-enabled hosts need it; auth-disabled ignores it).
+      const pending = takePendingTokens();
+      if (pending && pending.access) {
+        const t = Date.now();
+        setRec(id, {
+          status: "live", token: pending.access, refresh: pending.refresh || null,
+          tier: "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
+        });
+      }
       return api.get("/me").then(me => {
         const now = Date.now();
+        const cur = getRec(id);
         setRec(id, {
           status: "live", tier: (me && me.tier) || "none",
-          token: (me && me.token) || null,
+          token: (cur && cur.token) || (me && me.token) || null,
+          refresh: (cur && cur.refresh) || null,
           exp: now + ACCESS_TTL_MS, capExp: now + SESSION_CAP_MS, error: null,
         }, true);
         scheduleRefresh(id);
