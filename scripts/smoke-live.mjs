@@ -283,6 +283,70 @@ try {
   let tier = null;
   for (let i = 0; i < 30; i++) { tier = ss.sessionStore.tierOf(hid); if (tier && tier !== "none") break; await sleep(100); }
   assert(tier === "admin", `tier resolved from GET /me (${hid} → ${tier}); gates via /me, not a persona lens`);
+
+  // ---- Phase 4: realtime (real WebSocket) ---------------------------------
+  // The app boots a real WS to /api/v1/stream (createLiveStream). Prove the
+  // transport is live (audit.append flows end-to-end from a kgsm emit) and that
+  // the server.patch/server.removed/job.patch remaps mutate the stores. kgsm
+  // `events emit` only drives audit.append, so the other three are injected at
+  // the dispatch seam (api.__dispatch — RAW server frame → adapt → dispatch),
+  // exactly as the socket would deliver them.
+  const { api, realtimeStore } = await vite.ssrLoadModule("/src/lib/apiClient.js");
+  const { execSync } = await import("node:child_process");
+
+  // (a) the socket reaches "live"
+  let rtMode = null;
+  for (let i = 0; i < 40; i++) {
+    rtMode = (Object.values(realtimeStore.getState().hosts || {})[0] || {}).mode;
+    if (rtMode === "live") break;
+    await sleep(150);
+  }
+  assert(rtMode === "live", `realtime WS connected (mode=${rtMode})`);
+
+  // (b) audit.append end-to-end: a real kgsm event → WS → prepended row
+  const beforeTop = (st.auditStore.getState().list[0] || {}).id;
+  execSync("/home/heisen/tks/kgsm/kgsm.sh events emit instance-started factorio-test");
+  let appended = false;
+  for (let i = 0; i < 40; i++) {
+    const top = st.auditStore.getState().list[0];
+    if (top && top.id !== beforeTop && top.action === "server.start") { appended = true; break; }
+    await sleep(150);
+  }
+  assert(appended, "audit.append e2e: kgsm emit → WS → auditStore prepends a server.start row");
+
+  // (c) server.patch remap: RAW API status 'running' → adapted 'online'
+  api.__dispatch({ topic: "servers", type: "server.patch",
+    data: { id: "factorio-test", name: "factorio-test", blueprint: "factorio", status: "running", runtime: "native", hostId: "hotrod" } });
+  assert((st.serversStore.find("factorio-test") || {}).status === "online",
+    "server.patch: raw 'running' adapted to 'online' and merged by id");
+
+  // (d) server.removed tombstone drops the instance
+  api.__dispatch({ topic: "servers", type: "server.patch",
+    data: { id: "smoke-srv", name: "smoke", blueprint: "factorio", status: "running", runtime: "native", hostId: "hotrod" } });
+  const wasAdded = !!st.serversStore.find("smoke-srv");
+  api.__dispatch({ topic: "servers", type: "server.removed", data: { id: "smoke-srv" } });
+  assert(wasAdded && !st.serversStore.find("smoke-srv"), "server.removed: tombstone drops the instance from the roster");
+
+  // (e) job.patch remap: running → {verb,state}; terminal succeeded → cleared
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: "factorio-test", verb: "start", state: "running" } });
+  const jobRunning = (st.serversStore.find("factorio-test") || {}).job;
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: "factorio-test", verb: "start", state: "succeeded" } });
+  const jobCleared = (st.serversStore.find("factorio-test") || {}).job;
+  assert(jobRunning && jobRunning.state === "running" && jobCleared == null,
+    "job.patch: running tracked; terminal (succeeded) clears the job");
+
+  // (f) alert.raise over the FULL WS chain: adaptStreamMessage → adaptAlert
+  // (derived icon) → dispatch → alertsStore upsert (slice 3 only tested REST +
+  // a direct ingest, skipping the stream adaptation — this closes the chain).
+  api.__dispatch({ topic: "alerts", type: "alert.raise",
+    data: { id: "crash:wschain", severity: "danger", source: "watchdog", title: "WS chain alert",
+      detail: "synthetic", serverId: "factorio-test", hostId: "hotrod", status: "firing",
+      raisedAt: "2026-06-20T00:00:00Z", escalated: false, attempts: 1 } });
+  const wsAlert = aApi.alertsStore.getState().list.find(a => a.id === "crash:wschain");
+  assert(wsAlert && wsAlert.icon === "alert-triangle",
+    "alert.raise: WS frame → adaptAlert (derived icon) → alertsStore upsert");
+  aApi.KrystalAlerts.ingest({ kind: "retract", id: "crash:wschain" });
+
   root.unmount();
 } finally {
   console.error = origErr;

@@ -77,16 +77,31 @@ serversStore.refresh = () => {
 // where lifecycle-command transitions (status/uptime) land; in production it's
 // the same WebSocket push. This replaces the old in-component state machine.
 api.stream.subscribe(["servers"], (m) => {
-  if (m.type === "server.patch" && m.data) {
-    const { id, ...patch } = m.data;
-    serversStore.patch(id, patch);
+  if (m.type === "server.patch" && m.data && m.data.id) {
+    // server.patch carries a FULL element to merge by id → UPSERT: patch an
+    // existing server, or add one the roster didn't have yet (a server registered
+    // directly on the backend surfaces here without waiting for a manual refresh).
+    if (serversStore.find(m.data.id)) {
+      const { id, ...patch } = m.data;
+      serversStore.patch(id, patch);
+    } else {
+      serversStore.add(m.data);
+    }
+    // A live patch carries `game` as the raw blueprint id again → re-join the
+    // catalog name so the display name doesn't regress (no-op until curation).
+    resolveGameNames();
+  } else if (m.type === "server.removed" && m.data && m.data.id) {
+    // Roster tombstone: the instance is gone → drop it (architecture.html §3·b).
+    serversStore.setState(s => ({ ...s, list: s.list.filter(x => x.id !== m.data.id) }));
   }
 });
 
 // Track the in-flight command per server from the `jobs` channel, so action
 // buttons can show progress (spinner) and lock siblings until it completes.
 api.stream.subscribe(["jobs"], (m) => {
-  if (m.type === "job" && m.data) {
+  // mock pushes `job`; live pushes `job.patch` (adaptJob collapses the API's
+  // succeeded|failed terminal states to "done", so this one branch serves both).
+  if ((m.type === "job" || m.type === "job.patch") && m.data) {
     const { serverId, verb, state } = m.data;
     serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
   }
@@ -232,6 +247,12 @@ auditStore.refresh = () => {
     throw err;
   });
 };
+// Keep the log live: a new record arrives on the `audit` channel as
+// `audit.append` (immutable, never edited) → prepend it. REST is the hydrate/
+// backfill; the socket carries fresh appends (architecture.html §3·d/§3·j).
+api.stream.subscribe(["audit"], (m) => {
+  if (m.type === "audit.append" && m.data) auditStore.prepend(m.data);
+});
 
 // ---- Game library (installable catalog) ---------------------------------
 // Mostly static; hydrate from api.get("/library"). Listed for completeness so

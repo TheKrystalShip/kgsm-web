@@ -53,7 +53,7 @@ host). **Decision owed** (see §7).
 | Concern | Frontend today | Backend | Action |
 |---|---|---|---|
 | Base URL | `VITE_API_BASE` exists in `.env.example` but is **read nowhere in `src/`**; mock always serves fixtures | listens at `/api/v1` | Build a real transport that reads `VITE_API_BASE` (+ `/api/v1`); keep mock as the no-base fallback |
-| Realtime URL | `VITE_WS_BASE` unread; mock is in-memory | `GET /api/v1/stream` (RFC 6455 WS), bearer via `?access_token=` | Real WS client behind the existing `api.stream` interface |
+| Realtime URL | ✅ `WS_URL` derived from `API_BASE` (or `VITE_WS_BASE`); real WS client (`liveStream.js`) behind `api.stream` (slice 5) | `GET /api/v1/stream` (RFC 6455 WS), bearer via `?access_token=` | DONE (single host; multi-host fan-out = slice 8) |
 | JSON casing | fixtures mix **snake_case** (`update_available`, `last_backup`, `user_id`, `per_core`, `boot_time`, `sample_age_s`, `open_ports`, `usage_pct`…) | **camelCase** everywhere (`PropertyNamingPolicy=CamelCase`) | Adapter normalizes; do **not** rename fixtures piecemeal — map at the seam |
 | Errors | mock rejects with `{code:'ECONNREFUSED'}` ad-hoc | `{error:{code,message,details?}}`, stable `code` strings | Transport unwraps the envelope into the FE's error shape |
 | Auth transport | per-host bearer injected by `api.host(id)` | `Authorization: Bearer <jwt>`; secure-by-default (everything needs a bearer) | Inject real bearer; use `KGSM_API_AUTH_DISABLED` on the backend to prove the data path *before* wiring OAuth |
@@ -101,24 +101,37 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✅ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
 | — (FE: `DiscordPage`/settings) | `GET/PATCH /api/v1/integrations[/{provider}]`, `POST …/test` (Admin) | ➕ | backend built (Discord+Slack); FE settings UI not wired to it — verify FE call sites |
 
-## 4. Realtime matrix (topic → message type)
+## 4. Realtime matrix (topic → message type) — **DONE (slice 5, 2026-06-21)**
 
-FE subscribes via `api.stream.subscribe([topics], cb)` → must emit `{type:"subscribe",
+FE subscribes via `api.stream.subscribe([topics], cb)` → emits `{type:"subscribe",
 topics:[…]}`. BE outbound envelope: `{topic, type, data}` (FE handler reads `type`+`data`,
-tolerant of extra `topic`).
+tolerant of extra `topic`). **The real WS transport is wired:** `src/lib/liveStream.js`
+(self-contained WS lifecycle + backoff reconnect + re-subscribe-on-open) picked when
+`LIVE`; `apiClient` adapts each frame via `adaptStreamMessage` (the WS parallel of
+`adaptResponse`) and feeds the shared `dispatchMessage` seam, so the store subscribers are
+identical in mock + live. Drives `realtimeStore` only (REST reachability stays on
+`connectionStore`); on (re)open it `rehydrateAll()`s to catch missed deltas (§3·j).
+**Single host** — multi-host fan-out (one socket per host) is slice 8.
 
 | FE topic → type | BE topic → type | Status |
 |---|---|---|
-| `servers` → `server.patch` | `servers` → `server.patch` | ⚠️ same name, `data` is the full Server DTO (schema §5) |
-| — | `servers` → `server.removed {id}` | ➕ handle roster tombstone |
-| `jobs` → `job` | `jobs` → **`job.patch`** | ⚠️ **type-name differs** — remap `job`↔`job.patch` |
+| `servers` → `server.patch` | `servers` → `server.patch` | ✅ `adaptServer` on the frame; **upsert by id** (patch existing OR add a new roster member) |
+| `servers` → `server.removed {id}` | `servers` → `server.removed {id}` | ✅ tombstone drops the instance |
+| `jobs` → `job`/`job.patch` | `jobs` → `job.patch` | ✅ `adaptJob` collapses `succeeded\|failed`→`done`; one branch serves mock + live |
 | `console` → `console.line` | **(none)** | ❌ **true backend gap** — no console topic exists; `ConsolePanel` degrades to "unavailable" |
-| `alerts` → `alert.raise`/`alert.resolve`/`alert.retract` | same three | ✅ schema mostly aligned (§5) |
-| `hosts/{id}/metrics` (planned) | `hosts/{id}/metrics` → `host.metrics` | ➕ wire it |
-| — | `servers/{id}/metrics` → `metrics.tick` | ➕ per-instance metrics |
-| — | `hosts/{id}/capabilities` → `capabilities.patch` | ➕ drives capability badges |
-| — | `servers/{id}/network` → `network.patch` | ➕ ports flow |
-| — | `audit` → `audit.append` | ➕ FE could live-prepend audit |
+| `alerts` → `alert.raise`/`alert.resolve`/`alert.retract` | same three | ✅ `alert.raise` runs through `adaptAlert` (derived icon); resolve/retract passthrough |
+| `audit` → `audit.append` | `audit` → `audit.append` | ✅ live-prepend to `auditStore` (e2e-verified via a real kgsm emit) |
+| — (deferred) | `hosts/{id}/metrics` → `host.metrics` | ⏸ metrics topics deferred — test host's metrics capability is down (no honest data) |
+| — (deferred) | `servers/{id}/metrics` → `metrics.tick` | ⏸ per-instance metrics — same (monitor not live) |
+
+> ⚠ **Metrics-slice landmine:** the `server.patch` handler merges the FULL adapted
+> element, and `adaptServer(...).metrics === null` when a patch omits metrics. Once
+> `metrics.tick` lands, a `server.patch` would then **clobber** cpu/ram set by a metric
+> tick. The metrics slice must make `server.patch` not null out metric fields (e.g. omit
+> metrics from the patch merge, or merge metrics only when present). Harmless today
+> (metrics deferred, test host down).
+| — (deferred) | `hosts/{id}/capabilities` → `capabilities.patch` | ⏸ capability flips — wire with metrics |
+| — (deferred) | `servers/{id}/network` → `network.patch` | ⏸ ports flow → slice 6 (commands/ports) |
 
 ## 5. Schema diffs (the bulk of the work)
 
@@ -333,8 +346,12 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
    (+icon-derive, +alerts-hydrate, +audit/alerts live render).
 4. **Auth** — real OAuth (`start`/`callback`/`refresh` + bearer + refresh store),
    tier from `/me`, the 401/403/`login_required` machine on real responses.
-5. **Realtime** — WS client on `/api/v1/stream`, subscribe protocol, topic/type
-   remap (`job`↔`job.patch`), coalesce-aware; poll-fallback on drop.
+5. **Realtime** — **DONE (2026-06-21).** Real WS client (`liveStream.js`) on
+   `/api/v1/stream`, subscribe protocol, `adaptStreamMessage` reshape, topic/type remaps
+   (`server.patch` upsert, `server.removed`, `job`↔`job.patch`, `audit.append`,
+   `alert.*`), backoff reconnect + re-subscribe + rehydrate-on-open. Metrics topics
+   deferred (no live monitor). Verified: audit.append e2e (kgsm emit→WS→store) +
+   synthetic-inject for the other three remaps in `smoke:live`.
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
 7. **Assistant** — rewrite `ChatPage` onto `/assistant/turn` SSE through the seam.
@@ -465,25 +482,27 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
 | `FileBrowser`, `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings`, no config endpoint. |
 | `ChatPage` (assistant) | `POST /assistant/turn` SSE | **A** | endpoint exists; FE calls wrong route/shape — rewrite through seam. |
-| `DiscordPage`/integrations | `/integrations` (built) | **A** | ⚠ live `GET /integrations` → **500** (§7b) — fix DB first. |
+| `DiscordPage`/integrations | `/integrations` (built) | **A** | ✅ live `GET /integrations` 200 (DB recreated, slice 3); wiring is a later slice. |
 
 ## 10. Per-surface rollup (what unblocks each screen)
 
 Cheap-wins-first falls out of the buckets above:
 
-- **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a). Remaining A: job-derived status (→ slice 5/3), server-ports card (→ slice 6, needs detail-GET wired).
-- **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups). `ping_ms` = B (client RTT); `region` = D.
-- **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts now hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Remaining (later slices): audit keyset paging + `audit.append` live-prepend; the live `alerts` WS push (realtime, slice 5).
+- **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a) + **live updates DONE** (slice 5: `server.patch` upsert / `server.removed` / `job.patch` over the real WS). Remaining A: server-ports card (→ slice 6, needs detail-GET wired).
+- **Realtime (WS)** — **DONE (slice 5, 2026-06-21).** Real `liveStream.js` socket on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. Metrics topics (`host.metrics`/`metrics.tick`/`capabilities.patch`) deferred (no live monitor); `network.patch` → slice 6; console = permanent gap.
+- **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
+- **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
 - **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
 - **Diagnostics (host)** — **half A (done), half B**: the per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is **additive kgsm-api work against the existing monitor Snapshot** — the highest-value enrichment. The rest (sensors, processes, cpu model, device/smart, iface ip/mac) is **C** (monitor slices) → honest-unknown until then.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
 - **Assistant chat** — **A** rewrite onto `/assistant/turn` SSE.
-- **Integrations** — **A**, 500-blocked.
+- **Integrations** — **A** (the 500 is cleared as of slice 3's DB recreate; wiring `DiscordPage`/settings to `/integrations` is its own later slice).
 
-**Suggested order** (each is a clean component-by-component slice): finish the
-Server/Dashboard **A** remaps → **Auth/Me** (unblocks gated surfaces) → recreate the
-backend DB to clear the two 500s → **Audit/Alerts/Library** reads → **Diagnostics
-B-enrichment** (the monitor-Snapshot exposure, biggest payoff) → realtime WS →
-commands/ports → assistant → presence/performance/console as their sources land.
+**Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
+**A** remaps~~ (slice 2a) → ~~**Auth/Me**~~ (slices 4/4b) → ~~recreate the backend DB to
+clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realtime WS~~
+(slice 5) → **next:** **Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
+payoff) → commands/ports (slice 6) → assistant → presence/performance/console as their
+sources land.

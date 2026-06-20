@@ -154,14 +154,35 @@ const ALERT_ICON_BY_SEVERITY = { danger: "alert-triangle", warn: "circle-alert",
 function alertIcon(a) {
   return ALERT_ICON_BY_SOURCE[a.source] || ALERT_ICON_BY_SEVERITY[a.severity] || "circle-alert";
 }
+// One alert: honest passthrough of every field the API sources (id/severity/
+// source/title/detail/serverId/hostId/anchor/status/raisedAt/escalated/attempts/
+// resolvedAt/resolution) plus a derived display icon. `prompt`/`autoResolves` are
+// demo-only (no upstream source) → left absent, never fabricated. Shared by the
+// REST page (below) and the live `alert.raise` stream message (adaptStreamMessage).
+export function adaptAlert(a) {
+  if (!a) return a;
+  return { ...a, icon: a.icon || alertIcon(a) };
+}
 export function adaptAlerts(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
-  // Honest passthrough of every field the API sources (id/severity/source/title/
-  // detail/serverId/hostId/anchor/status/raisedAt/escalated/attempts/resolvedAt/
-  // resolution) plus a derived display icon. `prompt`/`autoResolves` are demo-only
-  // (no upstream source) → left absent, never fabricated: the assistant falls back
-  // to a generic ask and the live panel has no mock-monitor resolve button.
-  return rows.map((a) => ({ ...a, icon: a.icon || alertIcon(a) }));
+  return rows.map(adaptAlert);
+}
+
+// ---- Jobs (command progress over the `jobs` stream) --------------------
+// API Job state is queued|running|succeeded|failed; the FE job tracker reads a
+// coarse running-vs-done (spinner until terminal, then clears). Collapse the two
+// terminal states to the FE's "done" so the existing store logic
+// (`state === "done" ? clear : { verb, state }`) works for mock AND live.
+const JOB_TERMINAL = { succeeded: true, failed: true };
+export function adaptJob(be) {
+  if (!be) return be;
+  return {
+    id: be.id,
+    serverId: be.serverId,
+    verb: be.verb,
+    state: JOB_TERMINAL[be.state] ? "done" : be.state,
+    error: be.error ?? null,
+  };
 }
 
 // ---- Me (caller identity + tier) ---------------------------------------

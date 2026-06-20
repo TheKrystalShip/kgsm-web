@@ -1,7 +1,8 @@
 import { KRYSTAL_DATA } from "./data.js";
 import { createStore } from "./store.js";
-import { LIVE, API_V1 } from "./config.js";
+import { LIVE, API_V1, WS_URL } from "./config.js";
 import * as adapt from "./adapters.js";
+import { createLiveStream } from "./liveStream.js";
 
 // alertsStore + sessionStore are used only inside request methods (deferred,
 // `?`-guarded). Static imports would put this base module in init cycles
@@ -15,7 +16,15 @@ import("./sessionStore.js").then((m) => { sessionStore = m.sessionStore; });
 // deferred call-time paths (request handlers + the degraded-mode poll loop). A
 // static import would re-form the apiClient<->stores init cycle.
 let storesNs = null;
-import("./stores.js").then((m) => { storesNs = m; });
+import("./stores.js").then((m) => {
+  storesNs = m;
+  // The first live WS open can land before the host list hydrates → re-key the
+  // realtime indicator under the real host id once hosts arrive (LIVE only;
+  // single-host — multi-host fan-out is a later slice). Reuses this one dynamic
+  // import (no second one) since `live`/`setLiveRealtime` are defined by the time
+  // this microtask runs.
+  if (LIVE && live && m.hostsStore) { try { m.hostsStore.subscribe(() => setLiveRealtime(live.mode())); } catch (e) {} }
+});
 
 // apiClient.js — the single seam between the client and the backend.
 //
@@ -91,7 +100,11 @@ import("./stores.js").then((m) => { storesNs = m; });
     };
     return chans[id];
   }
-  hostKnown().forEach(chan);   // seed from the fixture
+  // Seed the SIMULATED per-host channels from the fixture (mock mode only). In
+  // LIVE the real WebSocket (createLiveStream, below) owns realtimeStore for the
+  // single live host — the fixture host ids don't match the backend, so seeding
+  // them here would project a phantom fleet. (Multi-host live fan-out = later slice.)
+  if (!LIVE) hostKnown().forEach(chan);
 
   let pollTimer = null;        // ONE shared poll loop while any host is degraded
   const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
@@ -401,6 +414,14 @@ import("./stores.js").then((m) => { storesNs = m; });
   // and each inbound { topic, type, data } is dispatched to the owning store.
   // Here, listeners register topics and the mock backend calls emit().
   const listeners = new Set();
+  let live = null;   // the real WebSocket transport (LIVE only); assigned below
+  // Transport-agnostic dispatch seam: deliver one { topic, type, data } frame to
+  // every listener subscribed to its topic. BOTH the mock backend (emit, with
+  // per-host gating) and the live WebSocket (onMessage, below) feed through here,
+  // so the store subscribers are identical in either mode.
+  function dispatchMessage(full) {
+    for (const l of listeners) if (l.topics.has(full.topic)) { try { l.fn(full); } catch (e) {} }
+  }
   function emit(topic, message) {
     // No browser network — nothing can push. Otherwise gate per host: a dropped
     // host's channel can't deliver ITS servers' events, so live updates freeze
@@ -409,15 +430,58 @@ import("./stores.js").then((m) => { storesNs = m; });
     if (!online) return;
     const hid = messageHost(message);
     if (hid && chans[hid] && !chans[hid].socket) return;
-    for (const l of listeners) if (l.topics.has(topic)) { try { l.fn({ topic, ...message }); } catch (e) {} }
+    dispatchMessage({ topic, ...message });
   }
   const stream = {
     subscribe(topics, onMessage) {
       const entry = { topics: new Set(topics), fn: onMessage };
       listeners.add(entry);
+      if (LIVE && live) live.subscribe(topics);   // tell the real socket to push these
       return () => listeners.delete(entry);
     },
   };
+
+  // ---- live realtime adaptation (the WS parallel of adaptResponse) --------
+  // Reshape a live server→client frame into the FE shapes the stores hold. The
+  // mock feed is already FE-shaped (fixtures), so ONLY the live path runs this.
+  // Unknown topics/types pass through untouched — a new server message must never
+  // crash an old client (forward-compatible).
+  function adaptStreamMessage(msg) {
+    if (!msg) return msg;
+    const { topic, type, data } = msg;
+    if (topic === "servers" && type === "server.patch") return { topic, type, data: adapt.adaptServer(data) };
+    if (topic === "jobs" && type === "job.patch") return { topic, type, data: adapt.adaptJob(data) };
+    if (topic === "alerts" && type === "alert.raise") return { topic, type, data: adapt.adaptAlert(data) };
+    // server.removed {id}, alert.resolve {id,resolution}, alert.retract {id} and
+    // audit.append (a record — adaptAudit is per-row identity) need no reshaping.
+    return msg;
+  }
+
+  // ---- live realtime transport (real WebSocket, single host) --------------
+  // Picked only when LIVE. Drives realtimeStore (NOT connectionStore — liveFetch
+  // already owns REST reachability via markSuccess/markFailure). On every (re)open
+  // it re-hydrates the REST stores to catch deltas missed while the socket was
+  // down (§3·j). One socket to the single configured host; multi-host fan-out
+  // (one socket per host base URL) is a later slice.
+  function liveHostId() {
+    try { return ((storesNs && storesNs.hostsStore && storesNs.hostsStore.getState().list[0]) || {}).id || null; }
+    catch (e) { return null; }
+  }
+  function setLiveRealtime(mode) {
+    const id = liveHostId() || "live";
+    realtimeStore.setState({ online, hosts: { [id]: { mode, attempts: 0, nextRetryInMs: 0, lastSyncAt: Date.now(), polling: mode === "reconnecting" } } });
+  }
+  if (LIVE && WS_URL) {
+    live = createLiveStream({
+      url: WS_URL,
+      bearer: liveBearer,
+      onOpen: () => rehydrateAll(),
+      onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+      onMode: (mode) => setLiveRealtime(mode),
+    });
+    // (re-keying realtimeStore under the real host id once hosts hydrate is wired
+    // into the existing storesNs import at the top — no second dynamic import.)
+  }
 
   // ---- mock server runtime ------------------------------------------------
   // Stands in for KGSM: processes a lifecycle command by pushing status +
@@ -533,6 +597,11 @@ import("./stores.js").then((m) => { storesNs = m; });
     __setSlow: setSlow, __slow: () => slow,
     __setHostSocket: setHostSocket, __hostSocket: hostSocket,
     __hostAuth: hostAuthStatus,
+    // Test/dev affordance: inject a RAW server→client frame through the full live
+    // path (adapt → dispatch), exactly as the WebSocket would. Lets the smoke
+    // verify the server.patch/server.removed/job.patch remaps deterministically
+    // (kgsm `events emit` only exercises audit.append end-to-end).
+    __dispatch: (raw) => dispatchMessage(adaptStreamMessage(raw)),
   };
 
 export { api, connectionStore, realtimeStore };
