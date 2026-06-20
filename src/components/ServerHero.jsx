@@ -58,6 +58,15 @@ function ServerHero({ server, onAction }) {
           {server.name}
           {canOps && <button className="hero__edit" aria-label="Rename"><Icon name="pencil" size={16} /></button>}
         </h1>
+        {/* Runtime is honest backend metadata (native vs container) — surface it
+            as a small tag. Absent in mock fixtures → renders nothing there. */}
+        {server.runtime && (
+          <div className="hero__tags">
+            <span className="hero__tag" title="Supervision type">
+              <Icon name={server.runtime === "container" ? "box" : "cpu"} size={12} strokeWidth={2} /> {server.runtime}
+            </span>
+          </div>
+        )}
         {canOps && (
           <div className="action-row">
             <ServerActionButton verb="start"   variant="chip" disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />

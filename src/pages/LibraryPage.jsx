@@ -8,7 +8,7 @@ import { KRYSTAL_LABELS } from "../lib/data.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
-import { gameBlueprint } from "./GamePage.jsx";
+import { gameBlueprint, instancesOfBlueprint } from "./GamePage.jsx";
 
 // Library — Steam-like game catalog with search + category filter.
 // Cover art is whatever the backend sends on each catalog entry (game.cover):
@@ -53,10 +53,10 @@ function fmtAddedLabel(addedAt, now) {
 }
 
 // Count server instances created from a catalog blueprint, regardless of run
-// state (online / updating / stopped / errored). Matches on the backend game
-// slug, falling back to id, so per-instance ids like "rust-ab12" still count.
+// state (online / updating / stopped / errored). Uses the shared blueprint join
+// (see instancesOfBlueprint) so the count never drifts from the detail page.
 function instanceCountFor(game, servers) {
-  return (servers || []).filter(s => s.rawg_slug === game.rawg_slug || s.id === game.id).length;
+  return instancesOfBlueprint(game, servers).length;
 }
 // Whether the operator runs at least one server from this blueprint. This is the
 // SINGLE source of truth for "installed" — derived live from the servers store,
@@ -107,7 +107,7 @@ function GameCard({ game, onPick, addedNow, compact }) {
   // count is always consistent.
   const servers = useStore(serversStore, s => s.list);
   const allHosts = useStore(hostsStore, s => s.list);
-  const instances = (servers || []).filter(s => s.rawg_slug === game.rawg_slug || s.id === game.id);
+  const instances = instancesOfBlueprint(game, servers);
   const count = instances.length;
   const onlineCount = instances.filter(s => s.status === "online").length;
   const bg = game.cover

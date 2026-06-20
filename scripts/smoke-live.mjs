@@ -114,7 +114,7 @@ try {
 
   const CASES = [
     { hash: "#/servers", must: ["factorio-test", "terraria-hardmode"], label: "Servers roster (live)" },
-    { hash: "#/servers/factorio-test", must: ["factorio-test", "Players"], label: "Server detail (live)" },
+    { hash: "#/servers/factorio-test", must: ["factorio-test", "Players", "native"], label: "Server detail (live)" },  // "native" = runtime chip
   ];
   for (const c of CASES) {
     errors.length = 0;
@@ -137,6 +137,26 @@ try {
   // honest-unknown is actually on screen (offline servers report no players/cpu/ram).
   const rosterHtml = await nav("#/servers");
   assert(rosterHtml.includes("—"), "roster shows '—' for unmeasured fields (honest-unknown on screen)");
+
+  // game-name resolution ran: every server's display `game` equals the /library
+  // name for its blueprint (a no-op today since curated name==id upstream, but it
+  // proves the cross-store join is wired + consistent and will self-heal on
+  // curation). Reads the live singleton stores App just cold-booted.
+  const st = await vite.ssrLoadModule("/src/lib/stores.js");
+  // The store may be a freshly-evaluated module instance still mid cold-boot —
+  // wait for both lists to hydrate. resolveGameNames runs synchronously inside
+  // setState's emit, so once both are populated the join is already applied.
+  let svList = [], libList = [];
+  for (let i = 0; i < 30; i++) {
+    svList = st.serversStore.getState().list;
+    libList = st.libraryStore.getState().list;
+    if (svList.length && libList.length) break;
+    await sleep(100);
+  }
+  const byId = new Map(libList.map((g) => [g.id, g.name]));
+  const joinOk = libList.length > 0 && svList.length > 0 &&
+    svList.every((s) => byId.has(s.blueprint) && s.game === byId.get(s.blueprint));
+  assert(joinOk, `game name joined via /library by blueprint (${svList.length} servers, ${libList.length} catalog)`);
 
   // ---- Phase 3: admin-persona render of the gated read surfaces -----------
   // Pre-auth the persona is tier `none`, so fleet/library/audit/alerts redirect
@@ -178,6 +198,18 @@ try {
   // alerts must NOT carry the demo fixtures in live mode (they'd read as real).
   const alertsHtml = await nav("#/alerts");
   assert(!/won.t stay up|backups 94% full|zombie/i.test(alertsHtml), "alerts: no fixture leakage in live mode");
+
+  // GamePage instances are scoped by blueprint, not the null===null match-all:
+  // the factorio blueprint detail must list factorio-test and NOT terraria-hardmode.
+  const bpHtml = await nav("#/library/factorio");
+  assert(bpHtml.includes("factorio-test") && !bpHtml.includes("terraria-hardmode"),
+    "GamePage instances scoped by blueprint (factorio shows factorio-test, not terraria)");
+
+  // Library cards share the same blueprint join: factorio + terraria each have 1
+  // instance → "1 server" must appear, and the match-all "2 servers" must NOT.
+  const libHtml2 = await nav("#/library");
+  assert(libHtml2.includes("1 server") && !libHtml2.includes("2 servers"),
+    "library cards count per blueprint (1 each, not the match-all 2)");
   root.unmount();
 } finally {
   console.error = origErr;

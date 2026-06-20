@@ -65,6 +65,7 @@ serversStore.refresh = () => {
         });
         return { ...s, list: merged, status: "ready", error: null, everLoaded: true };
       });
+      resolveGameNames();   // a refetch re-pulls `game` as the blueprint id → re-resolve
       return list;
     }, err => {
       serversStore.setState(s => ({ ...s, status: "error", error: err }));
@@ -270,6 +271,32 @@ libraryStore.setOffering = (id, hosts) =>
       return { ...g, hosts };
     }),
   }));
+
+// ---- Game display-name resolution (servers ✕ library) -------------------
+// The backend gives a server only its blueprint id (e.g. "factorio"); the human
+// title lives in /library. Resolve `game` by joining on the blueprint id so the
+// UI shows the catalog name everywhere it reads `server.game`. Today the curated
+// titles equal the ids upstream (name == id), so this is a no-op that SELF-HEALS
+// the moment metadata curation lands — never a fabricated label. Mock servers
+// carry no `blueprint`, so it's a clean no-op there too. Runs after every server
+// refresh (the merge re-pulls the id) and whenever the catalog changes.
+function resolveGameNames() {
+  const lib = libraryStore.getState().list || [];
+  if (!lib.length) return;
+  const byId = new Map(lib.map(g => [g.id, g.name]));
+  const cur = serversStore.getState().list;
+  let changed = false;
+  const next = cur.map(srv => {
+    const name = srv.blueprint ? byId.get(srv.blueprint) : null;
+    if (name && srv.game !== name) { changed = true; return { ...srv, game: name }; }
+    return srv;
+  });
+  // setState always emits — only write on a real change, else a library tick
+  // would needlessly re-render every server subscriber. NOT subscribed to
+  // serversStore itself (that would loop through this very setState).
+  if (changed) serversStore.setState(s => ({ ...s, list: next }));
+}
+libraryStore.subscribe(resolveGameNames);
 
 // ---- Favorites (client-local, persisted) --------------------------------
 // A user's pinned servers. This is a CLIENT preference, not server truth — it

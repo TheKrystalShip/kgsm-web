@@ -44,6 +44,18 @@ function gameBlueprint(id) {
   };
 }
 
+// Servers created from a catalog blueprint — the SINGLE match rule, shared by the
+// blueprint detail page AND the library cards/counts so they can never drift.
+// Match on the backend blueprint id; the rawg_slug branch is the mock path,
+// guarded non-null on both sides or two slug-less live servers (rawg_slug:null)
+// would match EVERY blueprint via null === null (a live data-corruption bug).
+function instancesOfBlueprint(game, servers) {
+  return (servers || []).filter(s =>
+    (s.blueprint && s.blueprint === game.id) ||
+    (s.rawg_slug && game.rawg_slug && s.rawg_slug === game.rawg_slug) ||
+    s.id === game.id);
+}
+
 // Shared with the library grid (blueprint cards read the recommended footprint
 // straight from here) so the catalog and detail page never disagree on specs.
 
@@ -80,9 +92,9 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
   // and the install modal's host picker is filtered to the same set.
   const canCreate = canOn ? offered.some(h => canOn("server.create", h.id)) : true;
   const availValue = hostRestricted ? offered.map(h => h.name).join(", ") : "All hosts";
-  // Instances of THIS blueprint — match on the backend's game slug (robust to
-  // the install flow minting per-instance ids like "rust-ab12cd").
-  const instances = (servers || []).filter(s => s.rawg_slug === game.rawg_slug || s.id === game.id);
+  // Instances of THIS blueprint — shared helper so the detail page and the
+  // library grid/counts always agree (robust to per-instance ids like "rust-ab12").
+  const instances = instancesOfBlueprint(game, servers);
   const onlineCount = instances.filter(s => s.status === "online").length;
   const shortName = game.name.split(":")[0].trim();
 
@@ -204,4 +216,4 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
   );
 }
 
-export { GAME_BLUEPRINTS, GamePage, gameBlueprint };
+export { GAME_BLUEPRINTS, GamePage, gameBlueprint, instancesOfBlueprint };

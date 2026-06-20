@@ -394,6 +394,17 @@ body { overflow: hidden; }
 .hero__name { font-size: 30px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.015em; line-height: 1.1; display: flex; align-items: center; gap: 10px; }
 .hero__edit { background: transparent; border: none; color: var(--fg-3); cursor: pointer; padding: 4px; border-radius: 4px; }
 .hero__edit:hover { background: var(--surface-2); color: var(--fg-1); }
+/* Small honest-metadata tags under the name (runtime, …). Mirrors the
+   server-tile pill idiom so the chrome reads the same across surfaces. */
+.hero__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hero__tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--fg-2);
+  background: var(--surface-2); padding: 3px 9px 3px 7px;
+  border-radius: 999px; border: 1px solid var(--border-subtle);
+  text-transform: capitalize;
+}
+.hero__tag > svg { color: var(--fg-3); }
 
 .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .chip {
