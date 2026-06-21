@@ -2628,6 +2628,19 @@ body { overflow: hidden; }
 .audit-row__host > svg { color: var(--fg-3); }
 .audit-row__host--panel { color: var(--fg-3); font-weight: 500; }
 
+/* "Load older events" — only when a live keyset cursor has more (older) rows than
+   the loaded window. Discloses incompleteness so client search/filters never look
+   exhaustive when they aren't. Never rendered in mock or once the log is complete. */
+.audit-loadmore {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 18px 0 4px; text-align: center;
+}
+.audit-loadmore__note {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+  font-size: 12.5px; color: var(--fg-3); max-width: 560px;
+}
+.audit-loadmore__note > svg { color: var(--fg-4); flex-shrink: 0; }
+
 /* ============= Pagination ============= */
 .pagination {
   display: flex; align-items: center; justify-content: space-between;

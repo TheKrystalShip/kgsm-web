@@ -91,7 +91,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✅ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is **not** a BE verb (M3) → the Update chip is disabled in LIVE with an honest reason |
 | `GET /hosts` | `GET /api/v1/hosts` (Viewer) | ⚠️ | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
 | `GET /library` | `GET /api/v1/library?q=&category=` (Viewer) | ⚠️ | **path agrees** (not `/catalog`); schema differs (§5) |
-| `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=` (Viewer) | ⚠️ | BE returns `{data,nextCursor}`; **FE expects a bare array** + ignores paging → wrap/unwrap in adapter; wire filters |
+| `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=&since=&category=` (Viewer) | ✅ **DONE (audit paging + filters slice)** | `adaptAudit` preserves the `{data,nextCursor}` envelope; the store **walks the keyset cursor** (1000-row cap) so events older than the first page are reachable (the real bug — LIVE fetched ONE page) + `loadMore()`; page discloses incompleteness + "Load older events", omits counts in LIVE. **Structured filters PUSH DOWN** (severity incl. `attention`→`warn,danger`, serverId, actor, range→`since`, category→action-prefix) so the cursor walks the FILTERED log; free-text search stays client-side. **kgsm-api extended:** multi-value severity + `since` + `category` params + a `Ts`→ticks value-converter (SQLite can't translate `DateTimeOffset >=`) |
 | `GET /auth/discord/callback?host=&prompt=` | `GET /auth/discord/callback?code=&state=` (anon) | ⚠️ | **different flow** — FE has a simplified per-host callback; BE is real OAuth code/state. Also `GET /auth/discord/start`. Returns `{verdict,tier,token,refresh,userId}` (FE expects `user_id`, has no `refresh` handling) |
 | `POST /auth/session/refresh {host}` | `POST /auth/session/refresh` + `Bearer <refresh-jwt>` → `{token}` (anon) | ⚠️ | FE sends `{host}` body; BE wants the refresh token as bearer |
 | `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` (Viewer) | ✅ | both exist; detail adds `network` block |
@@ -166,9 +166,9 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 ### Audit — moderate
 | FE | BE | Resolution |
 |---|---|---|
-| response = bare array | `{data:[…], nextCursor}` | **A**: unwrap `.data`; wire `nextCursor` for paging |
+| response = bare array | `{data:[…], nextCursor}` | ✅ **DONE**: `adaptAudit`→`{rows,nextCursor}`; store walks the cursor + `loadMore()`; structured filters push down (severity/serverId/actor/since/category); page discloses incompleteness |
 | `actor:{name,provider}` | `actor:{kind,name,provider}` | **A**: pass `kind` through |
-| `action` enum (incl. `file.*`, `settings.*`, `discord.*`, `host.*`, `player.allow.*`) | closed vocab (`server.*`, `backup.*`, `network.ports.*`, `network.upnp.*`, `player.join/leave`, `auth.*`) | **A**/**F**: FE must tolerate unknown actions (generic icon); some FE actions have no BE source yet |
+| `action` enum (incl. `file.*`, `settings.*`, `discord.*`, `host.*`, `player.allow.*`) | closed vocab (`server.*`, `backup.*`, `network.ports.*`, `network.upnp.*`, `player.join/leave`, `auth.*`) | ✅ **already satisfied**: `AuditLogPage.jsx` `ACTION_META[…] \|\| {label:ev.action, icon:"circle-dot"}` renders an unknown action with a generic icon (forward-compat); some FE actions still have no BE source |
 | `severity`, `target`, `summary`, `meta`, `serverId`, `hostId` | same | ✅ |
 
 ### Alert — close (prototype-proven)
@@ -467,6 +467,41 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > the masked hint lives only in the input `placeholder`, never `value`, and `webhookDirty` keys off the
 > typed value). **Remaining:** the **Slack** provider (built upstream, no FE surface yet) + the broader
 > `/settings` page (not built upstream).
+
+> **Audit paging + filters — DONE + LIVE-VALIDATED (2026-06-21). Crosses into kgsm-api.** Two problems.
+> **(1) Paging:** in LIVE the audit log fetched **one** `/audit` page, so everything older than the newest
+> ≤50 rows was permanently unreachable (`adaptAudit` flattened away `nextCursor`). Fix: `adaptAudit`
+> preserves the `{rows, nextCursor}` keyset envelope (mock bypasses the adapter → bare array → `null`,
+> normalized in the store); **`auditStore.refresh()` walks the cursor** (batch 200, cap 1000) so a typical
+> per-host log loads whole; new **`loadMore()`** pulls the next older page (dedup-by-id, generation-guarded
+> so a slow load can't append onto a list a fresh `refresh` replaced). The page reads `nextCursor != null`
+> as the incompleteness signal → renders **"Load older events"** + a disclosure note, augments the
+> empty-state. **(2) Filters PUSH DOWN to the backend** (decided with the user — the per-host log grows
+> *unbounded*: `player.join`/`leave` are audited and there's no retention, so client-only filtering can't
+> reach an old crash behind weeks of join/leave noise). `auditServerParams` maps the page's filter state →
+> query params: **severity** (incl. `attention`→`warn,danger`), **serverId**, **actor**, **range**→`since`
+> (ISO), **category**→action-prefix; a mount effect re-queries on change so the cursor walks the FILTERED
+> log. **Only free-text search stays client-side** (no backend `q=`) — the disclosure covers it. **Counts
+> are omitted in LIVE** (the loaded set is server-filtered + possibly partial, and there's no aggregation
+> endpoint → a count would be a fabricated/relative total). **Consequences (accepted):** the actor dropdown
+> lists only actors in the current filtered window (no distinct-actors source; selecting one still
+> re-queries the whole log); filter chips show no count badges in LIVE.
+>
+> **kgsm-api side (the cross-repo half):** `GET /audit` gained `since` + `category` params and multi-value
+> `severity` (comma → `IN`, so `attention` pushes down); plus a **`Ts`→UTC-ticks value converter** on
+> `AuditEntry` — EF Core SQLite **cannot translate a `DateTimeOffset >=` comparison** (the `since` filter),
+> so it's stored/compared as `long` (round-trips to a UTC `DateTimeOffset` on read; ordering unaffected —
+> keyset is on RowId). Storage change ⇒ dev DB wiped (no migration; EnsureCreated). The **"tolerate unknown
+> actions → generic icon"** FE item was **already satisfied** (`ACTION_META` fallback).
+>
+> **Validated:** FE build + routes(18) + mount(6) green, `smoke:live` **108✓** (+ adaptAudit envelope ×3,
+> `auditServerParams` mapping ×6, real keyset `limit=1`, **live pushdown** via the store — serverId scopes,
+> unknown→0, `since` future→0 / 1h-ago→recent, the **deep-link→effect→refresh glue** proving filters truly
+> push down not client-only, walk-to-completion, `loadMore` no-op-when-complete + the real cursor WALK
+> append/dedup/order, incomplete-UI render+disappear). kgsm-api: **0-warn build, 218 tests** (+3 audit:
+> multi-severity / since / category), **smoke 54/54**. **Scope:** the real per-host log is < cap, so the
+> multi-page initial walk + incomplete-UI are exercised via a *seeded* partial window; cursor + pushdown
+> mechanics are proven against the live backend.
 
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the

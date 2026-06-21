@@ -198,10 +198,16 @@ export function adaptLibraryEntry(be) {
 export const adaptLibrary = (arr) => (Array.isArray(arr) ? arr.map(adaptLibraryEntry) : []);
 
 // ---- Audit --------------------------------------------------------------
-// api returns { data:[...], nextCursor }; the store expects a bare array.
+// api returns { data:[…], nextCursor } (architecture.html §6 keyset page). Preserve
+// the page envelope as { rows, nextCursor } so the store can WALK the cursor — the
+// log is paginated, and a single fetch would leave everything older than the first
+// page permanently unreachable (the real bug this fixes). MOCK bypasses this adapter
+// (resolveGet returns the bare fixture array), so the store normalizes both shapes.
+// `nextCursor` is the opaque rowid of the oldest row in this page, or null when there
+// are no older rows. Row shapes align (actor carries an extra `kind` harmlessly).
 export function adaptAudit(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
-  return rows.map((e) => ({ ...e }));   // shapes align (actor carries extra `kind` harmlessly)
+  return { rows: rows.map((e) => ({ ...e })), nextCursor: (page && page.nextCursor) || null };
 }
 
 // ---- Alerts -------------------------------------------------------------

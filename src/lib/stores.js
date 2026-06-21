@@ -327,19 +327,94 @@ const auditStore = createStore({
   status: _cold ? "loading" : "ready",
   error: null,
   everLoaded: !_cold,
+  // Keyset paging (LIVE only). `nextCursor` is the rowid to pass as ?cursor= for
+  // the next (older) page, or null = the whole log is loaded ("complete"). The
+  // page reads `nextCursor != null` as "older events exist, not yet loaded" and
+  // discloses that — so its client-side search never silently returns "no match"
+  // while matches sit older than the loaded window.
+  nextCursor: null,
+  loadingMore: false,
+  // The server-side filter set applied to the current walk ({severity,serverId,
+  // actor,since,category}). The page pushes the structured filters down so the
+  // cursor walks the FILTERED log (old matching events stay reachable); loadMore
+  // reuses these. Free-text search stays client-side (no backend `q=`).
+  filterParams: {},
 });
 auditStore.prepend = (entry) =>
   auditStore.setState(s => ({ ...s, list: [_withHost(entry), ...s.list] }));
+
+// One keyset page off the live endpoint (limit clamps to <=200 server-side).
+// Returns { rows, nextCursor } in BOTH modes: LIVE hits adaptAudit (the envelope);
+// MOCK's resolveGet returns the bare fixture array (no query parsing) → nextCursor
+// null. We only ever attach a query string in LIVE (the mock resolver matches the
+// path exactly and would 404 on "/audit?…").
+const AUDIT_BATCH = 200;   // the server's max page — fetch it whole
+const AUDIT_CAP = 1000;    // initial-walk ceiling: auto-completes a typical per-host
+                           //   log (→ search is honest over the whole loaded set); a
+                           //   larger log stops here and discloses + offers "load older".
+let _auditGen = 0;         // bumped by refresh() → invalidates an in-flight loadMore
+const _fetchAuditPage = (cursor, params) => {
+  if (!LIVE) return api.get("/audit").then(page => ({
+    rows: (Array.isArray(page) ? page : (page && page.rows) || []).map(_withHost),
+    nextCursor: null,
+  }));
+  const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
+  if (cursor) qs.set("cursor", cursor);
+  for (const k in (params || {})) { const v = params[k]; if (v != null && v !== "") qs.set(k, v); }
+  return api.get("/audit?" + qs.toString()).then(page => ({
+    rows: ((page && page.rows) || []).map(_withHost),
+    nextCursor: (page && page.nextCursor) || null,
+  }));
+};
+
 // Re-fetch the log (status → loading → ready/error). The audit page reads
-// `status` to show its timeline skeleton.
-auditStore.refresh = () => {
-  auditStore.setState(s => ({ ...s, status: "loading", error: null }));
-  return api.get("/audit").then(list => {
-    auditStore.setState(s => ({ ...s, list: list.map(_withHost), status: "ready", error: null, everLoaded: true }));
-    return list;
+// `status` to show its timeline skeleton. `params` = the server-side filter set
+// (severity/serverId/actor/since/category); blank → the whole log. In LIVE this
+// WALKS the keyset cursor (filtered) up to AUDIT_CAP so events older than the
+// first page are reachable; a fresh refresh bumps the generation so a slow
+// in-flight loadMore can't append onto the new list.
+auditStore.refresh = (params) => {
+  const gen = ++_auditGen;
+  const filterParams = params || {};
+  auditStore.setState(s => ({ ...s, status: "loading", error: null, filterParams }));
+  return _fetchAuditPage(null, filterParams).then(async (page) => {
+    let rows = page.rows;
+    let next = page.nextCursor;
+    while (LIVE && next && rows.length < AUDIT_CAP) {
+      const more = await _fetchAuditPage(next, filterParams);
+      rows = rows.concat(more.rows);
+      next = more.nextCursor;
+    }
+    if (gen !== _auditGen) return rows;   // a newer refresh superseded us — drop
+    auditStore.setState(s => ({ ...s, list: rows, nextCursor: next, filterParams, status: "ready", error: null, everLoaded: true, loadingMore: false }));
+    return rows;
   }, err => {
-    auditStore.setState(s => ({ ...s, status: "error", error: err }));
+    if (gen === _auditGen) auditStore.setState(s => ({ ...s, status: "error", error: err }));
     throw err;
+  });
+};
+// Fetch the next (older) keyset page and APPEND it — the "Load older events"
+// action when the FILTERED log exceeds the initial walk. Reuses the active
+// filterParams so the cursor stays on the same filtered set. No-op unless LIVE
+// with an outstanding cursor and not already loading. De-dups by id (defensive)
+// and drops its result if a refresh replaced the list underneath it (generation
+// guard). A failed load is non-fatal: keep what's loaded, leave the affordance.
+auditStore.loadMore = () => {
+  const st = auditStore.getState();
+  if (!LIVE || !st.nextCursor || st.loadingMore) return Promise.resolve();
+  const gen = _auditGen;
+  const cursor = st.nextCursor;
+  const filterParams = st.filterParams || {};
+  auditStore.setState(s => ({ ...s, loadingMore: true }));
+  return _fetchAuditPage(cursor, filterParams).then(page => {
+    if (gen !== _auditGen) return;
+    auditStore.setState(s => {
+      const seen = new Set(s.list.map(e => e.id));
+      const fresh = page.rows.filter(e => !seen.has(e.id));
+      return { ...s, list: s.list.concat(fresh), nextCursor: page.nextCursor, loadingMore: false };
+    });
+  }, () => {
+    if (gen === _auditGen) auditStore.setState(s => ({ ...s, loadingMore: false }));
   });
 };
 // Keep the log live: a new record arrives on the `audit` channel as

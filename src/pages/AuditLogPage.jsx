@@ -4,6 +4,7 @@ import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AccountAvatar } from "../components/Sidebar.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
+import { LIVE } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
 import { auditEventHost, auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
@@ -117,6 +118,26 @@ function queryAudit(list, filters, now) {
   });
 }
 
+// Map the page's filter state to the backend query params it can push down
+// (architecture: the keyset cursor walks the FILTERED log, so old matching events
+// stay reachable instead of sitting behind newer noise). `severity` "attention"
+// (warn∨danger — the Alerts view) → "warn,danger"; the time range → an ISO `since`
+// lower bound from `nowMs`; `category` → the action-group prefix; "all" → omitted.
+// Free-text `query` (page search) and the host scope stay CLIENT-side (no backend
+// param), so the page still discloses incompleteness for those.
+const RANGE_SPAN_MS = { "1h": 3600e3, "24h": 86400e3, "7d": 7 * 86400e3, "30d": 30 * 86400e3 };
+function auditServerParams({ severity, server, actor, range, category } = {}, nowMs) {
+  const p = {};
+  if (severity === "attention") p.severity = "warn,danger";
+  else if (severity && severity !== "all") p.severity = severity;
+  if (server && server !== "all") p.serverId = server;
+  if (actor && actor !== "all") p.actor = actor;
+  if (category && category !== "all") p.category = category;
+  const span = RANGE_SPAN_MS[range];
+  if (span && nowMs) p.since = new Date(nowMs - span).toISOString();
+  return p;
+}
+
 // ---------- Components ----------
 
 function AuditActor({ actor, size = 28 }) {
@@ -180,9 +201,37 @@ function AuditEventRow({ ev, now, hosts }) {
   );
 }
 
+// "Load older events" — shown only when the live keyset cursor has rows older than
+// the loaded window (auditStore.nextCursor != null). It discloses that the loaded
+// window is partial — so the client-side search/filters below never look exhaustive
+// when they aren't — and pulls the next page. Mock and a fully-loaded log have a
+// null cursor, so this never renders there.
+function LoadOlder({ count, loadingMore }) {
+  return (
+    <div className="audit-loadmore">
+      <div className="audit-loadmore__note">
+        <Icon name="history" size={13} strokeWidth={2} />
+        The {count} most recent events are loaded — search and filters apply only to these. Older events exist but aren’t loaded yet.
+      </div>
+      <button className="toolbar-btn" onClick={() => auditStore.loadMore()} disabled={loadingMore}>
+        <Icon name="loader-2" size={14} className={loadingMore ? "is-spinning" : undefined}
+          style={loadingMore ? undefined : { display: "none" }} />
+        <Icon name="arrow-down" size={14} style={loadingMore ? { display: "none" } : undefined} />
+        {loadingMore ? "Loading…" : "Load older events"}
+      </button>
+    </div>
+  );
+}
+
 function AuditLogPage({ initialSeverity, initialServer }) {
   const all = useStore(auditStore, s => s.list);
   const dataLoading = useStore(auditStore, s => s.status === "loading" && !s.everLoaded);
+  // Keyset paging (LIVE): a non-null cursor means older events exist beyond the
+  // loaded window. That makes the load "incomplete" — so the per-option counts
+  // below would be undercounts (we omit them) and the search/filters cover only
+  // the loaded window (we disclose that). Mock + a fully-walked log → cursor null.
+  const incomplete = useStore(auditStore, s => !!s.nextCursor);
+  const loadingMore = useStore(auditStore, s => s.loadingMore);
   const allServers = useStore(serversStore, s => s.list);
   const hosts = useStore(hostsStore, s => s.list);
   const selectedId = useSelectedHostId();
@@ -206,10 +255,27 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   // "attention" = warn + danger (what the Alerts button pre-selects).
   const [severity, setSeverity] = React.useState(initialSeverity || "all");
 
-  // Always work against the "now" of the fixture (latest event in the log),
-  // not real time — otherwise the demo's day buckets and relative times drift.
+  // LIVE: push the structured filters to the backend so the keyset cursor walks
+  // the FILTERED log — otherwise an old crash / backup / actor event sits
+  // unreachable behind newer noise. Re-query whenever a pushed filter changes;
+  // free-text search stays client-side over the loaded window. Mock keeps
+  // everything client-side (the full fixture is already loaded).
+  const serverParams = React.useMemo(
+    () => (LIVE ? auditServerParams({ severity, server, actor, range, category }, Date.now()) : null),
+    [severity, server, actor, range, category]
+  );
+  const serverKey = serverParams ? JSON.stringify(serverParams) : "";
+  React.useEffect(() => {
+    if (!LIVE) return;
+    auditStore.refresh(serverParams).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey]);
+
+  // The "now" anchor. Mock: the latest event in the fixture (so the demo's day
+  // buckets + relative times don't drift). LIVE: real wall-clock — relative times
+  // are vs now, and it matches the server's `since` (also real-now-relative).
   const now = React.useMemo(
-    () => scoped.length ? parseTs(scoped[0].ts) : new Date(),
+    () => (LIVE ? new Date() : (scoped.length ? parseTs(scoped[0].ts) : new Date())),
     [scoped]
   );
 
@@ -278,6 +344,13 @@ function AuditLogPage({ initialSeverity, initialServer }) {
     };
   }, [scoped]);
 
+  // Per-option counts are honest only over the full client-side set (mock). In
+  // LIVE the loaded set is server-FILTERED (and possibly partial), so a count
+  // would be relative to the current filter, not an absolute total over the log —
+  // and there's no aggregation endpoint to source honest totals. So omit counts in
+  // LIVE entirely (never-fabricate); the chips render label-only when undefined.
+  const cnt = (v) => (LIVE ? undefined : v);
+
   return (
     <>
       <div className="dash-head">
@@ -292,21 +365,21 @@ function AuditLogPage({ initialSeverity, initialServer }) {
         <ToolbarFilters
           fields={[
             { id: "category", label: "Category", value: category, onChange: setCat, default: "all",
-              options: categories.map(c => ({ value: c, label: c === "all" ? "All categories" : (CATEGORY_LABEL[c] || c), count: c === "all" ? auditCounts.total : auditCounts.category[c] })) },
+              options: categories.map(c => ({ value: c, label: c === "all" ? "All categories" : (CATEGORY_LABEL[c] || c), count: cnt(c === "all" ? auditCounts.total : auditCounts.category[c]) })) },
             { id: "host", label: "Host", value: selectedId, onChange: v => selectedHostStore.set(v), default: "all", hidden: hosts.length <= 1,
               options: [{ value: "all", label: "All hosts" }, ...hosts.map(h => ({ value: h.id, label: h.name }))] },
             { id: "actor", label: "User", value: actor, onChange: setActor, default: "all",
-              options: actorOpts.map(a => ({ value: a, label: a === "all" ? "All users" : a, count: a === "all" ? undefined : auditCounts.actor[a] })) },
+              options: actorOpts.map(a => ({ value: a, label: a === "all" ? "All users" : a, count: a === "all" ? undefined : cnt(auditCounts.actor[a]) })) },
             { id: "severity", label: "Severity", value: severity, onChange: setSeverity, default: "all", options: [
-              { value: "all",       label: "All severities", count: auditCounts.total },
-              { value: "attention", label: "Alerts",         count: auditCounts.severity.attention },
-              { value: "danger",    label: "Danger",         count: auditCounts.severity.danger },
-              { value: "warn",      label: "Warning",        count: auditCounts.severity.warn },
-              { value: "info",      label: "Info",           count: auditCounts.severity.info },
-              { value: "success",   label: "Success",        count: auditCounts.severity.success },
+              { value: "all",       label: "All severities", count: cnt(auditCounts.total) },
+              { value: "attention", label: "Alerts",         count: cnt(auditCounts.severity.attention) },
+              { value: "danger",    label: "Danger",         count: cnt(auditCounts.severity.danger) },
+              { value: "warn",      label: "Warning",        count: cnt(auditCounts.severity.warn) },
+              { value: "info",      label: "Info",           count: cnt(auditCounts.severity.info) },
+              { value: "success",   label: "Success",        count: cnt(auditCounts.severity.success) },
             ] },
             { id: "server", label: "Server", value: server, onChange: setServer, default: "all",
-              options: [{ value: "all", label: "All servers" }, ...servers.map(s => ({ value: s.id, label: s.name, count: auditCounts.server[s.id] }))] },
+              options: [{ value: "all", label: "All servers" }, ...servers.map(s => ({ value: s.id, label: s.name, count: cnt(auditCounts.server[s.id]) }))] },
             { id: "range", label: "Time range", value: range, onChange: setRange, default: "all", options: [
               { value: "1h",  label: "Last hour" },
               { value: "24h", label: "Last 24 hours" },
@@ -328,7 +401,11 @@ function AuditLogPage({ initialSeverity, initialServer }) {
         }}>
           <Icon name="search-x" size={26} />
           <div style={{ marginTop: 10, color: "var(--fg-2)", fontWeight: 600, fontSize: 14 }}>No events match these filters</div>
-          <div style={{ marginTop: 4, fontSize: 13 }}>Try widening the time range or clearing the search.</div>
+          <div style={{ marginTop: 4, fontSize: 13 }}>
+            {incomplete
+              ? "Try widening the time range or clearing the search — older events aren’t loaded yet and aren’t searched (load them below)."
+              : "Try widening the time range or clearing the search."}
+          </div>
         </div>
       )}
 
@@ -356,9 +433,11 @@ function AuditLogPage({ initialSeverity, initialServer }) {
         onPage={setPage}
         unit="events"
       />
+
+      {incomplete && <LoadOlder count={scoped.length} loadingMore={loadingMore} />}
       </>)}
     </>
   );
 }
 
-export { ACTION_META, AuditLogPage, actionCategory, fmtRelative, fmtTime, parseTs };
+export { ACTION_META, AuditLogPage, actionCategory, auditServerParams, fmtRelative, fmtTime, parseTs };

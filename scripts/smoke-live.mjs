@@ -629,6 +629,136 @@ try {
   assert(testErr && testErr.code === 409,
     `integrations /test: unconfigured webhook → honest 409, never a faked ok (code=${testErr && testErr.code})`);
 
+  // ---- Phase 8: audit paging + filters (keyset cursor walk + pushdown) ----
+  // Two fixes: (1) the log fetched ONE page, leaving older events unreachable —
+  // refresh() now WALKS the keyset cursor + loadMore() pulls older pages, with a
+  // non-null cursor disclosing incompleteness so client free-text search never
+  // looks exhaustive when it isn't; (2) the structured filters (severity incl.
+  // attention=warn,danger / serverId / actor / since / category) PUSH DOWN to the
+  // backend so the cursor walks the FILTERED log (old matching events stay
+  // reachable behind newer noise). DB was wiped (Ts storage changed to ticks), so
+  // seed it deterministically first.
+  for (let i = 0; i < 6; i++) execSync("/home/heisen/tks/kgsm/kgsm.sh events emit instance-started factorio-test");
+  let seeded = 0;
+  for (let i = 0; i < 50; i++) {
+    seeded = (await api.get("/audit?limit=200")).rows.length;
+    if (seeded >= 6) break;
+    await sleep(150);
+  }
+  assert(seeded >= 6, `audit seed: ${seeded} rows landed (kgsm emit → socket → audit) — need ≥6 for paging tests`);
+
+  // (a) adaptAudit preserves the page envelope (both wire shapes + the empty case)
+  const env = adapt.adaptAudit({ data: [{ id: "evt_x" }], nextCursor: "42" });
+  assert(Array.isArray(env.rows) && env.rows.length === 1 && env.rows[0].id === "evt_x" && env.nextCursor === "42",
+    "adaptAudit: { data, nextCursor } → { rows, nextCursor } (envelope preserved, not flattened)");
+  const envBare = adapt.adaptAudit([{ id: "evt_y" }]);
+  assert(envBare.rows.length === 1 && envBare.nextCursor === null,
+    "adaptAudit: a bare array (mock shape) → { rows, nextCursor:null }");
+  assert(adapt.adaptAudit(null).rows.length === 0 && adapt.adaptAudit(null).nextCursor === null,
+    "adaptAudit: null/garbage → empty page, never throws");
+
+  // (a2) auditServerParams — the pure FE-filter → backend-query mapping
+  const auditPage = await vite.ssrLoadModule("/src/pages/AuditLogPage.jsx");
+  const ASP = auditPage.auditServerParams;
+  const NOW = Date.UTC(2026, 5, 21, 12, 0, 0);
+  assert(ASP({ severity: "attention" }).severity === "warn,danger",
+    "auditServerParams: 'attention' (Alerts view) → severity=warn,danger (multi-value)");
+  assert(ASP({ severity: "danger" }).severity === "danger" && !("serverId" in ASP({ severity: "danger" })),
+    "auditServerParams: a single severity passes through; unset dims omitted");
+  assert(!("severity" in ASP({ severity: "all" })) && !("since" in ASP({ range: "all" }, NOW)),
+    "auditServerParams: 'all' / range 'all' → omitted (no filter, unbounded)");
+  assert(ASP({ server: "factorio-test" }).serverId === "factorio-test" && ASP({ actor: "haru" }).actor === "haru"
+    && ASP({ category: "server" }).category === "server",
+    "auditServerParams: server→serverId, actor→actor, category→category");
+  assert(ASP({ range: "24h" }, NOW).since === new Date(NOW - 86400e3).toISOString(),
+    "auditServerParams: range 24h → since = now-24h ISO lower bound");
+  assert(Object.keys(ASP({ severity: "all", server: "all", actor: "all", range: "all", category: "all" }, NOW)).length === 0,
+    "auditServerParams: all-default filter → empty params (no query string)");
+
+  // (b) the server genuinely pages — a tiny limit yields a cursor (older exist)
+  const tiny = await api.get("/audit?limit=1");
+  assert(tiny.rows.length === 1 && tiny.nextCursor != null,
+    `audit keyset: limit=1 returns one row + a non-null cursor (older reachable; cursor=${tiny.nextCursor})`);
+
+  // (b2) PUSHDOWN through the store: a serverId filter walks only that server's
+  // rows; an unknown server → 0 (filtered server-side, not client-trimmed); a
+  // future `since` → 0 while a 1h-ago `since` returns the recent rows (a real
+  // bound, not all-or-nothing). Proves the params reach the backend + filter there.
+  const fScoped = await st.auditStore.refresh({ serverId: "factorio-test" });
+  assert(fScoped.length > 0 && fScoped.every(r => r.serverId === "factorio-test"),
+    `audit pushdown: refresh({serverId}) → ${fScoped.length} rows, all scoped to factorio-test`);
+  const fNone = await st.auditStore.refresh({ serverId: "no-such-server-xyz" });
+  assert(fNone.length === 0 && st.auditStore.getState().nextCursor === null,
+    "audit pushdown: refresh({serverId:unknown}) → 0 rows (filtered server-side, cursor null)");
+  const fFuture = await st.auditStore.refresh({ since: new Date(Date.now() + 3600e3).toISOString() });
+  assert(fFuture.length === 0,
+    "audit pushdown: refresh({since:future}) → 0 rows (?since= is a real server-side lower bound)");
+  const fRecent = await st.auditStore.refresh({ since: new Date(Date.now() - 3600e3).toISOString() });
+  assert(fRecent.length > 0,
+    "audit pushdown: refresh({since:1h-ago}) → the recent rows (since bounds, not all-or-nothing)");
+
+  // (b3) END-TO-END through the PAGE — the glue between the pure mapper and
+  // refresh(params). The Alerts→audit deep-link (?severity=attention) must drive
+  // filter state → auditServerParams → the mount effect → refresh(), landing the
+  // pushed query in the store's active filterParams. If this glue is miswired,
+  // filters silently degrade to client-only-over-window (the exact bug this slice
+  // kills) with NO other symptom — so assert it through the real route, not a
+  // hand-built refresh() call. Also covers the attention→warn,danger round-trip.
+  await nav("#/audit?severity=attention");
+  let fp = {};
+  for (let i = 0; i < 30; i++) {
+    fp = st.auditStore.getState().filterParams || {};
+    if (fp.severity === "warn,danger") break;
+    await sleep(100);
+  }
+  assert(fp.severity === "warn,danger",
+    "audit page→backend glue: deep-link ?severity=attention → effect → refresh({severity:'warn,danger'}) (filters truly push down, not client-only)");
+  await nav("#/dashboard");
+
+  // (c) refresh() walks to completion on a small per-host log → cursor null = the
+  // whole log is loaded, so NO incompleteness disclosure.
+  const fullRows = await st.auditStore.refresh();
+  assert(fullRows.length > 1 && st.auditStore.getState().nextCursor === null,
+    `audit refresh: walked the cursor to completion (${fullRows.length} rows, nextCursor null = complete)`);
+
+  // (d) loadMore() is a no-op once complete (no cursor) — never double-fetches
+  const lenComplete = st.auditStore.getState().list.length;
+  await st.auditStore.loadMore();
+  assert(st.auditStore.getState().list.length === lenComplete,
+    "audit loadMore: no-op when the log is complete (no cursor → nothing to pull)");
+
+  // (e) the cursor WALK + incomplete UI. The page's mount effect re-queries to a
+  // complete load, so to exercise the partial-window UI we nav FIRST (effect loads
+  // full), THEN seed a partial window via setState (no filter change → the effect
+  // won't re-fire and clobber it).
+  await nav("#/audit");
+  await sleep(140);
+  const p1 = await api.get("/audit?limit=2");
+  st.auditStore.setState(s => ({ ...s, list: p1.rows.slice(), nextCursor: p1.nextCursor, loadingMore: false, status: "ready", everLoaded: true }));
+  assert(st.auditStore.getState().nextCursor != null,
+    "audit walk: seeded a partial window (cursor present = incomplete)");
+  await sleep(140);
+  const auditHtml = w.document.getElementById("root").innerHTML;
+  assert(auditHtml.includes("Load older events") && auditHtml.includes("most recent events are loaded"),
+    "audit page (incomplete): renders the disclosure note + a 'Load older events' affordance");
+
+  await st.auditStore.loadMore();
+  const walked = st.auditStore.getState().list;
+  assert(walked.length > p1.rows.length,
+    `audit loadMore: appended the older page (${p1.rows.length} → ${walked.length} rows reached)`);
+  assert(new Set(walked.map(r => r.id)).size === walked.length,
+    "audit loadMore: no duplicate rows across the page boundary (dedup by id)");
+  assert(walked.every((r, i) => i === 0 || new Date(r.ts) <= new Date(walked[i - 1].ts)),
+    "audit loadMore: newest-first order preserved across the appended page");
+  assert(st.auditStore.getState().nextCursor === null,
+    "audit loadMore: reaching the tail clears the cursor (complete)");
+  await sleep(140);
+  assert(!w.document.getElementById("root").innerHTML.includes("Load older events"),
+    "audit page (complete after load): the disclosure + load-older affordance disappear");
+
+  await nav("#/dashboard");
+  await st.auditStore.refresh();   // restore the store to a clean, complete state
+
   root.unmount();
 } finally {
   console.error = origErr;
