@@ -9,6 +9,7 @@ import { LogConsole } from "../components/LogConsole.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
+import { SubTabs } from "../components/SubTabs.jsx";
 import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { api } from "../lib/apiClient.js";
 import { capUsable } from "../lib/capabilities.js";
@@ -224,11 +225,14 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
     return pct > acc.pct ? { disk: d, pct } : acc;
   }, { disk: null, pct: 0 });
   const diskTone = statusTone(fullestDisk.pct, 80, 90);
-  const hotTemp = host.sensors.reduce((max, s) => s.value_c > max ? s.value_c : max, 0);
-  const tempTone = statusTone(hotTemp, 75, 85);
-  const netTotal = host.network.interfaces.reduce((sum, i) => sum + i.rx_kbps + i.tx_kbps, 0);
-  const netErrors = host.network.interfaces.reduce((sum, i) => sum + i.errors, 0);
-  const netTone = netErrors > 0 ? "warn" : "success";
+  // Temperature has no sensor source on this host → the KPI is hidden, never shown as a fabricated 0°C.
+  const hasSensors = Array.isArray(host.sensors) && host.sensors.length > 0;
+  const hotTemp = hasSensors ? host.sensors.reduce((max, s) => s.value_c > max ? s.value_c : max, 0) : null;
+  const tempTone = hotTemp != null ? statusTone(hotTemp, 75, 85) : "success";
+  // Network throughput is measured; per-interface error counters are NOT sourced, so there is no
+  // honest errors figure to tone on — show interface count, neutral tone (never a fabricated 0-errors "success").
+  const netTotal = host.network.interfaces.reduce((sum, i) => sum + (i.rx_kbps || 0) + (i.tx_kbps || 0), 0);
+  const ifaceCount = host.network.interfaces.length;
 
   // Top processes by CPU — the overview's at-a-glance "what's hot" list. The
   // full sortable table lives on the Processes sub-tab ("View all").
@@ -275,12 +279,14 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
           <KPI icon="database"     label="Disk"        tone={gTone(diskTone)} className="kpi--metric" led={gLed} ledLabel={gLedLabel}
             value={Math.round(fullestDisk.pct) + "%"}
             sub={fullestDisk.disk ? fullestDisk.disk.mount + " · " + fullestDisk.disk.used_gb + " / " + fullestDisk.disk.total_gb + " GB" : "—"} />
-          <KPI icon="network"      label="Network"     tone={gTone(netTone)} className="kpi--metric" led={gLed} ledLabel={gLedLabel}
+          <KPI icon="network"      label="Network"     tone={frozen ? "off" : "muted"} className="kpi--metric" led={gLed} ledLabel={gLedLabel}
             value={Math.round(netTotal) + "kbps"}
-            sub={host.network.interfaces.length + " iface · " + netErrors + " errors"} />
-          <KPI icon="thermometer"  label="Temperature" tone={gTone(tempTone)} className="kpi--metric" led={gLed} ledLabel={gLedLabel}
-            value={hotTemp + "°C"}
-            sub={"highest of " + host.sensors.length + " sensors"} />
+            sub={ifaceCount + (ifaceCount === 1 ? " interface" : " interfaces")} />
+          {hasSensors && (
+            <KPI icon="thermometer"  label="Temperature" tone={gTone(tempTone)} className="kpi--metric" led={gLed} ledLabel={gLedLabel}
+              value={hotTemp + "°C"}
+              sub={"highest of " + host.sensors.length + " sensors"} />
+          )}
           <KPI icon="clock"        label="Uptime"      tone="ok" led="live"
             value={uptimeFrom(host.boot_time)}
             sub={host.kernel} />
@@ -290,7 +296,10 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
       <div className="diag-grid">
         {/* Reusable CardTable in the same card chrome as Recent activity:
            header + count + "View all" (→ the full Processes sub-tab). */}
-        {CardTable && (watchdogUsable ? (
+        {/* The host process LIST has no source today (the monitor reports resource totals, not a
+            per-process table; §9 C-gap), so an empty list is "no source", not a real "0 processes" —
+            render the honest-unavailable state rather than a populated-looking table showing zero. */}
+        {CardTable && ((watchdogUsable && host.processes.length) ? (
           <CardTable
             icon="cpu"
             title="Processes"
@@ -306,11 +315,15 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
           <div className="chat-brief">
             <div className="chat-brief__head">
               <span className="chat-brief__title"><Icon name="cpu" size={13} /> Processes</span>
-              <span className="led-group"><span className="led-group__age">watchdog down</span><span className="status-led status-led--down"></span></span>
+              {!watchdogUsable
+                ? <span className="led-group"><span className="led-group__age">watchdog down</span><span className="status-led status-led--down"></span></span>
+                : <span className="led-group"><span className="led-group__age">no source</span></span>}
             </div>
             <div className="proc-unavailable proc-unavailable--inline">
-              <span className="proc-unavailable__icon"><Icon name="power-off" size={20} strokeWidth={1.9} /></span>
-              <div className="proc-unavailable__sub">Watchdog isn’t responding — the process list is unavailable on this host.</div>
+              <span className="proc-unavailable__icon"><Icon name={!watchdogUsable ? "power-off" : "list"} size={20} strokeWidth={1.9} /></span>
+              <div className="proc-unavailable__sub">{!watchdogUsable
+                ? "Watchdog isn’t responding — the process list is unavailable on this host."
+                : "This host doesn’t expose a process list — the monitor reports resource totals, not a per-process table."}</div>
             </div>
           </div>
         ))}
@@ -344,8 +357,11 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
   }
   const ageShort = fresh && fresh.label ? fresh.label.replace(/\s*ago$/, "") : null;
   const ramPct = Math.round((host.ram.used_gb / host.ram.total_gb) * 100);
-  const cachedPct = (host.ram.cached_gb / host.ram.total_gb) * 100;
-  const bufPct = (host.ram.buffers_gb / host.ram.total_gb) * 100;
+  // cached / buffers aren't broken out by the monitor → omit those bar segments + legend rows
+  // entirely (a 0-width segment / "0.0 GB" legend would read as a real measurement of zero).
+  const hasBreakdown = host.ram.cached_gb != null && host.ram.buffers_gb != null;
+  const cachedPct = hasBreakdown ? (host.ram.cached_gb / host.ram.total_gb) * 100 : 0;
+  const bufPct = hasBreakdown ? (host.ram.buffers_gb / host.ram.total_gb) * 100 : 0;
   // Open-ports table helpers. exposure is best-effort: explicit on the port if
   // present, else a simple heuristic (remote shell = LAN, everything else
   // internet-facing). Owner resolves the server id to its display name.
@@ -395,8 +411,8 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
             </div>
             <div className="ram-legend">
               <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>used <b>{host.ram.used_gb.toFixed(1)} GB</b></span>
-              <span><span className="swatch" style={{ background: "var(--info)" }}></span>cached <b>{host.ram.cached_gb.toFixed(1)} GB</b></span>
-              <span><span className="swatch" style={{ background: "var(--update)" }}></span>buffers <b>{host.ram.buffers_gb.toFixed(1)} GB</b></span>
+              {hasBreakdown && <span><span className="swatch" style={{ background: "var(--info)" }}></span>cached <b>{host.ram.cached_gb.toFixed(1)} GB</b></span>}
+              {hasBreakdown && <span><span className="swatch" style={{ background: "var(--update)" }}></span>buffers <b>{host.ram.buffers_gb.toFixed(1)} GB</b></span>}
               <span><span className="swatch" style={{ background: "var(--surface-3)" }}></span>free <b>{host.ram.free_gb.toFixed(1)} GB</b></span>
             </div>
             <div className="diag-meta-line" style={{ marginTop: 14 }}>
@@ -429,7 +445,8 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
                   <span className="disk-row__device">{d.device}</span>
                   <span className="disk-row__fs">{d.fs}</span>
                   <span style={{ flex: 1 }}></span>
-                  <span className={"disk-row__smart disk-row__smart--" + smart}>SMART: {d.smart}</span>
+                  {/* SMART health has no source (no smartctl reader) → hide the pill, never claim "ok". */}
+                  {d.smart && <span className={"disk-row__smart disk-row__smart--" + smart}>SMART: {d.smart}</span>}
                 </div>
                 <div className="disk-row__bar"><i className={"disk-row__fill disk-row__fill--" + tone} style={{ width: pct + "%" }}></i></div>
                 <div className="disk-row__usage">
@@ -454,17 +471,21 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
           {host.network.interfaces.map(i => (
             <div className="iface-row" key={i.name}>
               <code className="iface-row__name">{i.name}</code>
-              <span className="iface-row__ip">{i.ip}</span>
-              <span className="iface-row__mac">{i.mac}</span>
+              {/* ip / mac aren't sampled by the monitor → honest "—", never a fabricated address. */}
+              <span className="iface-row__ip">{i.ip || "—"}</span>
+              <span className="iface-row__mac">{i.mac || "—"}</span>
               <span className="iface-row__metric">
                 <span style={{ color: "var(--fg-3)" }}>↓</span> <b>{i.rx_kbps}</b> kbps
               </span>
               <span className="iface-row__metric">
                 <span style={{ color: "var(--fg-3)" }}>↑</span> <b>{i.tx_kbps}</b> kbps
               </span>
-              <span className={"iface-row__errors" + (i.errors > 0 ? " iface-row__errors--bad" : "")}>
-                {i.errors} errors
-              </span>
+              {/* error counters aren't sourced → omit (showing "0 errors" would be a fabricated clean bill). */}
+              {i.errors != null && (
+                <span className={"iface-row__errors" + (i.errors > 0 ? " iface-row__errors--bad" : "")}>
+                  {i.errors} errors
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -539,6 +560,20 @@ function DiagProcesses({ host }) {
         <div className="proc-unavailable__title">Process monitoring unavailable</div>
         <div className="proc-unavailable__sub">The watchdog on this host isn’t responding, so the live process table can’t be read — and start / stop / restart are paused until it returns.</div>
         <span className="proc-unavailable__tag"><span className="status-led status-led--down"></span> watchdog down</span>
+      </div>
+    );
+  }
+
+  // No process-list source (the common live case — the monitor exposes totals, not a per-process
+  // table; §9 C-gap). An empty table reading "No processes reported" under an up watchdog would be a
+  // fabricated "zero processes" claim, so render the honest-unavailable state instead.
+  if (!Array.isArray(host.processes) || host.processes.length === 0) {
+    return (
+      <div className="proc-unavailable">
+        <span className="proc-unavailable__icon"><Icon name="list" size={26} strokeWidth={1.9} /></span>
+        <div className="proc-unavailable__title">Process list unavailable</div>
+        <div className="proc-unavailable__sub">This host doesn’t expose a process list — the monitor reports per-server and host resource totals, not a per-process table. Per-server CPU / RAM still appear on each server.</div>
+        <span className="proc-unavailable__tag"><Icon name="activity" size={12} /> no process source</span>
       </div>
     );
   }
@@ -630,6 +665,18 @@ function DiagLogs({ host }) {
   });
 
   if (!LogConsole) return null;
+  // Host log streams have no backend source today (no logs API / WS topic — §9 C-gap). With nothing
+  // to show, render the honest-unavailable state rather than a "Live" console sitting empty.
+  if (sources.length === 0) {
+    return (
+      <div className="proc-unavailable">
+        <span className="proc-unavailable__icon"><Icon name="scroll-text" size={26} strokeWidth={1.9} /></span>
+        <div className="proc-unavailable__title">Host logs unavailable</div>
+        <div className="proc-unavailable__sub">This panel needs a host log source (backend / watchdog / kernel / auth streams), which isn’t wired on this host yet.</div>
+        <span className="proc-unavailable__tag"><Icon name="activity" size={12} /> no log source</span>
+      </div>
+    );
+  }
   return <LogConsole title="Host logs" icon="scroll-text" sources={sources} live />;
 }
 

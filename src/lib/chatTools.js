@@ -312,13 +312,20 @@ import { fmtRelative, parseTs } from "../pages/AuditLogPage.jsx";
       const pct = (d.used_gb / d.total_gb) * 100;
       return pct > acc.pct ? { d, pct } : acc;
     }, { d: null, pct: 0 });
-    const hotTemp = host.sensors.reduce((m, s) => Math.max(m, s.value_c), 0);
+    // Honest-unknown: temperature/load/swap/SMART aren't always sourced (a live host has no sensor
+    // or SMART feed) — omit the clause rather than emit a fabricated 0°C / "SMART null".
+    const hasSensors = Array.isArray(host.sensors) && host.sensors.length > 0;
+    const hotTemp = hasSensors ? host.sensors.reduce((m, s) => Math.max(m, s.value_c), 0) : null;
+    const load = Array.isArray(host.cpu.load_avg) ? host.cpu.load_avg.join("/") : "—";
+    const swapNote = host.ram.swap_total_gb ? `, swap ${host.ram.swap_used_gb}/${host.ram.swap_total_gb} GB` : "";
+    const tempNote = hotTemp != null ? `, hottest sensor ${hotTemp}°C` : "";
     const lines = [
       `[host: ${host.name} (${host.hostname})] running ${server.name}.`,
-      `CPU ${host.cpu.usage_pct}% (load ${host.cpu.load_avg.join("/")}, ${host.cpu.cores} cores), RAM ${ramPct}% (swap ${host.ram.swap_used_gb}/${host.ram.swap_total_gb} GB), hottest sensor ${hotTemp}°C.`,
+      `CPU ${host.cpu.usage_pct}% (load ${load}, ${host.cpu.cores} cores), RAM ${ramPct}%${swapNote}${tempNote}.`,
     ];
     if (fullest.d) {
-      lines.push(`fullest disk: ${fullest.d.mount} at ${Math.round(fullest.pct)}% (SMART ${fullest.d.smart}).`);
+      const smartNote = fullest.d.smart ? ` (SMART ${fullest.d.smart})` : "";
+      lines.push(`fullest disk: ${fullest.d.mount} at ${Math.round(fullest.pct)}%${smartNote}.`);
     }
     // Noisy-neighbour detection: other processes hogging the box.
     const heavy = (host.processes || [])
@@ -539,7 +546,7 @@ import { fmtRelative, parseTs } from "../pages/AuditLogPage.jsx";
       const pct = (d.used_gb / d.total_gb) * 100;
       return pct > acc.pct ? { d, pct } : acc;
     }, { d: null, pct: 0 });
-    if (fullest.d && fullest.pct >= 80) problems.push({ icon: "database", tone: fullest.pct >= 90 ? "danger" : "warn", text: `${fullest.d.mount} disk ${Math.round(fullest.pct)}% full (SMART ${fullest.d.smart})` });
+    if (fullest.d && fullest.pct >= 80) problems.push({ icon: "database", tone: fullest.pct >= 90 ? "danger" : "warn", text: `${fullest.d.mount} disk ${Math.round(fullest.pct)}% full${fullest.d.smart ? ` (SMART ${fullest.d.smart})` : ""}` });
     if (host.ram.swap_used_gb / host.ram.swap_total_gb > 0.3) problems.push({ icon: "hard-drive", tone: "warn", text: `swap in use: ${host.ram.swap_used_gb}/${host.ram.swap_total_gb} GB — memory pressure` });
     const heavy = (host.processes || []).filter(p => p.server && p.server !== server.id && (p.cpu_pct > 50 || p.ram_mb > 8000));
     heavy.forEach(p => problems.push({ icon: "flame", tone: "warn", text: `noisy neighbour: ${p.name} (${p.server}) using ${p.cpu_pct}% CPU, ${(p.ram_mb/1024).toFixed(1)} GB` }));

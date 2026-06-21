@@ -327,6 +327,35 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > endpoint; that's the fast-follow). Multi-host token routing (which host issued a
 > token) — single-host only today.
 
+> **Slice 7 — Diagnostics B-enrichment — DONE + LIVE-VALIDATED (2026-06-21).** Surfaces the rest
+> of the monitor `Snapshot` the host deep-dive needs, the §9 "B" bucket (measured upstream, API
+> didn't expose). **No upstream/monitor change** — it's all already in the cached snapshot.
+> **kgsm-api** (additive, invariant-safe): enriched the **one shared** `MetricsMapping.ToHostMetrics`
+> (so REST `Host` and the WS `host.metrics` tick stay byte-identical) — `MemCapacity` gains
+> `available`/`swap{Used,Total}`, `DiskCapacity` gains `fs`, and `Host`/`HostMetricsDto` gain
+> `perCore`/`load`/`diskIo`/`interfaces`/`hostname`/`uptimeSec`/`sampleTs`. **Present on BOTH list and
+> detail** (zero extra scrape — the metrics are already cached; the `network` firewall block stays
+> detail-only because *it* costs an on-demand probe). All null when metrics isn't operational
+> (honest-unknown, explicit null not omitted). Tests 215, smoke **54** (+REST-detail +WS host-metrics
+> telemetry assertions; the honesty-coupling check now guards all of them: any telemetry present ⇒
+> capability operational). **kgsm-web**: `adaptHost` maps the new fields and keeps the **unsourced**
+> ones honest-null — and the diagnostics rendering was audited so none renders a fabricated value next
+> to the real data: temperature KPI hidden (no sensors), Network KPI drops the fabricated errors tone,
+> RAM bar omits cached/buffers segments+legend, disk SMART pill hidden (no smartctl), iface ip/mac →
+> "—", iface errors dropped. `chatTools` (the still-mock assistant, slice 9) made defensive for the
+> same null fields. **Surfaced + fixed a latent crash:** the host deep-dive's `<SubTabs>` was used in
+> `DiagnosticsPage` but only defined (unexported) in `App.jsx` — never hit before because the
+> metrics-down host always bailed to "awaiting telemetry"; now that real telemetry renders, the path is
+> live → extracted `SubTabs` to `src/components/SubTabs.jsx`, imported in both (avoids the App↔page
+> import cycle). **Live-validated** on `hotrod`: started a real `kgsm-monitor` (host-only, on the API's
+> configured socket) → `GET /hosts/hotrod` carried the 16-core grid / load / swap / ext4·vfat fs / iface
+> throughput / hostname / uptime, capability operational; `smoke:live` green (host deep-dive renders
+> 30k chars, all enrichment + honest-null assertions pass). **Deferred (documented):** `host.metrics` WS
+> live-update — the deep-dive shows a real static snapshot today (consistent with the app's other host
+> meters); freshness reflects capability-up and flips to frozen on monitor death. Not stamping
+> `last_sample_at` keeps WS non-load-bearing for this slice (a stamped sample would age a static snapshot
+> to "frozen" in 30s → WS becomes mandatory; that's the follow-on's job).
+
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
    no-base fallback. An `adapters/` module: BE DTO → FE shape, one mapper per resource.
@@ -493,7 +522,19 @@ Cheap-wins-first falls out of the buckets above:
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
 - **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
-- **Diagnostics (host)** — **half A (done), half B**: the per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is **additive kgsm-api work against the existing monitor Snapshot** — the highest-value enrichment. The rest (sensors, processes, cpu model, device/smart, iface ip/mac) is **C** (monitor slices) → honest-unknown until then.
+- **Diagnostics (host)** — **B-enrichment DONE (slice 7, 2026-06-21), live-validated.** The
+  per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is now surfaced by kgsm-api (additive,
+  against the **already-cached** monitor Snapshot — zero extra scrape; present on BOTH `/hosts` list
+  and `/hosts/{id}` detail, unlike the firewall-probe `network` block which stays detail-only). The
+  adapter maps it all and keeps the **unsourced** fields honest-null (sensors/temp, cpu model/threads/
+  freq, ram cached/buffers, disk device/SMART, iface ip/mac/errors, process list) — the rendering was
+  audited so none shows a fabricated `0`/`"ok"` next to the real data. Live-proven on `hotrod` with a
+  real monitor up (16-core per-core grid, load, swap, ext4/vfat fs, iface throughput). Remaining as **C**
+  (monitor slices, honest-unknown until then): sensors, process list, cpu model, disk device/SMART,
+  iface ip/mac. **Live-updating numbers (`host.metrics` WS tick)** is the documented follow-on — today
+  the deep-dive shows a real static snapshot (consistent with the dashboard/fleet host meters, which are
+  also static-on-hydrate); the metrics capability LED reflects capability-up and flips to frozen when the
+  monitor dies (LeafHealthMonitor down-flip).
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
@@ -503,6 +544,6 @@ Cheap-wins-first falls out of the buckets above:
 **Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
 **A** remaps~~ (slice 2a) → ~~**Auth/Me**~~ (slices 4/4b) → ~~recreate the backend DB to
 clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realtime WS~~
-(slice 5) → **next:** **Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
-payoff) → commands/ports (slice 6) → assistant → presence/performance/console as their
-sources land.
+(slice 5) → ~~**Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
+payoff)~~ (slice 7, 2026-06-21) → **next:** commands/ports (slice 6) → host-metrics live-update
+(`host.metrics` WS tick) → assistant → presence/performance/console as their sources land.

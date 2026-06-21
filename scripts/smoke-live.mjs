@@ -107,10 +107,32 @@ try {
   assert(hosts.length === rawHosts.length && hosts.length > 0, `adaptHosts maps ${hosts.length} host(s)`);
   assert(hosts.every((h) => typeof h.online === "boolean" && h.name != null), "hosts: status→online bool, label→name");
   assert(hosts.every((h) => h.capabilities && h.capabilities.metrics), "hosts: capabilities passthrough intact");
-  // The live host's metrics capability is down → meters must be empty (no fabricated CPU/RAM bars).
-  const metricsDownHost = hosts.find((h) => h.capabilities.metrics && h.capabilities.metrics.status !== "operational");
-  if (metricsDownHost) {
-    assert(diag.hostCapacityMeters(metricsDownHost).length === 0, "hostCapacityMeters([] when metrics down — no fabricated meters)");
+  // Diagnostics B-enrichment: when the metrics capability is operational (a live monitor), the adapter
+  // maps the full snapshot — per-core, load, swap, fs, disk-IO, interfaces, hostname, uptime — AND keeps
+  // every unsourced field honestly null/"—", never a fabricated 0°C / SMART "ok" / iface address.
+  const opHost = hosts.find((h) => h.capabilities.metrics && h.capabilities.metrics.status === "operational");
+  if (opHost) {
+    assert(diag.hostCapacityMeters(opHost).length === 3, "hostCapacityMeters → 3 real meters when metrics operational (live monitor)");
+    assert(Array.isArray(opHost.cpu.per_core) && opHost.cpu.per_core.length > 0 && opHost.cpu.cores === opHost.cpu.per_core.length,
+      `host cpu: per_core[${opHost.cpu.per_core.length}] mapped + cores derived from it`);
+    assert(Array.isArray(opHost.cpu.load_avg) && opHost.cpu.load_avg.length === 3, "host cpu: load_avg [1m,5m,15m] mapped");
+    assert(opHost.ram.total_gb > 0 && opHost.ram.free_gb != null && opHost.ram.swap_total_gb != null, "host mem: total/free/swap mapped");
+    assert(opHost.disks.length > 0 && opHost.disks.every((d) => d.fs && d.fs !== "—"), "host disks: filesystem type mapped");
+    assert(typeof opHost.hostname === "string" && opHost.hostname.length > 0 && opHost.boot_time != null,
+      "host: hostname + boot_time (derived from uptime) mapped");
+    assert(Array.isArray(opHost.network.interfaces) && opHost.network.interfaces.length > 0
+           && opHost.network.interfaces.every((i) => typeof i.rx_kbps === "number"),
+      "host net: interface throughput mapped (bytes/s → kbps)");
+    // Honesty: the fields the monitor does NOT source stay null/"—", even sitting beside real data.
+    assert(opHost.cpu.temp_c === null && opHost.cpu.model === "—" && opHost.cpu.threads === null,
+      "host cpu: temp/model/threads honest-unknown (no sensor/cpuinfo source, not a fabricated 0)");
+    assert(opHost.ram.cached_gb === null && opHost.ram.buffers_gb === null, "host mem: cached/buffers honest-null (not measured)");
+    assert(opHost.disks.every((d) => d.smart === null)
+           && opHost.network.interfaces.every((i) => i.ip === null && i.mac === null && i.errors === null),
+      "host: SMART / iface ip·mac·errors honest-null (no fabricated health claim or address)");
+  } else {
+    // Metrics capability down → meters must be empty (no fabricated CPU/RAM bars).
+    assert(diag.hostCapacityMeters(hosts[0]).length === 0, "hostCapacityMeters([] when metrics down — no fabricated meters)");
   }
 
   // Alerts adapter: the API carries no `icon` (presentation, not a measured
@@ -228,6 +250,13 @@ try {
     }
     if (!ok) fail++;
   }
+  // Diagnostics honesty: the host process LIST has no source (§9 C-gap), so the deep-dive must render
+  // the honest "no process source" state — NOT a populated-looking Processes card reading "0" (which
+  // would be a fabricated "this host has zero processes" claim, the same class as the hidden temp KPI).
+  const deepHtml = await nav("#/fleet/hotrod");
+  assert(deepHtml.includes("expose a process list"),
+    "host deep-dive: Processes shows honest 'no process source' (not a fabricated 0-row table)");
+
   // alerts must NOT carry the demo fixtures in live mode (they'd read as real).
   const alertsHtml = await nav("#/alerts");
   assert(!/won.t stay up|backups 94% full|zombie/i.test(alertsHtml), "alerts: no fixture leakage in live mode");

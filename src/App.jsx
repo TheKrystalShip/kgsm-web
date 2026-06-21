@@ -5,6 +5,7 @@ import { DashBandList, loadBandOrder, saveBandOrder } from "./components/DashLay
 import { ColdStartDown, ConnectivityBanner, ContentError, CrashNow, DevPanel, ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { Icon } from "./components/Icon.jsx";
+import { SubTabs } from "./components/SubTabs.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
 import { NeedsAttention, alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { ServerHero } from "./components/ServerHero.jsx";
@@ -85,35 +86,6 @@ function alertAssistantPrompt(item) {
   }
   return "The alert \u201C" + item.title + "\u201D is firing" + where + raised
     + ". What's likely causing it, and how do I fix it?";
-}
-
-function SubTabs({ tabs, active, onChange }) {
-  const current = tabs.find(t => t.id === active) || tabs[0];
-  return (
-    <>
-      <div className="subtabs">
-        {tabs.map(t => (
-          <button key={t.id}
-            className={"subtab" + (t.id === active ? " subtab--active" : "")}
-            onClick={() => onChange(t.id)}>
-            <Icon name={t.icon} size={14} />
-            {t.label}
-            {t.badge > 0 && <span className={"subtab__badge subtab__badge--" + (t.badgeTone || "info")}>{t.badge}</span>}
-          </button>
-        ))}
-      </div>
-      <label className="subtabs-mobile" aria-label="Section">
-        <Icon name={current.icon} size={16} />
-        <span className="subtabs-mobile__label">{current.label}</span>
-        <select value={active} onChange={e => onChange(e.target.value)}>
-          {tabs.map(t => (
-            <option key={t.id} value={t.id}>{t.label}{t.badge ? " · " + t.badge + " alert" + (t.badge === 1 ? "" : "s") : ""}</option>
-          ))}
-        </select>
-        <Icon name="chevron-down" size={16} />
-      </label>
-    </>
-  );
 }
 
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit }) {

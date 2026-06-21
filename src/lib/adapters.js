@@ -67,43 +67,87 @@ export const adaptServers = (arr) => (Array.isArray(arr) ? arr.map(adaptServer) 
 // fabricated numbers: absent telemetry → zero-length / 0 framed by a down LED.
 function telemetrySkeleton() {
   return {
-    cpu: { model: "—", cores: 0, threads: 0, freq_ghz: 0, usage_pct: 0, per_core: [], load_avg: [0, 0, 0], temp_c: 0 },
-    ram: { total_gb: 0, used_gb: 0, cached_gb: 0, buffers_gb: 0, free_gb: 0, swap_total_gb: 0, swap_used_gb: 0 },
+    cpu: { model: "—", cores: 0, threads: null, freq_ghz: null, usage_pct: null, per_core: [], load_avg: null, temp_c: null },
+    ram: { total_gb: 0, used_gb: 0, cached_gb: null, buffers_gb: null, free_gb: 0, swap_total_gb: null, swap_used_gb: null },
     disks: [], network: { interfaces: [], open_ports: [] }, sensors: [], processes: [],
   };
 }
+
+// Interface throughput: the monitor measures bytes/sec; the UI labels it "kbps". Convert to
+// kilobits/sec (the conventional network unit) — a real measured rate, unit-shifted for display,
+// not a fabricated value. null in → null out (honest-unknown, never a 0 rate).
+const toKbps = (bps) => (bps == null ? null : Math.round((bps * 8) / 1000));
 
 export function adaptHost(be) {
   if (!be) return be;
   const skel = telemetrySkeleton();
   const metricsOk = !!(be.capabilities && be.capabilities.metrics && be.capabilities.metrics.status === "operational");
-  // Map the coarse honest metrics into the meter fields when present.
-  const cpu = be.cpuPct != null ? { ...skel.cpu, usage_pct: round(be.cpuPct, 0) } : skel.cpu;
-  const ram = be.mem
-    ? { ...skel.ram, total_gb: round(be.mem.total, 1), used_gb: round(be.mem.used, 1), free_gb: round(Math.max(0, be.mem.total - be.mem.used), 1) }
-    : skel.ram;
-  const disks = Array.isArray(be.disks) && be.disks.length
-    ? be.disks.map((d) => ({ mount: d.mount, device: "—", total_gb: round(d.total, 1), used_gb: round(d.used, 1), fs: "—", smart: "ok" }))
-    : skel.disks;
-  const network = be.network
+  const hasSample = Array.isArray(be.perCore) && be.perCore.length > 0;
+
+  // CPU — usage / per-core / load average are honest passthrough; `cores` is the measured core
+  // count (the per-core array length). model / threads / freq / temperature are NOT sampled by the
+  // monitor (static cpuinfo / no sensor feed) → honest-unknown ("—"/null), never the old fabricated 0.
+  const cpu = (be.cpuPct != null || hasSample)
     ? {
-        interfaces: [],
-        open_ports: Array.isArray(be.network.openPorts)
-          ? be.network.openPorts.map((p) => ({ port: p.port, proto: p.proto, server: p.server ?? null, app: p.app ?? null }))
-          : [],
+        model: "—", threads: null, freq_ghz: null, temp_c: null,
+        cores: hasSample ? be.perCore.length : 0,
+        usage_pct: be.cpuPct != null ? round(be.cpuPct, 0) : null,
+        per_core: hasSample ? be.perCore.map((p) => round(p, 0)) : [],
+        load_avg: be.load ? [round(be.load.one, 2), round(be.load.five, 2), round(be.load.fifteen, 2)] : null,
       }
-    : skel.network;
+    : skel.cpu;
+
+  // Memory — used / total / free / swap are measured; cached & buffers are NOT broken out by the
+  // monitor → null (never a fabricated 0). free falls back to total−used only if `available` is absent.
+  const ram = be.mem
+    ? {
+        total_gb: round(be.mem.total, 1),
+        used_gb: round(be.mem.used, 1),
+        free_gb: be.mem.available != null ? round(be.mem.available, 1) : round(Math.max(0, be.mem.total - be.mem.used), 1),
+        cached_gb: null, buffers_gb: null,
+        swap_total_gb: be.mem.swapTotal != null ? round(be.mem.swapTotal, 1) : null,
+        swap_used_gb: be.mem.swapUsed != null ? round(be.mem.swapUsed, 1) : null,
+      }
+    : skel.ram;
+
+  // Disks — mount / used / total / filesystem are measured; device path & SMART health are NOT
+  // sourced → "—" / null (a fabricated "ok" SMART would be a health *claim* with no backing).
+  const disks = Array.isArray(be.disks) && be.disks.length
+    ? be.disks.map((d) => ({ mount: d.mount, total_gb: round(d.total, 1), used_gb: round(d.used, 1), fs: d.fs || "—", device: "—", smart: null }))
+    : skel.disks;
+
+  // Network interfaces — throughput is measured (bytes/sec → kbps / pps); ip, mac and error
+  // counters are NOT sampled → honest-unknown. open_ports rides the detail firewall block, unchanged.
+  const interfaces = Array.isArray(be.interfaces)
+    ? be.interfaces.map((i) => ({
+        name: i.name, ip: null, mac: null, errors: null,
+        rx_kbps: toKbps(i.rxBps), tx_kbps: toKbps(i.txBps), rx_pps: i.rxPps ?? null, tx_pps: i.txPps ?? null,
+      }))
+    : [];
+  const network = {
+    interfaces,
+    open_ports: be.network && Array.isArray(be.network.openPorts)
+      ? be.network.openPorts.map((p) => ({ port: p.port, proto: p.proto, server: p.server ?? null, app: p.app ?? null }))
+      : [],
+  };
+
+  // boot_time derived from the measured uptime (now − uptimeSec); the FE's uptime helpers want a
+  // timestamp. null when uptime isn't sourced → the helpers render "—".
+  const bootTime = be.uptimeSec != null ? new Date(Date.now() - be.uptimeSec * 1000).toISOString() : null;
+
   return {
     id: be.id,
     name: be.label ?? be.id,
-    hostname: be.id,                  // backend has no separate hostname
+    hostname: be.hostname || be.id,   // real monitor hostname when sampled, else the host id
     region: "—",
+    os: "—", kernel: "—", panel_version: "—",  // not sourced by the API today → honest-unknown
+    boot_time: bootTime,
     online: be.status === "online",
     // capabilities pass straight through — the api shape already matches the
     // FE capability model {provisioned,status,since,message,info}.
     capabilities: be.capabilities || {},
     cpu, ram, disks, network,
-    sensors: skel.sensors, processes: skel.processes,
+    sensors: [], processes: [],   // no host sensor / process-list source → honest-empty (not fabricated rows)
     events: [], logs: [],
     _metricsOk: metricsOk,
   };
