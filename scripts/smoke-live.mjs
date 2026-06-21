@@ -295,7 +295,15 @@ try {
 
   // GamePage instances are scoped by blueprint, not the null===null match-all:
   // the factorio blueprint detail must list factorio-test and NOT terraria-hardmode.
-  const bpHtml = await nav("#/library/factorio");
+  // Scope the check to the PAGE content — the global assistant dock's scope chip
+  // lists every server on the host (so it carries terraria-hardmode whenever the
+  // assistant capability is operational), which would falsely trip the negative
+  // check. Clone + strip `.chat-page` so this asserts GamePage's scoping, not the
+  // dock's roster. (Non-destructive: the live React tree is untouched.)
+  await nav("#/library/factorio");
+  const bpClone = w.document.getElementById("root").cloneNode(true);
+  bpClone.querySelectorAll(".chat-page").forEach((n) => n.remove());
+  const bpHtml = bpClone.innerHTML;
   assert(bpHtml.includes("factorio-test") && !bpHtml.includes("terraria-hardmode"),
     "GamePage instances scoped by blueprint (factorio shows factorio-test, not terraria)");
 
@@ -469,6 +477,91 @@ try {
   const detailHtml = await nav("#/servers/factorio-test");
   assert(detailHtml.includes("Update isn't available yet"),
     "server detail: Update chip disabled in LIVE with an honest reason (no 400-bound button)");
+
+  // ---- Phase 6: assistant turn SSE (slice 9a) -----------------------------
+  // The assistant turn is an SSE relay (kgsm-api POST /assistant/turn → §5·a
+  // frames). NON-LEAF + deterministic: intercept the outbound POST and feed a
+  // canned §5·a stream, so the seam's SSE parser + frame translation are asserted
+  // regardless of whether an assistant leaf is running. (The REAL relay through
+  // kgsm-api's AssistantController + the capability gate flipping operational were
+  // validated live this session against a thin SSE stub at KGSM_API_ASSISTANT_URL;
+  // the real-leaf / Ollama round-trip is owed-to-human.)
+  const enc = new TextEncoder();
+  const CANNED = [
+    'event: text.delta\ndata: {"type":"text.delta","text":"Let me check "}\n\n',
+    'event: text.delta\ndata: {"type":"text.delta","text":"factorio-test."}\n\n',
+    'event: tool.start\ndata: {"type":"tool.start","id":"tc_0_0","tool":"run_health_check","arguments":{"server_id":"factorio-test"}}\n\n',
+    'event: tool.result\ndata: {"type":"tool.result","id":"tc_0_0","tool":"run_health_check","summary":"All checks passed (5/5)."}\n\n',
+    'event: done\ndata: {"type":"done","text":"It looks healthy."}\n\n',
+  ].join("");
+  // Split the canned bytes at a boundary that falls MID-FRAME, to prove the parser
+  // buffers across reads (a §5·a frame can arrive split over two chunks).
+  const half = Math.floor(CANNED.length / 2) + 13;
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/assistant\/turn$/.test(u)) {
+      const parts = [CANNED.slice(0, half), CANNED.slice(half)];
+      const stream = new ReadableStream({ start(c) { for (const p of parts) c.enqueue(enc.encode(p)); c.close(); } });
+      return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+    }
+    return realFetch(url, opts);
+  };
+  const frames = [];
+  await api.host(hmId).turn({ prompt: "is factorio-test healthy?" }, { onEvent: (e) => frames.push(e) })
+    .catch((e) => frames.push({ type: "__throw__", message: e.message }));
+  globalThis.fetch = realFetch;
+  const types = frames.map((f) => f.type).join(",");
+  assert(types === "text.delta,text.delta,tool.start,tool.result,done",
+    `assistant turn: SSE parsed into the ordered §5·a frames (${types})`);
+  const streamed = frames.filter((f) => f.type === "text.delta").map((f) => f.text).join("");
+  assert(streamed === "Let me check factorio-test.",
+    "assistant turn: text.delta slices reassemble across a mid-frame chunk boundary");
+  const ts = frames.find((f) => f.type === "tool.start");
+  const tr = frames.find((f) => f.type === "tool.result");
+  assert(ts && ts.id === "tc_0_0" && ts.tool === "run_health_check", "assistant turn: tool.start carries id + tool name");
+  assert(tr && tr.id === "tc_0_0" && tr.summary === "All checks passed (5/5).",
+    "assistant turn: tool.result pairs to its start by id + carries the summary");
+
+  // Pre-stream degrade surfaces as a thrown apiError (NOT a silent empty turn): a
+  // provisioned-but-down assistant answers 503 BEFORE the stream commits, so the
+  // SPA can render the honest reason instead of an empty bubble.
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/assistant\/turn$/.test(u))
+      return new Response(JSON.stringify({ error: { code: "unavailable", message: "the assistant is currently unavailable" } }),
+        { status: 503, headers: { "content-type": "application/json" } });
+    return realFetch(url, opts);
+  };
+  let turnErr = null;
+  await api.host(hmId).turn({ prompt: "x" }, { onEvent: () => {} }).catch((e) => { turnErr = e; });
+  globalThis.fetch = realFetch;
+  assert(turnErr && turnErr.code === 503,
+    `assistant turn: pre-stream degrade (503) throws an apiError the SPA renders (code=${turnErr && turnErr.code})`);
+
+  // The frame→message-role translation IS slice 9a's deliverable (sendLive just
+  // wraps this pure reducer in setConvos). Exercise it directly over a TWO-turn
+  // sequence — single-turn coverage can't catch the turn-local-id hazard: tool-call
+  // ids reset per turn (tc_0_0), so a later turn's tool.result must resolve ITS pill
+  // without retroactively rewriting an earlier turn's already-done pill.
+  const { reduceTurnFrame: R } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+  let m = [{ role: "user", content: "q1" }, { role: "assistant", content: "" }];
+  m = R(m, { type: "text.delta", text: "Checking " });
+  m = R(m, { type: "text.delta", text: "factorio-test…" });
+  m = R(m, { type: "tool.start", id: "tc_0_0", tool: "run_health_check" });
+  m = R(m, { type: "tool.result", id: "tc_0_0", summary: "5/5 passed" });
+  m = R(m, { type: "done", text: "All healthy." });
+  const pill1 = m.find((x) => x.role === "context" && x.toolId === "tc_0_0");
+  assert(pill1 && pill1.state === "done" && pill1.label === "5/5 passed",
+    "reduceTurnFrame: tool.start→pill, tool.result resolves it by id with the summary (turn 1)");
+  assert(m[m.length - 1].role === "assistant" && m[m.length - 1].content === "All healthy.",
+    "reduceTurnFrame: text.delta streams into the bubble; done reconciles it to the full reply");
+  // Turn 2 — same turn-local tool id reused.
+  m = [...m, { role: "user", content: "q2" }, { role: "assistant", content: "" }];
+  m = R(m, { type: "tool.start", id: "tc_0_0", tool: "get_status" });
+  m = R(m, { type: "tool.result", id: "tc_0_0", summary: "online" });
+  const pills = m.filter((x) => x.role === "context" && x.toolId === "tc_0_0");
+  assert(pills.length === 2 && pills[0].label === "5/5 passed" && pills[1].label === "online",
+    "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's pill, NOT turn-1's done pill");
 
   root.unmount();
 } finally {

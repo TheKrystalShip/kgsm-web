@@ -340,6 +340,73 @@ import("./stores.js").then((m) => {
   const livePost = (path, body) => liveFetch("POST", path, body);
   const livePatch = (path, body) => liveFetch("PATCH", path, body);
 
+  // ---- live assistant turn (SSE) ------------------------------------------
+  // The assistant turn is neither a request/response call nor a WS topic: it's a
+  // POST that returns a long-lived text/event-stream relaying the assistant's
+  // §5·a frames (text.delta / tool.start / tool.result / command.proposed /
+  // error / done — see kgsm-llm/docs/m7-sse-5a-spec.md). The backend (kgsm-api
+  // AssistantController) relays the per-host assistant leaf verbatim and decides
+  // the capability degrade (absent→404 / down→503 / relay-misconfig→502) BEFORE
+  // the stream commits — so those land as a thrown apiError here, while a turn
+  // that DID commit surfaces its own failures as an in-band `error` frame.
+  //
+  // Parse one SSE event block → its in-band JSON payload. Each frame carries both
+  // an `event:` line and a `data:` line with an in-band `type` discriminator; we
+  // key on the canonical in-band `type`, so the `event:` line is ignored. Per the
+  // SSE spec, multiple `data:` lines concatenate with "\n" (the writer emits one).
+  function parseSseEvent(block) {
+    const data = [];
+    for (const line of block.split("\n")) {
+      if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+    }
+    if (!data.length) return null;
+    try { return JSON.parse(data.join("\n")); } catch (e) { return null; }
+  }
+  // POST /assistant/turn and pump §5·a frames to onEvent until the stream ends.
+  // `bearer` is the assistant host's token (null under auth-disabled → unauth,
+  // which that mode accepts). A pre-stream non-2xx throws apiError (the honest
+  // 404/503/502); an abort rethrows so the caller can render "stopped"; any other
+  // mid-stream transport drop just ends the pump (the accumulated text stays — we
+  // never invent a `done` that didn't arrive).
+  async function liveTurn(bearer, body, opts) {
+    const { onEvent, signal } = opts || {};
+    const headers = { "Content-Type": "application/json", Accept: "text/event-stream" };
+    if (bearer) headers.Authorization = "Bearer " + bearer;
+    let res;
+    try {
+      res = await fetch(API_V1 + "/assistant/turn", { method: "POST", headers, body: JSON.stringify(body), signal });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      markFailure(); throw netError();
+    }
+    markSuccess();                          // the host answered → reachable
+    if (!res.ok) {
+      let json = null; try { json = await res.json(); } catch (e) { json = null; }
+      throw apiError(res.status, json);     // pre-stream degrade (404/503/502/400)
+    }
+    if (!res.body) return;                  // nothing to stream (shouldn't happen on 200)
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      let chunk;
+      try { chunk = await reader.read(); }
+      catch (e) { if (e && e.name === "AbortError") throw e; break; }   // drop → keep what streamed
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const evt = parseSseEvent(block);
+        if (evt && onEvent) onEvent(evt);
+      }
+    }
+    // Flush a trailing complete block with no terminating blank line (defensive).
+    const tail = buf.trim();
+    if (tail) { const evt = parseSseEvent(tail); if (evt && onEvent) onEvent(evt); }
+  }
+
   function resolveGet(path) {
     if (path === "/servers") return (DATA().servers || []).map(s => ({ ...s }));
     if (path === "/alerts")  return alertsStore ? alertsStore.getState().list.map(a => ({ ...a })) : [];
@@ -604,6 +671,13 @@ import("./stores.js").then((m) => {
       get: (p) => withRetry(() => get(p)),
       post: (p, b) => withRetry(() => post(p, b)),
       patch: (p, b) => withRetry(() => patch(p, b)),
+      // Assistant turn (live-only SSE). Pre-call gate only (ensure) — a turn isn't
+      // idempotent, so withRetry's replay-on-401 would be wrong; an expired token
+      // mid-stream just ends the turn and the per-host expired state surfaces on
+      // the next call. The bearer is THIS host's token (null under auth-disabled).
+      turn: (b, o) => LIVE
+        ? ensure().then(() => liveTurn(sessionStore && sessionStore.tokenOf ? sessionStore.tokenOf(id) : null, b, o))
+        : Promise.reject(new Error("assistant turn is live-only")),
     };
   }
 

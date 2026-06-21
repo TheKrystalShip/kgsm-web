@@ -7,6 +7,8 @@ import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../componen
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
 import { KrystalChat } from "../lib/chatTools.js";
 import { scopeServers, serversStore } from "../lib/stores.js";
+import { api } from "../lib/apiClient.js";
+import { LIVE } from "../lib/config.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
 
 // ChatPage — the assistant UI for a per-host assistant capability.
@@ -57,6 +59,71 @@ function saveSetting(key, val) {
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// A pending-tense display label for a live §5·a `tool.start` frame. The wire
+// carries no honest `label` (the spec drops it on purpose), so the SPA derives a
+// name from the tool id; the context pill appends "…" while pending. Unknown
+// tools fall back to the snake_case name spaced out, so a tool added upstream
+// still renders something sensible without a client change.
+const TOOL_LABELS = {
+  run_health_check:    "Running health check",
+  get_status:          "Checking status",
+  get_performance:     "Reading metrics",
+  get_audit_log:       "Reading recent events",
+  get_console:         "Reading console output",
+  get_config:          "Reading config",
+  get_host_diagnostics:"Checking host health",
+  trace_root_cause:    "Tracing the root cause",
+};
+function toolLabel(tool) {
+  if (!tool) return "Working";
+  return TOOL_LABELS[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1).replace(/_/g, " "));
+}
+
+// Pure reducer: fold one live §5·a frame into a conversation's message list. The
+// streaming assistant bubble is always the LAST message; tool pills are spliced
+// in just before it. Exported + pure (no React, no convo state) so the live SSE
+// translation — slice 9a's actual deliverable — is unit-exercisable end to end
+// (sendLive just wraps it in setConvos). Returns a NEW array; the input is never
+// mutated. Returns the input unchanged if there's no trailing assistant bubble.
+function reduceTurnFrame(messages, ev) {
+  const msgs = messages.slice();
+  const lastIdx = msgs.length - 1;
+  const bubble = msgs[lastIdx];
+  if (!bubble || bubble.role !== "assistant") return messages;   // no streaming bubble — defensive
+  switch (ev.type) {
+    case "text.delta":
+      msgs[lastIdx] = { ...bubble, content: (bubble.content || "") + (ev.text || "") };
+      break;
+    case "tool.start":
+      msgs.splice(lastIdx, 0, { role: "context", toolId: ev.id, label: toolLabel(ev.tool), state: "pending" });
+      break;
+    case "tool.result":
+      // Resolve only the MOST RECENT still-pending pill with this id. Tool-call ids
+      // are turn-local (they reset per turn), so without the pending guard + reverse
+      // scan a later turn's result would retroactively rewrite a prior turn's pill.
+      for (let k = msgs.length - 1; k >= 0; k--) {
+        if (msgs[k].role === "context" && msgs[k].toolId === ev.id && msgs[k].state === "pending") {
+          msgs[k] = { ...msgs[k], state: "done", label: ev.summary || msgs[k].label };
+          break;
+        }
+      }
+      break;
+    case "error": {
+      const note = "⚠️ " + (ev.message || "The assistant failed.");
+      msgs[lastIdx] = bubble.content
+        ? { ...bubble, content: bubble.content + "\n\n_" + note + "_" }
+        : { ...bubble, content: note, error: true };
+      break;
+    }
+    case "done":
+      if (ev.text) msgs[lastIdx] = { ...bubble, content: ev.text };
+      break;
+    default:
+      break;   // thinking.delta and any future additive frame — ignored in 9a
+  }
+  return msgs;
+}
 
 // ---------- lightweight markdown ----------
 // Just enough to render fenced code blocks, inline code, and bold — the
@@ -843,6 +910,64 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
     }));
   };
 
+  // ---- live turn (slice 9a) ----
+  // Stream a real assistant turn (kgsm-api POST /assistant/turn → §5·a SSE) and
+  // translate its frames onto the SAME message roles the mock thread uses, so the
+  // render layer is unchanged: text.delta → the assistant bubble; tool.start → a
+  // pending "reading…" pill spliced in just before the streaming bubble;
+  // tool.result → that pill resolved to its summary; error → an in-band failure;
+  // done → the authoritative full reply (reconciled only when present). The
+  // assistant owns context/memory/tools, so nothing the mock fabricates (evidence
+  // cards, gathered context) is produced here. Command proposals (fork (a)) and
+  // post-action verification land in slice 9b.
+  const sendLive = async (convId, text, userMsg) => {
+    setConvos(prev => prev.map(c => {
+      if (c.id !== convId) return c;
+      const title = c.messages.length === 0 ? (text.slice(0, 40) || "Voice note") : c.title;
+      return { ...c, title, messages: [...c.messages, userMsg, { role: "assistant", content: "" }] };
+    }));
+
+    setBusy(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    // Each frame folds into the active conversation via the pure reducer above.
+    const applyFrame = (ev) => setConvos(prev => prev.map(c =>
+      c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, ev) } : c));
+
+    try {
+      // {prompt} only — the scope chip has NO turn transport (the body carries no
+      // server field; the assistant resolves the server from the prompt). The chip
+      // stays a display + follow-up-grounding affordance in LIVE. See WIRING §9.
+      // A voice note whose transcription failed has empty text → send the same
+      // marker the mock uses, so the turn reads instead of a 400 on an empty prompt.
+      const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
+      await api.host(assistantHost.id).turn({ prompt }, { onEvent: applyFrame, signal: ctrl.signal });
+    } catch (e) {
+      const aborted = e && e.name === "AbortError";
+      const reason = e && e.code === 503 ? assistantHost.name + "’s assistant is currently unavailable."
+        : e && e.code === 502 ? "Couldn’t reach " + assistantHost.name + "’s assistant — try again, or check the host."
+        : e && e.code === 404 ? assistantHost.name + " isn’t serving an assistant right now."
+        : (e && e.userMessage) || (assistantHost.name + "’s assistant didn’t respond.");
+      setConvos(prev => prev.map(c => {
+        if (c.id !== convId) return c;
+        const msgs = c.messages.slice();
+        const lastIdx = msgs.length - 1;
+        const bubble = msgs[lastIdx];
+        if (!bubble || bubble.role !== "assistant") return c;
+        msgs[lastIdx] = aborted
+          ? { ...bubble, content: bubble.content || "_Stopped._" }
+          : bubble.content
+            ? { ...bubble, content: bubble.content + "\n\n_⚠ Interrupted — the assistant connection dropped._" }
+            : { ...bubble, content: "⚠️ " + reason, error: true };
+        return { ...c, messages: msgs };
+      }));
+    } finally {
+      setBusy(false);
+      abortRef.current = null;
+    }
+  };
+
   // ---- send ----
   const send = async (override, voiceMeta) => {
     const text = (typeof override === "string" ? override : input).trim();
@@ -878,6 +1003,14 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
       }));
       return;
     }
+
+    // LIVE: stream a real assistant turn (kgsm-api POST /assistant/turn → §5·a
+    // SSE). The assistant owns its own context, memory (keyed on the forwarded
+    // Discord id) and tools — so we send only the bare prompt, NOT the mock's
+    // SYSTEM_PROMPT, history, or gathered "live website data" (that fixture-
+    // driven context routing below would fabricate evidence the backend doesn't
+    // vouch for). Command proposals + verification (fork (a)) land in slice 9b.
+    if (LIVE) { sendLive(convId, text, userMsg); return; }
 
     // --- Context routing: decide what website data would help answer this,
     // gather it, and surface faded "reading…" pills in the thread. ---
@@ -1310,4 +1443,4 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
   );
 }
 
-export { ChatPage };
+export { ChatPage, reduceTurnFrame };

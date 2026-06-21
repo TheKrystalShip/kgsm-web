@@ -96,7 +96,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `POST /auth/session/refresh {host}` | `POST /auth/session/refresh` + `Bearer <refresh-jwt>` → `{token}` (anon) | ⚠️ | FE sends `{host}` body; BE wants the refresh token as bearer |
 | `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` (Viewer) | ✅ | both exist; detail adds `network` block |
 | `PATCH /alerts/{id}` (defined, **unused**) | — (alerts read-only) | ✅ | FE never calls it; fine |
-| `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ❌ | **rewrite** — wrong route *and* wrong shape; route through the seam |
+| `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ✅ **DONE (slice 9a)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. `command.proposed`→fork (a)→`command.verified` = **slice 9b** |
 | — (FE doesn't call) | `GET /api/v1/me` → `{user,tier,scopes}` | ➕ | FE currently derives tier from the callback; could/should use `/me` |
 | `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✅ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
 | — (FE: `DiscordPage`/settings) | `GET/PATCH /api/v1/integrations[/{provider}]`, `POST …/test` (Admin) | ➕ | backend built (Discord+Slack); FE settings UI not wired to it — verify FE call sites |
@@ -195,7 +195,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 
 ## 6. True gaps & rewrites (not simple remaps)
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
-2. **Assistant chat** — FE `ChatPage` does a raw Ollama-shaped `fetch` to the wrong route. Rewrite onto `POST /api/v1/assistant/turn` (SSE, `{prompt,think,tools}`), routed through the `api` seam.
+2. **Assistant chat** — ✅ **slice 9a done.** Was a raw Ollama-shaped `fetch` to the wrong route; now `api.host(id).turn()` (SSE through the seam) streaming the §5·a frames. Streaming half only — `command.proposed`→fork (a) (confirm runs the M3 command path with `origin:"assistant"`)→SPA-composed `command.verified` is **slice 9b** (still TODO).
 3. **Host discovery / registry** — no base-URL capture in the FE (see §1, §7).
 3b. **OAuth token handoff — BUILT (slice 4b; one manual browser login owed).** The
     callback now 302s to `KGSM_API_AUTH_FRONTEND_URL` with the session in the URL
@@ -406,6 +406,41 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > The **engine round-trips** (a real start/stop→watchdog, a real install→download) are **owed** — they need
 > the full watchdog+instance stack up and weren't run here (the request shaping is proven instead).
 
+> **Slice 9a — assistant turn (streaming half) — DONE + LIVE-VALIDATED 2026-06-21.** `ChatPage` no
+> longer does a raw Ollama-shaped `fetch` to the wrong route. New seam method **`api.host(id).turn(body,
+> {onEvent,signal})`** (`apiClient.js`): POSTs `/assistant/turn` `{prompt}`, parses the SSE stream
+> (`event:`+`data:` frames, keyed on the in-band `data.type`), and pumps the §5·a frames to `onEvent`. A
+> pre-stream non-2xx throws `apiError` (the honest degrade — absent→404 / down→503 / relay-misconfig→502);
+> an abort rethrows; a mid-stream drop just ends the pump (the streamed text stays — no fabricated `done`).
+> Pre-call `ensure()` gate only (no replay — a turn isn't idempotent).
+> **`ChatPage.sendLive()`** (LIVE branch, mock demo left intact) wraps a **pure exported reducer
+> `reduceTurnFrame(messages, frame)`** in `setConvos`, translating frames onto the SAME message roles the
+> thread already renders: `text.delta`→the assistant bubble; `tool.start`→a pending "reading…" pill spliced
+> before the bubble; `tool.result`→that pill resolved to its `summary`; `error`→in-band failure (keeps any
+> streamed text); `done`→reconcile to the authoritative full reply when present. The `tool.result` match is
+> guarded to the **most-recent still-pending** pill of that id (reverse scan + `state==="pending"`): tool-call
+> ids are **turn-local** (`tc_0_0` resets each turn), so without it a later turn's result retroactively
+> rewrote an earlier turn's done pill (advisor-caught; single-turn coverage was blind to it). In LIVE the
+> body is **`{prompt}` only** — the assistant owns context/memory/tools, so none of the mock's fabricated
+> context-routing/evidence runs; `thinking.delta` ignored (think:false). A transcription-less voice note
+> sends the mock's marker prompt (avoids a 400 on an empty prompt).
+> **Conscious gap:** the scope chip has **no turn transport** (`AssistantTurnRequest` carries no server
+> field) — it stays a display + follow-up-grounding affordance; the assistant resolves the server from
+> the prompt. Revisit (fold into prompt, or add an API field) only if real usage needs it.
+> **Validated:** real relay streams §5·a **verbatim** through `AssistantController` (curl, assistant
+> operational); `LeafHealthMonitor` flips the `assistant` capability **operational** when the leaf's
+> `/health` answers (so the FE gate opens naturally) — both proven live against a thin SSE stub at
+> `KGSM_API_ASSISTANT_URL`. `smoke:live` Phase 6 (deterministic, leaf-independent): SSE parsed into the
+> ordered frames, `text.delta` reassembled across a **mid-frame chunk boundary**, `tool.start`/`tool.result`
+> paired by id, and the pre-stream 503 degrade surfaces as a thrown `apiError`. **The translation itself —
+> the actual deliverable — is executed**, not just reasoned: a TWO-turn `reduceTurnFrame` sequence asserts
+> text streams + the pill pairs by id, and turn-2's reused id resolves turn-2's pill without rewriting
+> turn-1's (the bug above). Green with the assistant
+> both **absent and operational** (hardened the dock-naive GamePage assertion — the now-rendering assistant
+> dock's scope chip lists every host server, which tripped a whole-document grep). build + routes + mount
+> green. **OWED:** the real-leaf (Ollama-backed `kgsm-llm` Service) round-trip; **slice 9b** (`command.proposed`
+> → fork (a) → SPA-composed `command.verified`).
+
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
    no-base fallback. An `adapters/` module: BE DTO → FE shape, one mapper per resource.
@@ -433,7 +468,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
    synthetic-inject for the other three remaps in `smoke:live`.
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
-7. **Assistant** — rewrite `ChatPage` onto `/assistant/turn` SSE through the seam.
+7. **Assistant** — ✅ **9a done** (streaming turn through the seam). **9b TODO:** `command.proposed`→fork (a)→`command.verified`.
 8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, fleet rollup.
 9. **Integrations + settings** — wire `DiscordPage`/settings to `/integrations`.
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
@@ -560,7 +595,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `ConsolePanel`/`LogConsole` | console stream topic | **C** | no WS topic; degrade to "unavailable." |
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
 | `FileBrowser`, `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings`, no config endpoint. |
-| `ChatPage` (assistant) | `POST /assistant/turn` SSE | **A** | endpoint exists; FE calls wrong route/shape — rewrite through seam. |
+| `ChatPage` (assistant) | `POST /assistant/turn` SSE | ✅ **9a done** | rewritten onto `api.host(id).turn()` SSE through the seam (streaming half). 9b = command.proposed→verify. |
 | `DiscordPage`/integrations | `/integrations` (built) | **A** | ✅ live `GET /integrations` 200 (DB recreated, slice 3); wiring is a later slice. |
 
 ## 10. Per-surface rollup (what unblocks each screen)
@@ -589,7 +624,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
-- **Assistant chat** — **A** rewrite onto `/assistant/turn` SSE.
+- **Assistant chat** — **9a DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade; live-validated against an SSE stub + the real `AssistantController` relay). **9b TODO:** `command.proposed`→fork (a)→`command.verified`. OWED: real-leaf (Ollama) round-trip.
 - **Integrations** — **A** (the 500 is cleared as of slice 3's DB recreate; wiring `DiscordPage`/settings to `/integrations` is its own later slice).
 
 **Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
@@ -597,7 +632,8 @@ Cheap-wins-first falls out of the buckets above:
 clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realtime WS~~
 (slice 5) → ~~**Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
 payoff)~~ (slice 7, 2026-06-21) → ~~host-metrics live-update (`host.metrics` WS tick)~~ (slice 7
-follow-on, 2026-06-21) → ~~lifecycle commands + install~~ (slice 6 partial, 2026-06-21) → **next:** the
-deferred slice-6 tail (server-ports card + `open_ports`/`network.patch`, and uninstall) **once a FE
-surface exists for them**, OR **assistant** (slice 9 — rewrite `ChatPage` onto `/assistant/turn` SSE;
-also unblocks `open_ports`) → presence/performance/console as their sources land.
+follow-on, 2026-06-21) → ~~lifecycle commands + install~~ (slice 6 partial, 2026-06-21) →
+~~**assistant streaming turn**~~ (slice 9a, 2026-06-21 — `ChatPage` onto `api.host(id).turn()` SSE) →
+**next:** **slice 9b** (`command.proposed`→fork (a)→`command.verified`; also exercises `open_ports` from
+chat), OR the deferred slice-6 tail (server-ports card + `open_ports`/`network.patch`, and uninstall)
+**once a FE surface exists for them** → presence/performance/console as their sources land.
