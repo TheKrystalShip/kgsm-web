@@ -4,6 +4,7 @@ import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
+import { LIVE } from "../lib/config.js";
 
 // Server hero card — top status, name, action chips, IP.
 
@@ -44,6 +45,12 @@ function ServerHero({ server, onAction }) {
   // the supervisor can't start/stop/restart/update, so the chips lock out.
   const watchdogDown = serverCapUsable ? !serverCapUsable(server, "watchdog") : false;
   const wdReason = "Watchdog unavailable on this host — lifecycle actions are paused";
+  // kgsm-api doesn't expose an `update` verb yet (deferred from M3 — there's no
+  // honest update-check source either). Rather than offer a button that would 400
+  // against a live backend, disable it with a reason. The mock keeps it as a demo
+  // affordance (its fake state machine handles `update`).
+  const updateUnavailable = LIVE;
+  const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
   const cover = (window.useRawgCover && server.rawg_slug) ? window.useRawgCover(server) : null;
   const artBg = cover
     ? `linear-gradient(135deg, rgba(11,15,20,0.4) 0%, transparent 60%), url("${cover}")`
@@ -70,7 +77,7 @@ function ServerHero({ server, onAction }) {
         {canOps && (
           <div className="action-row">
             <ServerActionButton verb="start"   variant="chip" disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
-            <ServerActionButton verb="update"  variant="chip" disabled={isUpdating || watchdogDown}             reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+            <ServerActionButton verb="update"  variant="chip" disabled={isUpdating || watchdogDown || updateUnavailable} reason={updateUnavailable ? updReason : (watchdogDown ? wdReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
             <ServerActionButton verb="stop"    variant="chip" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
             <ServerActionButton verb="restart" variant="chip" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
           </div>

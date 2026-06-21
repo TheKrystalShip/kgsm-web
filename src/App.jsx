@@ -13,13 +13,14 @@ import { ServerNotice } from "./components/ServerNotice.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { StatTiles } from "./components/StatTiles.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
+import { LIVE } from "./lib/config.js";
 import { assistantHosts, assistantHostsAll, capUsable } from "./lib/capabilities.js";
 import { KRYSTAL_DATA, KRYSTAL_LABELS } from "./lib/data.js";
 import { can, canOn, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { auditStore, hostsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, useSelectedHostId } from "./lib/stores.js";
+import { auditStore, commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, useSelectedHostId } from "./lib/stores.js";
 import { AlertsPage } from "./pages/AlertsPage.jsx";
 import { AuditLogPage, fmtRelative, parseTs } from "./pages/AuditLogPage.jsx";
 import { BackupsList } from "./pages/BackupsList.jsx";
@@ -629,13 +630,13 @@ function App() {
   const handleAction = (action, targetId) => {
     const s = targetId ? servers.find(x => x.id === targetId) || activeServer : activeServer;
     if (!s) return;
-    // Dispatch through the HOST-SCOPED client so the per-host session gate runs:
-    // an expired session that can't silently renew rejects 401 → we open the
-    // re-auth modal for that host instead of the command failing silently. The
-    // server then runs the transition and streams status + console back over the
-    // `servers` / `console` channels.
-    const client = (s.hostId && api.host) ? api.host(s.hostId) : api;
-    client.post(`/servers/${s.id}/commands`, { verb: action }).catch(err => {
+    // Dispatch through commandServer → the HOST-SCOPED client so the per-host
+    // session gate runs: an expired session that can't silently renew rejects 401 →
+    // we open the re-auth modal for that host instead of the command failing
+    // silently. The command stamps origin:"ui" (M5 provenance); the server then
+    // runs the transition and streams its status + job progress + console back over
+    // the `servers` / `jobs` / `console` channels.
+    commandServer(s, action).catch(err => {
       if (err && err.code === 401) setReauthHostId(s.hostId);
       // 403 (role removed) surfaces via the scoped denyGate; nothing to do here.
     });
@@ -647,6 +648,13 @@ function App() {
   // initiated — the paper trail makes clear the bot didn't act on its own.
   const handleAssistantAction = (a) => {
     const now = new Date();
+    // ⚠ SLICE-9 (assistant LIVE wiring): this whole handler is MOCK. It both
+    // fabricates an `auditStore.prepend(...)` row AND, for lifecycle verbs, calls
+    // handleAction → now a REAL commandServer() in LIVE. When the assistant is
+    // wired live, that's a double-write (the backend already writes the audit from
+    // the kgsm event echo) with the wrong origin ("ui", not "assistant"), plus a
+    // fabricated row. Gate this on !LIVE (or pass origin:"assistant" + drop the
+    // prepend) when slice 9 lands — see WIRING.md §6.
     // open_ports doesn't map to a server-lifecycle verb — handle it here:
     // flip the server's closed required ports to open in the host data and
     // log a network audit entry.
@@ -714,6 +722,26 @@ function App() {
   };
 
   const confirmInstall = (cfg) => {
+    // LIVE: install for real (POST /servers → 202 { job }; kgsm assigns the id and
+    // runs the download off-request). We do NOT fabricate a server row — the new
+    // instance surfaces on the `servers` channel (server.patch) when the install
+    // job settles, which can take a while for a large download. Close the modal and
+    // land on the roster; the server appears there when it's ready. (Per-instance
+    // install progress isn't shown yet — the job's serverId isn't in the roster
+    // until the server exists, so its `jobs` ticks have nothing to attach to.)
+    if (LIVE) {
+      installServer(cfg).then(() => {
+        setInstalling(null);
+        setFirstRun(false);
+        setRoute({ kind: "servers" });
+        serversStore.refresh().catch(() => {});
+      }, err => {
+        // 401 → re-auth that host; other failures (400 bad blueprint / 409 in-flight /
+        // 503 engine absent) leave the modal open so the unfinished install stays visible.
+        if (err && err.code === 401) setReauthHostId(cfg.hostId);
+      });
+      return;
+    }
     const newServer = {
       id: cfg.game.id + "-" + cfg.id,
       rawg_slug: cfg.game.rawg_slug,

@@ -431,6 +431,45 @@ try {
   assert((st.hostsStore.find(hmId).capabilities.metrics || {}).last_sample_at == null,
     "host.metrics: leaving the deep-dive clears the freshness stamp (disposer ran)");
 
+  // ---- Phase 5: command + install write paths (slice 6) -------------------
+  // The two mutation paths into the engine, both through the host-scoped client
+  // (origin:"ui" stamped, bearer injected when held). NON-DESTRUCTIVE: intercept
+  // the outbound POST and return a synthetic 202 { job }, so no real start /
+  // install runs on the host — we assert only the request the FE constructs (the
+  // live start→watchdog and install→download round-trips need the full engine up
+  // and are validated by hand, not in this smoke).
+  const realFetch = globalThis.fetch;
+  let captured = null;
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/servers(\/[^/]+\/commands)?$/.test(u)) {
+      captured = { url: u, body: JSON.parse(opts.body || "null") };
+      return new Response(JSON.stringify({ job: {
+        id: "job_smoke", serverId: "factorio-test", verb: (captured.body || {}).verb || "install",
+        state: "queued", createdAt: "2026-06-20T00:00:00Z", settledAt: null, error: null,
+      } }), { status: 202, headers: { "content-type": "application/json" } });
+    }
+    return realFetch(url, opts);
+  };
+  await st.commandServer({ id: "factorio-test", hostId: hmId }, "start").catch(() => {});
+  assert(captured && captured.url.endsWith("/api/v1/servers/factorio-test/commands")
+    && captured.body.verb === "start" && captured.body.origin === "ui",
+    "commandServer → POST /servers/{id}/commands { verb, origin:'ui' } via the host-scoped client");
+  captured = null;
+  await st.installServer({ game: { id: "factorio" }, name: "My Factorio", hostId: hmId }).catch(() => {});
+  assert(captured && captured.url.endsWith("/api/v1/servers")
+    && captured.body.blueprint === "factorio" && captured.body.name === "My Factorio" && captured.body.origin === "ui",
+    "installServer → POST /servers { blueprint, name, origin:'ui' } (no fabricated server row)");
+  globalThis.fetch = realFetch;
+
+  // The `update` verb is deferred upstream (M3 has no update verb → it would 400 in
+  // LIVE), so the server detail must render the Update chip disabled with an honest
+  // reason — the reason text appears in the title ONLY when the button is disabled,
+  // so its presence proves the live-gate (never a 400-bound enabled button).
+  const detailHtml = await nav("#/servers/factorio-test");
+  assert(detailHtml.includes("Update isn't available yet"),
+    "server detail: Update chip disabled in LIVE with an honest reason (no 400-bound button)");
+
   root.unmount();
 } finally {
   console.error = origErr;

@@ -215,6 +215,37 @@ function subscribeHostMetrics(hostId) {
   return () => { dispose(); hostsStore.clearMetricsStamp(hostId); };
 }
 
+// ---- Server write actions (the two mutation paths into the engine) ------
+// Both go through the HOST-SCOPED client (api.host) so the per-host session
+// gate runs (bearer injected + 401 → re-auth) and the M5 provenance origin is
+// stamped onto the kgsm command. Neither writes the store directly: the
+// authoritative result arrives over the WS — a lifecycle command's status +
+// job progress on the `servers`/`jobs` channels, an install's new server on
+// `servers` (server.patch) once kgsm finishes the off-request work. Callers
+// handle a rejected 401 (open the re-auth modal). The mock seam answers both
+// (runServerCommand for the command verb; the LIVE install path is App's mock
+// fabrication, so installServer is only ever called when LIVE).
+
+// Issue a lifecycle command (start|stop|restart|open_ports). origin:"ui" tags
+// the driving surface on the kgsm event + the audit row it sources (M5). The
+// server's resulting status + the in-flight job ride the WS, not this return.
+function commandServer(server, verb) {
+  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
+  return client.post("/servers/" + server.id + "/commands", { verb, origin: "ui" });
+}
+
+// Install a new server from a blueprint (POST /servers → 202 { job }; the
+// backend assigns the instance id via kgsm generate-id). `blueprint` is the
+// library id the user picked, `name` the instance name; the rest of the install
+// form is accepted-but-inert upstream (§3·h additive-only), so we send only the
+// honored fields — never a fabricated server row. The new server surfaces on
+// `servers` (server.patch) when the install job settles.
+function installServer(cfg) {
+  const hostId = (cfg && cfg.hostId) || (hostsStore.getState().list[0] || {}).id || null;
+  const client = (hostId && api.host) ? api.host(hostId) : api;
+  return client.post("/servers", { blueprint: cfg.game.id, name: cfg.name, origin: "ui" });
+}
+
 // ---- Selected host (GLOBAL scope) --------------------------------------
 // The whole panel is a sink that aggregates many hosts. This store holds the
 // active scope the user picks from the sidebar switcher: either a specific
@@ -432,4 +463,4 @@ try {
   }
 } catch (e) {}
 
-export { auditEventHost, auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };
+export { auditEventHost, auditInScope, auditStore, commandServer, favoritesStore, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };

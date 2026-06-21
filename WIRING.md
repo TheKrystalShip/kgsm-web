@@ -88,7 +88,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | FE call (`apiClient.js`) | Backend endpoint | Status | Notes |
 |---|---|---|---|
 | `GET /servers` | `GET /api/v1/servers` (Viewer) | ⚠️ | path prefix + **schema differs heavily** (§5) |
-| `POST /servers/{id}/commands {verb}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✅ | **both body-based with `verb`** — the contract agrees. Add `origin:"ui"`. BE returns `{job}` (202); FE expects `{job:{...}}` ✅ |
+| `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✅ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is **not** a BE verb (M3) → the Update chip is disabled in LIVE with an honest reason |
 | `GET /hosts` | `GET /api/v1/hosts` (Viewer) | ⚠️ | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
 | `GET /library` | `GET /api/v1/library?q=&category=` (Viewer) | ⚠️ | **path agrees** (not `/catalog`); schema differs (§5) |
 | `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=` (Viewer) | ⚠️ | BE returns `{data,nextCursor}`; **FE expects a bare array** + ignores paging → wrap/unwrap in adapter; wire filters |
@@ -131,7 +131,7 @@ identical in mock + live. Drives `realtimeStore` only (REST reachability stays o
 > metrics from the patch merge, or merge metrics only when present). Harmless today
 > (metrics deferred, test host down).
 | — (deferred) | `hosts/{id}/capabilities` → `capabilities.patch` | ⏸ capability flips — wire with metrics |
-| — (deferred) | `servers/{id}/network` → `network.patch` | ⏸ ports flow → slice 6 (commands/ports) |
+| — (deferred) | `servers/{id}/network` → `network.patch` | ⏸ **slice 6 deferred-with-cause** — no FE consumer renders a per-server ports card yet (`network.required` is read only by the still-mock assistant); wiring it would be dead code + needs the §4 clobber fix (a `server.patch` nulls `network`). Build the card / land the assistant slice first |
 
 ## 5. Schema diffs (the bulk of the work)
 
@@ -369,6 +369,42 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > `hostMetricsFreshness`. `smoke:live` **+7 host.metrics assertions** (clobber-safety ×4, effect-subscribed
 > merge, live re-render, disposer-clears) — all green ×2 runs; a raw-`WebSocket` probe proves the real
 > enriched tick arrives on subscribe; `build` + `smoke-mount` (6) + `smoke-routes` (18 SSR) all green.
+>
+> **Slice 6 (partial) — Lifecycle commands + install — DONE + LIVE-VALIDATED (2026-06-21).** The two write
+> paths that have a real FE surface today. **Frontend-only** (the M3 commands + M8·b install/uninstall
+> endpoints, and the `jobs`/`servers` WS, already shipped). (1) **Commands** — `handleAction` dispatches
+> through a new `commandServer(server,verb)` (stores.js) → `api.host(hostId).post("/servers/{id}/commands",
+> {verb, origin:"ui"})`: the **host-scoped** client (bearer + 401→re-auth gate) with the M5 provenance
+> `origin` stamped. The server's resulting status + the in-flight job already ride the `servers`/`jobs` WS
+> (slice 5), so this is just the request shaping. The **`update` verb is deferred upstream** (M3 has no
+> `update` → it would 400), so the ServerHero Update chip is **disabled in LIVE with an honest reason**
+> (the mock keeps it as a demo affordance). (2) **Install** — `confirmInstall` gets a LIVE branch calling
+> `installServer(cfg)` → `POST /servers {blueprint:cfg.game.id, name:cfg.name, origin:"ui"}`; it **does NOT
+> fabricate a server row** (the mock fake-state-machine stays on the mock branch). The new instance surfaces
+> on `servers` (server.patch) when the install job settles; the FE lands on the roster (per-instance install
+> progress isn't shown — the job's serverId isn't in the roster until the server exists). Both writes route
+> through the same host-scoped client. `smoke:live` **+3 command/install assertions** (request shaping for
+> both — verified **non-destructively** via a fetch-capture returning a synthetic `202 {job}`, so no real
+> start/install runs on the host — + the update-chip-disabled render), green ×3 runs against a live `hotrod`
+> (kgsm-api auth-disabled + a host-only monitor on a `/tmp` socket, no root); `build` + mock smokes green.
+> ⚠ one **pre-existing slice-7 smoke flake** observed on the FIRST run right after backend startup (not
+> from this change): the host-deep-dive `noFab` regex (`0 cores|load 0\.0|CPU 0%`) tripped. **Mechanism
+> UNconfirmed** — could NOT reproduce in 8+ subsequent runs; the measured host load was 0.25–0.32 and
+> cpuPct ~2–14% (never near 0), so it is NOT a real low reading. The failing render was *shorter* (~25k vs
+> ~26–27k clean), which *suggests* a metrics-capability-warmup transient where `adaptHost` briefly fell back
+> to the telemetry skeleton (`cores:0`) → an on-screen "0 cores" the regex correctly catches — a possible
+> slice-7 warmup-rendering gap worth verifying, not yet proven.
+> **DEFERRED with cause (no FE consumer today — wiring = dead code, building = feature work):**
+> • *open_ports command + `servers/{id}/network`/`network.patch` WS + a server-detail ports card* —
+>   `GET /servers/{id}` carries `network.required[]` and the API pushes `network.patch`, but **nothing in
+>   the FE renders a per-server ports card**: `network.required` is consumed only by the assistant
+>   (`chatTools.js`, still mock → slice 9), and `open_ports` is only triggered from chat. The §4 clobber
+>   landmine also applies to `network` (a `server.patch` nulls it) → the store-merge needs the same
+>   "don't null on patch" fix `metrics.tick` will. Build the card (or land the assistant slice) first.
+> • *uninstall (`DELETE /servers/{id}`)* — no FE trigger exists (no delete/danger-zone control). Add the UI
+>   control first, then wire the one-line DELETE.
+> The **engine round-trips** (a real start/stop→watchdog, a real install→download) are **owed** — they need
+> the full watchdog+instance stack up and weren't run here (the request shaping is proven instead).
 
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
@@ -531,7 +567,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 
 Cheap-wins-first falls out of the buckets above:
 
-- **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a) + **live updates DONE** (slice 5: `server.patch` upsert / `server.removed` / `job.patch` over the real WS). Remaining A: server-ports card (→ slice 6, needs detail-GET wired).
+- **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a) + **live updates DONE** (slice 5: `server.patch` upsert / `server.removed` / `job.patch` over the real WS) + **lifecycle commands + install DONE** (slice 6: `commandServer`/`installServer` with `origin:"ui"`; `update` disabled in LIVE). Remaining: server-ports card + `open_ports`/`network.patch` and uninstall — **deferred, no FE consumer yet** (the ports card isn't built; `network.required` is read only by the still-mock assistant; uninstall has no UI trigger).
 - **Realtime (WS)** — **DONE (slice 5, 2026-06-21).** Real `liveStream.js` socket on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. **`host.metrics` now live too** (slice 7 follow-on, 2026-06-21 — deep-dive-scoped subscribe + clobber-safe merge). Still deferred: `metrics.tick` (per-server, same shape, wire when per-server tiles need live numbers) + `capabilities.patch` (FE reads capability status from REST hydrate/rehydrate today); `network.patch` → slice 6; console = permanent gap.
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
@@ -561,5 +597,7 @@ Cheap-wins-first falls out of the buckets above:
 clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realtime WS~~
 (slice 5) → ~~**Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
 payoff)~~ (slice 7, 2026-06-21) → ~~host-metrics live-update (`host.metrics` WS tick)~~ (slice 7
-follow-on, 2026-06-21) → **next:** commands/ports (slice 6) → assistant → presence/performance/console
-as their sources land.
+follow-on, 2026-06-21) → ~~lifecycle commands + install~~ (slice 6 partial, 2026-06-21) → **next:** the
+deferred slice-6 tail (server-ports card + `open_ports`/`network.patch`, and uninstall) **once a FE
+surface exists for them**, OR **assistant** (slice 9 — rewrite `ChatPage` onto `/assistant/turn` SSE;
+also unblocks `open_ports`) → presence/performance/console as their sources land.
