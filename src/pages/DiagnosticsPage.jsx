@@ -16,7 +16,7 @@ import { capUsable } from "../lib/capabilities.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 import { RecentActivity } from "./DashboardPage.jsx";
 import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
@@ -931,6 +931,12 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
     const t = setInterval(() => setClock(c => c + 1), 1000);
     return () => clearInterval(t);
   }, [focusHostId]);
+  // While a host's deep-dive is open, subscribe to its live metric ticks
+  // (hosts/{id}/metrics → host.metrics) so cpu/ram/disk/network update in place.
+  // The disposer (returned by subscribeHostMetrics) unsubscribes the socket topic +
+  // clears the freshness stamp on unfocus / host switch, so the server's
+  // subscriber-gated pump idles again. No-op in mock mode (the helper is LIVE-gated).
+  React.useEffect(() => subscribeHostMetrics(focusHostId), [focusHostId]);
   const [editing, setEditing] = React.useState(null);
   const [removing, setRemoving] = React.useState(null);
   // Fleet-grid search + pagination (hooks must live above the early returns).

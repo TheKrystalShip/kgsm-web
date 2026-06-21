@@ -151,6 +151,70 @@ hostsStore.refresh = () => {
   });
 };
 
+// ---- Host metrics live tick (diagnostics deep-dive only) ----------------
+// The host telemetry tick (`hosts/{id}/metrics` → `host.metrics`, adapted by
+// adaptHostMetrics) carries ONLY the measured-capacity portion of the host —
+// cpu / ram / disks / iface throughput / boot-time. It deliberately omits the
+// capability block (status flips ride hosts/{id}/capabilities) and the firewall
+// open-ports grid (that's the on-demand detail probe). So we MERGE it in
+// clobber-safe: swap the telemetry fields, DEEP-merge network (replace interfaces,
+// keep open_ports), and never touch `capabilities` except to stamp freshness.
+//
+// last_sample_at is stamped with RECEIPT time (skew-immune — a monitor/FE clock
+// skew can't make a just-arrived tick look stale), giving the diagnostics "frozen"
+// treatment an honest signal: if ticks stop (socket drop or monitor death while the
+// capability hasn't been re-polled), it ages past the staleness floor → frozen.
+hostsStore.mergeMetrics = (id, t) => {
+  if (!t) return;
+  const at = new Date().toISOString();
+  hostsStore.setState(s => ({
+    ...s,
+    list: s.list.map(h => {
+      if (h.id !== id) return h;
+      const cap = h.capabilities || {};
+      const next = { ...h };
+      if (t.cpu) next.cpu = t.cpu;
+      if (t.ram) next.ram = t.ram;
+      if (t.disks) next.disks = t.disks;
+      if (t.boot_time != null) next.boot_time = t.boot_time;
+      if (t.hostname) next.hostname = t.hostname;
+      // Deep-merge: the tick carries interfaces but NOT open_ports (firewall block) → keep open_ports.
+      next.network = { ...(h.network || {}), interfaces: t.interfaces || (h.network && h.network.interfaces) || [] };
+      // Stamp freshness without disturbing the rest of the capability block (status/since/info/provisioned).
+      next.capabilities = { ...cap, metrics: { ...(cap.metrics || {}), last_sample_at: at } };
+      return next;
+    }),
+  }));
+};
+// Drop the WS freshness stamp, reverting this host to capability-based freshness.
+// Run by the deep-dive disposer so a stamped sample never leaks to the per-server
+// surfaces that share hostMetricsFreshness once you stop inspecting the host.
+hostsStore.clearMetricsStamp = (id) => {
+  hostsStore.setState(s => ({
+    ...s,
+    list: s.list.map(h => {
+      const m = h.id === id && h.capabilities && h.capabilities.metrics;
+      if (!m || m.last_sample_at == null) return h;
+      const { last_sample_at, ...rest } = m;
+      return { ...h, capabilities: { ...h.capabilities, metrics: rest } };
+    }),
+  }));
+};
+// Subscribe to a host's live metric ticks, scoped to its diagnostics deep-dive.
+// Subscriber-gated on BOTH ends: the kgsm-api MetricsPump scrapes the monitor only
+// while a client is subscribed, and we subscribe ONLY while the deep-dive is open
+// → an idle panel costs nothing. The disposer unsubscribes the socket topic (so the
+// server pump idles again) AND clears the freshness stamp. LIVE-only — the mock has
+// no host-metrics emitter, so this is a no-op there (returns an inert disposer).
+function subscribeHostMetrics(hostId) {
+  if (!LIVE || !hostId) return () => {};
+  const topic = "hosts/" + hostId + "/metrics";
+  const dispose = api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "host.metrics" && m.data) hostsStore.mergeMetrics(hostId, m.data);
+  });
+  return () => { dispose(); hostsStore.clearMetricsStamp(hostId); };
+}
+
 // ---- Selected host (GLOBAL scope) --------------------------------------
 // The whole panel is a sink that aggregates many hosts. This store holds the
 // active scope the user picks from the sidebar switcher: either a specific
@@ -368,4 +432,4 @@ try {
   }
 } catch (e) {}
 
-export { auditEventHost, auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, useIsFavorite, useSelectedHostId };
+export { auditEventHost, auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };

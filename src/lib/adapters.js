@@ -78,15 +78,18 @@ function telemetrySkeleton() {
 // not a fabricated value. null in → null out (honest-unknown, never a 0 rate).
 const toKbps = (bps) => (bps == null ? null : Math.round((bps * 8) / 1000));
 
-export function adaptHost(be) {
-  if (!be) return be;
-  const skel = telemetrySkeleton();
-  const metricsOk = !!(be.capabilities && be.capabilities.metrics && be.capabilities.metrics.status === "operational");
+// mapHostTelemetry(be) — the measured-capacity portion of a host: exactly the fields present in
+// BOTH the full Host DTO (GET /hosts) AND the host.metrics WS tick (HostMetricsDto). The API maps
+// both through one shared MetricsMapping (so a tick is byte-identical to the REST host it patches);
+// mapping them in one place here is the FE mirror of that invariant — a live tick reshapes to the
+// SAME telemetry a hydrate produced, so the WS merge can never drift from the REST element.
+//
+// Honest-unknown throughout: usage / per-core / load / mem-breakdown / fs / iface throughput are
+// MEASURED; model / threads / freq / temperature / cached / buffers / device / SMART / ip / mac /
+// error counters are NOT sampled → "—"/null, never a fabricated 0. A field the snapshot omits comes
+// back null here; the caller decides whether to fall back to a skeleton (adaptHost) or skip it (merge).
+function mapHostTelemetry(be) {
   const hasSample = Array.isArray(be.perCore) && be.perCore.length > 0;
-
-  // CPU — usage / per-core / load average are honest passthrough; `cores` is the measured core
-  // count (the per-core array length). model / threads / freq / temperature are NOT sampled by the
-  // monitor (static cpuinfo / no sensor feed) → honest-unknown ("—"/null), never the old fabricated 0.
   const cpu = (be.cpuPct != null || hasSample)
     ? {
         model: "—", threads: null, freq_ghz: null, temp_c: null,
@@ -95,10 +98,7 @@ export function adaptHost(be) {
         per_core: hasSample ? be.perCore.map((p) => round(p, 0)) : [],
         load_avg: be.load ? [round(be.load.one, 2), round(be.load.five, 2), round(be.load.fifteen, 2)] : null,
       }
-    : skel.cpu;
-
-  // Memory — used / total / free / swap are measured; cached & buffers are NOT broken out by the
-  // monitor → null (never a fabricated 0). free falls back to total−used only if `available` is absent.
+    : null;
   const ram = be.mem
     ? {
         total_gb: round(be.mem.total, 1),
@@ -108,22 +108,38 @@ export function adaptHost(be) {
         swap_total_gb: be.mem.swapTotal != null ? round(be.mem.swapTotal, 1) : null,
         swap_used_gb: be.mem.swapUsed != null ? round(be.mem.swapUsed, 1) : null,
       }
-    : skel.ram;
-
-  // Disks — mount / used / total / filesystem are measured; device path & SMART health are NOT
-  // sourced → "—" / null (a fabricated "ok" SMART would be a health *claim* with no backing).
+    : null;
   const disks = Array.isArray(be.disks) && be.disks.length
     ? be.disks.map((d) => ({ mount: d.mount, total_gb: round(d.total, 1), used_gb: round(d.used, 1), fs: d.fs || "—", device: "—", smart: null }))
-    : skel.disks;
-
-  // Network interfaces — throughput is measured (bytes/sec → kbps / pps); ip, mac and error
-  // counters are NOT sampled → honest-unknown. open_ports rides the detail firewall block, unchanged.
+    : null;
   const interfaces = Array.isArray(be.interfaces)
     ? be.interfaces.map((i) => ({
         name: i.name, ip: null, mac: null, errors: null,
         rx_kbps: toKbps(i.rxBps), tx_kbps: toKbps(i.txBps), rx_pps: i.rxPps ?? null, tx_pps: i.txPps ?? null,
       }))
-    : [];
+    : null;
+  // boot_time derived from the measured uptime (now − uptimeSec); the FE's uptime helpers want a
+  // timestamp. null when uptime isn't sourced → the helpers render "—".
+  const boot_time = be.uptimeSec != null ? new Date(Date.now() - be.uptimeSec * 1000).toISOString() : null;
+  const hostname = be.hostname || null;
+  return { cpu, ram, disks, interfaces, boot_time, hostname };
+}
+
+export function adaptHost(be) {
+  if (!be) return be;
+  const skel = telemetrySkeleton();
+  const metricsOk = !!(be.capabilities && be.capabilities.metrics && be.capabilities.metrics.status === "operational");
+  const tel = mapHostTelemetry(be);
+
+  // Absent telemetry → the valid-but-empty skeleton (so nothing crashes reading the shape); the
+  // capability status (truthfully reported by the backend) drives the "no signal" treatment. We do
+  // NOT stamp last_sample_at on a REST hydrate (deliberate): an unrefreshed sample would age every
+  // host to "frozen" 30s after boot on surfaces that have no WS feed — the freshness stamp is owned
+  // by the host.metrics tick path only (see adaptHostMetrics + hostsStore.mergeMetrics).
+  const cpu = tel.cpu || skel.cpu;
+  const ram = tel.ram || skel.ram;
+  const disks = tel.disks || skel.disks;
+  const interfaces = tel.interfaces || [];
   const network = {
     interfaces,
     open_ports: be.network && Array.isArray(be.network.openPorts)
@@ -131,17 +147,13 @@ export function adaptHost(be) {
       : [],
   };
 
-  // boot_time derived from the measured uptime (now − uptimeSec); the FE's uptime helpers want a
-  // timestamp. null when uptime isn't sourced → the helpers render "—".
-  const bootTime = be.uptimeSec != null ? new Date(Date.now() - be.uptimeSec * 1000).toISOString() : null;
-
   return {
     id: be.id,
     name: be.label ?? be.id,
-    hostname: be.hostname || be.id,   // real monitor hostname when sampled, else the host id
+    hostname: tel.hostname || be.id,   // real monitor hostname when sampled, else the host id
     region: "—",
     os: "—", kernel: "—", panel_version: "—",  // not sourced by the API today → honest-unknown
-    boot_time: bootTime,
+    boot_time: tel.boot_time,
     online: be.status === "online",
     // capabilities pass straight through — the api shape already matches the
     // FE capability model {provisioned,status,since,message,info}.
@@ -153,6 +165,17 @@ export function adaptHost(be) {
   };
 }
 export const adaptHosts = (arr) => (Array.isArray(arr) ? arr.map(adaptHost) : []);
+
+// adaptHostMetrics(be) — reshape a host.metrics WS tick (the HostMetricsDto, which is the measured
+// SUBSET of the Host DTO) into the FE telemetry partial. Same fields, same units as adaptHost (they
+// share mapHostTelemetry), so a live tick produces telemetry byte-identical to the REST host it
+// patches. Returns ONLY the telemetry fields — the store merges them clobber-safe over the existing
+// host, preserving the capability block and the firewall open-ports grid the tick deliberately omits
+// (hostsStore.mergeMetrics). The per-tick freshness stamp is applied at merge time, not here.
+export function adaptHostMetrics(be) {
+  if (!be) return be;
+  return mapHostTelemetry(be);
+}
 
 // ---- Library (installable catalog) -------------------------------------
 export function adaptLibraryEntry(be) {

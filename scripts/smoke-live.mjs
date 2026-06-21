@@ -376,6 +376,61 @@ try {
     "alert.raise: WS frame → adaptAlert (derived icon) → alertsStore upsert");
   aApi.KrystalAlerts.ingest({ kind: "retract", id: "crash:wschain" });
 
+  // (g) host.metrics live tick (slice 7 follow-on) -------------------------
+  // The diagnostics deep-dive subscribes hosts/{id}/metrics while open; each tick
+  // merges clobber-safe (telemetry only — never the capability block or firewall grid).
+  const hmId = (st.hostsStore.getState().list[0] || {}).id;
+  const synthSnap = (cpu) => ({
+    cpuPct: cpu, mem: { used: 4, total: 16, available: 12, swapUsed: 0, swapTotal: 2 },
+    disks: [{ mount: "/", used: 50, total: 100, fs: "ext4" }],
+    perCore: [cpu, cpu], load: { one: 0.5, five: 0.6, fifteen: 0.7 },
+    diskIo: { readBps: 1000, writeBps: 2000 },
+    interfaces: [{ name: "eth0", rxBps: 1000, txBps: 2000, rxPps: 10, txPps: 20 }],
+    uptimeSec: 12345, sampleTs: 1718400000000,
+  });
+
+  // (g1) CLOBBER-SAFETY (store-level, race-free) — a tick must NEVER wipe the firewall
+  // open-ports grid or a capability. Seed those (the tick carries none of them), merge a
+  // tick directly, and assert they survive while only the telemetry fields change.
+  const seed0 = st.hostsStore.find(hmId);
+  st.hostsStore.patch(hmId, {
+    network: { ...(seed0.network || {}), open_ports: [{ port: 25565, proto: "tcp", server: "factorio-test", app: "factorio" }] },
+    sensors: [{ label: "pkg", value_c: 42 }],
+    processes: [{ pid: 1, name: "init", cpu_pct: 0, ram_mb: 1, threads: 1, fds: 1, state: "running" }],
+    capabilities: { ...seed0.capabilities, metrics: { ...(seed0.capabilities.metrics || {}), status: "operational", provisioned: true } },
+  });
+  st.hostsStore.mergeMetrics(hmId, adapt.adaptHostMetrics(synthSnap(73)));
+  const merged = st.hostsStore.find(hmId);
+  assert(merged.cpu.usage_pct === 73 && merged.ram.total_gb === 16 && merged.network.interfaces[0].name === "eth0",
+    "host.metrics merge: cpu / mem / iface throughput swapped in from the tick");
+  assert(merged.network.open_ports.length === 1 && merged.network.open_ports[0].port === 25565,
+    "host.metrics merge: firewall open_ports PRESERVED (tick carries interfaces only — clobber-safe)");
+  assert(merged.sensors.length === 1 && merged.processes.length === 1 && merged.capabilities.metrics.status === "operational",
+    "host.metrics merge: sensors / processes / capability status NOT clobbered");
+  assert(merged.capabilities.metrics.last_sample_at != null, "host.metrics merge: per-tick freshness stamped (receipt time)");
+
+  // (g2) EFFECT SUBSCRIPTION + live re-render — nav into the deep-dive, clear the stamp,
+  // then push a tick through the dispatch seam. It merges ONLY if the deep-dive's effect
+  // subscribed hosts/{id}/metrics (there is no module-level listener for this topic). The
+  // value read is synchronous (race-free vs the real monitor's own ~1s ticks).
+  await nav("#/fleet/" + hmId);
+  st.hostsStore.clearMetricsStamp(hmId);
+  api.__dispatch({ topic: "hosts/" + hmId + "/metrics", type: "host.metrics", data: synthSnap(91) });
+  const tick = st.hostsStore.find(hmId);
+  assert(tick && tick.cpu.usage_pct === 91 && (tick.capabilities.metrics || {}).last_sample_at != null,
+    "host.metrics: deep-dive effect subscribed → tick merged (cpu updated + freshness stamped)");
+  await sleep(150);
+  assert(w.document.getElementById("root").innerHTML.includes(hmId),
+    "host deep-dive re-rendered after the live tick (subscribe → merge → render)");
+
+  // (g3) DISPOSER lifecycle — leaving the deep-dive unsubscribes the socket topic AND clears
+  // the stamp, so the WS-frozen treatment never leaks to the per-server surfaces that share
+  // hostMetricsFreshness once you stop inspecting the host.
+  await nav("#/fleet");
+  await sleep(150);
+  assert((st.hostsStore.find(hmId).capabilities.metrics || {}).last_sample_at == null,
+    "host.metrics: leaving the deep-dive clears the freshness stamp (disposer ran)");
+
   root.unmount();
 } finally {
   console.error = origErr;

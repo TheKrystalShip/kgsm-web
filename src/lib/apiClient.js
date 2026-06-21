@@ -432,12 +432,27 @@ import("./stores.js").then((m) => {
     if (hid && chans[hid] && !chans[hid].socket) return;
     dispatchMessage({ topic, ...message });
   }
+  const topicStillWanted = (topic) => {
+    for (const l of listeners) if (l.topics.has(topic)) return true;
+    return false;
+  };
   const stream = {
     subscribe(topics, onMessage) {
       const entry = { topics: new Set(topics), fn: onMessage };
       listeners.add(entry);
       if (LIVE && live) live.subscribe(topics);   // tell the real socket to push these
-      return () => listeners.delete(entry);
+      return () => {
+        listeners.delete(entry);
+        // Tell the real socket to stop pushing any topic no remaining listener still
+        // wants — this is what re-idles the server's subscriber-gated pumps when a
+        // DYNAMIC subscription is torn down (the diagnostics deep-dive's
+        // hosts/{id}/metrics). The app-lifetime subscriptions (servers/jobs/audit) never
+        // dispose, so this branch only ever runs for those dynamic topics.
+        if (LIVE && live) {
+          const drop = [...entry.topics].filter((t) => !topicStillWanted(t));
+          if (drop.length) live.unsubscribe(drop);
+        }
+      };
     },
   };
 
@@ -452,6 +467,9 @@ import("./stores.js").then((m) => {
     if (topic === "servers" && type === "server.patch") return { topic, type, data: adapt.adaptServer(data) };
     if (topic === "jobs" && type === "job.patch") return { topic, type, data: adapt.adaptJob(data) };
     if (topic === "alerts" && type === "alert.raise") return { topic, type, data: adapt.adaptAlert(data) };
+    // host.metrics rides hosts/{id}/metrics — reshape the HostMetricsDto into the FE telemetry partial
+    // (the WS parallel of adaptResponse for GET /hosts/{id}). The store merges it clobber-safe by id.
+    if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptHostMetrics(data) };
     // server.removed {id}, alert.resolve {id,resolution}, alert.retract {id} and
     // audit.append (a record — adaptAudit is per-row identity) need no reshaping.
     return msg;

@@ -121,8 +121,8 @@ identical in mock + live. Drives `realtimeStore` only (REST reachability stays o
 | `console` → `console.line` | **(none)** | ❌ **true backend gap** — no console topic exists; `ConsolePanel` degrades to "unavailable" |
 | `alerts` → `alert.raise`/`alert.resolve`/`alert.retract` | same three | ✅ `alert.raise` runs through `adaptAlert` (derived icon); resolve/retract passthrough |
 | `audit` → `audit.append` | `audit` → `audit.append` | ✅ live-prepend to `auditStore` (e2e-verified via a real kgsm emit) |
-| — (deferred) | `hosts/{id}/metrics` → `host.metrics` | ⏸ metrics topics deferred — test host's metrics capability is down (no honest data) |
-| — (deferred) | `servers/{id}/metrics` → `metrics.tick` | ⏸ per-instance metrics — same (monitor not live) |
+| `hosts/{id}/metrics` → `host.metrics` | `hosts/{id}/metrics` → `host.metrics` | ✅ **DONE (slice 7 follow-on, 2026-06-21)** — deep-dive subscribes while open; `adaptHostMetrics` reshapes the tick; `hostsStore.mergeMetrics` merges clobber-safe (keeps capabilities + firewall open_ports) + stamps receipt-time freshness; disposer unsubscribes (idles the pump) + clears the stamp |
+| — (deferred) | `servers/{id}/metrics` → `metrics.tick` | ⏸ per-instance metrics — same shape; wire when the per-server tiles need live numbers |
 
 > ⚠ **Metrics-slice landmine:** the `server.patch` handler merges the FULL adapted
 > element, and `adaptServer(...).metrics === null` when a patch omits metrics. Once
@@ -350,11 +350,25 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > import cycle). **Live-validated** on `hotrod`: started a real `kgsm-monitor` (host-only, on the API's
 > configured socket) → `GET /hosts/hotrod` carried the 16-core grid / load / swap / ext4·vfat fs / iface
 > throughput / hostname / uptime, capability operational; `smoke:live` green (host deep-dive renders
-> 30k chars, all enrichment + honest-null assertions pass). **Deferred (documented):** `host.metrics` WS
-> live-update — the deep-dive shows a real static snapshot today (consistent with the app's other host
-> meters); freshness reflects capability-up and flips to frozen on monitor death. Not stamping
-> `last_sample_at` keeps WS non-load-bearing for this slice (a stamped sample would age a static snapshot
-> to "frozen" in 30s → WS becomes mandatory; that's the follow-on's job).
+> 30k chars, all enrichment + honest-null assertions pass).
+>
+> **Slice 7 follow-on — `host.metrics` WS live-update — DONE + LIVE-VALIDATED (2026-06-21).** The
+> deep-dive's numbers now update in place. **Frontend-only** (the API's `MetricsPump` already pushed
+> the enriched `HostMetricsDto` on `hosts/{id}/metrics`, subscriber-gated — confirmed by a raw-socket
+> probe: a real tick arrives the instant a client subscribes). (1) `adaptHostMetrics` reshapes the tick
+> through the SAME `mapHostTelemetry` `adaptHost` uses (a live tick is byte-identical to the REST host
+> it patches — the FE mirror of the one-shared-mapper invariant). (2) `hostsStore.mergeMetrics` merges
+> **clobber-safe**: swaps telemetry, DEEP-merges `network` (replaces interfaces, KEEPS the firewall
+> `open_ports` grid the tick omits), never touches `capabilities` except to stamp freshness. (3) The
+> diagnostics deep-dive subscribes `hosts/{id}/metrics` via a `focusHostId`-keyed effect; the disposer
+> **unsubscribes the socket topic** (re-idling the server pump — `stream.subscribe`'s disposer now drops
+> any topic no remaining listener wants) **and clears the stamp**. (4) Freshness = `last_sample_at` stamped
+> with **receipt time** (skew-immune); it's the deep-dive's only honest "frozen" signal (the FE doesn't
+> subscribe `capabilities`, so a monitor death with the socket up ages the deep-dive to frozen at 30s).
+> Cleared on leave so the stamp never leaks "frozen" to the per-server surfaces that share
+> `hostMetricsFreshness`. `smoke:live` **+7 host.metrics assertions** (clobber-safety ×4, effect-subscribed
+> merge, live re-render, disposer-clears) — all green ×2 runs; a raw-`WebSocket` probe proves the real
+> enriched tick arrives on subscribe; `build` + `smoke-mount` (6) + `smoke-routes` (18 SSR) all green.
 
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
@@ -518,7 +532,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 Cheap-wins-first falls out of the buckets above:
 
 - **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a) + **live updates DONE** (slice 5: `server.patch` upsert / `server.removed` / `job.patch` over the real WS). Remaining A: server-ports card (→ slice 6, needs detail-GET wired).
-- **Realtime (WS)** — **DONE (slice 5, 2026-06-21).** Real `liveStream.js` socket on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. Metrics topics (`host.metrics`/`metrics.tick`/`capabilities.patch`) deferred (no live monitor); `network.patch` → slice 6; console = permanent gap.
+- **Realtime (WS)** — **DONE (slice 5, 2026-06-21).** Real `liveStream.js` socket on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. **`host.metrics` now live too** (slice 7 follow-on, 2026-06-21 — deep-dive-scoped subscribe + clobber-safe merge). Still deferred: `metrics.tick` (per-server, same shape, wire when per-server tiles need live numbers) + `capabilities.patch` (FE reads capability status from REST hydrate/rehydrate today); `network.patch` → slice 6; console = permanent gap.
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
 - **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
@@ -531,10 +545,11 @@ Cheap-wins-first falls out of the buckets above:
   audited so none shows a fabricated `0`/`"ok"` next to the real data. Live-proven on `hotrod` with a
   real monitor up (16-core per-core grid, load, swap, ext4/vfat fs, iface throughput). Remaining as **C**
   (monitor slices, honest-unknown until then): sensors, process list, cpu model, disk device/SMART,
-  iface ip/mac. **Live-updating numbers (`host.metrics` WS tick)** is the documented follow-on — today
-  the deep-dive shows a real static snapshot (consistent with the dashboard/fleet host meters, which are
-  also static-on-hydrate); the metrics capability LED reflects capability-up and flips to frozen when the
-  monitor dies (LeafHealthMonitor down-flip).
+  iface ip/mac. **Live-updating numbers (`host.metrics` WS tick) — DONE (follow-on, 2026-06-21):** the
+  deep-dive subscribes `hosts/{id}/metrics` while open; ticks merge clobber-safe (keep capabilities +
+  firewall open_ports) and stamp receipt-time freshness, so cpu/ram/disk/net update in place and age to
+  frozen at 30s if the feed stops. The disposer unsubscribes (re-idling the server pump) + clears the
+  stamp on leave. Frontend-only — the API already emitted the enriched tick.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
@@ -545,5 +560,6 @@ Cheap-wins-first falls out of the buckets above:
 **A** remaps~~ (slice 2a) → ~~**Auth/Me**~~ (slices 4/4b) → ~~recreate the backend DB to
 clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realtime WS~~
 (slice 5) → ~~**Diagnostics B-enrichment** (the monitor-Snapshot exposure, biggest
-payoff)~~ (slice 7, 2026-06-21) → **next:** commands/ports (slice 6) → host-metrics live-update
-(`host.metrics` WS tick) → assistant → presence/performance/console as their sources land.
+payoff)~~ (slice 7, 2026-06-21) → ~~host-metrics live-update (`host.metrics` WS tick)~~ (slice 7
+follow-on, 2026-06-21) → **next:** commands/ports (slice 6) → assistant → presence/performance/console
+as their sources land.
