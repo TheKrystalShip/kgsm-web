@@ -6,7 +6,7 @@ import { TimeSeriesChart } from "../components/TimeSeriesChart.jsx";
 import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
 import { KrystalChat } from "../lib/chatTools.js";
-import { scopeServers, serversStore } from "../lib/stores.js";
+import { confirmCommand, scopeServers, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 import { LIVE } from "../lib/config.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
@@ -80,6 +80,64 @@ function toolLabel(tool) {
   return TOOL_LABELS[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1).replace(/_/g, " "));
 }
 
+// ---------- live command proposals (slice 9b / fork (a)) ----------
+// The verbs the panel can actually EXECUTE via the M3 command path
+// (POST /servers/{id}/commands). The assistant may PROPOSE more
+// (update/install/uninstall/backup/set_config), but those have no API endpoint
+// yet (m7-sse-5a-spec §6 verb matrix) → the SPA renders the proposal but disables
+// it with an honest reason rather than firing a 400. Exported for the smoke.
+const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports"]);
+const COMMAND_META = {
+  start:      { label: "Start",         icon: "play",      tone: "success" },
+  stop:       { label: "Stop",          icon: "square",    tone: "danger" },
+  restart:    { label: "Restart",       icon: "rotate-cw", tone: "update" },
+  open_ports: { label: "Open ports",    icon: "network",   tone: "info" },
+  update:     { label: "Update",        icon: "download",  tone: "info" },
+  install:    { label: "Install",       icon: "download",  tone: "success" },
+  uninstall:  { label: "Uninstall",     icon: "trash-2",   tone: "danger" },
+  backup:     { label: "Back up",       icon: "database",  tone: "info" },
+  set_config: { label: "Update config", icon: "settings",  tone: "info" },
+};
+function commandMeta(verb) {
+  return COMMAND_META[verb] || { label: (verb || "Run").replace(/_/g, " "), icon: "zap", tone: "info" };
+}
+
+// Compose the command.verified block client-side from the M3 job outcome. Per the
+// spec (fork (a)), command.verified is NOT a backend frame — the SPA owns both the
+// proposal render and the M3 call, so it composes the verification. `ok` is the
+// load-bearing fact and comes from the job (clean id correlation — adaptJob keeps the
+// id + error). The headline is composed from verb+server: for a lifecycle verb this is
+// identical to the audit summary ("started X"), and lifecycle audit rows carry no jobId,
+// so correlating one buys fragility for no gain (a conscious deviation from the plan's
+// "3-source correlation" → job-outcome primary + locally-composed headline). `lines[]`
+// is honest-thin: the real job error on failure, nothing fabricated. status "unknown"
+// (no WS response) → an honest "couldn't confirm", never a fake ✓. open_ports is intent-
+// only (the client never receives the port list) → the headline stays generic; naming
+// ports would fabricate. Pure + exported so the deliverable is unit-exercised.
+const VERB_PAST = { start: "Started", stop: "Stopped", restart: "Restarted" };
+function composeVerified(verb, serverName, settled) {
+  const s = settled || {};
+  if (s.status === "unknown") {
+    return { ok: false, headline: "Couldn’t confirm — no response from the host yet. Check the server.", lines: [] };
+  }
+  if (s.status === "sent") {
+    return { ok: true, headline: commandMeta(verb).label + " sent to " + serverName + ".", lines: [] };
+  }
+  if (s.status === "succeeded") {
+    const headline = verb === "open_ports"
+      ? "Opened the required ports for " + serverName + "."
+      : (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".";
+    return { ok: true, headline, lines: [] };
+  }
+  const err = s.job && s.job.error;
+  const what = verb === "open_ports" ? "open ports for " : (verb + " ");
+  return {
+    ok: false,
+    headline: "Couldn’t " + what + serverName + ".",
+    lines: err ? [{ status: "fail", label: "Error", detail: String(err) }] : [],
+  };
+}
+
 // Pure reducer: fold one live §5·a frame into a conversation's message list. The
 // streaming assistant bubble is always the LAST message; tool pills are spliced
 // in just before it. Exported + pure (no React, no convo state) so the live SSE
@@ -116,11 +174,43 @@ function reduceTurnFrame(messages, ev) {
         : { ...bubble, content: note, error: true };
       break;
     }
-    case "done":
-      if (ev.text) msgs[lastIdx] = { ...bubble, content: ev.text };
+    case "command.proposed":
+      // A §5·a command proposal → a confirm-first action card spliced just before
+      // the streaming bubble (the same invariant-safe spot as a tool pill — the
+      // bubble stays last so text.delta keeps targeting it). On `done` the card is
+      // moved BELOW the reply (see below) so the turn reads reply → action. Rendered
+      // from the proposal itself (confirm + subject) — never a store lookup, since the
+      // model may propose a server the SPA has no row for. The `token` is inert here
+      // (this path routes to M3, not the assistant's /confirm) → dropped.
+      msgs.splice(lastIdx, 0, {
+        role: "command",
+        cmdId: ev.id,
+        verb: ev.verb,
+        subjectId: ev.subject ? ev.subject.id : null,
+        subjectResource: (ev.subject && ev.subject.resource) || "server",
+        confirm: ev.confirm || (commandMeta(ev.verb).label + "?"),
+        reason: ev.reason || null,
+        state: "proposed",
+      });
       break;
+    case "done": {
+      if (ev.text) msgs[lastIdx] = { ...bubble, content: ev.text };
+      // Readability: move THIS turn's command cards (the contiguous run spliced just
+      // before the bubble) to AFTER the reply. Scoped to the contiguous run, so prior
+      // turns' cards (separated by their own user/assistant messages) stay in place.
+      // Safe post-`done`: the turn is over (no further text.delta to target the bubble),
+      // and the defensive role!=="assistant" guard above covers any stray late frame.
+      let start = lastIdx;
+      while (start > 0 && msgs[start - 1].role === "command") start--;
+      if (start < lastIdx) {
+        const bub = msgs[lastIdx];
+        const cards = msgs.slice(start, lastIdx);
+        msgs.splice(start, lastIdx - start + 1, bub, ...cards);
+      }
+      break;
+    }
     default:
-      break;   // thinking.delta and any future additive frame — ignored in 9a
+      break;   // thinking.delta and any future additive frame — ignored
   }
   return msgs;
 }
@@ -487,6 +577,64 @@ function ChatActions({ msg, onRun }) {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ---------- live command proposal (slice 9b) ----------
+// A §5·a `command.proposed` rendered as a confirm-first action card. Unlike
+// ChatActions (mock, client-inferred), this is the assistant's REAL proposal
+// relayed over the turn SSE. API-backed verbs (start/stop/restart/open_ports) arm
+// → Confirm → run the M3 path (confirmCommand, origin:"assistant"); the rest render
+// disabled with an honest reason (no API endpoint yet — spec §6). Two-step like
+// ChatActions so a destructive verb can't fire on a single tap.
+function ChatCommand({ msg, onRun }) {
+  const [armed, setArmed] = React.useState(false);
+  const meta = commandMeta(msg.verb);
+  const apiBacked = API_COMMAND_VERBS.has(msg.verb);
+  const target = msg.subjectId || "this server";
+
+  if (msg.state === "confirmed") {
+    return (
+      <div className="chat-actions">
+        <div className="chat-actions__done">
+          <Icon name="check" size={13} strokeWidth={2.6} />
+          <span>Confirmed <b>{meta.label}</b> on {target}</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="chat-actions">
+      <div className="chat-actions__label">
+        <Icon name="zap" size={12} /> Suggested action
+      </div>
+      <div className="chat-actions__row">
+        {!apiBacked ? (
+          <button className="chat-action chat-action--disabled" disabled
+            title="This action isn’t available from the panel yet.">
+            <Icon name={meta.icon} size={13} strokeWidth={2.2} />
+            <span>{meta.label} {target}</span>
+            <span className="chat-action__reason">Not available from the panel yet</span>
+          </button>
+        ) : armed ? (
+          <div className="chat-action chat-action--armed">
+            <span className="chat-action__confirm-q">{msg.confirm}</span>
+            <div className="chat-action__confirm-btns">
+              <button className={"chat-action__go chat-action__go--" + meta.tone} onClick={() => { setArmed(false); onRun(msg); }}>
+                <Icon name="check" size={13} strokeWidth={2.4} /> Confirm
+              </button>
+              <button className="chat-action__cancel" onClick={() => setArmed(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button className={"chat-action chat-action--" + meta.tone} onClick={() => setArmed(true)}>
+            <Icon name={meta.icon} size={13} strokeWidth={2.2} />
+            <span>{meta.label} {target}</span>
+            {msg.reason && <span className="chat-action__reason">{msg.reason}</span>}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1241,6 +1389,39 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
     }, delay);
   };
 
+  // Confirm + run an assistant-proposed command (slice 9b, LIVE / fork (a)). Routes
+  // through confirmCommand → the SAME M3 path as the UI buttons, origin:"assistant"
+  // (NO double-write, NO fabricated audit — that mock landmark is gated off in LIVE).
+  // Marks the card confirmed, drops a pending verify marker, then resolves it from
+  // the job outcome the WS carries back. The card is rendered from its own fields;
+  // only the EXECUTE path resolves a server row (for its hostId) — falling back to the
+  // assistant's host when the row isn't loaded, so a propose-for-unknown can't crash.
+  const runLiveCommand = (card) => {
+    if (!API_COMMAND_VERBS.has(card.verb)) return;   // not API-backed → the card is disabled
+    const found = serversStore.getState().list.find(s => s.id === card.subjectId) || null;
+    const hostId = (found && found.hostId) || (assistantHost && assistantHost.id) || null;
+    const server = { id: card.subjectId, hostId };
+    const serverName = (found && found.name) || card.subjectId;
+    const meta = commandMeta(card.verb);
+    const verifyId = uid();
+    setMessages(msgs => {
+      const marked = msgs.map(m =>
+        (m.role === "command" && m.cmdId === card.cmdId && m.state === "proposed")
+          ? { ...m, state: "confirmed" } : m);
+      return [...marked, { role: "verify", id: verifyId, action: { label: meta.label, verb: card.verb, serverName }, state: "pending" }];
+    });
+    const resolveVerify = (result) =>
+      setMessages(msgs => msgs.map(m => (m.role === "verify" && m.id === verifyId) ? { ...m, state: "done", result } : m));
+    confirmCommand(server, card.verb).then(
+      settled => resolveVerify(composeVerified(card.verb, serverName, settled)),
+      err => {
+        const expired = err && err.code === 401;
+        resolveVerify(expired
+          ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "’s session expired — re-authorize this host to run commands.", lines: [] }
+          : { ok: false, headline: "Couldn’t run " + meta.label.toLowerCase() + " — " + ((err && err.userMessage) || "the command failed."), lines: [] });
+      });
+  };
+
   const onKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
@@ -1369,6 +1550,8 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
                     ? <ChatScopeNotice key={i} msg={m} />
                     : m.role === "evidence"
                       ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
+                      : m.role === "command"
+                        ? <ChatCommand key={i} msg={m} onRun={runLiveCommand} />
                       : m.role === "actions"
                         ? <ChatActions key={i} msg={m} onRun={runAction} />
                         : m.role === "verify"
@@ -1443,4 +1626,4 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
   );
 }
 
-export { ChatPage, reduceTurnFrame };
+export { API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, reduceTurnFrame };

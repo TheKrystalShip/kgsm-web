@@ -96,12 +96,29 @@ api.stream.subscribe(["servers"], (m) => {
   }
 });
 
+// ---- Jobs (command outcomes, keyed by id) -------------------------------
+// The `jobs` channel drives two things: the per-server in-flight indicator
+// (serversStore.job, below) AND — keyed by job id here — the OUTCOME a confirmed
+// assistant command verifies against (slice 9b). We retain the latest adapted job
+// per id (state queued|running|"done"; adaptJob collapses succeeded|failed→"done"
+// but keeps `error`, so done+no-error = succeeded, done+error = failed). Fed ONLY
+// from WS frames (never the POST's `queued` response, a different vocab), so
+// awaitJob reads authoritative state. A homelab issues a handful of commands —
+// the map stays small; no eviction needed.
+const jobsStore = createStore({ byId: {} });
+jobsStore.upsert = (job) => {
+  if (!job || !job.id) return;
+  jobsStore.setState(s => ({ ...s, byId: { ...s.byId, [job.id]: { ...s.byId[job.id], ...job } } }));
+};
+jobsStore.get = (id) => (id ? jobsStore.getState().byId[id] || null : null);
+
 // Track the in-flight command per server from the `jobs` channel, so action
 // buttons can show progress (spinner) and lock siblings until it completes.
 api.stream.subscribe(["jobs"], (m) => {
   // mock pushes `job`; live pushes `job.patch` (adaptJob collapses the API's
   // succeeded|failed terminal states to "done", so this one branch serves both).
   if ((m.type === "job" || m.type === "job.patch") && m.data) {
+    jobsStore.upsert(m.data);              // retain by id for command-verify correlation
     const { serverId, verb, state } = m.data;
     serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
   }
@@ -226,12 +243,90 @@ function subscribeHostMetrics(hostId) {
 // (runServerCommand for the command verb; the LIVE install path is App's mock
 // fabrication, so installServer is only ever called when LIVE).
 
-// Issue a lifecycle command (start|stop|restart|open_ports). origin:"ui" tags
-// the driving surface on the kgsm event + the audit row it sources (M5). The
+// Issue a lifecycle command (start|stop|restart|open_ports). `origin` tags the
+// driving surface on the kgsm event + the audit row it sources (M5) — "ui" for a
+// panel button, "assistant" for a confirmed assistant proposal (slice 9b). The
 // server's resulting status + the in-flight job ride the WS, not this return.
-function commandServer(server, verb) {
+function commandServer(server, verb, origin = "ui") {
   const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
-  return client.post("/servers/" + server.id + "/commands", { verb, origin: "ui" });
+  return client.post("/servers/" + server.id + "/commands", { verb, origin });
+}
+
+// Resolve when a job reaches a terminal state, read from the WS-fed jobsStore.
+// Race-free: the always-on `jobs` subscriber upserts every frame, so we check the
+// CURRENT state first (the terminal frame may have already landed) THEN subscribe
+// for a future transition — with no await between, so there's no window to miss a
+// frame.
+//
+// The give-up is gated on SOCKET LIVENESS, NOT wall-clock and NOT time-at-state. A
+// real start runs queued→running→…(minutes, NO frames in between)…→done, so a long
+// silent gap is the NORMAL slow-start case — surrendering on elapsed time would flip a
+// command that actually succeeds to a permanent, stale "couldn't confirm". So while
+// the host socket is UP we wait indefinitely (the late `done` still lands); we resolve
+// honest "unknown" ONLY when the socket is sustained-DOWN (the one state where the
+// outcome frame genuinely can't arrive — there's no GET /jobs to recover it). Honest-
+// unknown, never a fabricated success. Returns { status, job? }. Timing + the liveness
+// probe are injectable for tests via __setJobTiming.
+let _jobPollMs = 3000;          // how often to sample socket liveness
+let _jobDeadMs = 30000;         // sustained-down for this long → honest "unknown"
+let _jobLiveProbe = null;       // test override (hostId)=>bool; null = real host socket
+function __setJobTiming(opts) {
+  if (!opts) { _jobPollMs = 3000; _jobDeadMs = 30000; _jobLiveProbe = null; return; }
+  if (opts.pollMs != null) _jobPollMs = opts.pollMs;
+  if (opts.deadMs != null) _jobDeadMs = opts.deadMs;
+  if ("liveProbe" in opts) _jobLiveProbe = opts.liveProbe;
+}
+function awaitJob(jobId, hostId) {
+  return new Promise((resolve) => {
+    if (!jobId) { resolve({ status: "unknown" }); return; }
+    let settled = false, poll = null, dispose = null, downTicks = 0;
+    const maxDownTicks = Math.max(1, Math.ceil(_jobDeadMs / _jobPollMs));
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      if (poll) { clearInterval(poll); poll = null; }
+      if (dispose) dispose();
+      resolve(val);
+    };
+    const evaluate = () => {
+      const j = jobsStore.get(jobId);
+      if (j && j.state === "done") finish({ status: j.error ? "failed" : "succeeded", job: j });
+    };
+    // "up" (a live socket the outcome frame can ride) resets the streak; "down"/
+    // "reconnecting" both count toward the give-up grace — a long-enough outage
+    // could have dropped the (un-replayable) terminal frame.
+    const socketUp = () => {
+      try {
+        if (_jobLiveProbe) return !!_jobLiveProbe(hostId);
+        if (!hostId || !api.__hostSocket) return true;
+        return api.__hostSocket(hostId) === "up";
+      } catch (e) { return true; }
+    };
+    const tick = () => {
+      if (settled) return;
+      if (socketUp()) { downTicks = 0; return; }
+      if (++downTicks >= maxDownTicks) finish({ status: "unknown" });
+    };
+    dispose = jobsStore.subscribe(evaluate);
+    poll = setInterval(tick, _jobPollMs);
+    evaluate();                             // resolve now if the terminal frame already arrived
+  });
+}
+
+// Confirm + execute an assistant-proposed command (slice 9b / fork (a)): the SAME
+// M3 path the UI buttons use, stamped origin:"assistant" (M5 provenance). NO double-
+// write, NO fabricated audit row — the backend writes the audit from the kgsm event
+// echo (the old mock handler that did both is gated off in LIVE). Returns the outcome
+// the chat composes command.verified from: { status: succeeded|failed|unknown|sent,
+// job?, jobId }. The status reached + the audit row arrive on the WS, exactly as for
+// a UI command. `token` on the proposal is inert for this path (it routes to M3, not
+// the assistant's /confirm) → never sent.
+function confirmCommand(server, verb) {
+  return commandServer(server, verb, "assistant").then(resp => {
+    const job = resp && resp.job;
+    if (!job || !job.id) return { status: "sent", jobId: null };
+    return awaitJob(job.id, server && server.hostId).then(r => ({ ...r, jobId: job.id }));
+  });
 }
 
 // Install a new server from a blueprint (POST /servers → 202 { job }; the
@@ -538,4 +633,4 @@ try {
   }
 } catch (e) {}
 
-export { auditEventHost, auditInScope, auditStore, commandServer, favoritesStore, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, auditEventHost, auditInScope, auditStore, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };

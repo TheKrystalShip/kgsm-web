@@ -96,7 +96,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `POST /auth/session/refresh {host}` | `POST /auth/session/refresh` + `Bearer <refresh-jwt>` → `{token}` (anon) | ⚠️ | FE sends `{host}` body; BE wants the refresh token as bearer |
 | `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` (Viewer) | ✅ | both exist; detail adds `network` block |
 | `PATCH /alerts/{id}` (defined, **unused**) | — (alerts read-only) | ✅ | FE never calls it; fine |
-| `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ✅ **DONE (slice 9a)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. `command.proposed`→fork (a)→`command.verified` = **slice 9b** |
+| `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ✅ **DONE (slice 9a + 9b)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. **9b:** `command.proposed`→fork (a) (Confirm → `confirmCommand` = `POST /servers/{id}/commands {verb,origin:"assistant"}`)→SPA-composed `command.verified` from the job outcome |
 | — (FE doesn't call) | `GET /api/v1/me` → `{user,tier,scopes}` | ➕ | FE currently derives tier from the callback; could/should use `/me` |
 | `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✅ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
 | `DiscordPage` (was 100% mock) | `GET/PATCH /api/v1/integrations/discord`, `POST …/test` (Admin) | ✅ **DONE (integrations slice)** | DiscordPage LIVE branch wired via `api.host(id)`: GET renders the server's 6-event catalog + masked webhook hint; toggles = sparse `{events:[{id,enabled}]}` PATCH; Save = `buildIntegrationPatch` (webhook only if user-typed); real `/test`. **Slack** provider (also built) not surfaced (FE has no Slack UI) |
@@ -195,7 +195,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 
 ## 6. True gaps & rewrites (not simple remaps)
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
-2. **Assistant chat** — ✅ **slice 9a done.** Was a raw Ollama-shaped `fetch` to the wrong route; now `api.host(id).turn()` (SSE through the seam) streaming the §5·a frames. Streaming half only — `command.proposed`→fork (a) (confirm runs the M3 command path with `origin:"assistant"`)→SPA-composed `command.verified` is **slice 9b** (still TODO).
+2. **Assistant chat** — ✅ **slice 9a + 9b done.** Was a raw Ollama-shaped `fetch` to the wrong route; now `api.host(id).turn()` (SSE through the seam) streaming the §5·a frames. **9b** adds the command-confirm half: `command.proposed`→fork (a) (Confirm runs the M3 command path with `origin:"assistant"`)→SPA-composed `command.verified` from the job outcome.
 3. **Host discovery / registry** — no base-URL capture in the FE (see §1, §7).
 3b. **OAuth token handoff — BUILT (slice 4b; one manual browser login owed).** The
     callback now 302s to `KGSM_API_AUTH_FRONTEND_URL` with the session in the URL
@@ -438,8 +438,52 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > turn-1's (the bug above). Green with the assistant
 > both **absent and operational** (hardened the dock-naive GamePage assertion — the now-rendering assistant
 > dock's scope chip lists every host server, which tripped a whole-document grep). build + routes + mount
-> green. **OWED:** the real-leaf (Ollama-backed `kgsm-llm` Service) round-trip; **slice 9b** (`command.proposed`
-> → fork (a) → SPA-composed `command.verified`).
+> green. **OWED:** the real-leaf (Ollama-backed `kgsm-llm` Service) round-trip.
+
+> **Slice 9b — assistant command confirm (fork (a)) — DONE + VALIDATED 2026-06-21.** The turn's command half:
+> `command.proposed` → Confirm → the M3 command path → an SPA-composed `command.verified`. **Frontend-only**
+> (kgsm-llm relays `command.proposed` verbatim through kgsm-api's `AssistantController`; the M3
+> `POST /servers/{id}/commands` + the `jobs` WS all already shipped). The contract is from
+> `kgsm-llm/docs/m7-sse-5a-spec.md §6` (fork (a)): the SPA executes a confirmed proposal via the M3 path
+> (NOT the assistant's `/confirm`), and `command.verified` is **not a backend frame** — the SPA composes it.
+> - **Reducer:** `reduceTurnFrame` gains a `command.proposed` case → splices a confirm-first card BEFORE the
+>   streaming bubble (the tool-pill-safe spot — bubble stays last for `text.delta`); on `done` the card is moved
+>   BELOW the reply (scoped to this turn's contiguous run, so prior turns' cards stay put) so the turn reads
+>   reply → action → verification. The card renders **from the proposal itself** (`confirm` + `subject.id`) — never
+>   a store lookup (the model may propose a server with no roster row). The `token` is **inert** for the SPA (it
+>   routes to M3, not `/confirm`; confirmed by the spec + the controller) → dropped.
+> - **Verbs:** `start`/`stop`/`restart`/`open_ports` are API-backed (M3) → arm → Confirm → run. The rest the
+>   model can propose (`update`/`install`/`uninstall`/`backup`/`set_config`) have **no API endpoint yet** (spec §6
+>   matrix) → the card renders **disabled with an honest reason** rather than firing a 400.
+> - **Execute (`stores.js`):** `commandServer(server,verb,origin="ui")` gains the origin arg; new
+>   `confirmCommand(server,verb)` POSTs `origin:"assistant"` then awaits the job outcome. A small id-keyed
+>   `jobsStore` (fed by the **existing** `jobs` WS subscriber, so no frame is missed) retains each adapted job;
+>   `awaitJob(id, hostId)` is **race-free** (check current state, THEN subscribe — no await between) and the give-up
+>   is **socket-liveness-gated, NOT wall-clock and NOT time-at-state** (a real start runs queued→running→…minutes,
+>   no frames…→done, so a long silent gap is the NORMAL slow case — surrendering on elapsed time would flip a
+>   succeeding command into a stale permanent "couldn't confirm"). While the host socket is UP we wait indefinitely
+>   (the late `done` lands); honest "unknown" only when the socket is sustained-DOWN (the one state where the
+>   un-replayable outcome frame genuinely can't arrive) — never a fabricated ✓. Timing + liveness probe injectable
+>   for tests (`__setJobTiming`).
+> - **`command.verified` composition (honest, conscious deviation):** `ok` from the job outcome (clean id
+>   correlation — `adaptJob` keeps the id + `error`); the **headline composed from verb+server** (for a lifecycle
+>   verb it's identical to the audit summary, and lifecycle audit rows carry no `jobId` → correlating one buys
+>   fragility for nothing — so this is **job-outcome primary + locally-composed headline**, NOT the plan's literal
+>   "3-source correlation"); `lines[]` honest-thin (the real job `error` on failure, nothing fabricated). `open_ports`
+>   is intent-only (the client never receives the port list) → the headline stays generic (naming ports = fabrication).
+> - **Landmark removed:** `App.handleAssistantAction` (the mock that both fabricated an `auditStore.prepend` row AND
+>   called `commandServer` with `origin:"ui"` = a double-write with the wrong origin in LIVE) is now guarded
+>   `if (LIVE) return;` — the LIVE chat path never calls it (it runs entirely through `confirmCommand`), so the
+>   backend's kgsm-echo audit row is the single source.
+> - **Validated:** `smoke:live` **+11** (reducer splice + done-reorder; verb gating; `composeVerified` ok/fail/
+>   unknown/open_ports; **the full glue** — `confirmCommand` → POST `{verb,origin:"assistant"}` captured →
+>   `job.patch` via `__dispatch` → `awaitJob` resolves → composed, AND `auditStore` **unchanged** = no double-write;
+>   `awaitJob` race-freeness; **the `ChatCommand` component renders** both the runnable and the disabled paths) —
+>   all green; build + mock smokes (18 routes / 6 mount) green; **smoke:live 124✓**. **Scope:** request shaping +
+>   WS correlation are proven deterministically (fetch-capture + `__dispatch`); the **real engine round-trip**
+>   (a confirmed proposal → watchdog start → real job settle) is **owed-to-human** (needs the full engine + a leaf
+>   that proposes a command), same bar as slices 6/9a. Files: `stores.js`, `ChatPage.jsx`, `App.jsx`, `kit.css`,
+>   `scripts/smoke-live.mjs`.
 
 > **Integrations (Discord) — DONE + LIVE-VALIDATED 2026-06-21** (picked up while kgsm-llm work — and so
 > slice 9b — proceeds in parallel). `DiscordPage` was 100% mock (hardcoded webhook string, fake toggles,
@@ -530,7 +574,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
    synthetic-inject for the other three remaps in `smoke:live`.
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
-7. **Assistant** — ✅ **9a done** (streaming turn through the seam). **9b TODO:** `command.proposed`→fork (a)→`command.verified`.
+7. **Assistant** — ✅ **9a + 9b done** (streaming turn through the seam + the command-confirm half: `command.proposed`→fork (a)→SPA-composed `command.verified`).
 8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, fleet rollup.
 9. **Integrations + settings** — ✅ **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, admin-gated, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
@@ -686,7 +730,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
-- **Assistant chat** — **9a DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade; live-validated against an SSE stub + the real `AssistantController` relay). **9b TODO:** `command.proposed`→fork (a)→`command.verified`. OWED: real-leaf (Ollama) round-trip.
+- **Assistant chat** — **9a + 9b DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade). **9b** adds the command-confirm half: `command.proposed`→Confirm→`confirmCommand` (M3 path, `origin:"assistant"`)→SPA-composed `command.verified` from the job outcome (job-outcome primary + locally-composed honest headline; API-backed verbs run, the rest render disabled; the mock double-write landmark guarded off in LIVE). OWED: real-leaf (Ollama) + real engine round-trip.
 - **Integrations** — **Discord DONE (2026-06-21):** DiscordPage rewritten from pure-mock onto the live `/integrations/discord` (GET the server-defined 6-event catalog + masked webhook hint; per-event sparse-PATCH toggles; `buildIntegrationPatch` Save that sends `webhook` only when user-typed; real `/test`; admin-gated). Round-trip-validated against the live persistent backend (toggle persist+restore, webhook set→secret-never-echoes→clear, unconfigured-test→409). Remaining: **Slack** provider UI; the broader `/settings` surface (not built upstream).
 
 **Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
@@ -697,7 +741,7 @@ payoff)~~ (slice 7, 2026-06-21) → ~~host-metrics live-update (`host.metrics` W
 follow-on, 2026-06-21) → ~~lifecycle commands + install~~ (slice 6 partial, 2026-06-21) →
 ~~**assistant streaming turn**~~ (slice 9a, 2026-06-21 — `ChatPage` onto `api.host(id).turn()` SSE) →
 ~~**integrations (Discord)**~~ (2026-06-21 — DiscordPage onto `/integrations/discord`, done while kgsm-llm
-proceeds in parallel) → **next:** **slice 9b** (`command.proposed`→fork (a)→`command.verified`; also
-exercises `open_ports` from chat — gated on the kgsm-llm contract), OR the deferred slice-6 tail
+proceeds in parallel) → ~~**slice 9b** (`command.proposed`→fork (a)→`command.verified`)~~ (2026-06-21 —
+kgsm-llm unblocked; command-confirm half through the M3 path) → **next:** the deferred slice-6 tail
 (server-ports card + `open_ports`/`network.patch`, and uninstall) **once a FE surface exists**, OR the
 **Slack** integration UI → presence/performance/console as their sources land.

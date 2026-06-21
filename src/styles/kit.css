@@ -3702,6 +3702,9 @@ body { overflow: hidden; }
 .chat-action--danger:hover  { border-color: var(--danger); }
 .chat-action--update:hover  { border-color: var(--update); }
 .chat-action--info:hover    { border-color: var(--info); }
+/* a proposed verb with no API endpoint yet (spec §6 matrix) — rendered, not runnable */
+.chat-action--disabled { opacity: 0.55; cursor: not-allowed; }
+.chat-action--disabled:hover { border-color: var(--border); background: var(--surface-2); }
 
 /* armed (confirm) state */
 .chat-action--armed {

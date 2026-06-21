@@ -563,6 +563,162 @@ try {
   assert(pills.length === 2 && pills[0].label === "5/5 passed" && pills[1].label === "online",
     "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's pill, NOT turn-1's done pill");
 
+  // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
+  // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
+  // (origin:"assistant", NO double-write/fabricated audit); the SPA composes the
+  // command.verified block from the job outcome the WS carries back.
+  const { API_COMMAND_VERBS: AV, composeVerified: CV } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+
+  // (1) the reducer splices the card FROM THE PROPOSAL (not a store lookup), and
+  //     `done` reorders it BELOW the reply (reply → action).
+  let cm = [{ role: "user", content: "start it" }, { role: "assistant", content: "" }];
+  cm = R(cm, { type: "text.delta", text: "I can start factorio-test." });
+  cm = R(cm, { type: "command.proposed", id: "cmd_0", verb: "start",
+    subject: { resource: "server", id: "factorio-test" }, confirm: "Start factorio-test?", token: "tok_inert" });
+  const card0 = cm.find((x) => x.role === "command");
+  assert(card0 && card0.verb === "start" && card0.subjectId === "factorio-test"
+    && card0.confirm === "Start factorio-test?" && card0.state === "proposed",
+    "reduceTurnFrame: command.proposed → a confirm-first card from the proposal (verb/subject/confirm)");
+  cm = R(cm, { type: "done", text: "Ready when you are." });
+  const ci = cm.findIndex((x) => x.role === "command");
+  const bi = cm.findIndex((x) => x.role === "assistant");
+  assert(bi >= 0 && ci === bi + 1 && cm[bi].content === "Ready when you are.",
+    "reduceTurnFrame: done moves the command card BELOW the reply (reply → action)");
+
+  // (2) verb gating — API-backed vs proposed-but-not-executable (spec §6 matrix).
+  assert(["start", "stop", "restart", "open_ports"].every((v) => AV.has(v))
+    && !AV.has("update") && !AV.has("install") && !AV.has("backup") && !AV.has("set_config"),
+    "command verbs: start/stop/restart/open_ports are API-backed; update/install/backup/set_config are not");
+
+  // (3) command.verified composition (SPA-side, honest).
+  const okV = CV("start", "factorio-test", { status: "succeeded" });
+  assert(okV.ok === true && /Started factorio-test/.test(okV.headline),
+    "composeVerified: succeeded → ok + 'Started …' headline");
+  const failV = CV("stop", "factorio-test", { status: "failed", job: { error: "engine refused" } });
+  assert(failV.ok === false && failV.lines.some((l) => /engine refused/.test(l.detail)),
+    "composeVerified: failed → not-ok + the real job error as a line (no fabrication)");
+  const unkV = CV("start", "factorio-test", { status: "unknown" });
+  assert(unkV.ok === false && /Couldn’t confirm/.test(unkV.headline),
+    "composeVerified: unknown (no WS response) → honest 'couldn’t confirm', never a fake ✓");
+  const opV = CV("open_ports", "factorio-test", { status: "succeeded" });
+  assert(opV.ok === true && !/\d/.test(opV.headline) && /required ports/.test(opV.headline),
+    "composeVerified: open_ports headline is generic (intent-only — never fabricates port numbers)");
+
+  // (4) THE GLUE — full confirm path end to end (advisor: test the wiring, not just
+  // the units). confirmCommand → POST /commands {verb,origin:'assistant'} (captured →
+  // synthetic 202 {job}) → a WS job.patch (succeeded) via __dispatch → awaitJob
+  // resolves → the outcome is composed; AND the LIVE confirm does NOT mutate the audit
+  // store (the backend writes that row from the kgsm echo — the no-double-write proof).
+  let cmdCap = null;
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u)) {
+      cmdCap = { url: u, body: JSON.parse(opts.body || "null") };
+      return new Response(JSON.stringify({ job: {
+        id: "job_9b", serverId: "factorio-test", verb: cmdCap.body.verb, state: "queued", error: null,
+      } }), { status: 202, headers: { "content-type": "application/json" } });
+    }
+    return realFetch(url, opts);
+  };
+  const auditLenBefore = st.auditStore.getState().list.length;
+  const verifyP = st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
+  await sleep(20);                                 // let the POST resolve + awaitJob attach
+  // a non-terminal frame first (progress), then the terminal succeeded frame.
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_9b", serverId: "factorio-test", verb: "start", state: "running" } });
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_9b", serverId: "factorio-test", verb: "start", state: "succeeded", error: null } });
+  const settled = await verifyP;
+  globalThis.fetch = realFetch;
+  assert(cmdCap && cmdCap.url.endsWith("/api/v1/servers/factorio-test/commands")
+    && cmdCap.body.verb === "start" && cmdCap.body.origin === "assistant",
+    "confirmCommand → POST /servers/{id}/commands { verb, origin:'assistant' } (fork (a), not 'ui')");
+  assert(settled.status === "succeeded" && settled.jobId === "job_9b",
+    "confirmCommand: WS job.patch (succeeded) resolves the verify via awaitJob (job-id correlation)");
+  assert(st.auditStore.getState().list.length === auditLenBefore,
+    "LIVE confirm does NOT fabricate an audit row (backend writes it from the kgsm echo — no double-write)");
+
+  // (5) awaitJob race-free — a terminal frame already in the store before we await
+  // still resolves (check-current-then-subscribe; no missed-frame window).
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u))
+      return new Response(JSON.stringify({ job: { id: "job_race", serverId: "factorio-test", verb: "stop", state: "queued", error: null } }),
+        { status: 202, headers: { "content-type": "application/json" } });
+    return realFetch(url, opts);
+  };
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_race", serverId: "factorio-test", verb: "stop", state: "succeeded", error: null } });
+  const raced = await st.confirmCommand({ id: "factorio-test", hostId: hmId }, "stop");
+  globalThis.fetch = realFetch;
+  assert(raced.status === "succeeded",
+    "awaitJob: a terminal frame already in the store resolves (check-then-subscribe, no missed-frame window)");
+
+  // (5b) the give-up is SOCKET-LIVENESS-gated, NOT wall-clock (advisor): a slow job
+  // that sits at `running` with NO frames far longer than the dead window, while the
+  // socket is UP, must KEEP WAITING and still resolve on the late `done` — surrendering
+  // on elapsed time would flip a command that actually succeeds into a stale, permanent
+  // "couldn't confirm". A sustained-DOWN socket (the outcome frame can't arrive) is the
+  // ONLY give-up trigger. Timing + liveness are injected so both paths are fast+exact.
+  const cmd202 = (id, verb) => async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u))
+      return new Response(JSON.stringify({ job: { id, serverId: "factorio-test", verb, state: "queued", error: null } }),
+        { status: 202, headers: { "content-type": "application/json" } });
+    return realFetch(url, opts);
+  };
+  st.__setJobTiming({ pollMs: 10, deadMs: 40, liveProbe: () => true });   // socket UP
+  globalThis.fetch = cmd202("job_slow", "start");
+  const slowP = st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
+  await sleep(20);
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_slow", serverId: "factorio-test", verb: "start", state: "running" } });
+  await sleep(120);                              // >> dead window: a slow `running` with the socket up must NOT give up
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_slow", serverId: "factorio-test", verb: "start", state: "succeeded", error: null } });
+  const slow = await slowP;
+  assert(slow.status === "succeeded",
+    "awaitJob: a slow job (long silent `running`) with the socket UP keeps waiting → resolves on the late done (NOT a wall-clock give-up)");
+  st.__setJobTiming({ pollMs: 10, deadMs: 40, liveProbe: () => false });  // socket DOWN, never a frame
+  globalThis.fetch = cmd202("job_dead", "start");
+  const dead = await st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
+  assert(dead.status === "unknown",
+    "awaitJob: a sustained-DOWN socket (no frame can arrive) resolves to honest 'unknown' after the grace");
+  globalThis.fetch = realFetch;
+  st.__setJobTiming(null);                       // restore production timing
+
+  // (5c) the `done` reorder is TURN-SCOPED — a second turn's card must not drag the
+  // first turn's card along (the 9a two-turn precedent: single-turn coverage is blind).
+  let tt = [{ role: "user", content: "q1" }, { role: "assistant", content: "" }];
+  tt = R(tt, { type: "text.delta", text: "reply 1" });
+  tt = R(tt, { type: "command.proposed", id: "cmd_a", verb: "start", subject: { resource: "server", id: "srv-a" }, confirm: "Start srv-a?" });
+  tt = R(tt, { type: "done", text: "reply 1" });
+  tt = [...tt, { role: "user", content: "q2" }, { role: "assistant", content: "" }];
+  tt = R(tt, { type: "text.delta", text: "reply 2" });
+  tt = R(tt, { type: "command.proposed", id: "cmd_b", verb: "stop", subject: { resource: "server", id: "srv-b" }, confirm: "Stop srv-b?" });
+  tt = R(tt, { type: "done", text: "reply 2" });
+  const ai1 = tt.findIndex((x) => x.role === "assistant" && x.content === "reply 1");
+  const ca = tt.findIndex((x) => x.role === "command" && x.cmdId === "cmd_a");
+  const ai2 = tt.findIndex((x) => x.role === "assistant" && x.content === "reply 2");
+  const cb = tt.findIndex((x) => x.role === "command" && x.cmdId === "cmd_b");
+  assert(ca === ai1 + 1 && cb === ai2 + 1 && ca < ai2,
+    "reduceTurnFrame: done-reorder is turn-scoped — turn-1's card stays after reply-1, doesn't migrate past turn-2");
+
+  // (6) the COMPONENT renders (not just the pure helpers): an API-backed proposal
+  // shows the confirm-first action; a non-API verb renders disabled with the honest
+  // reason — exercising ChatCommand itself, not only the reducer/composer.
+  const { ChatCommand } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+  const renderCmd = async (msg) => {
+    const node = w.document.createElement("div");
+    const root = createRoot(node);
+    root.render(React.createElement(ChatCommand, { msg, onRun: () => {} }));
+    await sleep(30);
+    const html = node.innerHTML;
+    root.unmount();
+    return html;
+  };
+  const startHtml = await renderCmd({ role: "command", cmdId: "cmd_0", verb: "start", subjectId: "factorio-test", confirm: "Start factorio-test?", state: "proposed" });
+  assert(startHtml.includes("Start") && startHtml.includes("factorio-test") && !startHtml.includes("Not available"),
+    "ChatCommand: an API-backed proposal renders a runnable confirm-first action");
+  const updHtml = await renderCmd({ role: "command", cmdId: "cmd_1", verb: "update", subjectId: "factorio-test", confirm: "Update factorio-test?", state: "proposed" });
+  assert(updHtml.includes("Not available from the panel yet") && /disabled/.test(updHtml),
+    "ChatCommand: a non-API verb (update) renders disabled with an honest reason (no 400-bound button)");
+
   // ---- Phase 7: integrations (Discord) wiring -----------------------------
   // (a) The webhook-PATCH footgun is the one place a bug = silent data loss: the
   // secret is write-only (GET returns only a masked hint), so the body must never

@@ -647,14 +647,14 @@ function App() {
   // writes an audit entry crediting the user but flagging it as assistant-
   // initiated — the paper trail makes clear the bot didn't act on its own.
   const handleAssistantAction = (a) => {
+    // MOCK-ONLY (slice 9b): in LIVE, a confirmed assistant proposal runs entirely
+    // inside ChatPage → confirmCommand() (the M3 path, origin:"assistant"), which
+    // does NOT fabricate an audit row (the backend writes it from the kgsm echo).
+    // The chat's LIVE path never calls onRunAction, but this guard is belt-and-
+    // suspenders: it makes the double-write/wrong-origin/fabricated-row landmark
+    // below unreachable in LIVE no matter who calls it.
+    if (LIVE) return;
     const now = new Date();
-    // ⚠ SLICE-9 (assistant LIVE wiring): this whole handler is MOCK. It both
-    // fabricates an `auditStore.prepend(...)` row AND, for lifecycle verbs, calls
-    // handleAction → now a REAL commandServer() in LIVE. When the assistant is
-    // wired live, that's a double-write (the backend already writes the audit from
-    // the kgsm event echo) with the wrong origin ("ui", not "assistant"), plus a
-    // fabricated row. Gate this on !LIVE (or pass origin:"assistant" + drop the
-    // prepend) when slice 9 lands — see WIRING.md §6.
     // open_ports doesn't map to a server-lifecycle verb — handle it here:
     // flip the server's closed required ports to open in the host data and
     // log a network audit entry.
