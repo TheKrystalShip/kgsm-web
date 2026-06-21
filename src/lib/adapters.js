@@ -259,3 +259,22 @@ export function adaptMe(be) {
   if (!be) return be;
   return { user: be.user || null, tier: be.tier || "none", scopes: be.scopes || [] };
 }
+
+// One integration provider's config (GET /integrations/{provider}). The API view
+// is already FE-shaped (camelCase); this only hardens it — `events` always an
+// array, `webhook` always present — so the settings UI never crashes on a partial.
+// The webhook secret is NEVER on the wire: `webhook.hint` is a masked display hint
+// (…/webhooks/{id}/{tok}***), never the URL — so it must stay display-only and never
+// be sent back. `bot` is honestly null for webhook-only providers (Discord is
+// one-way; Slack omits it entirely).
+export function adaptIntegration(be) {
+  if (!be) return be;
+  return {
+    provider: be.provider || null,
+    webhook: be.webhook || { configured: false, hint: null },
+    channelLabel: be.channelLabel != null ? be.channelLabel : null,
+    bot: be.bot || null,
+    enabled: !!be.enabled,
+    events: Array.isArray(be.events) ? be.events : [],
+  };
+}

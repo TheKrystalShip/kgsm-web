@@ -99,7 +99,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST /api/v1/assistant/turn {prompt,think?,tools?}` (SSE, Viewer) | ✅ **DONE (slice 9a)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. `command.proposed`→fork (a)→`command.verified` = **slice 9b** |
 | — (FE doesn't call) | `GET /api/v1/me` → `{user,tier,scopes}` | ➕ | FE currently derives tier from the callback; could/should use `/me` |
 | `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✅ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
-| — (FE: `DiscordPage`/settings) | `GET/PATCH /api/v1/integrations[/{provider}]`, `POST …/test` (Admin) | ➕ | backend built (Discord+Slack); FE settings UI not wired to it — verify FE call sites |
+| `DiscordPage` (was 100% mock) | `GET/PATCH /api/v1/integrations/discord`, `POST …/test` (Admin) | ✅ **DONE (integrations slice)** | DiscordPage LIVE branch wired via `api.host(id)`: GET renders the server's 6-event catalog + masked webhook hint; toggles = sparse `{events:[{id,enabled}]}` PATCH; Save = `buildIntegrationPatch` (webhook only if user-typed); real `/test`. **Slack** provider (also built) not surfaced (FE has no Slack UI) |
 
 ## 4. Realtime matrix (topic → message type) — **DONE (slice 5, 2026-06-21)**
 
@@ -441,6 +441,33 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > green. **OWED:** the real-leaf (Ollama-backed `kgsm-llm` Service) round-trip; **slice 9b** (`command.proposed`
 > → fork (a) → SPA-composed `command.verified`).
 
+> **Integrations (Discord) — DONE + LIVE-VALIDATED 2026-06-21** (picked up while kgsm-llm work — and so
+> slice 9b — proceeds in parallel). `DiscordPage` was 100% mock (hardcoded webhook string, fake toggles,
+> dead buttons); now its LIVE branch is wired to the host's `kgsm-api /integrations/discord` (admin-gated),
+> with the bundled demo kept for `!LIVE`. **GET** renders the **server-defined** catalog — the honest **6**
+> events (online/offline/crash/update/installed/backup), dropping the mock's fabricated `join`/`lowdisk`
+> (no player/threshold source upstream) — plus the masked webhook hint, channel label, and the `enabled`
+> master. **Event toggles** are their own immediate sparse PATCH `{events:[{id,enabled}]}` (optimistic +
+> revert-on-fail), which **never touch the webhook**. **Webhook is write-only:** GET returns only a masked
+> hint (`…/webhooks/{id}/{tok}***`), never the URL — so the pure exported **`buildIntegrationPatch`** builds
+> the Save body and includes `webhook` **only when the user typed a new non-empty value** (clearing is a
+> separate explicit affordance → `""`); the masked hint can never round-trip and silently wipe the secret
+> (the one place a naive form-serialize = data loss). **`/test`** is a real send. Mutating controls gate on
+> the admin tier (`sessionStore.tierOf`); the `bot` block stays honestly null (the slash-command list is
+> illustrative — control commands are kgsm-bot's surface, not this webhook). New `adaptIntegration`
+> (passthrough + `events:[]` hardening) wired into `adaptResponse`. **Validated** against the live
+> *persistent* backend (unlike 9a's fetch-capture): `smoke:live` Phase 7 = the `buildIntegrationPatch`
+> footgun unit test (×6) + a real round-trip — toggle persists + restores, a valid-but-fake webhook
+> set → GET confirms `configured:true` + a masked hint + **the raw secret never echoes back** → cleared,
+> and an unconfigured `/test` → honest **409** (no channel spam). All mutations revert to baseline (the
+> webhook set/clear is `try/finally`-guarded so a mid-phase throw can't leave residue on the persistent dev
+> host). build + routes + mount green; smoke:live 83✓. **Scope of "validated":** the **contract +
+> `buildIntegrationPatch`** are executed/asserted; the `DiscordLiveConfig` **component** render + optimistic
+> toggle/revert are NOT exercised by any check (thin glue, correct by inspection — the footgun can't fire:
+> the masked hint lives only in the input `placeholder`, never `value`, and `webhookDirty` keys off the
+> typed value). **Remaining:** the **Slack** provider (built upstream, no FE surface yet) + the broader
+> `/settings` page (not built upstream).
+
 1. **Transport + adapter scaffold** — real `fetch` client behind the `api` seam,
    reads `VITE_API_BASE`+`/api/v1`, unwraps the error envelope; mock stays the
    no-base fallback. An `adapters/` module: BE DTO → FE shape, one mapper per resource.
@@ -470,7 +497,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
 7. **Assistant** — ✅ **9a done** (streaming turn through the seam). **9b TODO:** `command.proposed`→fork (a)→`command.verified`.
 8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, fleet rollup.
-9. **Integrations + settings** — wire `DiscordPage`/settings to `/integrations`.
+9. **Integrations + settings** — ✅ **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, admin-gated, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
 
 ---
@@ -596,7 +623,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
 | `FileBrowser`, `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings`, no config endpoint. |
 | `ChatPage` (assistant) | `POST /assistant/turn` SSE | ✅ **9a done** | rewritten onto `api.host(id).turn()` SSE through the seam (streaming half). 9b = command.proposed→verify. |
-| `DiscordPage`/integrations | `/integrations` (built) | **A** | ✅ live `GET /integrations` 200 (DB recreated, slice 3); wiring is a later slice. |
+| `DiscordPage`/integrations | `/integrations` (built) | ✅ **DONE** | DiscordPage LIVE branch wired to `/integrations/discord` (GET catalog+masked hint / sparse PATCH / real test), admin-gated, round-trip-validated. Slack UI = follow-on. |
 
 ## 10. Per-surface rollup (what unblocks each screen)
 
@@ -625,7 +652,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
 - **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
 - **Assistant chat** — **9a DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade; live-validated against an SSE stub + the real `AssistantController` relay). **9b TODO:** `command.proposed`→fork (a)→`command.verified`. OWED: real-leaf (Ollama) round-trip.
-- **Integrations** — **A** (the 500 is cleared as of slice 3's DB recreate; wiring `DiscordPage`/settings to `/integrations` is its own later slice).
+- **Integrations** — **Discord DONE (2026-06-21):** DiscordPage rewritten from pure-mock onto the live `/integrations/discord` (GET the server-defined 6-event catalog + masked webhook hint; per-event sparse-PATCH toggles; `buildIntegrationPatch` Save that sends `webhook` only when user-typed; real `/test`; admin-gated). Round-trip-validated against the live persistent backend (toggle persist+restore, webhook set→secret-never-echoes→clear, unconfigured-test→409). Remaining: **Slack** provider UI; the broader `/settings` surface (not built upstream).
 
 **Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
 **A** remaps~~ (slice 2a) → ~~**Auth/Me**~~ (slices 4/4b) → ~~recreate the backend DB to
@@ -634,6 +661,8 @@ clear the two 500s~~ + ~~**Audit/Alerts/Library** reads~~ (slice 3) → ~~realti
 payoff)~~ (slice 7, 2026-06-21) → ~~host-metrics live-update (`host.metrics` WS tick)~~ (slice 7
 follow-on, 2026-06-21) → ~~lifecycle commands + install~~ (slice 6 partial, 2026-06-21) →
 ~~**assistant streaming turn**~~ (slice 9a, 2026-06-21 — `ChatPage` onto `api.host(id).turn()` SSE) →
-**next:** **slice 9b** (`command.proposed`→fork (a)→`command.verified`; also exercises `open_ports` from
-chat), OR the deferred slice-6 tail (server-ports card + `open_ports`/`network.patch`, and uninstall)
-**once a FE surface exists for them** → presence/performance/console as their sources land.
+~~**integrations (Discord)**~~ (2026-06-21 — DiscordPage onto `/integrations/discord`, done while kgsm-llm
+proceeds in parallel) → **next:** **slice 9b** (`command.proposed`→fork (a)→`command.verified`; also
+exercises `open_ports` from chat — gated on the kgsm-llm contract), OR the deferred slice-6 tail
+(server-ports card + `open_ports`/`network.patch`, and uninstall) **once a FE surface exists**, OR the
+**Slack** integration UI → presence/performance/console as their sources land.

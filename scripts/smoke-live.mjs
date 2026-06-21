@@ -563,6 +563,72 @@ try {
   assert(pills.length === 2 && pills[0].label === "5/5 passed" && pills[1].label === "online",
     "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's pill, NOT turn-1's done pill");
 
+  // ---- Phase 7: integrations (Discord) wiring -----------------------------
+  // (a) The webhook-PATCH footgun is the one place a bug = silent data loss: the
+  // secret is write-only (GET returns only a masked hint), so the body must never
+  // carry `webhook` unless the user typed a new value. Assert the pure builder.
+  const intg = await vite.ssrLoadModule("/src/pages/DiscordPage.jsx");
+  const B = intg.buildIntegrationPatch;
+  assert(!("webhook" in B({})), "buildIntegrationPatch: no webhook key when nothing typed (can't wipe the secret)");
+  assert(!("webhook" in B({ webhook: "…/webhooks/123/abc***", webhookDirty: false })),
+    "buildIntegrationPatch: a non-dirty input (the masked hint) never round-trips the webhook");
+  assert(!("webhook" in B({ webhook: "   ", webhookDirty: true })),
+    "buildIntegrationPatch: dirty-but-blank omits webhook (no accidental clear)");
+  assert(B({ webhook: "https://x", webhookDirty: true }).webhook === "https://x",
+    "buildIntegrationPatch: a typed non-empty webhook is sent");
+  assert(B({ clearWebhook: true }).webhook === "",
+    "buildIntegrationPatch: explicit clear sends webhook:'' ");
+  assert(B({ channelLabel: "#ops" }).channelLabel === "#ops" && !("webhook" in B({ channelLabel: "#ops" })),
+    "buildIntegrationPatch: channelLabel travels alone (never drags the webhook)");
+
+  // (b) Real persistent round-trip through the host-scoped client (admin under
+  // auth-disabled). NON-DESTRUCTIVE: every mutation is reverted; baseline here is
+  // an unconfigured webhook, so the set→clear leaves it as found.
+  const ig = (p) => api.host(hmId).get("/integrations/discord");
+  const base = await ig();
+  assert(base && base.provider === "discord" && Array.isArray(base.events) && base.events.length > 0,
+    `integrations GET: live Discord view (${base.events.length} server-defined events)`);
+  // honest catalog — the FE's fabricated mock-only events are NOT in the live set
+  assert(!base.events.some((e) => e.id === "join" || e.id === "lowdisk"),
+    "integrations GET: server catalog omits player-join / resource events (no honest source) — not faked");
+
+  // toggle round-trip: flip 'online', confirm it persisted, restore it
+  const before = base.events.find((e) => e.id === "online");
+  await api.host(hmId).patch("/integrations/discord", { events: [{ id: "online", enabled: !before.enabled }] });
+  const flipped = await ig();
+  assert(flipped.events.find((e) => e.id === "online").enabled === !before.enabled,
+    "integrations PATCH: an event toggle persists (GET-back confirms)");
+  await api.host(hmId).patch("/integrations/discord", { events: [{ id: "online", enabled: before.enabled }] });
+  assert((await ig()).events.find((e) => e.id === "online").enabled === before.enabled,
+    "integrations PATCH: toggle restored to baseline");
+
+  // webhook round-trip (baseline unconfigured → set a VALID-FORMAT but fake URL,
+  // never delivered; then clear). Assert the secret never echoes back.
+  if (!base.webhook.configured) {
+    const FAKE = "https://discord.com/api/webhooks/123456789012345678/SMOKEtok_DO_NOT_DELIVER_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    try {
+      await api.host(hmId).patch("/integrations/discord", { webhook: FAKE });
+      const set = await ig();
+      assert(set.webhook.configured === true && !!set.webhook.hint,
+        "integrations PATCH: webhook set → configured:true + a masked hint");
+      assert(!JSON.stringify(set).includes("SMOKEtok_DO_NOT_DELIVER"),
+        "integrations GET: the raw webhook secret NEVER echoes back (masked hint only)");
+    } finally {
+      // ALWAYS clear — a throw between set and clear must not leave the fake webhook
+      // on the (persistent) dev host, especially as the stack is left up between runs.
+      await api.host(hmId).patch("/integrations/discord", { webhook: "" }).catch(() => {});
+    }
+    assert((await ig()).webhook.configured === false, "integrations PATCH: explicit clear removes the webhook (baseline restored)");
+  } else {
+    console.log("• integrations: webhook already configured on this host — skipped the set/clear round-trip (non-destructive)");
+  }
+
+  // /test on an unconfigured webhook is the honest 409 (no send, no channel spam)
+  let testErr = null;
+  await api.host(hmId).post("/integrations/discord/test").catch((e) => { testErr = e; });
+  assert(testErr && testErr.code === 409,
+    `integrations /test: unconfigured webhook → honest 409, never a faked ok (code=${testErr && testErr.code})`);
+
   root.unmount();
 } finally {
   console.error = origErr;

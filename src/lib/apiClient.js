@@ -334,6 +334,7 @@ import("./stores.js").then((m) => {
     if (base === "/me") return adapt.adaptMe(json);
     if (/^\/servers\/[^/]+$/.test(base)) return adapt.adaptServer(json);
     if (/^\/hosts\/[^/]+$/.test(base)) return adapt.adaptHost(json);
+    if (/^\/integrations\/[^/]+$/.test(base)) return adapt.adaptIntegration(json);
     return json;
   }
   const liveGet = (path) => liveFetch("GET", path).then((j) => adaptResponse(path, j));
