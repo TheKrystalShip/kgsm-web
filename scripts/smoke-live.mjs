@@ -100,7 +100,7 @@ try {
   assert(servers.every((s) => s.players === null), "servers: players → null (honest, not 0)");
   assert(servers.every((s) => ["online", "offline", "unknown"].includes(s.status)), "servers: status vocab remapped");
   assert(servers.every((s) => (s.metrics == null ? s.cpu === null && s.ram === null : true)), "servers: cpu/ram → null when no metrics (not 0)");
-  assert(servers.every((s) => Array.isArray(s.log)), "servers: log → [] (console gap)");
+  assert(servers.every((s) => Array.isArray(s.log)), "servers: log → [] (console is a separate endpoint, not on the server DTO)");
 
   const rawHosts = await (await fetch(API + "/api/v1/hosts")).json();
   const hosts = adapt.adaptHosts(rawHosts);
@@ -123,13 +123,19 @@ try {
     assert(Array.isArray(opHost.network.interfaces) && opHost.network.interfaces.length > 0
            && opHost.network.interfaces.every((i) => typeof i.rx_kbps === "number"),
       "host net: interface throughput mapped (bytes/s → kbps)");
-    // Honesty: the fields the monitor does NOT source stay null/"—", even sitting beside real data.
-    assert(opHost.cpu.temp_c === null && opHost.cpu.model === "—" && opHost.cpu.threads === null,
-      "host cpu: temp/model/threads honest-unknown (no sensor/cpuinfo source, not a fabricated 0)");
-    assert(opHost.ram.cached_gb === null && opHost.ram.buffers_gb === null, "host mem: cached/buffers honest-null (not measured)");
-    assert(opHost.disks.every((d) => d.smart === null)
-           && opHost.network.interfaces.every((i) => i.ip === null && i.mac === null && i.errors === null),
-      "host: SMART / iface ip·mac·errors honest-null (no fabricated health claim or address)");
+    // M-diag depth (Monitor.Contracts 1.1.0) is now SOURCED — the adapter stopped discarding cpu identity,
+    // sensors, mem cached/buffers, disk device, iface mac. Assert they're real…
+    assert(typeof opHost.cpu.model === "string" && opHost.cpu.model !== "—",
+      "host cpu: model sourced (M-diag depth — not the '—' placeholder)");
+    assert(Array.isArray(opHost.sensors) && opHost.sensors.length > 0 && opHost.sensors.every((s) => typeof s.value_c === "number"),
+      "host sensors: hwmon temps sourced (real °C, not a hidden temp KPI)");
+    assert(opHost.ram.cached_gb != null && opHost.ram.buffers_gb != null, "host mem: cached/buffers sourced (M-diag depth)");
+    assert(opHost.disks.every((d) => d.device && d.device !== "—"), "host disks: backing-device model sourced");
+    assert(opHost.network.interfaces.every((i) => i.mac != null), "host net: interface MAC sourced");
+    // …while the fields that STILL have no honest source stay null/"—" beside the real data.
+    assert(opHost.cpu.temp_c === null, "host cpu: temp_c stays null (temps live in sensors, never a fabricated cpu field)");
+    assert(opHost.disks.every((d) => d.smart === null) && opHost.network.interfaces.every((i) => i.ip === null),
+      "host: SMART health / iface IP honest-null (no source → no fabricated claim or address)");
   } else {
     // Metrics capability down → meters must be empty (no fabricated CPU/RAM bars).
     assert(diag.hostCapacityMeters(hosts[0]).length === 0, "hostCapacityMeters([] when metrics down — no fabricated meters)");
@@ -414,8 +420,19 @@ try {
   assert(merged.network.open_ports.length === 1 && merged.network.open_ports[0].port === 25565,
     "host.metrics merge: firewall open_ports PRESERVED (tick carries interfaces only — clobber-safe)");
   assert(merged.sensors.length === 1 && merged.processes.length === 1 && merged.capabilities.metrics.status === "operational",
-    "host.metrics merge: sensors / processes / capability status NOT clobbered");
+    "host.metrics merge: a sensor-less tick doesn't wipe seeded sensors / processes / capability status");
   assert(merged.capabilities.metrics.last_sample_at != null, "host.metrics merge: per-tick freshness stamped (receipt time)");
+  // sensors ARE dynamic depth now — a tick that CARRIES them updates in place (honest live temps).
+  st.hostsStore.mergeMetrics(hmId, adapt.adaptHostMetrics({ ...synthSnap(73), sensors: [{ chip: "k10temp", label: "Tctl", valueC: 55 }] }));
+  const mergedS = st.hostsStore.find(hmId);
+  assert(mergedS.sensors.length === 1 && mergedS.sensors[0].value_c === 55,
+    "host.metrics merge: a tick carrying sensors updates them (dynamic depth)");
+  // STATIC cpu identity (model/threads — Host-view-only) set by REST must survive a tick that omits it.
+  st.hostsStore.patch(hmId, { cpu: { ...(mergedS.cpu || {}), model: "Test CPU", threads: 16 } });
+  st.hostsStore.mergeMetrics(hmId, adapt.adaptHostMetrics(synthSnap(80)));
+  const mergedC = st.hostsStore.find(hmId);
+  assert(mergedC.cpu.model === "Test CPU" && mergedC.cpu.threads === 16 && mergedC.cpu.usage_pct === 80,
+    "host.metrics merge: static cpu identity (model/threads) PRESERVED while dynamic usage updates");
 
   // (g2) EFFECT SUBSCRIPTION + live re-render — nav into the deep-dive, clear the stamp,
   // then push a tick through the dispatch seam. It merges ONLY if the deep-dive's effect
@@ -438,6 +455,25 @@ try {
   await sleep(150);
   assert((st.hostsStore.find(hmId).capabilities.metrics || {}).last_sample_at == null,
     "host.metrics: leaving the deep-dive clears the freshness stamp (disposer ran)");
+
+  // (h) live console (#8) — REST tail hydrate + per-server WS follow. Assert the
+  // scrollback shape, then mount a server's overview and prove a live console.line
+  // followed onto the rendered panel (the full subscribe → append → render path).
+  const cSv = st.serversStore.getState().list[0];
+  if (cSv) {
+    const tailRes = await api.host(cSv.hostId).get("/servers/" + cSv.id + "/console?tail=5");
+    assert(tailRes && Array.isArray(tailRes.lines), "console REST: GET ?tail=N → { lines:[...] } (scrollback shape)");
+    await nav("#/servers/" + cSv.id);
+    await sleep(220);   // REST tail hydrate
+    assert(!w.document.getElementById("root").innerHTML.includes("Loading console…"),
+      "console: hydrated past the loading state (REST tail landed)");
+    const SENT = "SMOKE_CONSOLE_FOLLOW_LINE";
+    api.__dispatch({ topic: "servers/" + cSv.id + "/console", type: "console.line", data: { id: cSv.id, seq: 999999, line: SENT } });
+    await sleep(140);
+    assert(w.document.getElementById("root").innerHTML.includes(SENT),
+      "console: a live console.line followed onto the panel (subscribe → append → render)");
+    await nav("#/fleet");
+  }
 
   // ---- Phase 5: command + install write paths (slice 6) -------------------
   // The two mutation paths into the engine, both through the host-scoped client

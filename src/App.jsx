@@ -13,7 +13,7 @@ import { ServerNotice } from "./components/ServerNotice.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { StatTiles } from "./components/StatTiles.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
-import { LIVE } from "./lib/config.js";
+import { LIVE, OFFLINE } from "./lib/config.js";
 import { assistantHosts, assistantHostsAll, capUsable } from "./lib/capabilities.js";
 import { KRYSTAL_DATA, KRYSTAL_LABELS } from "./lib/data.js";
 import { can, canOn, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
@@ -213,7 +213,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         </>
       )}
       {safeTab === "files"       && <FileBrowser />}
-      {safeTab === "backups"     && <BackupsList />}
+      {safeTab === "backups"     && <BackupsList server={server} />}
       {safeTab === "settings"    && <ServerSettings server={server} />}
     </>
   );
@@ -817,6 +817,14 @@ function App() {
   const useAl = useAlerts || (() => null);
   useAl();
 
+  // OFFLINE: no kgsm-api connected and not the fixtures demo → the connect screen
+  // is the entry surface. There's no global API to sign into before you pick one,
+  // so this comes BEFORE the login gate. OFFLINE is a module-load constant (a
+  // successful connect writes the registry + reloads), so this early return is
+  // stable across the mount — safe alongside the other post-hooks gates below.
+  if (OFFLINE) {
+    return <AddHostPage firstRun />;
+  }
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
   }

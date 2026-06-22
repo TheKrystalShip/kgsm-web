@@ -1,6 +1,6 @@
 import React from "react";
 import { api } from "./apiClient.js";
-import { LIVE } from "./config.js";
+import { LIVE, MOCK } from "./config.js";
 import { createStore } from "./store.js";
 
 // alertsApi.js — the alerts domain, on the shared store layer.
@@ -113,8 +113,10 @@ import { createStore } from "./store.js";
   // fabricated alerts). The real GET /alerts + `alerts` stream is a later slice
   // (WIRING.md §8); until then a live panel honestly shows no alerts. Also skip
   // persistence so we don't clobber a saved demo feed with live emptiness.
-  const store = createStore({ list: LIVE ? [] : hydrate() });
-  if (!LIVE) store.subscribe(() => save(store.getState().list));
+  // Fixtures only in the MOCK demo. LIVE starts empty (real /alerts hydrates it);
+  // OFFLINE starts empty too (no fabricated alerts before a host is connected).
+  const store = createStore({ list: MOCK ? hydrate() : [] });
+  if (MOCK) store.subscribe(() => save(store.getState().list));
   const alertsStore = store;
 
   // Live hydrate/backfill (architecture.html §3·j). Pull the current firing

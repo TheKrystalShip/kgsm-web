@@ -1,5 +1,5 @@
 import { api } from "./apiClient.js";
-import { LIVE } from "./config.js";
+import { LIVE, MOCK } from "./config.js";
 import { KRYSTAL_DATA } from "./data.js";
 import { createStore, useStore } from "./store.js";
 
@@ -26,7 +26,10 @@ const _slow = (() => { try { return !!(api && api.__slow && api.__slow()); } cat
 // always fetch real data on boot. Default (mock, fast) keeps the synchronous
 // fixture seed for an instant, flash-free first paint.
 const _cold = _slow || LIVE;
-const _seed = (arr) => (_cold ? [] : arr);
+// Fixtures seed ONLY in the MOCK demo. A cold (LIVE/slow) boot starts empty and
+// fetches; an OFFLINE boot (no connection, no MOCK) starts empty and fetches
+// nothing — the app shows the connect screen before any data surface renders.
+const _seed = (arr) => ((!_cold && MOCK) ? arr : []);
 
 const serversStore = createStore({
   // Mock hydration: synchronous from the fixture so there's no first-paint
@@ -190,9 +193,13 @@ hostsStore.mergeMetrics = (id, t) => {
       if (h.id !== id) return h;
       const cap = h.capabilities || {};
       const next = { ...h };
-      if (t.cpu) next.cpu = t.cpu;
+      // MERGE cpu (don't replace): the tick carries only the dynamic fields
+      // (usage/per-core/cores/load); the static identity (model/threads/freq) set
+      // by the REST hydrate must survive — a wholesale swap would wipe it.
+      if (t.cpu) next.cpu = { ...(h.cpu || {}), ...t.cpu };
       if (t.ram) next.ram = t.ram;
       if (t.disks) next.disks = t.disks;
+      if (t.sensors) next.sensors = t.sensors;   // hwmon temps are dynamic → update from the tick
       if (t.boot_time != null) next.boot_time = t.boot_time;
       if (t.hostname) next.hostname = t.hostname;
       // Deep-merge: the tick carries interfaces but NOT open_ports (firewall block) → keep open_ports.
@@ -633,4 +640,4 @@ try {
   }
 } catch (e) {}
 
-export { __setJobTiming, auditEventHost, auditInScope, auditStore, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };

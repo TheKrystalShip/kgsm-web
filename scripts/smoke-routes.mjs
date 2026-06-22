@@ -25,7 +25,9 @@ class RO { observe() {} unobserve() {} disconnect() {} }
 globalThis.ResizeObserver = w.ResizeObserver = RO;
 globalThis.IntersectionObserver = w.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } };
 
-// Seed a logged-in admin so the shell (not LoginPage) renders.
+// Force fixtures (MOCK) mode + seed a logged-in admin so the shell (not the
+// connect screen / LoginPage) renders. Both must be set before config.js loads.
+w.localStorage.setItem("krystal:mock", "1");
 w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "haru", provider: "discord", stay: true, role: "admin", id: "u_haru" }));
 
 const ROUTES = [

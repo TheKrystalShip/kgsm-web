@@ -1,5 +1,7 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
+import { LIVE, MOCK } from "../lib/config.js";
+import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
 import { can } from "../lib/persona.js";
 import { TIER_LABEL, sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
@@ -79,27 +81,50 @@ function skeletonHost(name, hostname) {
 
 function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   const [url, setUrl] = React.useState("");
-  // phase: idle | opening | verifying | denied | error
+  // phase: idle | probing | needs_auth | not_kgsm | unreachable | (mock: opening | verifying | denied)
   const [phase, setPhase] = React.useState("idle");
   const normalized = url.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-  const valid = /^[a-z0-9.-]+\.[a-z]{2,}(:\d+)?$/i.test(normalized) || /^localhost(:\d+)?$/i.test(normalized);
+  const valid =
+    /^[a-z0-9.-]+\.[a-z]{2,}(:\d+)?$/i.test(normalized) ||
+    /^localhost(:\d+)?$/i.test(normalized) ||
+    /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(normalized);
+  const busy = phase === "probing" || phase === "opening" || phase === "verifying";
 
-  // The silent bounce. Popup is gesture-bound (this runs from the button click).
-  // We fake the Discord round-trip the popup would do; a host URL containing
-  // "community"/"noaccess" comes back 403 so the denied path is demoable here too.
-  const connect = () => {
-    if (!valid || phase === "opening" || phase === "verifying") return;
+  // Already connected (LIVE) outside the demo → this is a SECOND host. Multi-host
+  // fan-out (Slice B) isn't wired yet, so a 2nd connection would silently show only
+  // the first host's data — be honest rather than pretend it worked.
+  const multiPending = LIVE && !MOCK;
+
+  // Real connect: probe the public handshake, resolve identity, register + reload.
+  // Auth-disabled hosts complete here; auth-enabled ones report needs_auth (the
+  // Discord token-handoff is a backend gap, WIRING §6) instead of a dead-end bounce.
+  const connectReal = async () => {
+    if (!valid || busy) return;
+    setPhase("probing");
+    const res = await connectHost(url);
+    if (res.status === "ok") {
+      addConnection(registryEntry(res.origin, res.name));
+      setAppUser(res.user);                 // app-shell identity from /me
+      window.location.reload();             // re-eval config → LIVE; boot against the connected host
+      return;
+    }
+    setPhase(res.status);                    // needs_auth | not_kgsm | unreachable
+  };
+
+  // MOCK demo: the original faked Discord round-trip (no real backend). A URL
+  // containing "community"/"noaccess" demos the denied path.
+  const connectMock = () => {
+    if (!valid || busy) return;
     const willDeny = /community|noaccess|no-access/i.test(normalized);
     setPhase("opening");
     setTimeout(() => {
-      setPhase("verifying");                       // popup landed on /auth/discord/callback
+      setPhase("verifying");
       setTimeout(() => {
         if (willDeny) { setPhase("denied"); return; }
         const name = normalized.split(".")[0].replace(/^./, c => c.toUpperCase());
         const host = skeletonHost(name, normalized);
         host.url = normalized;
         hostsStore.add(host);
-        // Land the host-scoped session exactly as a real callback would.
         sessionStore.bootstrap(host.id, { interactive: true }).then(() => {
           sessionStore.register(host);
           onAdded && onAdded(host.id);
@@ -108,7 +133,15 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     }, 700);
   };
 
-  const busy = phase === "opening" || phase === "verifying";
+  const connect = MOCK ? connectMock : connectReal;
+
+  // Honest copy per failure phase (real connect).
+  const FAIL = {
+    needs_auth: { title: "This host needs a Discord sign-in", body: "It’s a kgsm-api, but it has authentication enabled — and connecting through Discord from here isn’t wired up yet. Use a host with auth disabled for now, or connect once the sign-in handoff lands." },
+    not_kgsm: { title: "That doesn’t look like a kgsm-api", body: "We reached the address but it didn’t answer with a kgsm-api handshake. Double-check the host and port." },
+    unreachable: { title: "Couldn’t reach that host", body: "No kgsm-api answered at that address. Check it’s running and reachable from here (host, port, https vs http)." },
+  };
+  const fail = FAIL[phase];
 
   return (
     <div className="login-shell">
@@ -117,25 +150,32 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
           <img src="/assets/tks-mark.png" alt="" />
           <div className="login-shell__brand-name">The Krystal Ship</div>
           <div className="login-shell__tagline">
-            {firstRun ? "One more step — connect a host to manage." : "Connect another host."}
+            {firstRun ? "First, connect to a kgsm-api host." : "Connect another host."}
           </div>
         </div>
 
         <div className="login-card add-host-card">
-          <div className="login-card__heading">{firstRun ? "Add your first host" : "Add a host"}</div>
+          <div className="login-card__heading">{firstRun ? "Connect your first host" : "Connect a host"}</div>
           <div className="login-card__sub">
-            A host is a machine running the Krystal agent. We’ll connect using the
-            Discord account you’re already signed in with — no second login.
+            {MOCK
+              ? "A host is a machine running the Krystal agent. We’ll connect using the Discord account you’re already signed in with."
+              : "A host runs the kgsm-api control panel. Enter its address — we’ll verify it’s a kgsm-api and connect."}
           </div>
 
+          {multiPending ? (
+            <div className="add-host__note" style={{ marginTop: 14 }}>
+              <Icon name="info" size={14} />
+              <span>You’re connected to a host already. Viewing more than one host at once
+              (multi-host fan-out) isn’t wired up yet — it’s the next slice of work.</span>
+            </div>
+          ) : (<>
           <label className="add-host__field">
             <span className="add-host__label">Host address</span>
             <div className={"add-host__input" + (url && !valid ? " add-host__input--bad" : "")}>
-              <span className="add-host__scheme">https://</span>
               <input
                 value={url}
-                onChange={e => setUrl(e.target.value)}
-                placeholder="krystal-1.tks.example"
+                onChange={e => { setUrl(e.target.value); if (phase !== "idle" && phase !== "probing") setPhase("idle"); }}
+                placeholder={MOCK ? "krystal-1.tks.example" : "https://krystal-1.example  ·  http://127.0.0.1:8097"}
                 spellCheck="false" autoCapitalize="off" autoCorrect="off"
                 disabled={busy}
                 onKeyDown={e => { if (e.key === "Enter") connect(); }} />
@@ -151,35 +191,39 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
                 don’t have a role on this host. Ask its admin to grant you one.
               </div>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="oauth-btn oauth-btn--discord add-host__connect"
-              disabled={!valid || busy}
-              onClick={connect}>
-              {phase === "opening"   && (<><span className="oauth-spinner" /> Opening Discord…</>)}
-              {phase === "verifying" && (<><span className="oauth-spinner" /> Verifying with the host…</>)}
-              {!busy && (<><OAuthIcon provider="discord" /> Connect with Discord</>)}
-            </button>
-          )}
+          ) : fail ? (
+            <div className="add-host__denied">
+              <Icon name="alert-triangle" size={15} />
+              <div><b>{fail.title}.</b> {fail.body}</div>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="oauth-btn oauth-btn--discord add-host__connect"
+            disabled={!valid || busy}
+            onClick={connect}>
+            {phase === "probing"   && (<><span className="oauth-spinner" /> Verifying the host…</>)}
+            {phase === "opening"   && (<><span className="oauth-spinner" /> Opening Discord…</>)}
+            {phase === "verifying" && (<><span className="oauth-spinner" /> Verifying with the host…</>)}
+            {!busy && (MOCK
+              ? (<><OAuthIcon provider="discord" /> Connect with Discord</>)
+              : (<><Icon name="plug" size={15} /> Connect</>))}
+          </button>
 
           <div className="add-host__note">
             <Icon name="shield-check" size={13} />
-            <span>The host verifies your Discord identity once, then issues its own
-            session. Your roles are checked on the host — access can differ per host.</span>
+            <span>{MOCK
+              ? "The host verifies your Discord identity once, then issues its own session. Roles are checked per host."
+              : "Each host issues its own session and checks your role independently — access can differ per host."}</span>
           </div>
-
-          {phase === "denied" && (
-            <button className="add-host__retry" onClick={() => { setPhase("idle"); setUrl(""); }}>
-              <Icon name="arrow-left" size={13} /> Try a different host
-            </button>
-          )}
+          </>)}
         </div>
 
         <div className="add-host__foot">
           {onCancel
             ? <button className="add-host__foot-link" onClick={onCancel}><Icon name="arrow-left" size={13} /> Back</button>
-            : <span className="add-host__foot-hint">You can add more hosts later from the Fleet page.</span>}
+            : <span className="add-host__foot-hint">{firstRun ? "Your hosts are remembered on this device." : "You can add more hosts later."}</span>}
           {onLogout && <button className="add-host__foot-link" onClick={onLogout}><Icon name="log-out" size={13} /> Sign out</button>}
         </div>
       </div>

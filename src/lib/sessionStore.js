@@ -1,6 +1,6 @@
 import { api } from "./apiClient.js";
 import { takePendingTokens } from "./authRedirect.js";
-import { LIVE } from "./config.js";
+import { LIVE, REGISTRY_KEY } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
 
@@ -28,7 +28,8 @@ import { hostsStore, selectedHostStore } from "./stores.js";
 //                 TERMINAL. Never auto-re-auth (that would loop forever).
 
   const TOKEN_PREFIX = "krystal:hostsession:";    // sessionStorage (token + meta)
-  const REGISTRY_KEY = "krystal:hosts:registry";   // localStorage (URLs only)
+  // REGISTRY_KEY (localStorage, URLs only) is owned by config.js — the base layer
+  // reads it to derive the connection set; we write it on connect/forget.
 
   // TTLs — the real shape from §6·a. `?authdemo=fast` compresses them so the
   // proactive refresh + the 8h cap re-bounce are watchable in seconds.

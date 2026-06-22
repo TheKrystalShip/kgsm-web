@@ -1,6 +1,6 @@
 import { KRYSTAL_DATA } from "./data.js";
 import { createStore } from "./store.js";
-import { LIVE, API_V1, WS_URL } from "./config.js";
+import { LIVE, MOCK, API_V1, WS_URL, apiV1Of } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createLiveStream } from "./liveStream.js";
 
@@ -104,7 +104,7 @@ import("./stores.js").then((m) => {
   // LIVE the real WebSocket (createLiveStream, below) owns realtimeStore for the
   // single live host — the fixture host ids don't match the backend, so seeding
   // them here would project a phantom fleet. (Multi-host live fan-out = later slice.)
-  if (!LIVE) hostKnown().forEach(chan);
+  if (MOCK) hostKnown().forEach(chan);
 
   let pollTimer = null;        // ONE shared poll loop while any host is degraded
   const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
@@ -266,6 +266,15 @@ import("./stores.js").then((m) => {
     e.userMessage = "Can't reach Krystal.";
     return e;
   }
+  // OFFLINE: no connection configured and not the fixtures demo. The app shows the
+  // connect screen before any data surface, so this is a defensive backstop — a
+  // stray call returns an honest "not connected", never silently mock data.
+  function offlineError() {
+    const e = new Error("No kgsm-api host is connected.");
+    e.code = "EOFFLINE";
+    e.userMessage = "Connect a host to get started.";
+    return e;
+  }
   // Every REST call routes through here: simulate the round-trip, then either
   // fail (health down) or succeed — updating the connection signal as a side
   // effect so the banner / cold screen react to real traffic.
@@ -293,26 +302,31 @@ import("./stores.js").then((m) => {
     e.userMessage = env.message || "The server returned an error.";
     return e;
   }
-  // The selected host's bearer, when we hold a live one. Null under
-  // KGSM_API_AUTH_DISABLED (no token is minted) → the call goes out
-  // unauthenticated, which that mode accepts. Reuses the same late-bound
+  // A host's bearer, when we hold a live one. Null under KGSM_API_AUTH_DISABLED
+  // (no token is minted) → the call goes out unauthenticated, which that mode
+  // accepts. Pass the explicit host id for a host-scoped call (api.host(id));
+  // an unscoped call falls back to the selected host. Reuses the same late-bound
   // sessionStore/storesNs refs as the host-auth gate below (no init cycle).
-  function liveBearer() {
+  function liveBearer(hostId) {
     try {
-      const id = storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id;
+      const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
       if (sessionStore && sessionStore.tokenOf && id && id !== "all") return sessionStore.tokenOf(id);
     } catch (e) {}
     return null;
   }
-  async function liveFetch(method, path, body) {
+  // hostId routes the call to that host's base URL + bearer (multi-host). With a
+  // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
+  // is byte-identical to the old single global-API_V1 path.
+  async function liveFetch(method, path, body, hostId) {
     const headers = body != null
       ? { "Content-Type": "application/json", Accept: "application/json" }
       : { Accept: "application/json" };
-    const tok = liveBearer();
+    const tok = liveBearer(hostId);
     if (tok) headers.Authorization = "Bearer " + tok;
+    const base = apiV1Of(hostId) || API_V1;
     let res;
     try {
-      res = await fetch(API_V1 + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
+      res = await fetch(base + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
     } catch (e) { markFailure(); throw netError(); }
     markSuccess();                   // the host answered → reachable
     if (res.status === 204) return null;
@@ -337,9 +351,9 @@ import("./stores.js").then((m) => {
     if (/^\/integrations\/[^/]+$/.test(base)) return adapt.adaptIntegration(json);
     return json;
   }
-  const liveGet = (path) => liveFetch("GET", path).then((j) => adaptResponse(path, j));
-  const livePost = (path, body) => liveFetch("POST", path, body);
-  const livePatch = (path, body) => liveFetch("PATCH", path, body);
+  const liveGet = (path, hostId) => liveFetch("GET", path, null, hostId).then((j) => adaptResponse(path, j));
+  const livePost = (path, body, hostId) => liveFetch("POST", path, body, hostId);
+  const livePatch = (path, body, hostId) => liveFetch("PATCH", path, body, hostId);
 
   // ---- live assistant turn (SSE) ------------------------------------------
   // The assistant turn is neither a request/response call nor a WS topic: it's a
@@ -369,13 +383,14 @@ import("./stores.js").then((m) => {
   // 404/503/502); an abort rethrows so the caller can render "stopped"; any other
   // mid-stream transport drop just ends the pump (the accumulated text stays — we
   // never invent a `done` that didn't arrive).
-  async function liveTurn(bearer, body, opts) {
+  async function liveTurn(bearer, body, opts, hostId) {
     const { onEvent, signal } = opts || {};
     const headers = { "Content-Type": "application/json", Accept: "text/event-stream" };
     if (bearer) headers.Authorization = "Bearer " + bearer;
+    const base = apiV1Of(hostId) || API_V1;
     let res;
     try {
-      res = await fetch(API_V1 + "/assistant/turn", { method: "POST", headers, body: JSON.stringify(body), signal });
+      res = await fetch(base + "/assistant/turn", { method: "POST", headers, body: JSON.stringify(body), signal });
     } catch (e) {
       if (e && e.name === "AbortError") throw e;
       markFailure(); throw netError();
@@ -431,23 +446,26 @@ import("./stores.js").then((m) => {
     }
     throw new Error("mock api: unhandled GET " + path);
   }
-  async function get(path) {
-    if (LIVE) return liveGet(path);
-    return guard(() => resolveGet(path));
+  async function get(path, hostId) {
+    if (LIVE) return liveGet(path, hostId);
+    if (MOCK) return guard(() => resolveGet(path));
+    return Promise.reject(offlineError());
   }
 
   // PATCH/POST are acknowledgements — the store applies the result. A real
   // backend returns the authoritative resource here.
-  async function patch(path, body) {
-    if (LIVE) return livePatch(path, body);
+  async function patch(path, body, hostId) {
+    if (LIVE) return livePatch(path, body, hostId);
+    if (!MOCK) return Promise.reject(offlineError());
     return guard(() => {
       const alert = path.match(/^\/alerts\/([^/]+)$/);
       if (alert) return { id: alert[1], ...body };
       return { ok: true, path, body };
     });
   }
-  async function post(path, body) {
-    if (LIVE) return livePost(path, body);
+  async function post(path, body, hostId) {
+    if (LIVE) return livePost(path, body, hostId);
+    if (!MOCK) return Promise.reject(offlineError());
     // Health-gate first so a down backend rejects commands too.
     await later(null);
     if (health === "down") { markFailure(); throw netError(); }
@@ -669,15 +687,17 @@ import("./stores.js").then((m) => {
       });
     }));
     return {
-      get: (p) => withRetry(() => get(p)),
-      post: (p, b) => withRetry(() => post(p, b)),
-      patch: (p, b) => withRetry(() => patch(p, b)),
+      // Every call carries THIS host's id → liveFetch routes to its base URL +
+      // bearer (multi-host). Sole-connection fallback keeps N=1 identical.
+      get: (p) => withRetry(() => get(p, id)),
+      post: (p, b) => withRetry(() => post(p, b, id)),
+      patch: (p, b) => withRetry(() => patch(p, b, id)),
       // Assistant turn (live-only SSE). Pre-call gate only (ensure) — a turn isn't
       // idempotent, so withRetry's replay-on-401 would be wrong; an expired token
       // mid-stream just ends the turn and the per-host expired state surfaces on
-      // the next call. The bearer is THIS host's token (null under auth-disabled).
+      // the next call. The bearer + base URL are THIS host's (null token under auth-disabled).
       turn: (b, o) => LIVE
-        ? ensure().then(() => liveTurn(sessionStore && sessionStore.tokenOf ? sessionStore.tokenOf(id) : null, b, o))
+        ? ensure().then(() => liveTurn(sessionStore && sessionStore.tokenOf ? sessionStore.tokenOf(id) : null, b, o, id))
         : Promise.reject(new Error("assistant turn is live-only")),
     };
   }

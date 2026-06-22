@@ -21,6 +21,8 @@ w.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.ResizeObserver = w.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 globalThis.IntersectionObserver = w.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } };
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+// Force fixtures (MOCK) mode + a logged-in admin before config.js loads.
+w.localStorage.setItem("krystal:mock", "1");
 w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "haru", provider: "discord", stay: true, role: "admin", id: "u_haru" }));
 
 const errors = [];

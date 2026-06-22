@@ -15,6 +15,11 @@ w.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.ResizeObserver = w.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 globalThis.IntersectionObserver = w.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } };
 
+// Force the fixtures (MOCK) mode BEFORE the app's config.js evaluates at import —
+// otherwise an empty localStorage reads as OFFLINE and every case renders the
+// connect screen. config.MOCK is captured once here; the per-case clear() below
+// can't change it, so all auth-gate cases run against fixtures as intended.
+w.localStorage.setItem("krystal:mock", "1");
 const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
 const { App } = await vite.ssrLoadModule("/src/App.jsx");
 

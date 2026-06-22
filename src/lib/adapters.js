@@ -41,7 +41,8 @@ export function adaptServer(be) {
     uptime: null,                  // not exposed by kgsm
     ip: null,                      // not exposed by kgsm
     last_backup: null,
-    log: [],                       // console history is a true backend gap (no topic yet)
+    log: [],                       // console is a SEPARATE endpoint (GET /servers/{id}/console + WS follow),
+                                   // hydrated by ConsolePanel — never carried on the server DTO.
     // update_available intentionally omitted (kgsm reports installed version,
     // not an update check) → no "update waiting" badge.
     // per-instance metrics (null when the monitor is absent/down):
@@ -90,9 +91,13 @@ const toKbps = (bps) => (bps == null ? null : Math.round((bps * 8) / 1000));
 // back null here; the caller decides whether to fall back to a skeleton (adaptHost) or skip it (merge).
 function mapHostTelemetry(be) {
   const hasSample = Array.isArray(be.perCore) && be.perCore.length > 0;
+  // DYNAMIC cpu only (usage / per-core / cores / load). The STATIC identity
+  // (model / threads / max-freq) is a per-host constant that rides the Host REST
+  // view, NOT the metrics tick — so it lives in adaptHost, and the tick merge
+  // (hostsStore.mergeMetrics) preserves it rather than clobbering with a tick
+  // that never carries it.
   const cpu = (be.cpuPct != null || hasSample)
     ? {
-        model: "—", threads: null, freq_ghz: null, temp_c: null,
         cores: hasSample ? be.perCore.length : 0,
         usage_pct: be.cpuPct != null ? round(be.cpuPct, 0) : null,
         per_core: hasSample ? be.perCore.map((p) => round(p, 0)) : [],
@@ -104,25 +109,34 @@ function mapHostTelemetry(be) {
         total_gb: round(be.mem.total, 1),
         used_gb: round(be.mem.used, 1),
         free_gb: be.mem.available != null ? round(be.mem.available, 1) : round(Math.max(0, be.mem.total - be.mem.used), 1),
-        cached_gb: null, buffers_gb: null,
+        // M-diag depth (Monitor.Contracts 1.1.0) — measured page cache + buffers; honest-null when absent.
+        cached_gb: be.mem.cached != null ? round(be.mem.cached, 1) : null,
+        buffers_gb: be.mem.buffers != null ? round(be.mem.buffers, 1) : null,
         swap_total_gb: be.mem.swapTotal != null ? round(be.mem.swapTotal, 1) : null,
         swap_used_gb: be.mem.swapUsed != null ? round(be.mem.swapUsed, 1) : null,
       }
     : null;
   const disks = Array.isArray(be.disks) && be.disks.length
-    ? be.disks.map((d) => ({ mount: d.mount, total_gb: round(d.total, 1), used_gb: round(d.used, 1), fs: d.fs || "—", device: "—", smart: null }))
+    ? be.disks.map((d) => ({ mount: d.mount, total_gb: round(d.total, 1), used_gb: round(d.used, 1), fs: d.fs || "—", device: d.device || "—", smart: null }))
     : null;
   const interfaces = Array.isArray(be.interfaces)
     ? be.interfaces.map((i) => ({
-        name: i.name, ip: null, mac: null, errors: null,
+        // mac/errors are M-diag depth now sourced; ip is still unsourced (honest "—"). errors uses ?? so a
+        // real 0 stays 0 (a genuine "no link errors"), never conflated with unknown (null).
+        name: i.name, ip: null, mac: i.mac || null, errors: i.errors ?? null,
         rx_kbps: toKbps(i.rxBps), tx_kbps: toKbps(i.txBps), rx_pps: i.rxPps ?? null, tx_pps: i.txPps ?? null,
       }))
+    : null;
+  // hwmon temperatures (M-diag depth). Empty array when no chip exposes one (never an invented row);
+  // null only when there's no snapshot at all (so adaptHost can fall back to the skeleton's []).
+  const sensors = Array.isArray(be.sensors)
+    ? be.sensors.map((s) => ({ chip: s.chip, label: s.label || null, value_c: round(s.valueC, 1) }))
     : null;
   // boot_time derived from the measured uptime (now − uptimeSec); the FE's uptime helpers want a
   // timestamp. null when uptime isn't sourced → the helpers render "—".
   const boot_time = be.uptimeSec != null ? new Date(Date.now() - be.uptimeSec * 1000).toISOString() : null;
   const hostname = be.hostname || null;
-  return { cpu, ram, disks, interfaces, boot_time, hostname };
+  return { cpu, ram, disks, interfaces, sensors, boot_time, hostname };
 }
 
 export function adaptHost(be) {
@@ -136,7 +150,13 @@ export function adaptHost(be) {
   // NOT stamp last_sample_at on a REST hydrate (deliberate): an unrefreshed sample would age every
   // host to "frozen" 30s after boot on surfaces that have no WS feed — the freshness stamp is owned
   // by the host.metrics tick path only (see adaptHostMetrics + hostsStore.mergeMetrics).
-  const cpu = tel.cpu || skel.cpu;
+  // Layer the STATIC cpu identity (model/threads/max-freq — Host-view-only, M-diag depth) over the
+  // dynamic telemetry. skel.cpu supplies the full key set so a render never reads undefined; tel.cpu
+  // the live dynamic fields; staticCpu the real identity when sourced (else the skeleton's "—"/null).
+  const staticCpu = be.cpu
+    ? { model: be.cpu.model || "—", threads: be.cpu.threads ?? null, freq_ghz: be.cpu.maxFreqGhz ?? null }
+    : {};
+  const cpu = tel.cpu ? { ...skel.cpu, ...tel.cpu, ...staticCpu } : skel.cpu;
   const ram = tel.ram || skel.ram;
   const disks = tel.disks || skel.disks;
   const interfaces = tel.interfaces || [];
@@ -159,7 +179,8 @@ export function adaptHost(be) {
     // FE capability model {provisioned,status,since,message,info}.
     capabilities: be.capabilities || {},
     cpu, ram, disks, network,
-    sensors: [], processes: [],   // no host sensor / process-list source → honest-empty (not fabricated rows)
+    sensors: tel.sensors || [],   // hwmon temps now sourced (M-diag depth); [] when none / no snapshot
+    processes: [],                // no host process-list source → honest-empty (not fabricated rows)
     events: [], logs: [],
     _metricsOk: metricsOk,
   };
