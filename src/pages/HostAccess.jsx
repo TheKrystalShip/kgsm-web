@@ -103,7 +103,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     setPhase("probing");
     const res = await connectHost(url);
     if (res.status === "ok") {
-      addConnection(registryEntry(res.origin, res.name));
+      addConnection(registryEntry(res.origin, res.name, res.hostId));
       setAppUser(res.user);                 // app-shell identity from /me
       window.location.reload();             // re-eval config → LIVE; boot against the connected host
       return;

@@ -13,7 +13,7 @@ import { ServerNotice } from "./components/ServerNotice.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { StatTiles } from "./components/StatTiles.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
-import { LIVE, OFFLINE } from "./lib/config.js";
+import { LIVE, MOCK, OFFLINE } from "./lib/config.js";
 import { assistantHosts, assistantHostsAll, capUsable } from "./lib/capabilities.js";
 import { KRYSTAL_DATA, KRYSTAL_LABELS } from "./lib/data.js";
 import { can, canOn, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
@@ -114,7 +114,11 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // Files / Backups / Settings / Performance are operator surfaces — hidden for
   // players, not merely disabled. safeTab keeps a stale tab in the URL from
   // rendering an empty body when the tab isn't available to this user.
-  const tabs = canOps ? allTabs : allTabs.filter(t => t.id === "overview");
+  // In LIVE we also hide tabs with no honest backend source yet: Files (no file
+  // API) and Settings (the editable-config redesign is deferred) — better absent
+  // than showing fabricated fixtures. They stay in the MOCK demo.
+  const liveHidden = (t) => LIVE && (t.id === "files" || t.id === "settings");
+  const tabs = (canOps ? allTabs : allTabs.filter(t => t.id === "overview")).filter(t => !liveHidden(t));
   const safeTab = tabs.some(t => t.id === tab) ? tab : "overview";
 
   // ---- Overview layout customization (client-side, per-browser) -----------
@@ -400,7 +404,10 @@ function App() {
   const initialInstall = (() => {
     const g = qp.get("install");
     if (!g) return null;
-    return KRYSTAL_DATA.catalog.find(c => c.id === g) || null;
+    // Resolve from the library STORE (hydrated from /library in LIVE), not the
+    // fixture. If it hasn't loaded yet, a bare { id } stub is enough — the install
+    // modal resolves the full blueprint from libraryList once it lands.
+    return libraryStore.getState().list.find(c => c.id === g) || { id: g };
   })();
 
   // The routing CHOKEPOINT (architecture.html §3·f·1). Route state can only ever
@@ -652,8 +659,8 @@ function App() {
     // does NOT fabricate an audit row (the backend writes it from the kgsm echo).
     // The chat's LIVE path never calls onRunAction, but this guard is belt-and-
     // suspenders: it makes the double-write/wrong-origin/fabricated-row landmark
-    // below unreachable in LIVE no matter who calls it.
-    if (LIVE) return;
+    // below unreachable outside the fixtures demo no matter who calls it.
+    if (!MOCK) return;
     const now = new Date();
     // open_ports doesn't map to a server-lifecycle verb — handle it here:
     // flip the server's closed required ports to open in the host data and

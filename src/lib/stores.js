@@ -1,6 +1,7 @@
 import { api } from "./apiClient.js";
-import { LIVE, MOCK } from "./config.js";
+import { CONNECTIONS, LIVE, MOCK, reconcileConnectionId } from "./config.js";
 import { KRYSTAL_DATA } from "./data.js";
+import * as merge from "./merge.js";
 import { createStore, useStore } from "./store.js";
 
 // stores.js — domain stores (the server-authoritative cache the UI reads from).
@@ -59,20 +60,24 @@ serversStore.find = (id) =>
 // track, and brand-new servers are added. Returns the promise for progress UI.
 serversStore.refresh = () => {
     serversStore.setState(s => ({ ...s, status: "loading", error: null }));
-    return api.get("/servers").then(list => {
+    // Fan out across every connected host and merge by id (each server is owned
+    // by one host, tagged hostId by the backend). MOCK / lone seed → a single get,
+    // so N=1 is identical to before. A partial failure (one host down) shows the
+    // rest; only an all-hosts failure is an error.
+    return api.fanOut("/servers").then(results => {
+      const okr = results.filter(r => r.ok);
+      if (results.length && !okr.length) { const err = results[0].err; serversStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
+      const list = merge.mergeServers(okr.map(r => r.data));
       serversStore.setState(s => {
-        const live = new Map(s.list.map(x => [x.id, x]));
-        const merged = list.map(srv => {
-          const cur = live.get(srv.id);
-          return cur ? { ...srv, status: cur.status, uptime: cur.uptime, job: cur.job } : srv;
+        const cur = new Map(s.list.map(x => [x.id, x]));
+        const next = list.map(srv => {
+          const c = cur.get(srv.id);
+          return c ? { ...srv, status: c.status, uptime: c.uptime, job: c.job } : srv;
         });
-        return { ...s, list: merged, status: "ready", error: null, everLoaded: true };
+        return { ...s, list: next, status: "ready", error: null, everLoaded: true };
       });
       resolveGameNames();   // a refetch re-pulls `game` as the blueprint id → re-resolve
       return list;
-    }, err => {
-      serversStore.setState(s => ({ ...s, status: "error", error: err }));
-      throw err;
     });
   };
 
@@ -154,20 +159,25 @@ hostsStore.remove = (id) =>
 // re-hydrate and any future manual refresh; the fleet grid reads `status`.
 hostsStore.refresh = () => {
   hostsStore.setState(s => ({ ...s, status: "loading", error: null }));
-  return api.get("/hosts").then(list => {
+  // Each connection answers for its own host (an array of one). Reconcile the
+  // connection's real id from the host it reports — so per-host routing + WS keys
+  // are exact even for a lone seed connected id-less — then merge all hosts.
+  return api.fanOut("/hosts").then(results => {
+    const okr = results.filter(r => r.ok);
+    if (results.length && !okr.length) { const err = results[0].err; hostsStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
+    okr.forEach(r => { const h = (r.data || [])[0]; if (r.conn && h && h.id) reconcileConnectionId(r.conn.url, h.id); });
+    const list = merge.mergeHosts(okr.map(r => r.data));
     hostsStore.setState(s => {
+      // LIVE: the connected hosts are authoritative → replace. MOCK: keep
+      // client-added hosts the fixture fetch doesn't know (the demo add-host flow).
+      if (LIVE) return { ...s, list, status: "ready", error: null, everLoaded: true };
       const fetched = new Map(list.map(h => [h.id, h]));
       const known = new Set(s.list.map(h => h.id));
-      // Update existing hosts from the fetch; keep client-added hosts the
-      // fixture doesn't know; append hosts the fetch introduces.
       const merged = s.list.map(h => fetched.has(h.id) ? { ...h, ...fetched.get(h.id) } : h);
       list.forEach(h => { if (!known.has(h.id)) merged.push(h); });
       return { ...s, list: merged, status: "ready", error: null, everLoaded: true };
     });
     return list;
-  }, err => {
-    hostsStore.setState(s => ({ ...s, status: "error", error: err }));
-    throw err;
   });
 };
 
@@ -479,6 +489,22 @@ auditStore.refresh = (params) => {
   const gen = ++_auditGen;
   const filterParams = params || {};
   auditStore.setState(s => ({ ...s, status: "loading", error: null, filterParams }));
+  // Multi-host: N independent logs don't share a keyset cursor space, so v1 pulls a
+  // recent window from each host and merge-sorts newest-first (mergeAuditRows). A
+  // unified cross-host "load older" (k-way cursor) is a documented follow-up — for
+  // now nextCursor is null (no global load-older); per-host drill-in covers depth.
+  if (LIVE && CONNECTIONS.length > 1) {
+    const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
+    for (const k in filterParams) { const v = filterParams[k]; if (v != null && v !== "") qs.set(k, v); }
+    return api.fanOut("/audit?" + qs.toString()).then(results => {
+      if (gen !== _auditGen) return [];
+      const okr = results.filter(r => r.ok);
+      if (results.length && !okr.length) { const err = results[0].err; auditStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
+      const rows = merge.mergeAuditRows(okr.flatMap(r => ((r.data && r.data.rows) || []).map(_withHost)));
+      auditStore.setState(s => ({ ...s, list: rows, nextCursor: null, filterParams, status: "ready", error: null, everLoaded: true, loadingMore: false }));
+      return rows;
+    });
+  }
   return _fetchAuditPage(null, filterParams).then(async (page) => {
     let rows = page.rows;
     let next = page.nextCursor;
@@ -542,12 +568,15 @@ const libraryStore = createStore({
 // already hits /library. Returns the promise so callers can show progress.
 libraryStore.refresh = () => {
   libraryStore.setState(s => ({ ...s, status: "loading", error: null }));
-  return api.get("/library").then(list => {
+  // Fan out the catalog across hosts; the SAME game on multiple hosts de-dups to
+  // one entry whose `hosts` UNIONs the offering (mergeLibrary). MOCK / lone seed
+  // (no source hostId) keeps the fixture's own offering untouched.
+  return api.fanOut("/library").then(results => {
+    const okr = results.filter(r => r.ok);
+    if (results.length && !okr.length) { const err = results[0].err; libraryStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
+    const list = merge.mergeLibrary(okr.map(r => ({ hostId: r.conn && r.conn.id, list: r.data })));
     libraryStore.setState(s => ({ ...s, list, status: "ready", error: null, everLoaded: true }));
     return list;
-  }, err => {
-    libraryStore.setState(s => ({ ...s, status: "error", error: err }));
-    throw err;
   });
 };
 // A game's host offering can change at runtime — e.g. a host syncs its catalog

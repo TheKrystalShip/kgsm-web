@@ -3,6 +3,7 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { serverMetricsFreshness } from "../components/HostCardBody.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { TimeSeriesChart, detectAnomalies } from "../components/TimeSeriesChart.jsx";
+import { LIVE } from "../lib/config.js";
 import { KRYSTAL_DATA } from "../lib/data.js";
 
 // PerformanceTab — time-series metrics for one server, plus z-score
@@ -36,6 +37,19 @@ function genCompare(seed, length, scale = 0.9) {
 }
 
 function PerformanceTab({ server, onAsk }) {
+  // LIVE: there's no per-server time-series source yet (the monitor's per-server
+  // capability isn't reporting on this host, and there's no historical-series
+  // endpoint). Show an honest empty-state rather than fixture charts. (Early —
+  // before the hooks below; LIVE is a module-load constant so order stays stable.)
+  if (LIVE) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
+        <Icon name="line-chart" size={26} strokeWidth={1.6} />
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Performance metrics not available yet</div>
+        <div style={{ marginTop: 4, fontSize: 12.5 }}>Per-server metrics history has no source on this host yet — the deep-dive will light up when the monitor reports per-server.</div>
+      </div>
+    );
+  }
   const [range, setRange] = React.useState("24h");
   const [compareTo, setCompareTo] = React.useState("off");
   const [live, setLive] = React.useState(false);

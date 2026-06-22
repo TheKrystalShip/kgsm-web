@@ -1,6 +1,7 @@
 import React from "react";
 import { CardTable } from "../components/CardTable.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { LIVE } from "../lib/config.js";
 import { KRYSTAL_DATA } from "../lib/data.js";
 
 // PlayersTab — online + banned + allowlist for a single server, with kick/ban.
@@ -77,6 +78,18 @@ function PlayerActions({ p }) {
 }
 
 function PlayersTab({ server, readOnly }) {
+  // LIVE: there's no roster source yet (player-presence tracking is in progress).
+  // Show an honest empty-state rather than fixture players. (Early — before the
+  // hooks below; LIVE is a module-load constant so the hook order stays stable.)
+  if (LIVE) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
+        <Icon name="users" size={26} strokeWidth={1.6} />
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Player roster not available yet</div>
+        <div style={{ marginTop: 4, fontSize: 12.5 }}>Live player presence tracking is in progress — no roster source on this host yet.</div>
+      </div>
+    );
+  }
   const all = KRYSTAL_DATA.playersByServer[server.id] || [];
   const [filter, setFilter] = React.useState("all");
   const counts = {

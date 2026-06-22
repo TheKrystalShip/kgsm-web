@@ -105,6 +105,24 @@ export function wsUrlOf(hostId) {
   return originOf(c.url).replace(/^http/i, "ws") + "/api/v1/stream";
 }
 
+// Reconcile a connection's BACKEND host id once it's known (from connect's GET
+// /hosts probe, or cold-boot). Sets it in-memory (so apiV1Of/wsUrlOf exact-match
+// it) AND persists it into the registry so the next load routes by id immediately
+// — no reconnect window. A no-op for the lone seed (kept id-less; sole-connection
+// fallback routes N=1 anyway), unless that seed already has a registry entry.
+export function reconcileConnectionId(url, id) {
+  if (!id) return;
+  const o = originOf(url);
+  const c = CONNECTIONS.find((c) => originOf(c.url) === o);
+  if (c) c.id = id;
+  try {
+    const reg = readRegistry();
+    let changed = false;
+    for (const e of reg) { if (originOf(e.url) === o && e.id !== id) { e.id = id; changed = true; } }
+    if (changed) localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg));
+  } catch (e) {}
+}
+
 // ---- backwards-compatible single-host aliases ---------------------------
 // The "sole / default connection" values. Existing single-host call sites
 // (authRedirect /me, LoginPage redirect, the lone WS) read these; they resolve

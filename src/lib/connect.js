@@ -40,10 +40,11 @@ export function userFromMe(me) {
   };
 }
 
-// A registry entry for a connected host. `id` is null until cold-boot reconciles
-// it from GET /hosts — the Slice-A sole-connection fallback routes N=1 without it.
-export function registryEntry(origin, name) {
-  return { id: null, url: origin, name: name || null };
+// A registry entry for a connected host. `id` is the backend host id (probed at
+// connect time) so multi-host routing is exact from the first load; null falls
+// back to the Slice-A sole-connection routing (fine for a lone host).
+export function registryEntry(origin, name, id) {
+  return { id: id || null, url: origin, name: name || null };
 }
 
 // ---- impure: localStorage registry + app identity -----------------------
@@ -86,6 +87,14 @@ export async function connectHost(input, opts) {
     if (r.status === 401 || r.status === 403) return { status: "needs_auth", origin, name: hs.name, version: hs.version };
     if (!r.ok) return { status: "unreachable", origin };
     const me = await r.json();
-    return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), tier: (me && me.tier) || "none" };
+    // Probe the host id (GET /hosts → array of this one host) so the registry
+    // records it — multi-host routing is exact from the next load. Best-effort:
+    // a failure here just leaves id null (sole-connection fallback still works).
+    let hostId = null;
+    try {
+      const hr = await fetchImpl(origin + "/api/v1/hosts", { headers: { Accept: "application/json" } });
+      if (hr.ok) { const arr = await hr.json(); const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]); hostId = (h && h.id) || null; }
+    } catch (e) {}
+    return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), tier: (me && me.tier) || "none", hostId };
   } catch (e) { return { status: "unreachable", origin }; }
 }

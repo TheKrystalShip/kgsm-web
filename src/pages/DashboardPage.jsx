@@ -9,6 +9,7 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { capUsable } from "../lib/capabilities.js";
+import { MOCK } from "../lib/config.js";
 import { KRYSTAL_DATA, KRYSTAL_LABELS } from "../lib/data.js";
 import { useStore } from "../lib/store.js";
 import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, serversStore, useSelectedHostId } from "../lib/stores.js";
@@ -227,7 +228,9 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
     return rh ? `${d}d ${rh}h` : `${d}d`;
   };
   // 1) Ping — operator's live link to the host. Lower is better; non-interactive.
-  const pingMs = KRYSTAL_DATA?.session?.ping_ms ?? null;
+  // Only the fixtures demo has a session-ping source; LIVE has none → null → "no
+  // link" (honest, never a fabricated latency).
+  const pingMs = MOCK ? (KRYSTAL_DATA?.session?.ping_ms ?? null) : null;
   const pingTone = pingMs == null ? "muted" : pingMs < 60 ? "ok" : pingMs < 120 ? "warn" : "danger";
   // 2) Updates available — servers on an older build, excluding ones already
   //    mid-update. Actionable to-do, not an error → info tone.

@@ -1,6 +1,6 @@
 import { KRYSTAL_DATA } from "./data.js";
 import { createStore } from "./store.js";
-import { LIVE, MOCK, API_V1, WS_URL, apiV1Of } from "./config.js";
+import { LIVE, MOCK, API_V1, WS_URL, apiV1Of, wsUrlOf, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createLiveStream } from "./liveStream.js";
 
@@ -23,7 +23,12 @@ import("./stores.js").then((m) => {
   // single-host — multi-host fan-out is a later slice). Reuses this one dynamic
   // import (no second one) since `live`/`setLiveRealtime` are defined by the time
   // this microtask runs.
-  if (LIVE && live && m.hostsStore) { try { m.hostsStore.subscribe(() => setLiveRealtime(live.mode())); } catch (e) {} }
+  if (LIVE && liveStreams.length && m.hostsStore) {
+    // Re-key each stream's realtime entry under its connection's (now possibly
+    // reconciled) host id once hosts hydrate — matters for a lone seed (id-less
+    // at boot); registered hosts already key by their real id.
+    try { m.hostsStore.subscribe(() => liveStreams.forEach((s, i) => setLiveRealtime(CONNECTIONS[i] && CONNECTIONS[i].id, s.mode()))); } catch (e) {}
+  }
 });
 
 // apiClient.js — the single seam between the client and the backend.
@@ -500,7 +505,7 @@ import("./stores.js").then((m) => {
   // and each inbound { topic, type, data } is dispatched to the owning store.
   // Here, listeners register topics and the mock backend calls emit().
   const listeners = new Set();
-  let live = null;   // the real WebSocket transport (LIVE only); assigned below
+  let liveStreams = [];   // one real WebSocket per connection (LIVE only); assigned below
   // Transport-agnostic dispatch seam: deliver one { topic, type, data } frame to
   // every listener subscribed to its topic. BOTH the mock backend (emit, with
   // per-host gating) and the live WebSocket (onMessage, below) feed through here,
@@ -526,17 +531,17 @@ import("./stores.js").then((m) => {
     subscribe(topics, onMessage) {
       const entry = { topics: new Set(topics), fn: onMessage };
       listeners.add(entry);
-      if (LIVE && live) live.subscribe(topics);   // tell the real socket to push these
+      if (LIVE) liveStreams.forEach((s) => s.subscribe(topics));   // every host pushes these
       return () => {
         listeners.delete(entry);
-        // Tell the real socket to stop pushing any topic no remaining listener still
+        // Tell the real sockets to stop pushing any topic no remaining listener still
         // wants — this is what re-idles the server's subscriber-gated pumps when a
         // DYNAMIC subscription is torn down (the diagnostics deep-dive's
         // hosts/{id}/metrics). The app-lifetime subscriptions (servers/jobs/audit) never
         // dispose, so this branch only ever runs for those dynamic topics.
-        if (LIVE && live) {
+        if (LIVE) {
           const drop = [...entry.topics].filter((t) => !topicStillWanted(t));
-          if (drop.length) live.unsubscribe(drop);
+          if (drop.length) liveStreams.forEach((s) => s.unsubscribe(drop));
         }
       };
     },
@@ -561,30 +566,32 @@ import("./stores.js").then((m) => {
     return msg;
   }
 
-  // ---- live realtime transport (real WebSocket, single host) --------------
+  // ---- live realtime transport (one WebSocket PER connection) -------------
   // Picked only when LIVE. Drives realtimeStore (NOT connectionStore — liveFetch
   // already owns REST reachability via markSuccess/markFailure). On every (re)open
   // it re-hydrates the REST stores to catch deltas missed while the socket was
-  // down (§3·j). One socket to the single configured host; multi-host fan-out
-  // (one socket per host base URL) is a later slice.
+  // down (§3·j). Multi-host: one socket per registered connection, each feeding the
+  // SAME dispatchMessage seam, so frames from every host land in the shared stores
+  // (keyed by id). realtimeStore is keyed per host and MERGED (never clobbered) so
+  // one host's link state doesn't overwrite another's.
   function liveHostId() {
     try { return ((storesNs && storesNs.hostsStore && storesNs.hostsStore.getState().list[0]) || {}).id || null; }
     catch (e) { return null; }
   }
-  function setLiveRealtime(mode) {
-    const id = liveHostId() || "live";
-    realtimeStore.setState({ online, hosts: { [id]: { mode, attempts: 0, nextRetryInMs: 0, lastSyncAt: Date.now(), polling: mode === "reconnecting" } } });
+  function setLiveRealtime(connId, mode) {
+    const id = connId || liveHostId() || "live";
+    realtimeStore.setState((s) => ({ online, hosts: { ...s.hosts, [id]: { mode, attempts: 0, nextRetryInMs: 0, lastSyncAt: Date.now(), polling: mode === "reconnecting" } } }));
   }
-  if (LIVE && WS_URL) {
-    live = createLiveStream({
-      url: WS_URL,
-      bearer: liveBearer,
+  if (LIVE && CONNECTIONS.length) {
+    liveStreams = CONNECTIONS.map((conn) => createLiveStream({
+      url: wsUrlOf(conn.id),                 // sole-fallback for a lone seed; exact for registered hosts
+      bearer: () => liveBearer(conn.id),     // that host's token (null under auth-disabled)
       onOpen: () => rehydrateAll(),
       onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
-      onMode: (mode) => setLiveRealtime(mode),
-    });
-    // (re-keying realtimeStore under the real host id once hosts hydrate is wired
-    // into the existing storesNs import at the top — no second dynamic import.)
+      onMode: (mode) => setLiveRealtime(conn.id, mode),
+    }));
+    // (re-keying a seed connection's realtime under its reconciled host id once
+    // hosts hydrate is wired into the storesNs import at the top — no 2nd import.)
   }
 
   // ---- mock server runtime ------------------------------------------------
@@ -702,8 +709,24 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // Fan a GET across EVERY connection (multi-host roll-up). Returns
+  // [{ conn, ok, data, err }] — per-connection failures captured, so one host
+  // being down doesn't fail the whole read. With no connection (MOCK / a lone
+  // seed routed plainly) it's a single get, so N=1 and MOCK are byte-identical to
+  // before; the caller merges the results (see lib/merge.js). A registered host
+  // uses its scoped client (per-host bearer); the lone seed uses plain get.
+  function fanOut(path) {
+    if (!CONNECTIONS.length) {
+      return get(path).then((data) => [{ conn: null, ok: true, data }], (err) => [{ conn: null, ok: false, err, data: null }]);
+    }
+    return Promise.all(CONNECTIONS.map((conn) => {
+      const client = conn.id ? hostScoped(conn.id) : { get };
+      return client.get(path).then((data) => ({ conn, ok: true, data }), (err) => ({ conn, ok: false, err, data: null }));
+    }));
+  }
+
   const api = {
-    get, post, patch, stream, mockMonitorResolve,
+    get, post, patch, stream, mockMonitorResolve, fanOut,
     host: hostScoped,
     reconnectHost, reconnectAll,
     __setHealth: setHealth, __health: () => health,

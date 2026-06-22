@@ -472,6 +472,16 @@ try {
     await sleep(140);
     assert(w.document.getElementById("root").innerHTML.includes(SENT),
       "console: a live console.line followed onto the panel (subscribe → append → render)");
+
+    // (h2) Slice-E honesty: surfaces with no LIVE source show an honest empty-state,
+    // never fixture data. The overview renders PlayersTab (no roster source yet).
+    const ovHtml = w.document.getElementById("root").innerHTML;
+    assert(ovHtml.includes("Player roster not available yet"),
+      "players: LIVE shows the honest 'no roster source' empty-state (not fixture players)");
+    await nav("#/servers/" + cSv.id + "/performance");
+    await sleep(120);
+    assert(w.document.getElementById("root").innerHTML.includes("Performance metrics not available yet"),
+      "performance: LIVE shows the honest 'no metrics source' empty-state (not fixture charts)");
     await nav("#/fleet");
   }
 

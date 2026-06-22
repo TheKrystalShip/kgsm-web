@@ -1,6 +1,7 @@
 import React from "react";
 import { api } from "./apiClient.js";
 import { LIVE, MOCK } from "./config.js";
+import * as merge from "./merge.js";
 import { createStore } from "./store.js";
 
 // alertsApi.js — the alerts domain, on the shared store layer.
@@ -128,11 +129,17 @@ import { createStore } from "./store.js";
   // no-op there — never clobber the demo feed with a fetch.
   alertsStore.refresh = () => {
     if (!LIVE) return Promise.resolve(store.getState().list);
+    // Fan both windows out across every connected host and merge by id (each alert
+    // is host-tagged). MOCK / lone seed → a single get, identical to before. On a
+    // TOTAL failure (every host unreachable for both queries) leave the feed
+    // untouched rather than blanking it (the original all-or-nothing guard).
+    const rows = (rs) => rs.filter(r => r.ok).flatMap(r => r.data || []);
     return Promise.all([
-      api.get("/alerts?status=firing"),
-      api.get("/alerts?status=resolved&since=24h"),
-    ]).then(([firing, resolved]) => {
-      const list = [...(firing || []), ...(resolved || [])];
+      api.fanOut("/alerts?status=firing"),
+      api.fanOut("/alerts?status=resolved&since=24h"),
+    ]).then(([firingR, resolvedR]) => {
+      if (!firingR.some(r => r.ok) && !resolvedR.some(r => r.ok)) return store.getState().list;
+      const list = merge.mergeAlerts([rows(firingR), rows(resolvedR)]);
       store.setState({ list });
       return list;
     });

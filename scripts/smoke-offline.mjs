@@ -85,6 +85,35 @@ assert(ur.status === "unreachable", "connectHost: transport throw → unreachabl
 const bad = await conn.connectHost("", { fetchImpl: stubFetch([]) });
 assert(bad.status === "unreachable", "connectHost: empty/unparseable URL → unreachable (never throws)");
 
+// --- merge.js: N-host roll-up (Slice B) — synthetic 2-host inputs ---------
+const mg = await vite.ssrLoadModule("/src/lib/merge.js");
+
+const srv = mg.mergeServers([[{ id: "a", hostId: "h1" }], [{ id: "b", hostId: "h2" }]]);
+assert(srv.length === 2 && srv.some(s => s.id === "a" && s.hostId === "h1") && srv.some(s => s.id === "b" && s.hostId === "h2"),
+  "mergeServers: two hosts' rosters concat, host attribution preserved");
+assert(mg.mergeServers([[{ id: "a", v: 1 }], [{ id: "a", v: 2 }]]).length === 1,
+  "mergeServers: de-dup by id (defensive — last wins)");
+assert(mg.mergeHosts([[{ id: "h1" }], [{ id: "h2" }]]).length === 2, "mergeHosts: one host per connection → N");
+assert(mg.mergeAlerts([[{ id: "x" }], [{ id: "y" }, { id: "x" }]]).length === 2, "mergeAlerts: concat + de-dup by id");
+
+const lib = mg.mergeLibrary([
+  { hostId: "h1", list: [{ id: "factorio", name: "Factorio" }] },
+  { hostId: "h2", list: [{ id: "factorio", name: "Factorio" }, { id: "valheim", name: "Valheim" }] },
+]);
+const fac = lib.find(g => g.id === "factorio");
+const val = lib.find(g => g.id === "valheim");
+assert(lib.length === 2, "mergeLibrary: same game across hosts de-dups to one entry");
+assert(fac && fac.hosts.includes("h1") && fac.hosts.includes("h2"), "mergeLibrary: availability UNIONs across hosts (factorio on both)");
+assert(val && val.hosts.length === 1 && val.hosts[0] === "h2", "mergeLibrary: a host-exclusive game lists only its host");
+
+const parseTs = (s) => Date.parse(s);
+const aud = mg.mergeAuditRows(
+  [{ id: 1, ts: "2026-01-01T00:00:00Z", hostId: "h1" }, { id: 3, ts: "2026-03-01T00:00:00Z", hostId: "h2" }, { id: 2, ts: "2026-02-01T00:00:00Z", hostId: "h1" }, { id: 1, ts: "2026-01-01T00:00:00Z", hostId: "h1" }],
+  parseTs);
+assert(aud.length === 3 && aud[0].id === 3 && aud[1].id === 2 && aud[2].id === 1,
+  "mergeAuditRows: cross-host concat, newest-first, de-dup by id");
+assert(mg.mergeAuditRows([{ id: 9, ts: "nonsense" }], parseTs).length === 1, "mergeAuditRows: unparseable ts sorts last, never throws");
+
 await vite.close();
 console.log(fail ? `\n✗ ${fail} offline check(s) failed` : `\n✓ offline / connect-at-login verified`);
 process.exit(fail ? 1 : 0);
