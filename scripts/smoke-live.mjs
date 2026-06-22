@@ -94,6 +94,17 @@ try {
   const diag = await vite.ssrLoadModule("/src/pages/DiagnosticsPage.jsx");
   const assert = (cond, label) => { console.log(`${cond ? "✓" : "✗"} ${label}`); if (!cond) fail++; };
 
+  // ---- connect-at-login: probe the REAL backend (not the stub) ------------
+  // smoke-offline unit-tests connectHost with a stubbed fetch; this proves it
+  // against the live API's actual shapes (handshake + /me + /hosts) — the real
+  // exchange a browser performs on the connect screen (minus the reload). Catches
+  // stub-vs-reality drift in the probe.
+  const conn = await vite.ssrLoadModule("/src/lib/connect.js");
+  const cr = await conn.connectHost(API);   // real global fetch → the running backend
+  assert(cr.status === "ok", `connectHost(real backend) → ok (handshake + /me resolved)`);
+  assert(cr.hostId && typeof cr.hostId === "string", `connectHost: real host id probed from GET /hosts (${cr.hostId})`);
+  assert(cr.user && cr.user.provider === "discord" && cr.tier, `connectHost: identity + tier resolved from /me (tier=${cr.tier})`);
+
   const rawServers = await (await fetch(API + "/api/v1/servers")).json();
   const servers = adapt.adaptServers(rawServers);
   assert(servers.length === rawServers.length && servers.length > 0, `adaptServers maps ${servers.length} server(s)`);

@@ -5,15 +5,20 @@ single-page app (JSX). It was ported from the no-build `krystal-design`
 prototype (React + Babel from a CDN, every symbol on `window`) into a real,
 tree-shaken ES-module build.
 
-> Runs fully standalone against bundled fixtures — **no backend required** to
-> develop the UI. Point it at the real Control Panel aggregator API (`kgsm-api`)
-> by setting `VITE_API_BASE`.
+> **Runtime multi-host client.** With no API configured the app opens the
+> **"connect a host"** screen (it's a multi-host client — you tell it which
+> `kgsm-api`(s) to talk to; the registry lives in localStorage). Three modes:
+> **LIVE** (a connected host, or a `VITE_API_BASE` seed), **MOCK** (`?mock=1` /
+> `VITE_MOCK` — the bundled fixtures, now **tests/demo only**), **OFFLINE**
+> (neither → the connect screen). Each connected host's `kgsm-api` must allow the
+> SPA origin via `KGSM_API_CORS_ORIGINS`.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173  (bundled fixtures)
+npm run dev        # http://localhost:5173 — no API configured → the connect screen
+                   #   connect a kgsm-api, or open ?mock=1 for the fixtures demo
 npm run build      # → dist/  (minified, hashed, production bundle)
 npm run preview    # serve the built dist/ locally
 ```
@@ -23,9 +28,11 @@ npm run preview    # serve the built dist/ locally
 No-browser smoke harnesses (jsdom + the real Vite module graph):
 
 ```bash
-npm run smoke                   # routes (SSR) + mount (effects) against fixtures
-node scripts/smoke-routes.mjs   # SSR-render every route, catch render throws
-node scripts/smoke-mount.mjs    # client-mount effect-heavy routes, run effects
+npm run smoke                   # full mock suite: routes + mount + auth + offline + multihost
+node scripts/smoke-routes.mjs   # SSR-render every route, catch render throws (fixtures)
+node scripts/smoke-mount.mjs    # client-mount effect-heavy routes, run effects (fixtures)
+node scripts/smoke-offline.mjs  # OFFLINE boot → connect screen + connect-helper unit tests
+node scripts/smoke-multihost.mjs# N≥2 fan-out: per-host routing + merge roll-up (stubbed 2 hosts)
 
 # Live wiring (needs a running kgsm-api):
 KGSM_API=http://127.0.0.1:8097 npm run smoke:live
@@ -77,15 +84,26 @@ The prototype's reactive store layer, ported verbatim to ESM:
 
 ## Connecting the backend
 
+The normal path is **in-app**: run `npm run dev`, and on the connect screen enter a
+`kgsm-api` address (e.g. `http://127.0.0.1:8097`). The app probes its public
+`/api/v1` handshake, registers it (URL only, in localStorage), and boots against it.
+Connect more hosts later from the Fleet page — the SPA fans reads out across all of
+them and rolls them up (`src/lib/merge.js`).
+
+For dev you can pre-seed one host without the connect screen:
+
 ```bash
 cp .env.example .env.local
-# VITE_API_BASE=http://your-host:8097   (kgsm-api ORIGIN — no /api/v1, the client appends it)
+# VITE_API_BASE=http://your-host:8097   (a SEED host — kgsm-api ORIGIN, no /api/v1; the client appends it)
 # VITE_WS_BASE is optional (derived from VITE_API_BASE if unset)
 ```
 
-With `VITE_API_BASE` set, the SPA talks to a real `kgsm-api` over `fetch`; leave it
-blank to run against the bundled fixtures (offline demo). The one seam is
-`src/lib/apiClient.js` (live `get/post/patch` + adapters in `src/lib/adapters.js`);
+With a connected host (or the `VITE_API_BASE` seed) the SPA is **LIVE** and talks to
+real `kgsm-api`(s) over `fetch`; `?mock=1` / `VITE_MOCK` runs the bundled **fixtures**
+(now tests/demo only); with neither it's **OFFLINE** → the connect screen. ⚠ each
+connected host's `kgsm-api` must allow the SPA origin via `KGSM_API_CORS_ORIGINS`. The
+seams are `src/lib/apiClient.js` (live `get/post/patch` + `fanOut` + adapters in
+`src/lib/adapters.js`) and `src/lib/connect.js` (the connect probe);
 call sites never change. **`WIRING.md` is the authoritative front↔back contract**
 (endpoint/realtime/schema diff + the sequenced wiring plan). The read path
 (servers/hosts) is wired and live-verified; auth, realtime, and the rest are the

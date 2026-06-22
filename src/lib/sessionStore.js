@@ -132,7 +132,11 @@ import { hostsStore, selectedHostStore } from "./stores.js";
           tier: "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
         });
       }
-      return api.get("/me").then(me => {
+      // Route /me to THIS host (api.get(path, hostId)) — NOT the default connection
+      // — so at N≥2 each host's tier resolves from its OWN /me + bearer. Use the
+      // low-level get (with the host id), never api.host(id) here: that runs the
+      // auth gate, which calls bootstrap → infinite recursion (bootstrap IS the gate).
+      return api.get("/me", id).then(me => {
         const now = Date.now();
         const cur = getRec(id);
         setRec(id, {
