@@ -98,6 +98,12 @@ export function apiV1Of(hostId) {
   const c = connOf(hostId);
   return c ? originOf(c.url) + "/api/v1" : "";
 }
+// The bare host ORIGIN (no /api/v1). The auth endpoints (/auth/discord/*,
+// /auth/session/refresh) are root-routed on the backend, NOT under /api/v1.
+export function apiOriginOf(hostId) {
+  const c = connOf(hostId);
+  return c ? originOf(c.url) : "";
+}
 export function wsUrlOf(hostId) {
   const c = connOf(hostId);
   if (!c) return "";

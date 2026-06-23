@@ -340,6 +340,11 @@ function App() {
     // Same reasoning as handleLogin: reload out to the login surface rather than
     // swapping <App> → <LoginPage> in place.
     writeStoredUser(null);
+    // Drop the per-host credentials too — the refresh token is long-lived
+    // (weeks), so without this a reload would silently rotate straight back in.
+    // Keep the host registry (signOut, not forgetHosts) so the user lands on the
+    // host's Discord login, not the add-host screen.
+    try { sessionStore.signOut(); } catch (e) {}
     try {
       sessionStorage.removeItem("krystal:justLoggedIn");
       sessionStorage.removeItem("krystal:returnTo");

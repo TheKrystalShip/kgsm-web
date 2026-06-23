@@ -13,11 +13,20 @@ import { hostsStore, selectedHostStore } from "./stores.js";
 // token is discarded) and resolving the user's role via the host's own bot.
 // This store holds those per-host sessions and runs their lifecycle.
 //
-// Storage budget (the lock from the frontend review):
-//   • tokens → sessionStorage, keyed per host. Survive an in-tab reload, gone
-//              on tab close. Never localStorage, never disk.
-//   • host URL registry → localStorage (URLs only, NEVER tokens) so a reload
-//              re-bootstraps silently against the hosts you already added.
+// Storage budget:
+//   • ACCESS token → sessionStorage, keyed per host. Short-lived (~15 min),
+//              survives an in-tab reload, gone on tab close.
+//   • REFRESH token → localStorage, keyed per host. The long-lived (weeks)
+//              "stay signed in" credential — it MUST survive a browser close so a
+//              user returning days later silently rotates a fresh access token
+//              instead of re-doing Discord (user directive 2026-06-23: trusted,
+//              role-restricted friends group → convenience > a strict refresh
+//              window). This is a deliberate exception to the original
+//              "tokens never touch localStorage" lock, scoped to the refresh
+//              token only; the access token still never leaves sessionStorage.
+//              Cleared on explicit sign-out (signOut / forgetHosts).
+//   • host URL registry → localStorage (URLs only) so a reload re-bootstraps
+//              silently against the hosts you already added.
 //
 // Status machine per host:
 //   none          never bootstrapped on this host
@@ -27,16 +36,19 @@ import { hostsStore, selectedHostStore } from "./stores.js";
 //   denied        identity verified but role insufficient on this host (403) —
 //                 TERMINAL. Never auto-re-auth (that would loop forever).
 
-  const TOKEN_PREFIX = "krystal:hostsession:";    // sessionStorage (token + meta)
+  const TOKEN_PREFIX = "krystal:hostsession:";    // sessionStorage (access token + meta)
+  const REFRESH_PREFIX = "krystal:hostrefresh:";  // localStorage (long-lived refresh token)
   // REGISTRY_KEY (localStorage, URLs only) is owned by config.js — the base layer
   // reads it to derive the connection set; we write it on connect/forget.
 
-  // TTLs — the real shape from §6·a. `?authdemo=fast` compresses them so the
-  // proactive refresh + the 8h cap re-bounce are watchable in seconds.
+  // TTLs — must mirror the backend (SessionTokenService). `?authdemo=fast`
+  // compresses them so the proactive refresh + the cap re-bounce are watchable in
+  // seconds. SESSION_CAP_MS = the absolute refresh-token life (kept in sync with
+  // the backend's RefreshTtl, now 30 days — see the storage-budget note above).
   const fast = (() => { try { return new URLSearchParams(location.search).get("authdemo") === "fast"; } catch (e) { return false; } })();
-  const ACCESS_TTL_MS  = fast ? 8000  : 15 * 60 * 1000;       // access-token life
-  const PROACTIVE_AT   = 0.75;                                // refresh at 75% of life
-  const SESSION_CAP_MS = fast ? 40000 : 8 * 60 * 60 * 1000;   // absolute cap → silent re-bounce
+  const ACCESS_TTL_MS  = fast ? 8000  : 15 * 60 * 1000;            // access-token life
+  const PROACTIVE_AT   = 0.75;                                     // refresh at 75% of life
+  const SESSION_CAP_MS = fast ? 40000 : 30 * 24 * 60 * 60 * 1000;  // absolute cap → silent re-bounce
 
   // The global SSO anchor. In production this is the implicit discord.com
   // cookie; here it's a flag the login sets and the dev panel can drop to demo
@@ -46,6 +58,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   const store = createStore({ byHost: {} });
 
   const timers = {};                               // hostId → proactive-refresh timer
+  const inflight = {};                              // hostId → in-flight refresh promise (dedupe concurrent gate/boot calls)
   const getRec = (id) => store.getState().byHost[id] || null;
   const statusOf = (id) => (getRec(id) ? getRec(id).status : "none");
   const isDenied = (id) => statusOf(id) === "denied";
@@ -83,7 +96,16 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       return r;
     } catch (e) { return null; }
   }
-  function forgetSession(id) { try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch (e) {} clearTimer(id); }
+  function forgetSession(id) { try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch (e) {} forgetRefresh(id); clearTimer(id); }
+
+  // ---- refresh token (localStorage — survives a browser close) -----------
+  // The long-lived credential. Stored ONLY here (never in the sessionStorage
+  // record's persisted shape), read by refresh() to rotate the access token.
+  function writeRefresh(id, token) {
+    try { if (token) localStorage.setItem(REFRESH_PREFIX + id, token); else localStorage.removeItem(REFRESH_PREFIX + id); } catch (e) {}
+  }
+  function readRefresh(id) { try { return localStorage.getItem(REFRESH_PREFIX + id) || null; } catch (e) { return null; } }
+  function forgetRefresh(id) { try { localStorage.removeItem(REFRESH_PREFIX + id); } catch (e) {} }
 
   // ---- host URL registry (localStorage, URLs only) -----------------------
   function readRegistry() {
@@ -127,6 +149,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       const pending = takePendingTokens();
       if (pending && pending.access) {
         const t = Date.now();
+        writeRefresh(id, pending.refresh || null);   // persist for the days-later rotation
         setRec(id, {
           status: "live", token: pending.access, refresh: pending.refresh || null,
           tier: "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
@@ -192,6 +215,10 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   function adoptSession(id, sess) {
     sess = sess || {};
     const t = Date.now();
+    // Persist the refresh token (localStorage) so a return visit days/weeks later
+    // rotates a fresh access token with no Discord bounce. capExp is anchored HERE,
+    // at login, and never reset by a rotation — the absolute cap is from first login.
+    writeRefresh(id, sess.refresh || null);
     setRec(id, {
       status: "live", token: sess.token || null, refresh: sess.refresh || null,
       tier: sess.tier || "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
@@ -201,19 +228,45 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   }
 
   // ---- refresh (proactive, before the 401) -------------------------------
-  // Rotates the host token via POST /auth/session/refresh — no Discord round
-  // trip. Past the 8h absolute cap it re-bounces silently instead.
-  // ⚠ KNOWN GAP (follow-up to real-login): the LIVE branch below re-confirms /me
-  // instead of POSTing /auth/session/refresh, and resets `exp` WITHOUT rotating
-  // the token — so ~15 min after login the access token dies at the backend and
-  // the user is bounced to re-auth despite holding a valid refresh token. Wire the
-  // real refresh-token rotation (the backend endpoint exists) next.
+  // Rotates the host's ACCESS token via POST /auth/session/refresh (the refresh
+  // token rides as the bearer) — no Discord round-trip. Past the refresh token's
+  // absolute cap the backend 401s → we surface 'expired' and the UI offers
+  // re-auth. Concurrent callers (the boot fan-out hits the gate 4× at once) share
+  // ONE in-flight rotation so we mint a single access token, not four.
   function refresh(id) {
     const rec = getRec(id);
     if (!rec || rec.status === "denied") return Promise.resolve(statusOf(id));
-    // Live: no refresh-token store yet (real login is a backend gap), so re-confirm
-    // identity/tier via GET /me rather than the token-rotation endpoint.
-    if (LIVE) return bootstrap(id, { interactive: false });
+    if (LIVE) {
+      if (inflight[id]) return inflight[id];
+      const refreshTok = (rec && rec.refresh) || readRefresh(id);
+      // No refresh token to rotate (e.g. an auth-disabled host, or a legacy
+      // pre-fix session) — fall back to re-confirming identity via GET /me.
+      if (!refreshTok) return bootstrap(id, { interactive: false });
+      const p = api.refreshSession(id, refreshTok).then(
+        res => {
+          const now = Date.now();
+          // tier rides the refresh response so the RETURNING-VISITOR path (cold boot:
+          // no in-memory tier after a browser close, and we skip the /me round-trip)
+          // still resolves the role for UI gating. Keep any prior tier if the backend
+          // omits it (older api), never silently downgrade to none.
+          const cur = getRec(id);
+          const tier = (res && res.tier) || (cur && cur.tier) || "none";
+          setRec(id, { status: "live", token: (res && res.token) || null, refresh: refreshTok, tier, exp: now + ACCESS_TTL_MS, error: null }, true);
+          scheduleRefresh(id);
+          return "live";
+        },
+        () => {
+          // Refresh token invalid or past the absolute cap → genuinely expired.
+          // Drop the dead credential so we don't retry it; the UI offers re-auth.
+          forgetRefresh(id);
+          setRec(id, { status: "expired", refresh: null, error: "login_required" });
+          return "expired";
+        }
+      );
+      inflight[id] = p;
+      p.then(() => { if (inflight[id] === p) delete inflight[id]; }, () => { if (inflight[id] === p) delete inflight[id]; });
+      return p;
+    }
     if (rec.capExp && Date.now() >= rec.capExp) return bootstrap(id, { interactive: false });
     return api.post("/auth/session/refresh", { host: id })
       .then(res => {
@@ -232,6 +285,15 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     const st = statusOf(id);
     if (st === "live") return Promise.resolve("live");
     if (st === "denied") return Promise.resolve("denied");
+    // Returning visitor: the access session (sessionStorage) is gone after a
+    // browser close, but a long-lived refresh token survives in localStorage.
+    // Rotate it into a fresh access token SILENTLY — no Discord bounce, no doomed
+    // /me 401. (A rec must exist for refresh() to run; refresh() reads the token
+    // from localStorage via readRefresh when the in-memory rec doesn't carry it.)
+    if (LIVE && readRefresh(id)) {
+      if (!getRec(id)) setRec(id, { status: "bootstrapping" });
+      return refresh(id);
+    }
     return bootstrap(id, { interactive: false });
   }
 
@@ -277,6 +339,19 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     store.setState({ byHost: {} });
     if (hostsStore) hostsStore.setState(s => ({ ...s, list: [] }));
     if (selectedHostStore) selectedHostStore.set("all");
+  }
+  // Sign out: drop EVERY per-host credential (access in sessionStorage + the
+  // long-lived refresh token in localStorage) so a reload can't silently rotate
+  // back in — but KEEP the host registry so the user lands on the host's login,
+  // not the add-host screen. (forgetSession clears both stores + the timer.)
+  function signOut() {
+    Object.keys(timers).forEach(clearTimer);
+    const ids = new Set([
+      ...Object.keys(store.getState().byHost),
+      ...readRegistry().map(h => h.id).filter(Boolean),
+    ]);
+    ids.forEach(forgetSession);
+    store.setState({ byHost: {} });
   }
 
   // ---- init: seed sessions for the hosts we know about -------------------
@@ -333,6 +408,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.restoreDiscord = restoreDiscord;
   store.discordLive = discordLive;
   store.forgetHosts = forgetHosts;
+  store.signOut = signOut;
   store.config = { ACCESS_TTL_MS, PROACTIVE_AT, SESSION_CAP_MS, fast };
 
   const sessionStore = store;

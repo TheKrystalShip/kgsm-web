@@ -1,6 +1,6 @@
 import { KRYSTAL_DATA } from "./data.js";
 import { createStore } from "./store.js";
-import { LIVE, MOCK, API_V1, WS_URL, apiV1Of, wsUrlOf, CONNECTIONS } from "./config.js";
+import { LIVE, MOCK, API_V1, WS_URL, apiV1Of, apiOriginOf, wsUrlOf, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createLiveStream } from "./liveStream.js";
 
@@ -322,13 +322,18 @@ import("./stores.js").then((m) => {
   // hostId routes the call to that host's base URL + bearer (multi-host). With a
   // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
   // is byte-identical to the old single global-API_V1 path.
-  async function liveFetch(method, path, body, hostId) {
+  async function liveFetch(method, path, body, hostId, bearerOverride, baseOverride) {
     const headers = body != null
       ? { "Content-Type": "application/json", Accept: "application/json" }
       : { Accept: "application/json" };
-    const tok = liveBearer(hostId);
+    // bearerOverride lets a caller send a specific bearer (the refresh-token
+    // rotation needs the REFRESH token, not the access token the seam injects).
+    // `undefined` = use the host's live access bearer; a string/null = send/omit as given.
+    const tok = bearerOverride !== undefined ? bearerOverride : liveBearer(hostId);
     if (tok) headers.Authorization = "Bearer " + tok;
-    const base = apiV1Of(hostId) || API_V1;
+    // baseOverride routes off the default /api/v1 base (the auth endpoints are
+    // root-routed on the backend, not under /api/v1).
+    const base = baseOverride !== undefined ? baseOverride : (apiV1Of(hostId) || API_V1);
     let res;
     try {
       res = await fetch(base + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
@@ -359,6 +364,20 @@ import("./stores.js").then((m) => {
   const liveGet = (path, hostId) => liveFetch("GET", path, null, hostId).then((j) => adaptResponse(path, j));
   const livePost = (path, body, hostId) => liveFetch("POST", path, body, hostId);
   const livePatch = (path, body, hostId) => liveFetch("PATCH", path, body, hostId);
+
+  // Rotate a host's access token from its long-lived refresh token (§6·a): POST
+  // /auth/session/refresh with the REFRESH token as the bearer (NOT the access
+  // token the seam would inject) → { token, tier } (a fresh access token + the
+  // role from the refresh claims). No Discord round-trip. Past the refresh token's
+  // absolute cap the backend 401s → the caller (sessionStore.refresh) treats it as
+  // genuinely expired. ⚠ The endpoint is ROOT-routed (/auth/session/refresh), NOT
+  // under /api/v1 — so pass the bare origin as the base override. MOCK mints a
+  // token to mirror the old inline /auth/session/refresh stub.
+  function refreshSession(hostId, refreshToken) {
+    if (LIVE) return liveFetch("POST", "/auth/session/refresh", null, hostId, refreshToken || null, apiOriginOf(hostId));
+    if (MOCK) return Promise.resolve({ token: mintToken(hostId) });
+    return Promise.reject(offlineError());
+  }
 
   // ---- live assistant turn (SSE) ------------------------------------------
   // The assistant turn is neither a request/response call nor a WS topic: it's a
@@ -726,7 +745,7 @@ import("./stores.js").then((m) => {
   }
 
   const api = {
-    get, post, patch, stream, mockMonitorResolve, fanOut,
+    get, post, patch, stream, mockMonitorResolve, fanOut, refreshSession,
     host: hostScoped,
     reconnectHost, reconnectAll,
     __setHealth: setHealth, __health: () => health,
