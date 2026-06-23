@@ -566,7 +566,7 @@ body { overflow: hidden; }
 .bp-card:focus-visible { box-shadow: var(--ring-focus); border-color: var(--border-accent); }
 
 .bp-card__art {
-  position: relative; aspect-ratio: 16 / 10;
+  position: relative; aspect-ratio: 2 / 3;
   background-size: cover; background-position: center;
 }
 .bp-card__veil {
