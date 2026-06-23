@@ -18,7 +18,7 @@ const KRYSTAL_DATA = {
   session: { ping_ms: 28, region: "fra1" },
   servers: [
     {
-      id: "valheim", rawg_slug: "valheim",
+      id: "valheim", rawg_slug: "valheim", blueprint: "valheim",
       name: "MyValheimServer",
       game: "Valheim",
       notice: "Running the Valheim Plus mod \u2014 you don't need to install anything on your end, but heads-up: you'll see a custom splash screen when you log in. That's expected.\n\nMap wipes are announced a day ahead in #valheim on Discord. Stuck on connect? Ping @runeforge.",
@@ -70,7 +70,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc", rawg_slug: "minecraft",
+      id: "mc", rawg_slug: "minecraft", blueprint: "mc",
       name: "Minecraft Survival",
       game: "Minecraft",
       status: "updating",
@@ -150,7 +150,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "valheim-2", rawg_slug: "valheim",
+      id: "valheim-2", rawg_slug: "valheim", blueprint: "valheim",
       name: "Ashlands EU",
       game: "Valheim",
       status: "online",
@@ -188,7 +188,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc-2", rawg_slug: "minecraft",
+      id: "mc-2", rawg_slug: "minecraft", blueprint: "mc",
       name: "Creative Flat",
       game: "Minecraft",
       status: "online",
@@ -207,7 +207,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc-3", rawg_slug: "minecraft",
+      id: "mc-3", rawg_slug: "minecraft", blueprint: "mc",
       name: "Hardcore S4",
       game: "Minecraft",
       status: "offline",
