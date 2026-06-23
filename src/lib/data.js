@@ -18,7 +18,7 @@ const KRYSTAL_DATA = {
   session: { ping_ms: 28, region: "fra1" },
   servers: [
     {
-      id: "valheim", rawg_slug: "valheim", blueprint: "valheim",
+      id: "valheim", rawg_slug: "valheim", blueprint: "valheim", clientSteamAppId: "892970",
       name: "MyValheimServer",
       game: "Valheim",
       notice: "Running the Valheim Plus mod \u2014 you don't need to install anything on your end, but heads-up: you'll see a custom splash screen when you log in. That's expected.\n\nMap wipes are announced a day ahead in #valheim on Discord. Stuck on connect? Ping @runeforge.",
@@ -47,7 +47,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "ark", rawg_slug: "ark-survival-evolved",
+      id: "ark", rawg_slug: "ark-survival-evolved", clientSteamAppId: "346110",
       name: "Dino Survival #2",
       game: "ARK",
       notice: "PvP is ON. Rates are 3\u00d7 harvest / 5\u00d7 taming / 2\u00d7 XP. Tribe limit is 200 \u2014 keep it civil in global chat, admins are watching.",
@@ -70,7 +70,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc", rawg_slug: "minecraft", blueprint: "mc",
+      id: "mc", rawg_slug: "minecraft", blueprint: "mc", clientSteamAppId: "0",
       name: "Minecraft Survival",
       game: "Minecraft",
       status: "updating",
@@ -92,7 +92,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "pal", rawg_slug: "palworld",
+      id: "pal", rawg_slug: "palworld", clientSteamAppId: "1623730",
       name: "Palworld Friends",
       game: "Palworld",
       status: "offline",
@@ -111,7 +111,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "rust", rawg_slug: "rust",
+      id: "rust", rawg_slug: "rust", clientSteamAppId: "252490",
       name: "Rusty Shores",
       game: "Rust",
       status: "online",
@@ -131,7 +131,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "enshrouded", rawg_slug: "enshrouded",
+      id: "enshrouded", rawg_slug: "enshrouded", clientSteamAppId: "1203620",
       name: "Embervale",
       game: "Enshrouded",
       status: "offline",
@@ -150,7 +150,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "valheim-2", rawg_slug: "valheim", blueprint: "valheim",
+      id: "valheim-2", rawg_slug: "valheim", blueprint: "valheim", clientSteamAppId: "892970",
       name: "Ashlands EU",
       game: "Valheim",
       status: "online",
@@ -169,7 +169,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "ark-2", rawg_slug: "ark-survival-evolved",
+      id: "ark-2", rawg_slug: "ark-survival-evolved", clientSteamAppId: "346110",
       name: "Ragnarok Cluster",
       game: "ARK",
       status: "crashed",
@@ -188,7 +188,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc-2", rawg_slug: "minecraft", blueprint: "mc",
+      id: "mc-2", rawg_slug: "minecraft", blueprint: "mc", clientSteamAppId: "0",
       name: "Creative Flat",
       game: "Minecraft",
       status: "online",
@@ -207,7 +207,7 @@ const KRYSTAL_DATA = {
       ],
     },
     {
-      id: "mc-3", rawg_slug: "minecraft", blueprint: "mc",
+      id: "mc-3", rawg_slug: "minecraft", blueprint: "mc", clientSteamAppId: "0",
       name: "Hardcore S4",
       game: "Minecraft",
       status: "offline",

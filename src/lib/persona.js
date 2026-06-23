@@ -148,47 +148,29 @@ import { hostsStore } from "./stores.js";
   function isAdminAnywhere() { return can(CAP.NAV_FLEET); }
 
   // ---- Steam connect ------------------------------------------------------
-  // Production: the blueprint API returns each game's steamId (0 = not a Steam
-  // game) and, where we've MANUALLY TESTED it, a join_method. Mocked here keyed
-  // by the blueprint's rawg_slug. join_method "connect" = steam://connect is
-  // verified to launch + join for that title; undefined = best-effort (we show
-  // the button, but never promise it joins — the copy-connect fallback is the
-  // honest backstop). New games start best-effort and get upgraded as tested,
-  // with zero UI change.
-  var STEAM = {
-    "valheim":                { steamId: 892970 },
-    "ark-survival-evolved":   { steamId: 346110 },
-    "minecraft":              { steamId: 0 },                          // not on Steam
-    "palworld":               { steamId: 1623730 },
-    "rust":                   { steamId: 252490,  join_method: "connect" },
-    "counter-strike-2":       { steamId: 730,     join_method: "connect" },
-    "team-fortress-2":        { steamId: 440,     join_method: "connect" },
-    "garrys-mod":             { steamId: 4000,    join_method: "connect" },
-    "factorio":               { steamId: 427520 },
-    "terraria":               { steamId: 105600 },
-    "satisfactory":           { steamId: 526870 },
-    "enshrouded":             { steamId: 1203620 },
-    "left-4-dead-2":          { steamId: 550,     join_method: "connect" },
-    "project-zomboid":        { steamId: 108600 },
-  };
-  function steamInfoFor(server) {
-    if (!server) return { steamId: 0 };
-    return STEAM[server.rawg_slug] || { steamId: 0 };
-  }
+  // Identity comes from the backend, NOT a hardcoded table: each server carries
+  // clientSteamAppId — the CLIENT/store app id a player owns and launches (e.g.
+  // Factorio 427520). This is deliberately NOT the dedicated-server steamAppId
+  // (a separate SteamCMD id with no store/launch meaning); steam://connect is a
+  // player-side launch, so the client app id is the only correct one. "0" / absent
+  // ⇒ not a Steam game. kgsm-api projects it from the engine blueprint, the single
+  // source of truth — the frontend keeps zero game data.
+  //
   // serverJoin — everything the Join UI needs. `address` is the player-facing
-  // host:port; because the backend is co-located on the game machine it's the
-  // same IP the agent reports, just the GAME port (server.ip already carries it).
-  // steamUrl is null for non-Steam games → UI falls back to copy-connect only.
+  // host:port (server.ip already carries it). steamUrl is null for non-Steam games
+  // (or until an address is known) → the UI falls back to copy-connect only.
   function serverJoin(server) {
-    var info = steamInfoFor(server);
-    var isSteam = !!(info.steamId && info.steamId > 0);
+    // clientSteamAppId arrives as a string ("0" = not Steam) from the API; coerce.
+    var appId = server ? (Number(server.clientSteamAppId) || 0) : 0;
+    var isSteam = appId > 0;
+    var address = server ? server.ip : null;
     return {
       isSteam: isSteam,
-      steamId: info.steamId || 0,
-      verified: info.join_method === "connect",
-      address: server ? server.ip : null,
-      // steam://connect/<ip:port> — asks Steam to launch the game and connect.
-      steamUrl: (isSteam && server) ? ("steam://connect/" + server.ip) : null,
+      steamId: appId,
+      address: address,
+      // steam://connect/<ip:port> — asks Steam to launch the owned client game and
+      // join. Offered only for a Steam title (clientSteamAppId > 0) with an address.
+      steamUrl: (isSteam && address) ? ("steam://connect/" + address) : null,
       online: !!(server && server.status === "online"),
     };
   }

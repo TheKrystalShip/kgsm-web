@@ -16,7 +16,7 @@ import { serverJoin } from "../lib/persona.js";
 function ServerConnect({ server, variant }) {
   const join = serverJoin
     ? serverJoin(server)
-    : { isSteam: false, address: server.ip, online: server.status === "online", steamUrl: null, verified: false };
+    : { isSteam: false, address: server.ip, online: server.status === "online", steamUrl: null };
   const [copied, setCopied] = React.useState(false);
   const online = join.online;
 
@@ -79,9 +79,7 @@ function ServerConnect({ server, variant }) {
       <div className="connect__note">
         <Icon name="info" size={12} />
         {join.isSteam
-          ? (join.verified
-              ? <span>Opens Steam and connects you to {server.game}.</span>
-              : <span>Opens Steam and asks {server.game} to connect. If it doesn’t join on its own, paste the address into the game’s server browser.</span>)
+          ? <span>Opens Steam and asks {server.game} to connect. If it doesn’t join on its own, paste the address into the game’s server browser.</span>
           : <span>{server.game} isn’t on Steam — copy the address and connect from the game’s own menu.</span>}
       </div>
     </div>
