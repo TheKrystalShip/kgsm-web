@@ -183,9 +183,31 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       }, () => { setRec(id, { status: "expired", error: "unreachable" }); return "error"; });
   }
 
+  // ---- adopt (a session established OUT of band, e.g. the OAuth landing) --
+  // completeOAuthLogin (authRedirect) already exchanged the Discord code → it
+  // holds the real bearer + the tier from /me. Set the live session DIRECTLY here
+  // — deterministically, before the app mounts — so the first host-scoped call
+  // finds status:"live" + a token and never races a second bootstrap onto the
+  // one-shot OAuth-token stash. Persists so an in-tab reload resumes with no bounce.
+  function adoptSession(id, sess) {
+    sess = sess || {};
+    const t = Date.now();
+    setRec(id, {
+      status: "live", token: sess.token || null, refresh: sess.refresh || null,
+      tier: sess.tier || "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
+    }, true);
+    scheduleRefresh(id);
+    return getRec(id);
+  }
+
   // ---- refresh (proactive, before the 401) -------------------------------
   // Rotates the host token via POST /auth/session/refresh — no Discord round
   // trip. Past the 8h absolute cap it re-bounces silently instead.
+  // ⚠ KNOWN GAP (follow-up to real-login): the LIVE branch below re-confirms /me
+  // instead of POSTing /auth/session/refresh, and resets `exp` WITHOUT rotating
+  // the token — so ~15 min after login the access token dies at the backend and
+  // the user is bounced to re-auth despite holding a valid refresh token. Wire the
+  // real refresh-token rotation (the backend endpoint exists) next.
   function refresh(id) {
     const rec = getRec(id);
     if (!rec || rec.status === "denied") return Promise.resolve(statusOf(id));
@@ -297,6 +319,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.tierOf = tierOf;
   store.tokenOf = tokenOf;
   store.bootstrap = bootstrap;
+  store.adoptSession = adoptSession;
   store.refresh = refresh;
   store.ensure = ensure;
   store.reauthorize = reauthorize;

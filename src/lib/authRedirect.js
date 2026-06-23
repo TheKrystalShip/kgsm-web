@@ -8,7 +8,7 @@
 // establish the app-shell identity from /me so the app mounts authed with no
 // LoginPage flash. A normal load (a #/route or no hash) is a no-op.
 
-import { API_V1, LIVE } from "./config.js";
+import { API_V1, API_BASE, LIVE, reconcileConnectionId } from "./config.js";
 
 const PENDING_KEY = "krystal:oauth:pending";   // sessionStorage {access,refresh} (one-shot)
 const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one-shot)
@@ -54,16 +54,25 @@ export function takeOAuthError() {
   catch (e) { return null; }
 }
 
-// On a fresh OAuth landing, establish the app-shell identity from /me BEFORE the
-// app mounts (so it boots authed — no LoginPage flash, no reload). The access
-// token rides as the bearer. On failure we drop the stash so we never
-// half-authenticate, and record an error for the LoginPage.
+// On a fresh OAuth landing, establish the session BEFORE the app mounts (so it
+// boots authed — no LoginPage flash, no reload), in three steps with the access
+// token as the bearer:
+//   1. /me        → the app-shell identity (+ the host tier).
+//   2. /hosts     → the host's REAL backend id. The connect probe couldn't read
+//                   it (/hosts is 401 pre-login); with the bearer it 200s.
+//                   reconcileConnectionId sets conn.id, which flips fanOut onto
+//                   the per-host auth gate (id:null routes UNauthenticated).
+//   3. adopt      → set the live session for that id DIRECTLY (deterministic, no
+//                   bootstrap race on the one-shot token stash), then hydrate the
+//                   surfaces (the module-load cold refresh ran before login with
+//                   no token, so it loaded nothing).
+// On failure we drop the stash so we never half-authenticate, and record an error.
 export async function completeOAuthLogin(captured) {
   if (!LIVE || !captured || !captured.access) return;
+  const bearer = "Bearer " + captured.access;
+  const authHeaders = { Authorization: bearer, Accept: "application/json" };
   try {
-    const res = await fetch(API_V1 + "/me", {
-      headers: { Authorization: "Bearer " + captured.access, Accept: "application/json" },
-    });
+    const res = await fetch(API_V1 + "/me", { headers: authHeaders });
     if (!res.ok) throw new Error("me " + res.status);
     const me = await res.json();
     const u = (me && me.user) || {};
@@ -72,6 +81,35 @@ export async function completeOAuthLogin(captured) {
       display: u.display || u.username || null,
       provider: "discord", id: u.id || null, stay: true,
     }));
+
+    // 2 + 3: resolve the real host id, adopt the session under it, hydrate. Best-
+    // effort — a hiccup here leaves the user signed in (identity is set) but with
+    // data unloaded until the next call heals it, never a broken half-login.
+    let hostId = null;
+    try {
+      const hr = await fetch(API_V1 + "/hosts", { headers: authHeaders });
+      if (hr.ok) {
+        const arr = await hr.json();
+        const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]);
+        hostId = (h && h.id) || null;
+      }
+    } catch (e) {}
+    if (hostId) {
+      reconcileConnectionId(API_BASE, hostId);
+      takePendingTokens();                       // consume the one-shot stash; we adopt directly
+      try {
+        const { sessionStore } = await import("./sessionStore.js");
+        sessionStore.adoptSession(hostId, {
+          token: captured.access, refresh: captured.refresh || null, tier: (me && me.tier) || "none",
+        });
+      } catch (e) {}
+      try {
+        const stores = await import("./stores.js");
+        ["serversStore", "hostsStore", "libraryStore", "auditStore"].forEach((n) => {
+          try { if (stores[n] && stores[n].refresh) stores[n].refresh().catch(() => {}); } catch (e) {}
+        });
+      } catch (e) {}
+    }
   } catch (e) {
     try { sessionStorage.removeItem(PENDING_KEY); } catch (e2) {}
     try { sessionStorage.setItem(ERROR_KEY, "login_failed"); } catch (e2) {}

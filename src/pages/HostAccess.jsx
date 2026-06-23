@@ -96,8 +96,10 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   const multiPending = LIVE && !MOCK;
 
   // Real connect: probe the public handshake, resolve identity, register + reload.
-  // Auth-disabled hosts complete here; auth-enabled ones report needs_auth (the
-  // Discord token-handoff is a backend gap, WIRING §6) instead of a dead-end bounce.
+  //   ok         → auth-disabled / already-authed: identity from /me, into the app.
+  //   needs_auth → auth-ENABLED: register the host (URL only, id resolved after
+  //                login) and reload → LIVE + no identity → the real Discord
+  //                LoginPage, which bounces against THIS host's /auth/discord/start.
   const connectReal = async () => {
     if (!valid || busy) return;
     setPhase("probing");
@@ -108,7 +110,14 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
       window.location.reload();             // re-eval config → LIVE; boot against the connected host
       return;
     }
-    setPhase(res.status);                    // needs_auth | not_kgsm | unreachable
+    if (res.status === "needs_auth") {
+      // id is null here — /hosts is 401 pre-login; completeOAuthLogin reconciles it
+      // with the bearer after Discord. Register so a reload goes LIVE → LoginPage.
+      addConnection(registryEntry(res.origin, res.name, null));
+      window.location.reload();
+      return;
+    }
+    setPhase(res.status);                    // not_kgsm | unreachable
   };
 
   // MOCK demo: the original faked Discord round-trip (no real backend). A URL
@@ -135,9 +144,9 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
 
   const connect = MOCK ? connectMock : connectReal;
 
-  // Honest copy per failure phase (real connect).
+  // Honest copy per failure phase (real connect). needs_auth is NOT a failure
+  // any more — it registers + reloads into the Discord LoginPage (connectReal).
   const FAIL = {
-    needs_auth: { title: "This host needs a Discord sign-in", body: "It’s a kgsm-api, but it has authentication enabled — and connecting through Discord from here isn’t wired up yet. Use a host with auth disabled for now, or connect once the sign-in handoff lands." },
     not_kgsm: { title: "That doesn’t look like a kgsm-api", body: "We reached the address but it didn’t answer with a kgsm-api handshake. Double-check the host and port." },
     unreachable: { title: "Couldn’t reach that host", body: "No kgsm-api answered at that address. Check it’s running and reachable from here (host, port, https vs http)." },
   };
@@ -175,7 +184,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
               <input
                 value={url}
                 onChange={e => { setUrl(e.target.value); if (phase !== "idle" && phase !== "probing") setPhase("idle"); }}
-                placeholder={MOCK ? "krystal-1.tks.example" : "https://krystal-1.example  ·  http://127.0.0.1:8097"}
+                placeholder={MOCK ? "krystal-1.tks.example" : "http://127.0.0.1:8080  ·  https://your-host"}
                 spellCheck="false" autoCapitalize="off" autoCorrect="off"
                 disabled={busy}
                 onKeyDown={e => { if (e.key === "Enter") connect(); }} />

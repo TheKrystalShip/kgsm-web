@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "smoke": "node scripts/smoke-routes.mjs && node scripts/smoke-mount.mjs && node scripts/smoke-auth.mjs && node scripts/smoke-offline.mjs && node scripts/smoke-multihost.mjs",
+    "smoke": "node scripts/smoke-routes.mjs && node scripts/smoke-mount.mjs && node scripts/smoke-auth.mjs && node scripts/smoke-offline.mjs && node scripts/smoke-multihost.mjs && node scripts/smoke-login.mjs",
     "smoke:live": "node scripts/smoke-live.mjs"
   },
   "dependencies": {

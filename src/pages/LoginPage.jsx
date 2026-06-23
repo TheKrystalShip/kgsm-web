@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { takeOAuthError } from "../lib/authRedirect.js";
 import { API_BASE, LIVE } from "../lib/config.js";
+import { sessionStore } from "../lib/sessionStore.js";
 
 // LoginPage — the unauthenticated landing surface.
 //
@@ -65,14 +66,103 @@ const FAKE_PROFILES = {
   microsoft: { name: "h.kael",      display: "Haru Kael",     provider: "microsoft", email: "h.kael@outlook.example" },
 };
 
+// LoginPage — the unauthenticated gate, shown once a host is connected but no
+// identity is established yet. Two sharply-separated modes:
+//   LIVE → RealLogin: a real Discord OAuth bounce to the CONNECTED host. No fakes.
+//   MOCK → DemoLogin: the fixtures/demo sign-in (tests only).
+// (When neither LIVE nor MOCK the app is OFFLINE → the connect screen comes
+// before this gate, so exactly one of the two always applies here.)
 function LoginPage({ onLogin }) {
+  if (LIVE) return <RealLogin />;
+  return <DemoLogin onLogin={onLogin} />;
+}
+
+// The real sign-in: a full-page OAuth bounce to the connected host's
+// /auth/discord/start. The callback 302s back to this SPA with the session in the
+// URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin callback —
+// the app reboots already authed. Auth is PER HOST, so we sign in against the one
+// connected host (API_BASE) and SHOW the exact origin we bounce to: a
+// localhost-vs-127.0.0.1 mismatch would otherwise fail as an opaque state-cookie
+// 400. "Connect a different host" drops the registry → back to the connect screen.
+function RealLogin() {
+  const [busy, setBusy] = React.useState(false);
+  const [error] = React.useState(() => takeOAuthError());
+  const origin = API_BASE || "";
+  const hostLabel = origin.replace(/^https?:\/\//, "") || "this host";
+
+  const signIn = () => {
+    if (busy || !origin) return;
+    setBusy(true);
+    window.location.href = origin + "/auth/discord/start?prompt=consent";
+  };
+  const useDifferentHost = () => {
+    try { sessionStore.forgetHosts(); } catch (e) {}
+    window.location.reload();   // registry now empty → OFFLINE → the connect screen
+  };
+
+  return (
+    <div className="login-shell">
+      <div className="login-shell__inner">
+        <div className="login-shell__brand">
+          <img src="/assets/tks-mark.png" alt="" />
+          <div className="login-shell__brand-name">The Krystal Ship</div>
+          <div className="login-shell__tagline">Sign in to your control panel.</div>
+        </div>
+
+        <div className="login-card">
+          <div className="login-card__heading">Sign in</div>
+          {error && (
+            <div className="login-card__error" role="alert">
+              <Icon name="alert-triangle" size={14} />
+              {error === "denied"
+                ? "Your Discord account doesn’t have a role on this host."
+                : "Sign-in didn’t complete — please try again."}
+            </div>
+          )}
+          <div className="login-card__sub">
+            This host verifies you through Discord and grants access based on your role in its community.
+          </div>
+
+          <button
+            type="button"
+            className="oauth-btn oauth-btn--discord"
+            disabled={busy || !origin}
+            onClick={signIn}>
+            {busy
+              ? (<><span className="oauth-spinner" /> Redirecting to Discord…</>)
+              : (<><OAuthIcon provider="discord" /> Continue with Discord</>)}
+          </button>
+
+          <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: "var(--fg-3)" }}>
+            <Icon name="server" size={12} />
+            <span>Signing in to <b style={{ color: "var(--fg-2)" }}>{hostLabel}</b></span>
+          </div>
+
+          <button
+            type="button"
+            onClick={useDifferentHost}
+            style={{ marginTop: 16, background: "none", border: "none", color: "var(--fg-3)", cursor: "pointer", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Icon name="arrow-left" size={13} /> Connect a different host
+          </button>
+        </div>
+
+        <div className="login-shell__legal">
+          New here? This host sets up your access automatically on first sign-in, based on your Discord role.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// DemoLogin — the fixtures/demo sign-in (MOCK only; tests). The fake round-trip
+// synthesises a user (FAKE_PROFILES); the persona lens forces a role to preview
+// each tier. None of this runs in LIVE.
+function DemoLogin({ onLogin }) {
   const [busy, setBusy] = React.useState(null); // provider id or null
   const [stay, setStay] = React.useState(true);
   // Preview-as switch (demo/verification lever): forces ONE role across the
   // whole panel so an admin can see exactly what each tier sees, then sign back
-  // in to switch. Real authorization is per-host (you can be admin on one box,
-  // operator on another, viewer on a third); this lens just fixes a single role
-  // for testing. "admin" is the default — the panel as it is today.
+  // in to switch. Demo-only — real authorization is the per-host Discord tier.
   const [persona, setPersona] = React.useState("admin");
   // A failed/denied OAuth round-trip lands back here with #error=… (captured +
   // stashed in main.jsx); surface it once so the user isn't left guessing.
@@ -80,15 +170,6 @@ function LoginPage({ onLogin }) {
 
   const handleProvider = (provider) => {
     if (busy) return;
-    // Live backend: a real OAuth bounce is a full-page navigation to the host's
-    // /auth/discord/start; the callback 302s back with the session in the URL
-    // fragment (captured in main.jsx → completeOAuthLogin). The fake round-trip
-    // below stays for fixture mode (no VITE_API_BASE).
-    if (LIVE && provider === "discord" && API_BASE) {
-      setBusy(provider);
-      window.location.href = API_BASE + "/auth/discord/start?prompt=consent";
-      return;
-    }
     setBusy(provider);
     setTimeout(() => {
       const profile = FAKE_PROFILES[provider] || FAKE_PROFILES.discord;
