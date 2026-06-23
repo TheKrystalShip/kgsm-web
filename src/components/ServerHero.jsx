@@ -51,9 +51,12 @@ function ServerHero({ server, onAction }) {
   // affordance (its fake state machine handles `update`).
   const updateUnavailable = LIVE;
   const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
-  const cover = (window.useRawgCover && server.rawg_slug) ? window.useRawgCover(server) : null;
-  const artBg = cover
-    ? `linear-gradient(135deg, rgba(11,15,20,0.4) 0%, transparent 60%), url("${cover}")`
+  // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone);
+  // the detail hero prefers the hero image, then the cover, then the gradient.
+  // Servers carry no RAWG metadata yet → this falls through to `art` today.
+  const heroImg = server.hero || server.cover || null;
+  const artBg = heroImg
+    ? `linear-gradient(135deg, rgba(11,15,20,0.4) 0%, transparent 60%), url("${heroImg}")`
     : server.art;
   return (
     <section className="hero">

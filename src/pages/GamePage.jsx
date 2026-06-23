@@ -5,6 +5,7 @@ import { KRYSTAL_PORT_DEFAULTS } from "../components/InstallModal.jsx";
 import { KPI } from "../components/KPI.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { canOn } from "../lib/persona.js";
+import { LIVE } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { offeringHosts } from "./LibraryPage.jsx";
@@ -98,12 +99,23 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
   const onlineCount = instances.filter(s => s.status === "online").length;
   const shortName = game.name.split(":")[0].trim();
 
-  const cover = (window.useRawgCover && game.rawg_slug)
-    ? window.useRawgCover({ rawg_slug: game.rawg_slug, art: game.art })
-    : null;
-  const artBg = cover
-    ? `linear-gradient(135deg, rgba(11,15,20,0.45) 0%, transparent 60%), url("${cover}")`
+  // kgsm-api serves cover/hero as absolute, directly-renderable URLs — the detail
+  // page prefers the hero (a screenshot/detail image) then the cover, then the
+  // themed `art` gradient when neither is present.
+  const heroImg = game.hero || game.cover || null;
+  const artBg = heroImg
+    ? `linear-gradient(135deg, rgba(11,15,20,0.45) 0%, transparent 60%), url("${heroImg}")`
     : game.art;
+  // Description precedence (decision 6): API `description` → the local blurb ONLY
+  // as a mock fallback → nothing. Never fabricate copy on a LIVE backend.
+  const description = game.description ?? (LIVE ? null : bp.blurb);
+  // RAWG metadata chips — genres then a few top tags. Guard undefined (only some
+  // catalog fixtures carry them) and hide when empty.
+  const genres = game.genres || [];
+  const tags = game.tags || [];
+  const metaChips = [...genres, ...tags.slice(0, 6)];
+  // Show the RAWG attribution only where real RAWG-sourced data is displayed.
+  const hasRawgData = !!(game.description || genres.length || tags.length);
 
   const configFile = (instances[0] && instances[0].config && instances[0].config.file) || bp.config;
 
@@ -158,12 +170,26 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
       <div className="dash-feed">
         <BriefCard icon="book-open" title={"About " + shortName}>
           <div className="chat-brief__body" style={{ display: "block" }}>
-            <p style={{ margin: 0, color: "var(--fg-2)", fontSize: 13.5, lineHeight: 1.65 }}>{bp.blurb}</p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-              <span className="game-tag">{game.category}</span>
-              <span className="game-tag">{game.players} players</span>
-              <span className="game-tag">{bp.crossplay ? "Crossplay" : "Platform-locked"}</span>
+            {description && (
+              <p style={{ margin: 0, color: "var(--fg-2)", fontSize: 13.5, lineHeight: 1.65 }}>{description}</p>
+            )}
+            {/* RAWG genres + top tags when present; otherwise the coarse
+                category/players/crossplay chips. */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: description ? 14 : 0 }}>
+              {metaChips.length > 0
+                ? metaChips.map(t => <span key={t} className="game-tag">{t}</span>)
+                : (<>
+                    <span className="game-tag">{game.category}</span>
+                    <span className="game-tag">{game.players} players</span>
+                    <span className="game-tag">{bp.crossplay ? "Crossplay" : "Platform-locked"}</span>
+                  </>)}
             </div>
+            {hasRawgData && (
+              <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--fg-3)" }}>
+                Game data from <a href="https://rawg.io" target="_blank" rel="noreferrer noopener"
+                  style={{ color: "var(--fg-2)" }}>RAWG.io</a>
+              </div>
+            )}
           </div>
         </BriefCard>
 

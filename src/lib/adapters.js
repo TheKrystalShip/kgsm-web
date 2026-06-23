@@ -212,7 +212,13 @@ export function adaptLibraryEntry(be) {
     steamAppId: be.steamAppId ?? null,
     ports: be.ports || [],
     specs: be.specs || null,
-    cover: be.cover ?? null,         // reserved upstream (null) → gradient fallback
+    // RAWG-sourced metadata, served by kgsm-api (cover/hero are ABSOLUTE,
+    // directly-renderable URLs → render verbatim; null → the gradient fallback).
+    cover: be.cover ?? null,
+    hero: be.hero ?? null,
+    description: be.description ?? null,
+    genres: be.genres ?? [],
+    tags: be.tags ?? [],
     rawg_slug: be.rawgSlug ?? null,
   };
 }

@@ -13,8 +13,10 @@ import { favoritesStore, hostsStore, useIsFavorite } from "../lib/stores.js";
 // a card looks and behaves identically wherever it appears.
 
 function ServerTile({ server, onOpen, onAction, showHost }) {
-  const cover = (window.useRawgCover && server.rawg_slug) ? window.useRawgCover(server) : null;
-  const art = cover ? `url("${cover}")` : server.art;
+  // kgsm-api serves cover directly (the old client-side RAWG hook is gone).
+  // Servers carry no RAWG metadata yet → this falls through to `art` today.
+  const coverImg = server.cover || null;
+  const art = coverImg ? `url("${coverImg}")` : server.art;
   const host = showHost && hostsStore ? hostsStore.find(server.hostId) : null;
   // Pin state (client-local). The star both reads and writes the favorites
   // store; toggling it mirrors the card into the pinned Favorites section on the

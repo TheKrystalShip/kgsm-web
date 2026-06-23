@@ -228,10 +228,14 @@ const KRYSTAL_DATA = {
   ],
 
   // ---- Game catalog (Library page) ----
-  // The backend resolves cover art server-side (provider key stays off the
-  // browser) and sends each entry a `cover` URL; the frontend renders it, or
-  // falls back to the `art` gradient when absent. rawg_slug is the backend's
-  // lookup hint, not used by the frontend. See architecture.html §3·i.
+  // The backend (kgsm-api) resolves RAWG.io metadata server-side (provider key
+  // stays off the browser) and sends each entry `cover`/`hero` (absolute,
+  // directly-renderable image URLs), plus `description`/`genres`/`tags`. The
+  // frontend renders them verbatim, or falls back to the `art` gradient + the
+  // local blurb when absent. rawg_slug is the backend's lookup hint, not used by
+  // the frontend. A few entries below carry real RAWG data so `?mock=1` shows the
+  // feature; the rest stay metadata-less to exercise the fallbacks. See
+  // architecture.html §3·i + rawg-integration-plan.md.
   // addedAt — when the game entry was added to this library (ISO date). The
   // dashboard "Recently added" card and the library's "Recently added" filter
   // read this. Reference "now" is derived from the newest addedAt so the card
@@ -245,15 +249,30 @@ const KRYSTAL_DATA = {
   // means only those hosts can install it; the card and install modal reflect
   // that. A host that already runs an instance must always appear here.
   catalog: [
-    { id: "valheim",   rawg_slug: "valheim",                   name: "Valheim",            category: "Survival",   players: "2–10",  addedAt: "2025-11-02", art: "linear-gradient(135deg, #1a3a4a 0%, #0e1a22 35%), radial-gradient(circle at 80% 60%, #2a5566 0%, transparent 55%), #0B0F14" },
+    { id: "valheim",   rawg_slug: "valheim",                   name: "Valheim",            category: "Survival",   players: "2–10",  addedAt: "2025-11-02", art: "linear-gradient(135deg, #1a3a4a 0%, #0e1a22 35%), radial-gradient(circle at 80% 60%, #2a5566 0%, transparent 55%), #0B0F14",
+      cover: "https://media.rawg.io/media/games/adb/adb59be81367b19c2544457424bcf086.jpg",
+      hero: "https://media.rawg.io/media/screenshots/133/1339ea20e2e8dea05d71cfcfa4eeefed.jpg",
+      description: "Valheim is a game about exploring a huge fantasy world inspired by norse mythology and viking culture. You start your adventure at the relatively peaceful center of Valheim. The further from the center you travel, the more challenging the world becomes. But you will also find more valuable materials that you can use to craft deadlier weapons and sturdier armor. You will also build your own viking strongholds and outposts all over the world.",
+      genres: ["Action", "Adventure", "Indie"],
+      tags: ["Singleplayer", "Multiplayer", "Co-op", "Fantasy", "Exploration", "Survival", "Online multiplayer"] },
     { id: "ark",       rawg_slug: "ark-survival-evolved",      name: "ARK: Survival Evolved", category: "Survival", players: "1–70", addedAt: "2026-01-15", art: "linear-gradient(135deg, #2a1f1a 0%, #1a1410 40%), radial-gradient(circle at 75% 45%, #6b3d1f 0%, transparent 55%), #0B0F14" },
-    { id: "mc",        rawg_slug: "minecraft",                 name: "Minecraft",          category: "Sandbox",    players: "1–40",  addedAt: "2025-12-20", art: "linear-gradient(135deg, #1a2a1a 0%, #0e1a10 40%), radial-gradient(circle at 70% 50%, #2a5530 0%, transparent 55%), #0B0F14" },
+    { id: "mc",        rawg_slug: "minecraft",                 name: "Minecraft",          category: "Sandbox",    players: "1–40",  addedAt: "2025-12-20", art: "linear-gradient(135deg, #1a2a1a 0%, #0e1a10 40%), radial-gradient(circle at 70% 50%, #2a5530 0%, transparent 55%), #0B0F14",
+      cover: "https://media.rawg.io/media/games/b4e/b4e4c73d5aa4ec66bbf75375c4847a2b.jpg",
+      hero: "https://media.rawg.io/media/screenshots/e31/e31af2817843f56e90490e99b706e75c.jpg",
+      description: "One of the most popular games of the 2010s, Minecraft allows you to rebuild the environment around you. The world of the game is open, infinitely wide, and procedurally generated. It is composed of small 3D cubes that represent specific types of materials or terrain. The gameplay is centered on mining and building various structures of your choice. You can also craft items like tools, weapons, and armor. There's an option to shift to the first or the third person view.",
+      genres: ["Action", "Simulation", "Arcade", "Massively Multiplayer", "Indie"],
+      tags: ["Multiplayer", "Sandbox", "Crafting", "Building", "open-world", "procedural-generation"] },
     { id: "pal",       rawg_slug: "palworld",                  name: "Palworld",           category: "Survival",   players: "1–32",  addedAt: "2026-02-08", art: "linear-gradient(135deg, #1a1a2a 0%, #0e1018 40%), radial-gradient(circle at 70% 50%, #3a3a66 0%, transparent 55%), #0B0F14" },
     { id: "rust",      rawg_slug: "rust",                      name: "Rust",               category: "Survival",   players: "10–200", addedAt: "2026-06-10", art: "linear-gradient(135deg, #2a1a14 0%, #1a0e0a 40%), radial-gradient(circle at 70% 50%, #804a2a 0%, transparent 55%), #0B0F14" },
     { id: "csgo",      rawg_slug: "counter-strike-2",          name: "Counter-Strike 2",   category: "FPS",        players: "5v5",   addedAt: "2026-06-08", art: "linear-gradient(135deg, #2a241a 0%, #1a160e 40%), radial-gradient(circle at 70% 50%, #b08a3a 0%, transparent 55%), #0B0F14" },
     { id: "tf2",       rawg_slug: "team-fortress-2",           name: "Team Fortress 2",    category: "FPS",        players: "12v12", addedAt: "2026-05-28", art: "linear-gradient(135deg, #2a1a1a 0%, #1a0e0e 40%), radial-gradient(circle at 70% 50%, #c46a3a 0%, transparent 55%), #0B0F14" },
     { id: "garrysmod", rawg_slug: "garrys-mod",                name: "Garry's Mod",        category: "Sandbox",    players: "1–128", addedAt: "2026-06-04", art: "linear-gradient(135deg, #1a242a 0%, #0e161a 40%), radial-gradient(circle at 70% 50%, #3a7080 0%, transparent 55%), #0B0F14" },
-    { id: "factorio",  rawg_slug: "factorio",                  name: "Factorio",           category: "Sandbox",    players: "1–65",  addedAt: "2026-05-30", art: "linear-gradient(135deg, #2a261a 0%, #1a170e 40%), radial-gradient(circle at 70% 50%, #b09848 0%, transparent 55%), #0B0F14" },
+    { id: "factorio",  rawg_slug: "factorio",                  name: "Factorio",           category: "Sandbox",    players: "1–65",  addedAt: "2026-05-30", art: "linear-gradient(135deg, #2a261a 0%, #1a170e 40%), radial-gradient(circle at 70% 50%, #b09848 0%, transparent 55%), #0B0F14",
+      cover: "https://media.rawg.io/media/games/7e4/7e4e22b76da131e9690d5757555093c2.jpg",
+      hero: "https://media.rawg.io/media/screenshots/d6c/d6c2f889f6a6c6332b208a6132b06acb.jpg",
+      description: "Factorio is an isometric space real-time strategy developed by Wube Software. The player controls only one character that can move around the map freely by walking at first and using vehicles later into the game. The unknown planet that the players explore is rich with oil, minerals, water, and other fauna. The player controlled character can mine the resources by himself and the tools that can be crafted or by building specific mining equipment. The latter will be much more effective.",
+      genres: ["Strategy", "Simulation", "Casual", "Indie"],
+      tags: ["Singleplayer", "Multiplayer", "Co-op", "Open World", "Sci-fi", "Sandbox", "Survival"] },
     { id: "tlauncher", rawg_slug: "terraria",                  name: "Terraria",           category: "Sandbox",    players: "1–8",   addedAt: "2026-03-12", art: "linear-gradient(135deg, #2a1a24 0%, #1a0e16 40%), radial-gradient(circle at 70% 50%, #a04875 0%, transparent 55%), #0B0F14" },
     { id: "satisfactory", rawg_slug: "satisfactory",           name: "Satisfactory",       category: "Sandbox",    players: "1–4",   hosts: ["secondary"], addedAt: "2026-06-11", art: "linear-gradient(135deg, #2a241a 0%, #1a170e 40%), radial-gradient(circle at 70% 50%, #d09038 0%, transparent 55%), #0B0F14" },
     { id: "enshrouded", rawg_slug: "enshrouded",               name: "Enshrouded",         category: "Survival",   players: "1–16",  addedAt: "2026-06-01", art: "linear-gradient(135deg, #1a1a2a 0%, #0e0e1a 40%), radial-gradient(circle at 70% 50%, #6a4ab0 0%, transparent 55%), #0B0F14" },
