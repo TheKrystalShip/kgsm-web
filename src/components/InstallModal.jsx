@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
 import { can } from "../lib/persona.js";
-import { offeringHosts } from "../pages/LibraryPage.jsx";
+import { fmtFootprintMb, offeringHosts } from "../pages/LibraryPage.jsx";
 import { Toggle } from "../pages/ServerSettings.jsx";
 
 // InstallModal — overlay form for spinning up a new game server.
@@ -9,25 +9,6 @@ import { Toggle } from "../pages/ServerSettings.jsx";
 //   game     — catalog entry from the library store (name, art, rawg_slug…)
 //   onClose  — () => void
 //   onInstall — (config) => void   // called when user confirms
-
-// Default port hints per game — real product would read this from the
-// backend's game-defaults endpoint.
-const PORT_DEFAULTS = {
-  valheim:        { port: 2456, query: 2457, slots: 10, dir: "valheim_${id}" },
-  ark:            { port: 7777, query: 27015, slots: 20, dir: "ark_${id}" },
-  mc:             { port: 25565, slots: 16, dir: "minecraft_${id}" },
-  pal:            { port: 8211, slots: 32, dir: "palworld_${id}" },
-  rust:           { port: 28015, query: 28016, slots: 100, dir: "rust_${id}" },
-  csgo:           { port: 27015, slots: 10, dir: "cs2_${id}" },
-  tf2:            { port: 27015, slots: 24, dir: "tf2_${id}" },
-  garrysmod:      { port: 27015, slots: 16, dir: "gmod_${id}" },
-  factorio:       { port: 34197, slots: 8, dir: "factorio_${id}" },
-  tlauncher:      { port: 7777, slots: 8, dir: "terraria_${id}" },
-  satisfactory:   { port: 7777, slots: 4, dir: "satisfactory_${id}" },
-  enshrouded:     { port: 15637, query: 15636, slots: 16, dir: "enshrouded_${id}" },
-  lod:            { port: 27015, slots: 8, dir: "l4d2_${id}" },
-  projectzomboid: { port: 16261, slots: 16, dir: "zomboid_${id}" },
-};
 
 // Standard build channels — offered until the backend reports per-game versions.
 const VERSION_OPTIONS = [
@@ -41,8 +22,15 @@ function shortId() {
 }
 
 function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = null }) {
-  const defaults = PORT_DEFAULTS[game.id] || { port: 27015, slots: 16, dir: "server_${id}" };
   const id = React.useMemo(shortId, []);
+  // Seed the form from the backend blueprint DTO — never a hardcoded per-game
+  // map. `ports` is served today so the game port pre-fills for real; the query
+  // port has no honest blueprint designation (left blank/optional) and max
+  // players comes from `specs.maxPlayers` (null today → blank). The install dir
+  // is just a suggested name derived from the blueprint id. (kgsm assigns the
+  // real ports/dir at install time — only `blueprint`+`name` reach the API.)
+  const defaultPort = (game.ports && game.ports[0] && game.ports[0].start) || "";
+  const defaultSlots = (game.specs && game.specs.maxPlayers != null) ? game.specs.maxPlayers : "";
   // Only hosts that OFFER this blueprint can install it. Absent game.hosts =
   // every host offers it (the common case). The catalog is the union across
   // the fleet, so a game added by one host alone is installable only there.
@@ -55,10 +43,10 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
     name:    `My ${game.name.split(":")[0]} Server`,
     version: "stable",
     hostId:  initialHost,
-    port:    defaults.port,
-    query:   defaults.query || "",
-    slots:   defaults.slots,
-    dir:     defaults.dir.replace("${id}", id),
+    port:    defaultPort,
+    query:   "",
+    slots:   defaultSlots,
+    dir:     `${game.id}_${id}`,
     password: "",
     autostart: true,
   });
@@ -174,7 +162,10 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
 
         <div className="k-modal__foot">
           <span style={{ flex: 1, color: "var(--fg-3)", fontSize: 12 }}>
-            <Icon name="hard-drive" size={12} />&nbsp; ~{game.id === "ark" ? "12 GB" : game.id === "mc" ? "1.2 GB" : "3.4 GB"} download
+            <Icon name="hard-drive" size={12} />&nbsp;
+            {game.specs && game.specs.baseDiskMb != null
+              ? <>~{fmtFootprintMb(game.specs.baseDiskMb)} download</>
+              : "Download size unknown"}
           </span>
           <button type="button" className="icon-btn" style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600, height: 38 }} onClick={onClose}>Cancel</button>
           <button type="submit" className="fb-editor__btn" style={{ height: 38, padding: "0 18px" }}>
@@ -186,7 +177,4 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   );
 }
 
-// Blueprint specs (default ports / slots) reused by the game detail page.
-const KRYSTAL_PORT_DEFAULTS = PORT_DEFAULTS;
-
-export { InstallModal, KRYSTAL_PORT_DEFAULTS };
+export { InstallModal };

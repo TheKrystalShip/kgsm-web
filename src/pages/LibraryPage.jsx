@@ -8,13 +8,29 @@ import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
-import { gameBlueprint, instancesOfBlueprint } from "./GamePage.jsx";
+import { instancesOfBlueprint } from "./GamePage.jsx";
 
 // Library — Steam-like game catalog with search + category filter.
 // Cover art is whatever the backend sends on each catalog entry (game.cover):
 // the backend resolves it server-side and keeps any provider key off the
 // browser. When cover is absent we fall back to a themed gradient. The frontend
 // never talks to an image provider directly — see architecture.html §3·i.
+
+// Honest display of an advisory footprint figure (RAM / disk, in MB) from the
+// backend's blueprint `specs`. These are `null` on every blueprint today
+// (metadata curation is deferred upstream), so this renders an em dash — never a
+// fabricated default. ≥1 GB shows in GB (one decimal, trimmed); smaller in MB.
+// Exported so the catalog cards, the blueprint detail page and the install modal
+// all format the same backend numbers identically. The instant the API serves a
+// value, it renders here with no further wiring.
+export function fmtFootprintMb(mb) {
+  if (mb == null || !Number.isFinite(mb)) return "—";
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return (Number.isInteger(gb) ? gb : Math.round(gb * 10) / 10) + " GB";
+  }
+  return Math.round(mb) + " MB";
+}
 
 // ---------- "Recently added" helpers (shared with the dashboard) ----------
 // The catalog carries an `addedAt` ISO date per game. Reference "now" is the
@@ -140,7 +156,6 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
 
   // --- Full blueprint card (library grid). Art still leads, but the deploy
   // facts that actually matter are made legible: footprint, run-state, recency. ---
-  const bp = (gameBlueprint && gameBlueprint(game.id)) || { ram: ["4", "GB"], storage: ["3.4", "GB"] };
   const now = addedNow || libraryNow([game]);
   const addedMs = game.addedAt ? +new Date(game.addedAt) : 0;
   const isNew = !count && addedMs && (+now - addedMs) <= NEW_WINDOW_DAYS * 86400000;
@@ -186,11 +201,11 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
           <span className="bp-spec__lbl">Players</span>
         </div>
         <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="memory-stick" size={12} strokeWidth={2} /> {bp.ram[0]} {bp.ram[1]}</span>
+          <span className="bp-spec__val"><Icon name="memory-stick" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.recommendedRamMb)}</span>
           <span className="bp-spec__lbl">RAM</span>
         </div>
         <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="hard-drive" size={12} strokeWidth={2} /> {bp.storage[0]} {bp.storage[1]}</span>
+          <span className="bp-spec__val"><Icon name="hard-drive" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.baseDiskMb)}</span>
           <span className="bp-spec__lbl">Disk</span>
         </div>
       </div>
@@ -404,12 +419,10 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
     return true;
   });
   // Catalog sort — a real storefront lets you reorder. Newest-first by default
-  // so fresh games surface; footprint sort reads the recommended RAM from the
-  // shared blueprint map (same numbers the detail page shows).
-  const ramGB = g => {
-    const bp = gameBlueprint && gameBlueprint(g.id);
-    return bp ? parseFloat(bp.ram[0]) || 0 : 0;
-  };
+  // so fresh games surface; footprint sort reads the recommended RAM straight
+  // from the backend `specs` (null today → 0, so the order is stable until the
+  // API serves real figures — never sorted by a fabricated number).
+  const ramGB = g => (g.specs && g.specs.recommendedRamMb) || 0;
   const SORTS = {
     recent: (a, b) => +new Date(b.addedAt || 0) - +new Date(a.addedAt || 0),
     name:   (a, b) => a.name.localeCompare(b.name),
