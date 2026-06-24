@@ -100,7 +100,7 @@ function categoryMeta(cat) {
 // so the badge stays meaningful.
 const NEW_WINDOW_DAYS = 14;
 
-function GameCard({ game, onPick, addedNow, compact }) {
+function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
   // Single source of truth for "how many do I run": the servers store. Both the
   // library grid and the dashboard's Recently added band read this, so the
   // count is always consistent.
@@ -147,13 +147,20 @@ function GameCard({ game, onPick, addedNow, compact }) {
   const installed = count > 0;
   // Only flag host availability when the game ISN'T on every host (a subset).
   const hostLabel = hostAvailabilityLabel(game, allHosts);
+  // A not-yet-installed blueprint that THIS persona may deploy gets a real
+  // "Deploy" action: the CTA opens the install modal directly (onDeploy) instead
+  // of bubbling to the card's open-detail click. `can("server.create")` is the
+  // aggregate reach (held on any host); the modal then scopes hosts per-host.
+  const canDeploy = !installed && !!onDeploy && can && can("server.create");
 
   return (
     <article
       className={"bp-card" + (installed ? " bp-card--installed" : "")}
       onClick={() => onPick(game)}
       role="button" tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(game); } }}
+      // Guard on target===currentTarget so an Enter/Space landing on the nested
+      // Deploy button fires only that button, not the card's open-detail too.
+      onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); onPick(game); } }}
     >
       <div className="bp-card__art" style={{ background: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
         {hostLabel && (
@@ -200,13 +207,26 @@ function GameCard({ game, onPick, addedNow, compact }) {
             <Icon name="clock" size={11} /> Added {fmtAddedLabel(game.addedAt, now)}
           </span>
         )}
-        <span className="bp-card__cta">
-          {/* CTA reflects what THIS persona can do (architecture.html §3·f·1): a
-              read-only viewer can only view the blueprint, never deploy/manage. */}
-          {(installed
-            ? (can && can("server.operate") ? "Manage" : "View")
-            : (can && can("server.create") ? "Deploy" : "View"))} <Icon name="arrow-right" size={13} strokeWidth={2.2} />
-        </span>
+        {/* CTA reflects what THIS persona can do (architecture.html §3·f·1): a
+            read-only viewer can only view the blueprint, never deploy/manage.
+            "Deploy" is a real action — it opens the install modal directly
+            rather than the card's open-detail navigation. */}
+        {canDeploy ? (
+          <button
+            type="button"
+            className="bp-card__cta bp-card__cta--act"
+            title={"Deploy a new " + game.name + " server"}
+            onClick={e => { e.stopPropagation(); onDeploy(game); }}
+          >
+            Deploy <Icon name="arrow-right" size={13} strokeWidth={2.2} />
+          </button>
+        ) : (
+          <span className="bp-card__cta">
+            {(installed
+              ? (can && can("server.operate") ? "Manage" : "View")
+              : "View")} <Icon name="arrow-right" size={13} strokeWidth={2.2} />
+          </span>
+        )}
       </div>
     </article>
   );
@@ -294,7 +314,7 @@ function groupVisual(gkey, key) {
 }
 function section_is_every_host(key) { return key === "On every host"; }
 
-function LibraryGroup({ gkey, section, collapsed, onToggle, onOpenGame, now, isInstalled }) {
+function LibraryGroup({ gkey, section, collapsed, onToggle, onOpenGame, onDeploy, now, isInstalled }) {
   const vis = groupVisual(gkey, section.key);
   const installedHere = section.items.filter(isInstalled).length;
   // "N installed" is noise when the grouping IS status — the header already says so.
@@ -316,7 +336,7 @@ function LibraryGroup({ gkey, section, collapsed, onToggle, onOpenGame, now, isI
       </button>
       {!collapsed && (
         <div className="game-grid lib-group__grid">
-          {section.items.map(g => <GameCard key={g.id} game={g} onPick={onOpenGame} addedNow={now} />)}
+          {section.items.map(g => <GameCard key={g.id} game={g} onPick={onOpenGame} onDeploy={onDeploy} addedNow={now} />)}
         </div>
       )}
     </section>
@@ -325,7 +345,7 @@ function LibraryGroup({ gkey, section, collapsed, onToggle, onOpenGame, now, isI
 
 const LIB_COLLAPSE_KEY = "krystal.library.collapsed.v1";
 
-function Library({ onOpenGame, initialFilter }) {
+function Library({ onOpenGame, onDeploy, initialFilter }) {
   const all = useStore(libraryStore, s => s.list);
   // Run-state is derived from the servers store — the one source of truth shared
   // with the cards — so "installed" can never disagree with the "N servers" pill.
@@ -489,7 +509,7 @@ function Library({ onOpenGame, initialFilter }) {
         />
       )}
       <div className="game-grid">
-        {!grouping && pageItems.map(g => <GameCard key={g.id} game={g} onPick={onOpenGame} addedNow={now} />)}
+        {!grouping && pageItems.map(g => <GameCard key={g.id} game={g} onPick={onOpenGame} onDeploy={onDeploy} addedNow={now} />)}
       </div>
       {grouping && (
         <div className="lib-groups">
@@ -501,6 +521,7 @@ function Library({ onOpenGame, initialFilter }) {
               collapsed={collapsed.has(ck(section.key))}
               onToggle={toggleSection}
               onOpenGame={onOpenGame}
+              onDeploy={onDeploy}
               now={now}
               isInstalled={isInstalled}
             />

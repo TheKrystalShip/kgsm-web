@@ -654,6 +654,18 @@ body { overflow: hidden; }
   transition: gap var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
 }
 .bp-card:hover .bp-card__cta { color: var(--krystal-teal-hover); gap: 8px; }
+/* The Deploy CTA is a real <button> (opens the install modal) — strip the native
+   chrome so it reads identically to the span variant, but keep it interactive.
+   Reset ONLY the chrome (matching the .dash-section__more convention); leave the
+   base .bp-card__cta font-size/weight intact — `font: inherit` would clobber it. */
+.bp-card__cta--act {
+  background: none; border: none; padding: 0; margin: 0;
+  font-family: inherit; cursor: pointer;
+}
+.bp-card__cta--act:hover { color: var(--krystal-teal-hover); gap: 8px; }
+.bp-card__cta--act:focus-visible {
+  outline: 2px solid var(--krystal-teal); outline-offset: 3px; border-radius: 4px;
+}
 
 /* ---- Grouped view — Windows-Explorer-style foldable sections ---- */
 .lib-groups { display: flex; flex-direction: column; gap: 26px; }

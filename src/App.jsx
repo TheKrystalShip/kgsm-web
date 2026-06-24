@@ -914,7 +914,7 @@ function App() {
             onAction={(id, action) => { setRoute({ kind: "server", id }); setTimeout(() => handleAction(action), 0); }}
             onLibrary={() => setRoute({ kind: "library" })}
           />}
-          {route.kind === "library" && <Library key={route.filter || "all"} onOpenGame={openGame} initialFilter={route.filter} />}
+          {route.kind === "library" && <Library key={route.filter || "all"} onOpenGame={openGame} onDeploy={handleInstall} initialFilter={route.filter} />}
           {route.kind === "game" && (activeGame
             ? <GamePage
                 game={activeGame}
