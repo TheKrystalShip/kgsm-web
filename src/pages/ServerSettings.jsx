@@ -86,7 +86,7 @@ function ServerSettings({ server }) {
     autoUpdate: "stable",
     autoBackup: "6h",
     retainBackups: 10,
-    ramCap: server.ram.max,
+    ramCap: server.ram?.max ?? null,   // honest model: ram is null without live metrics, and max is always null (no per-instance cap) — never assume it's there
     cpuPriority: "normal",
   });
   const set = (k, v) => setS(prev => ({ ...prev, [k]: v }));
