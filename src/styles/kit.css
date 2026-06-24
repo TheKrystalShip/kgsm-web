@@ -532,7 +532,9 @@ body { overflow: hidden; }
 }
 .game-card:hover { border-color: var(--border-strong); }
 .game-card__art {
-  aspect-ratio: 4 / 3; background-size: cover; background-position: center;
+  /* 2:3 portrait — same cover treatment as the catalog page's .bp-card__art, so
+     the Steam library capsules (600x900) render uncropped on the dashboard rail. */
+  aspect-ratio: 2 / 3; background-size: cover; background-position: center;
   position: relative;
 }
 .game-card__art::after {
@@ -3353,7 +3355,7 @@ body { overflow: hidden; }
   .dash-summary { grid-template-columns: 1fr 1fr; }
   .stats { grid-template-columns: 1fr 1fr; }
   .game-grid { grid-template-columns: 1fr; }
-  .game-card__art { aspect-ratio: 16 / 9; }
+  .game-card__art { aspect-ratio: 2 / 3; }
   .hero__name { font-size: 19px; }
   .chip { height: 42px; font-size: 11px; padding: 0 8px; }
   .login-shell { padding: 16px; }

@@ -14,7 +14,7 @@ import { useStore } from "../lib/store.js";
 import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 import { ACTION_META, fmtRelative, parseTs } from "./AuditLogPage.jsx";
 import { HostCapacityStrip } from "./DiagnosticsPage.jsx";
-import { GameCard, libraryNow, recentlyAddedGames } from "./LibraryPage.jsx";
+import { GameCard } from "./LibraryPage.jsx";
 
 // DashboardPage — the post-login home. Aggregate stats, a server grid,
 // and a recent-activity feed. Designed to answer "what should I care about
@@ -179,30 +179,30 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
     () => (auditInScope ? auditList.filter(ev => auditInScope(ev, selectedId)) : auditList),
     [auditList, selectedId]
   );
-  // Recently added games — newest-first window onto the library catalog. The
-  // "View all" link drops the user on the library, pre-filtered to this view.
+  // Catalog preview — a compact window onto the installable library. The backend
+  // blueprint catalog carries no "added" date (the LibraryEntry DTO has no
+  // timestamp), so this is a straight slice of the catalog in its natural order,
+  // NOT a recency rail; "View all" opens the full Library.
   const libraryList = useStore(libraryStore, s => s.list);
-  const libNow = libraryNow ? libraryNow(libraryList) : new Date();
-  const recentlyAdded = recentlyAddedGames ? recentlyAddedGames(libraryList) : [];
   // Show only as many cards as fit in one row at the current width — drop the
   // overflow entirely rather than wrapping or scrolling. Cards then stretch to
   // fill the row evenly (grid 1fr).
-  const recentRowRef = React.useRef(null);
-  const [recentFit, setRecentFit] = React.useState(6);
+  const catalogRowRef = React.useRef(null);
+  const [catalogFit, setCatalogFit] = React.useState(6);
   React.useLayoutEffect(() => {
-    const el = recentRowRef.current;
+    const el = catalogRowRef.current;
     if (!el) return;
     const MIN = 158, GAP = 12, PAD = 28; // card min width, gap, row h-padding
     const compute = () => {
       const w = el.clientWidth - PAD;
-      setRecentFit(Math.max(1, Math.floor((w + GAP) / (MIN + GAP))));
+      setCatalogFit(Math.max(1, Math.floor((w + GAP) / (MIN + GAP))));
     };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
   }, [dataLoading]);
-  const recentVisible = recentlyAdded.slice(0, recentFit);
+  const catalogVisible = libraryList.slice(0, catalogFit);
   // Fit-to-width for the bottom Servers row, mirroring Recently added but
   // capped at 4 — show only as many tiles as fit one row, never more than 4.
   const serverRowRef = React.useRef(null);
@@ -360,29 +360,29 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
       </div>
     )
   });
-  if (recentlyAdded.length > 0) bands.push({
-    id: "recent", label: "Recently added",
+  if (libraryList.length > 0) bands.push({
+    id: "recent", label: "Catalog",
     node: (
-      // Recently added — a single, non-collapsing row of the newest library
-      // entries. "View all" lands on the library pre-filtered to this view.
+      // Catalog — a single, non-collapsing row of installable games straight from
+      // the library. Clicking a card opens the install flow; "View all" opens the
+      // full Library catalog.
       <div className="chat-brief">
         <div className="chat-brief__head">
           <span className="chat-brief__title">
-            <Icon name="library" size={13} /> {(KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog"} - Recently added
-            <span className="chat-brief__count chat-brief__count--neutral">{recentlyAdded.length}</span>
+            <Icon name="library" size={13} /> {(KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog"}
+            <span className="chat-brief__count chat-brief__count--neutral">{libraryList.length}</span>
           </span>
-          <button className="dash-section__more" onClick={() => onLibrary && onLibrary("recent")}>
+          <button className="dash-section__more" onClick={() => onLibrary && onLibrary()}>
             View all <Icon name="arrow-right" size={11} strokeWidth={2.2} />
           </button>
         </div>
-        <div className="dash-recent" ref={recentRowRef} style={{ gridTemplateColumns: `repeat(${Math.min(recentFit, recentlyAdded.length)}, 1fr)` }}>
-          {recentVisible.map(g => (
+        <div className="dash-recent" ref={catalogRowRef} style={{ gridTemplateColumns: `repeat(${Math.min(catalogFit, libraryList.length)}, 1fr)` }}>
+          {catalogVisible.map(g => (
             <GameCard
               key={g.id}
               game={g}
               compact
-              onPick={onInstall ? onInstall : () => onLibrary && onLibrary("recent")}
-              addedNow={libNow}
+              onPick={onInstall ? onInstall : () => onLibrary && onLibrary()}
             />
           ))}
         </div>

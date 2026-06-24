@@ -144,8 +144,12 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
         <div className="game-card__body">
           <div className="game-card__title">{game.name}</div>
           <div className="game-card__meta">
-            <span className="game-card__metarow"><Icon name="users" size={12} /> {game.players} players</span>
-            {addedNow && (
+            {/* players is null when the blueprint declares no max (the common case
+                today) — omit the row rather than render an empty "— players". */}
+            {game.players && (
+              <span className="game-card__metarow"><Icon name="users" size={12} /> {game.players} players</span>
+            )}
+            {addedNow && game.addedAt && (
               <span className="game-card__added"><Icon name="clock" size={11} /> {fmtAddedLabel(game.addedAt, addedNow)}</span>
             )}
           </div>
