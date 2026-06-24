@@ -23,7 +23,7 @@ function liveXTicks(N, windowSec) {
   return [{ i: 0, l: fmt(spanS) }, { i: 0.5, l: fmt(spanS / 2) }, { i: 1, l: "now" }];
 }
 
-function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec }) {
+function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band }) {
   const W = 600;
   const H = height;
   const padL = 30, padR = 12, padT = 8, padB = 22;
@@ -104,6 +104,14 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
             strokeLinecap="round"
             opacity="0.6" />
         );
+      })()}
+
+      {/* Min/max band — drawn as a filled polygon between the min and max arrays
+          (rollup tier). Sits under the main series line for visual depth. */}
+      {band && band.min && band.max && band.min.length === N && (() => {
+        const upper = band.max.map((v, i) => `${sx(i)} ${sy(v)}`).join(" L ");
+        const lower = band.min.map((v, i) => `${sx(i)} ${sy(v)}`).reverse().join(" L ");
+        return <path d={`M ${upper} L ${lower} Z`} fill={band.color || "var(--krystal-teal)"} opacity="0.10" />;
       })()}
 
       {/* Series — fills first so they sit under the lines */}

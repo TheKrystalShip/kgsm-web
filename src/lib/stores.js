@@ -240,6 +240,19 @@ function subscribeServerMetrics(serverId, onTick) {
   });
 }
 
+// ---- Per-server metrics HISTORY (M9 — the durable tiered store) ---------
+// Fetches historical metrics for a server from the new history endpoint.
+// Returns the raw response: { entityId, kind, range, step, tier, series }.
+// The series object is keyed by metric name, each value an array of points
+// with { ts, value } (raw tier) or { ts, value, min, max, n } (rollup tier).
+// Gaps are absent points (the backend never carry-forwards). Empty series
+// when history is disabled or the monitor has never reported for this server.
+async function fetchServerMetricsHistory(serverId, range, hostId) {
+  if (!serverId) return null;
+  const r = range || "1h";
+  return api.host(hostId).get("/servers/" + serverId + "/metrics/history?range=" + r);
+}
+
 // ---- Server write actions (the two mutation paths into the engine) ------
 // Both go through the HOST-SCOPED client (api.host) so the per-host session
 // gate runs (bearer injected + 401 → re-auth) and the M5 provenance origin is
@@ -662,4 +675,4 @@ try {
   auditStore.refresh().catch(swallow);
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
