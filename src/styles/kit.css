@@ -715,12 +715,48 @@ body { overflow: hidden; }
 .game-empty__sub { font-size: 12.5px; color: var(--fg-3); max-width: 360px; }
 
 /* ============= File browser ============= */
-.fb-card { display: grid; grid-template-columns: 260px 1fr; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; min-height: 460px; }
+/* The editor column is minmax(0, 1fr) — NOT 1fr (= minmax(auto, 1fr)) — so it can
+   shrink below its content's intrinsic width when the tree is widened, instead of
+   overflowing and getting clipped by the card's overflow:hidden (which used to push
+   the Save/Reset bar off-screen). */
+.fb-card { display: grid; grid-template-columns: var(--fb-tree-w, 260px) minmax(0, 1fr); background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; min-height: 460px; position: relative; }
+/* Draggable splitter — an invisible hit strip sitting on the tree/editor seam
+   (positioned at left:var(--fb-tree-w) via an inline style). Out of grid flow
+   (position:absolute) so it never occupies a column; shows a teal line on
+   hover/drag. */
+.fb-resizer { position: absolute; top: 0; bottom: 0; width: 9px; margin-left: -4px; cursor: col-resize; z-index: 4; touch-action: none; }
+.fb-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--border-subtle); transition: background var(--d-fast) var(--ease-out), width var(--d-fast) var(--ease-out); }
+.fb-resizer:hover::after, .fb-resizer--active::after { background: var(--krystal-teal); width: 2px; left: 3.5px; }
 /* When wrapped in the shared BriefCard chrome, the card supplies the border +
    radius, so the inner grid sits flush. */
 .chat-brief .fb-card { border: none; border-radius: 0; min-height: 420px; }
+
+/* Vertical fill (Files tab): with .content--fill on the ancestor, the flex chain
+   runs .app__main (column, 100vh) → .content--fill → the file-browser BriefCard →
+   .fb-card, so the editor claims all height down to the footer. The grid's single
+   row becomes minmax(0,1fr) so the tree + editor stretch to the card height and
+   scroll INTERNALLY (the save bar stays pinned, never pushed off-screen). */
+.content--fill { flex: 1 1 auto; min-height: 0; }
+/* Only the file-browser card flexes. The hero / sub-tabs / breadcrumb keep their
+   natural height (flex-shrink:0) — otherwise the height-constrained column would
+   shrink the hero below its content and its overflow:hidden would clip the
+   start/stop/connect controls. The card takes flex-basis:0 + min-height:0 so it
+   fills exactly the leftover space and scrolls internally, never starving siblings. */
+.content--fill > * { flex-shrink: 0; }
+.content--fill > .fb-briefcard { flex: 1 1 0; min-height: 0; }
+.fb-briefcard { display: flex; flex-direction: column; min-height: 0; }
+.fb-briefcard .fb-card { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.fb-briefcard .fb-tree { min-height: 0; }
 .fb-editor__btn--sm { height: 30px; padding: 0 10px; font-size: 12.5px; }
 .fb-tree { border-right: 1px solid var(--border-subtle); padding: 10px; overflow-y: auto; background: var(--surface-0); }
+/* Tree scrollbar — matches Monaco's slider (the theme's scrollbarSlider tokens):
+   a thin, track-less, subtly-inset thumb instead of the chunky OS default that
+   clashed with the dark theme. scrollbar-width/color cover Firefox. */
+.fb-tree { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent; }
+.fb-tree::-webkit-scrollbar { width: 11px; height: 11px; }
+.fb-tree::-webkit-scrollbar-track { background: transparent; }
+.fb-tree::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.13); border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
+.fb-tree::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); border: 3px solid transparent; background-clip: padding-box; }
 .fb-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); cursor: pointer; color: var(--fg-2); font-size: 13px; font-family: var(--font-mono); }
 .fb-row:hover { background: var(--surface-2); color: var(--fg-1); }
 .fb-row--active { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
@@ -748,6 +784,7 @@ body { overflow: hidden; }
   font-family: var(--font-ui); font-weight: 600; font-size: 13px;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex-shrink: 0; white-space: nowrap;   /* Save/Reset never shrink or wrap their label */
 }
 .fb-editor__btn:hover { background: var(--krystal-teal-hover); }
 .fb-editor__btn--secondary {
@@ -765,6 +802,7 @@ body { overflow: hidden; }
   padding: 10px 16px;
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-1);
+  flex-wrap: wrap; row-gap: 8px;   /* last-resort: a long error wraps above the buttons rather than clipping them */
 }
 .fb-editor__body { font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg-2); padding: 14px 20px; overflow-y: auto; flex: 1; background: var(--surface-0); display: flex; }
 .fb-editor__gutter { color: var(--fg-4); text-align: right; padding-right: 16px; user-select: none; white-space: pre; }
@@ -773,16 +811,13 @@ body { overflow: hidden; }
 .fb-editor__code .s { color: var(--success-fg); }
 .fb-editor__code .n { color: var(--warning-fg); }
 .fb-editor__code .c { color: var(--fg-3); font-style: italic; }
-/* Editable code area — the wired editor (raw textarea; no syntax engine in v1). */
-.fb-editor__textarea {
-  flex: 1; width: 100%; min-height: 0; resize: none;
-  border: none; outline: none;
-  background: var(--surface-0); color: var(--fg-1);
-  font-family: var(--font-mono); font-size: 13px; line-height: 1.6;
-  padding: 14px 20px; white-space: pre; overflow: auto; tab-size: 4;
-}
+/* Monaco editor mount — fills the editor column between the bar and the foot.
+   Monaco measures its own (automaticLayout) container, so it needs an explicit
+   sized flex slot with min-height:0, else it collapses to 0 height. */
+.fb-editor__monaco-wrap { flex: 1; min-height: 0; position: relative; display: flex; background: var(--surface-0); }
+.fb-editor__monaco-wrap > section { flex: 1; min-width: 0; }
 .fb-editor__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-3); text-align: center; padding: 24px; background: var(--surface-0); }
-.fb-editor__err { color: var(--danger); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.fb-editor__err { color: var(--danger); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 
 /* ============= Backups ============= */
 .backup-list { display: flex; flex-direction: column; gap: 8px; }
@@ -3106,13 +3141,18 @@ body { overflow: hidden; }
   /* File browser: stack tree above editor */
   .fb-card {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto;   /* stack tree over editor; no draggable split */
     min-height: 0;
   }
+  /* The drag splitter is meaningless once the columns stack — hide it. */
+  .fb-resizer { display: none; }
   .fb-tree {
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
     max-height: 180px;
   }
+  /* On the stacked layout the editor (not the capped tree) takes the fill. */
+  .fb-briefcard .fb-card { grid-template-rows: auto minmax(0, 1fr); }
   /* File-editor toolbar: keep path + unsaved indicator on one row, with the
      path truncating via ellipsis. Save / Reset live in fb-editor__foot — see
      desktop styles — and remain visible regardless of viewport. */

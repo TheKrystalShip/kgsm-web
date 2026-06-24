@@ -4,8 +4,18 @@ import { Icon } from "../components/Icon.jsx";
 import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
-// File browser & editor — a VSCode-like lazy tree on the left, a plain editor on
-// the right. Wired to GET/PUT /servers/{id}/files (Tier 3 #12), but the tree,
+// Monaco is heavy + worker-backed, so it's lazy-loaded: the editor chunk +
+// workers download only when a file is actually opened — never on first paint
+// or any other route. It speaks the same value/onChange contract the old
+// <textarea> did, so the dirty/etag/save flow below is unchanged.
+const CodeEditor = React.lazy(() => import("../components/CodeEditor.jsx"));
+
+// File browser & editor — a VSCode-like lazy tree on the left, a Monaco code
+// editor (line numbers + syntax highlighting, lazy-loaded) on the right. The
+// editor swaps in for a bare <textarea> but keeps the exact same value/onChange
+// contract, so the dirty/etag/save flow is untouched. (Monaco is the editor
+// widget only — it has no file tree; our hand-rolled tree below stays.)
+// Wired to GET/PUT /servers/{id}/files (Tier 3 #12), but the tree,
 // expansion state and last-opened file all live in `filesStore` (keyed by
 // host+server), NOT component state — so re-entering the Files tab paints
 // instantly from cache and revalidates in the background (stale-while-revalidate).
@@ -121,6 +131,34 @@ function FileBrowser({ server }) {
   const [saveError, setSaveError] = React.useState(null);
   const [staleReload, setStaleReload] = React.useState(false);
 
+  // Draggable tree/editor split — the tree column width (px), remembered per
+  // browser so a wide tree (for deep/nested dirs) survives a reload. Drives the
+  // `--fb-tree-w` grid column; mirrors the assistant dock's resize pattern.
+  const [treeW, setTreeW] = React.useState(() => {
+    const v = parseInt(localStorage.getItem("krystal:files:treeW") || "", 10);
+    return v && v >= 160 && v <= 640 ? v : 260;
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem("krystal:files:treeW", String(treeW)); } catch (e) { /* private mode */ }
+  }, [treeW]);
+  const treeResize = (e) => {
+    e.preventDefault();
+    const handleEl = e.currentTarget;
+    const rect = handleEl.parentNode.getBoundingClientRect();   // the .fb-card
+    const min = 160, max = Math.max(min, Math.min(640, rect.width - 300)); // keep ≥300 for the editor (Save/Reset bar fits)
+    const onMove = (ev) => setTreeW(Math.max(min, Math.min(max, Math.round(ev.clientX - rect.left))));
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.body.style.userSelect = "";
+      handleEl.classList.remove("fb-resizer--active");
+    };
+    document.body.style.userSelect = "none";
+    handleEl.classList.add("fb-resizer--active");
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
   // Enter the tab / switch server: paint the cache, revalidate the tree in the
   // background, and reset the transient editor UI (restoring the draft from the
   // cached file so re-entry shows what you were looking at instantly).
@@ -185,8 +223,8 @@ function FileBrowser({ server }) {
   const rootTruncated = !!(root && root.truncated);
 
   return (
-    <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId}>
-      <div className="fb-card">
+    <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId} className="fb-briefcard">
+      <div className="fb-card" style={{ "--fb-tree-w": treeW + "px" }}>
         {/* ---- tree ---- */}
         <div className="fb-tree">
           {rootCold ? (
@@ -208,36 +246,47 @@ function FileBrowser({ server }) {
           )}
         </div>
 
+        {/* ---- draggable split between tree and editor (px width persisted) ---- */}
+        <div className="fb-resizer" style={{ left: treeW }} onPointerDown={treeResize}
+          role="separator" aria-orientation="vertical" title="Drag to resize" />
+
         {/* ---- editor ---- */}
         <div className="fb-editor">
-          {opening ? (
-            <div className="fb-editor__empty"><span className="oauth-spinner" /> Opening…</div>
-          ) : openIssue ? (
+          {/* Branch order matters: keep Monaco MOUNTED whenever a file is already
+              open, so switching files swaps its value/path IN PLACE (no unmount →
+              no costly re-init, no "Loading editor…" flash). The full-area spinner
+              is only for the cold case (no file open yet); a mid-switch fetch shows
+              a subtle inline spinner in the bar while the current file stays put. */}
+          {openIssue ? (
             <div className="fb-editor__empty">
               <Icon name="file-lock" size={26} strokeWidth={1.6} />
               <div style={{ fontSize: 13.5, color: "var(--fg-2)", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{openIssue.path}</div>
               <div style={{ fontSize: 12.5 }}>{openIssue.message}</div>
             </div>
           ) : !open ? (
-            <div className="fb-editor__empty">
-              <Icon name="file-text" size={26} strokeWidth={1.6} />
-              <div style={{ fontSize: 13 }}>Select a file to view or edit.</div>
-            </div>
+            opening ? (
+              <div className="fb-editor__empty"><span className="oauth-spinner" /> Opening…</div>
+            ) : (
+              <div className="fb-editor__empty">
+                <Icon name="file-text" size={26} strokeWidth={1.6} />
+                <div style={{ fontSize: 13 }}>Select a file to view or edit.</div>
+              </div>
+            )
           ) : (
             <>
               <div className="fb-editor__bar">
                 <Icon name="file-text" size={14} />
                 <span className="fb-editor__path"><b>{open.path}</b></span>
+                {opening && <span className="oauth-spinner" title="Opening…" />}
                 {dirty && <span className="fb-editor__dirty"><span className="dot" />unsaved changes</span>}
                 <span className="fb-editor__spacer" />
                 <span style={{ color: "var(--fg-4)", fontSize: 11 }}>{formatBytes(open.sizeBytes)}</span>
               </div>
-              <textarea
-                className="fb-editor__textarea"
-                value={draft}
-                spellCheck={false}
-                onChange={(e) => setDraft(e.target.value)}
-              />
+              <div className="fb-editor__monaco-wrap">
+                <React.Suspense fallback={<div className="fb-editor__empty"><span className="oauth-spinner" /> Loading editor…</div>}>
+                  <CodeEditor value={draft} onChange={setDraft} path={open.path} />
+                </React.Suspense>
+              </div>
               <div className="fb-editor__foot">
                 {saveError && (
                   <span className="fb-editor__err">

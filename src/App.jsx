@@ -920,7 +920,10 @@ function App() {
       )}
       <main className="app__main">
         <ConnectivityBanner onRetryRest={retryConnection} />
-        <div className="content">
+        {/* The Files tab fills all remaining height down to the footer (editing
+            wants vertical room), so .content stops being a fixed flow box and
+            grows — the flex chain continues into the FileBrowser card. */}
+        <div className={"content" + (route.kind === "server" && route.tab === "files" ? " content--fill" : "")}>
           <Breadcrumb
             route={route}
             onNavigate={setRoute}
