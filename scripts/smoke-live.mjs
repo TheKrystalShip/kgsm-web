@@ -842,6 +842,58 @@ try {
   assert(testErr && testErr.code === 409,
     `integrations /test: unconfigured webhook → honest 409, never a faked ok (code=${testErr && testErr.code})`);
 
+  // ---- Phase 7b: Files (file browser & editor — Tier 3 #12) --------------
+  // The operator-gated GET/PUT /servers/{id}/files surface behind the FileBrowser
+  // page. Proofs: (1) the page RENDERS the real working-dir tree in the app (view,
+  // full stack); (2) a live round-trip through the host-scoped client's new
+  // get/put seam — list (dirs-first) → read (etag) → save-back IDENTICAL bytes
+  // (200, unchanged etag) → stale-etag (412) → traversal escape (404). The save is
+  // NON-DESTRUCTIVE (re-writes identical content; same sha256).
+  const fSv = (st.serversStore.getState().list.find((s) => s.id === "factorio-test")
+            || st.serversStore.getState().list[0] || {}).id;
+  if (fSv) {
+    let filesHtml = await nav("#/servers/" + fSv + "/files");
+    for (let i = 0; i < 12 && !/\.config\.ini|\bsaves\b|\binstall\b/.test(filesHtml); i++) {
+      await sleep(150); filesHtml = w.document.getElementById("root").innerHTML;
+    }
+    assert(/\.config\.ini|\bsaves\b|\binstall\b/.test(filesHtml) && !/Something went wrong/i.test(filesHtml),
+      "Files page: renders the real working-dir tree (view path, full stack)");
+
+    const listing = await api.host(hmId).get("/servers/" + fSv + "/files");
+    assert(listing && Array.isArray(listing.entries)
+      && listing.entries.some((e) => e.kind === "dir") && listing.entries.some((e) => e.kind === "file"),
+      `Files list: dirs + files returned (${listing && listing.entries ? listing.entries.length : 0} entries)`);
+    const firstFileIdx = listing.entries.findIndex((e) => e.kind === "file");
+    const lastDirIdx = listing.entries.map((e) => e.kind).lastIndexOf("dir");
+    assert(firstFileIdx === -1 || lastDirIdx === -1 || lastDirIdx < firstFileIdx,
+      "Files list: dirs sort before files (deterministic truncation order)");
+
+    const cfg = listing.entries.find((e) => e.kind === "file" && e.editable !== false
+                  && /\.(ini|cfg|conf|txt|properties|json)$/.test(e.name))
+             || listing.entries.find((e) => e.kind === "file" && e.editable !== false);
+    if (cfg) {
+      const p = "/servers/" + fSv + "/files/content?path=" + encodeURIComponent(cfg.name);
+      const read = await api.host(hmId).get(p);
+      assert(read && typeof read.content === "string" && /^sha256:/.test(read.etag || ""),
+        "Files read: raw text + sha256 etag");
+      const saved = await api.host(hmId).put(p, { content: read.content, etag: read.etag, origin: "ui" });
+      assert(saved && saved.etag === read.etag,
+        "Files save: identical-bytes PUT → 200 + unchanged etag (put seam works end-to-end)");
+      let staleErr = null;
+      await api.host(hmId).put(p, { content: read.content + "\n", etag: "sha256:deadbeef", origin: "ui" })
+        .catch((e) => { staleErr = e; });
+      assert(staleErr && (staleErr.code === 412 || staleErr.envCode === "precondition_failed"),
+        `Files save: stale etag → 412 (code=${staleErr && staleErr.code})`);
+    }
+
+    let escErr = null;
+    await api.host(hmId).get("/servers/" + fSv + "/files/content?path="
+      + encodeURIComponent("../../../../etc/passwd")).catch((e) => { escErr = e; });
+    assert(escErr && escErr.code === 404, `Files jail: traversal escape → 404 (code=${escErr && escErr.code})`);
+  } else {
+    console.log("• Files: no servers in the live roster — skipped the file-browser round-trip");
+  }
+
   // ---- Phase 8: audit paging + filters (keyset cursor walk + pushdown) ----
   // Two fixes: (1) the log fetched ONE page, leaving older events unreachable —
   // refresh() now WALKS the keyset cursor + loadMore() pulls older pages, with a

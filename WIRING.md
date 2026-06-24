@@ -72,7 +72,7 @@ treatment):
 | `pages/PerformanceTab.jsx:42` | `KRYSTAL_DATA.metricsByServer[id]` (48-pt time series) | none — BE emits point-in-time only | **C** (history) |
 | `pages/PlayersTab.jsx:80` | `KRYSTAL_DATA.playersByServer[id]` (roster) | none — only `player.join/leave` audit | **C** (presence WIP) |
 | `pages/BackupsList.jsx:14` | `KRYSTAL_DATA.backups` | none — only `backup.*` audit | **C** |
-| `pages/FileBrowser.jsx:35` | `KRYSTAL_DATA.files`/`fileContent` | none — no file API | **C/deferred** |
+| `pages/FileBrowser.jsx` | ~~`KRYSTAL_DATA.files`/`fileContent`~~ | `GET/PUT /servers/{id}/files…` (lazy tree + read + save) | **WIRED** (Tier 3 #12) |
 | `pages/DashboardPage.jsx:230` | `KRYSTAL_DATA.session.ping_ms`/`region` | ping = client-measurable RTT; region none | **B**(ping)/**D**(region) |
 | `pages/LibraryPage.jsx`, `components/Sidebar.jsx` | `KRYSTAL_LABELS.catalog` | static UI label, not domain data | n/a (keep) |
 
@@ -700,7 +700,8 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `PlayersTab` | player roster + per-player ping/playtime | **C** | presence mid-build (`player.join/leave` audit exist; no roster/count). |
 | `ConsolePanel`/`LogConsole` | console stream topic | **C** | no WS topic; degrade to "unavailable." |
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
-| `FileBrowser`, `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings`, no config endpoint. |
+| `FileBrowser` | `GET/PUT /servers/{id}/files…` | ✅ **DONE** | Tier 3 #12: lazy working-dir tree + raw read + etag save, operator-gated. `put` seam added. binary/too-large/symlink/jail handled honestly. |
+| `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings` endpoint (config is `/servers/{id}/config`; settings panel still WIP). |
 | `ChatPage` (assistant) | `POST /assistant/turn` SSE | ✅ **9a done** | rewritten onto `api.host(id).turn()` SSE through the seam (streaming half). 9b = command.proposed→verify. |
 | `DiscordPage`/integrations | `/integrations` (built) | ✅ **DONE** | DiscordPage LIVE branch wired to `/integrations/discord` (GET catalog+masked hint / sparse PATCH / real test), admin-gated, round-trip-validated. Slack UI = follow-on. |
 
@@ -729,7 +730,8 @@ Cheap-wins-first falls out of the buckets above:
   stamp on leave. Frontend-only — the API already emitted the enriched tick.
 - **Performance** — **C (big)**: needs metrics history. Decide FE-accumulate vs BE-store before building.
 - **Players** — **C**: gated on presence tracking (actively being built upstream).
-- **Console / Backups / Files / Settings** — **C/deferred**: no API; degrade to honest-unavailable.
+- **Files** — **DONE (Tier 3 #12, 2026-06-24):** `FileBrowser` wired to `GET/PUT /servers/{id}/files…` — lazy tree (root on mount, children on expand), raw read into a textarea, etag Save + Reset, truncation banner, binary/too-large/symlink shown-but-not-openable with a reason, 412 reload-prompt. Operator-gated; `api.put` seam added. Backend live-validated on both real servers.
+- **Console / Backups / Settings** — **C/deferred**: Backups DONE; Console/Settings have no API; degrade to honest-unavailable.
 - **Assistant chat** — **9a + 9b DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade). **9b** adds the command-confirm half: `command.proposed`→Confirm→`confirmCommand` (M3 path, `origin:"assistant"`)→SPA-composed `command.verified` from the job outcome (job-outcome primary + locally-composed honest headline; API-backed verbs run, the rest render disabled; the mock double-write landmark guarded off in LIVE). OWED: real-leaf (Ollama) + real engine round-trip.
 - **Integrations** — **Discord DONE (2026-06-21):** DiscordPage rewritten from pure-mock onto the live `/integrations/discord` (GET the server-defined 6-event catalog + masked webhook hint; per-event sparse-PATCH toggles; `buildIntegrationPatch` Save that sends `webhook` only when user-typed; real `/test`; admin-gated). Round-trip-validated against the live persistent backend (toggle persist+restore, webhook set→secret-never-echoes→clear, unconfigured-test→409). Remaining: **Slack** provider UI; the broader `/settings` surface (not built upstream).
 

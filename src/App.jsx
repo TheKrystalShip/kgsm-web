@@ -212,7 +212,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
           <PerformanceTab server={server} onAsk={onAsk} />
         </>
       )}
-      {safeTab === "files"       && <FileBrowser />}
+      {safeTab === "files"       && <FileBrowser server={server} />}
       {safeTab === "backups"     && <BackupsList server={server} />}
       {safeTab === "settings"    && <ServerSettings server={server} />}
     </>

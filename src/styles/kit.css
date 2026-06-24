@@ -773,6 +773,16 @@ body { overflow: hidden; }
 .fb-editor__code .s { color: var(--success-fg); }
 .fb-editor__code .n { color: var(--warning-fg); }
 .fb-editor__code .c { color: var(--fg-3); font-style: italic; }
+/* Editable code area — the wired editor (raw textarea; no syntax engine in v1). */
+.fb-editor__textarea {
+  flex: 1; width: 100%; min-height: 0; resize: none;
+  border: none; outline: none;
+  background: var(--surface-0); color: var(--fg-1);
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.6;
+  padding: 14px 20px; white-space: pre; overflow: auto; tab-size: 4;
+}
+.fb-editor__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-3); text-align: center; padding: 24px; background: var(--surface-0); }
+.fb-editor__err { color: var(--danger); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
 
 /* ============= Backups ============= */
 .backup-list { display: flex; flex-direction: column; gap: 8px; }
