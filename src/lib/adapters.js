@@ -57,6 +57,31 @@ export function adaptServer(be) {
 }
 export const adaptServers = (arr) => (Array.isArray(arr) ? arr.map(adaptServer) : []);
 
+// adaptServerMetrics(be) — reshape ONE per-server metrics sample (the kgsm-api
+// ServerMetricsDto) into a chart point for the Performance deep-dive's live
+// rolling window. Used in TWO places that must agree byte-for-byte:
+//   1. the WS metrics.tick frame (servers/{id}/metrics) — adaptStreamMessage,
+//   2. the REST seed (the `metrics` block already on the server DTO) — so the
+//      first point and every subsequent tick share one shape.
+// HONESTY: the monitor only measures cpu/mem/io/pids/diskBytes per server.
+//   - cpu is % of ONE core (htop convention) and CAN exceed 100 — never cap it.
+//   - mem is ABSOLUTE bytes (no per-server limit exists → no honest %).
+//   - io read/write are bytes/sec, null when the cgroup io controller isn't
+//     accounted (never fabricate 0). diskBytes is a slow-cadence footprint.
+//   - per-server network / players / tick-rate have NO source and are absent —
+//     the tab must not invent them.
+export function adaptServerMetrics(be) {
+  if (!be) return null;
+  return {
+    cpu: round(be.cpuPctCore, 1),            // % of one core (uncapped)
+    memBytes: be.memBytes ?? null,           // absolute charged memory, bytes
+    ioReadBps: be.ioReadBps ?? null,         // bytes/sec, null when not accounted
+    ioWriteBps: be.ioWriteBps ?? null,       // bytes/sec, null when not accounted
+    pids: be.pids ?? null,                   // live process/thread count
+    diskBytes: be.diskBytes ?? null,         // on-disk footprint, bytes (slow cadence)
+  };
+}
+
 // ---- Hosts --------------------------------------------------------------
 // The backend gives coarse, honest host metrics (aggregate cpuPct, mem, disks)
 // or null when the metrics capability is down. The diagnostics deep-dive reads

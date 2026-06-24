@@ -297,6 +297,10 @@ import("./stores.js").then((m) => {
     // host.metrics rides hosts/{id}/metrics — reshape the HostMetricsDto into the FE telemetry partial
     // (the WS parallel of adaptResponse for GET /hosts/{id}). The store merges it clobber-safe by id.
     if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptHostMetrics(data) };
+    // metrics.tick rides servers/{id}/metrics — the per-server ServerMetricsDto, reshaped to a chart
+    // point for the Performance deep-dive's live window. The server id is in the TOPIC (the payload
+    // carries no id), so subscribeServerMetrics keys off its closure, not data.id.
+    if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptServerMetrics(data) };
     // server.removed {id}, alert.resolve {id,resolution}, alert.retract {id} and
     // audit.append (a record — adaptAudit is per-row identity) need no reshaping.
     return msg;

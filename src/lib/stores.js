@@ -1,3 +1,4 @@
+import { adaptServerMetrics } from "./adapters.js";
 import { api, realtimeStore } from "./apiClient.js";
 import { CONNECTIONS, reconcileConnectionId } from "./config.js";
 import * as merge from "./merge.js";
@@ -218,6 +219,25 @@ function subscribeHostMetrics(hostId) {
     if (m && m.type === "host.metrics" && m.data) hostsStore.mergeMetrics(hostId, m.data);
   });
   return () => { dispose(); hostsStore.clearMetricsStamp(hostId); };
+}
+
+// ---- Per-server metrics live tick (Performance deep-dive only) -----------
+// The per-server tick (`servers/{id}/metrics` → `metrics.tick`, already adapted
+// to a chart point by adaptStreamMessage) feeds the Performance tab's live
+// rolling window. Unlike the host path there is NO store merge — the window is
+// transient local state in the tab (it honestly means "since you opened this"),
+// so the helper just forwards each adapted point to the caller's onTick.
+//
+// Subscriber-gated on BOTH ends, exactly like subscribeHostMetrics: the kgsm-api
+// MetricsPump only scrapes the monitor while a client subscribes a metrics topic,
+// and we subscribe ONLY while the tab is mounted → an unopened tab costs nothing.
+// The id is in the topic, not the payload, so we key off the closure serverId.
+function subscribeServerMetrics(serverId, onTick) {
+  if (!serverId || typeof onTick !== "function") return () => {};
+  const topic = "servers/" + serverId + "/metrics";
+  return api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "metrics.tick" && m.data) onTick(m.data);
+  });
 }
 
 // ---- Server write actions (the two mutation paths into the engine) ------
@@ -642,4 +662,4 @@ try {
   auditStore.refresh().catch(swallow);
 } catch (e) {}
 
-export { __setJobTiming, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

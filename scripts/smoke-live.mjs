@@ -484,16 +484,59 @@ try {
     assert(w.document.getElementById("root").innerHTML.includes(SENT),
       "console: a live console.line followed onto the panel (subscribe → append → render)");
 
-    // (h2) Slice-E honesty: surfaces with no LIVE source show an honest empty-state,
-    // never fixture data. The overview renders PlayersTab (no roster source yet).
+    // (h2) Players still has no LIVE source → honest work-in-progress state, never a fixture roster.
     const ovHtml = w.document.getElementById("root").innerHTML;
-    assert(ovHtml.includes("Player roster not available yet"),
-      "players: LIVE shows the honest 'no roster source' empty-state (not fixture players)");
-    await nav("#/servers/" + cSv.id + "/performance");
-    await sleep(120);
-    assert(w.document.getElementById("root").innerHTML.includes("Performance metrics not available yet"),
-      "performance: LIVE shows the honest 'no metrics source' empty-state (not fixture charts)");
+    assert(ovHtml.includes("no roster source on this host yet"),
+      "players: LIVE shows the honest work-in-progress empty-state (not fixture players)");
     await nav("#/fleet");
+  }
+
+  // (i) per-server LIVE metrics (Performance deep-dive) ---------------------
+  // The monitor samples each RUNNING server's cgroup/proc tree at ~1 Hz and kgsm-api
+  // re-publishes it on servers/{id}/metrics (metrics.tick). The tab seeds from the REST
+  // metrics block then follows the tick into a live rolling window. There is NO history
+  // store anywhere → this is live-only by design. Prove the adapter, the WS subscribe→
+  // point chain (deterministic), and a REAL monitor tick growing the rendered window.
+
+  // (i1) adapter: ServerMetricsDto → chart point. cpu is % of ONE core (UNCAPPED — a
+  // multithreaded server exceeds 100); mem/disk are raw bytes; null io/disk stay null.
+  const pAdapt = adapt.adaptServerMetrics({ cpuPctCore: 250.37, memBytes: 2147483648, ioReadBps: 1024, ioWriteBps: 2048, pids: 12, diskBytes: 5e8 });
+  assert(pAdapt.cpu === 250.4 && pAdapt.memBytes === 2147483648 && pAdapt.ioReadBps === 1024 && pAdapt.pids === 12,
+    "adaptServerMetrics: cpu rounded + UNCAPPED (>100), mem/disk raw bytes, io passthrough");
+  assert(adapt.adaptServerMetrics({ cpuPctCore: 1, memBytes: 1, ioReadBps: null, ioWriteBps: null, pids: 1, diskBytes: null }).ioReadBps === null
+      && adapt.adaptServerMetrics(null) === null,
+    "adaptServerMetrics: null io/disk stay null (never fabricated 0); null sample → null");
+
+  // (i2) WS chain: a raw metrics.tick frame → adaptStreamMessage → dispatch →
+  // subscribeServerMetrics callback. The server id is in the TOPIC, not the payload.
+  let pPoint = null;
+  const disposeSM = st.subscribeServerMetrics("factorio-test", (p) => { pPoint = p; });
+  api.__dispatch({ topic: "servers/factorio-test/metrics", type: "metrics.tick",
+    data: { cpuPctCore: 312.9, memBytes: 1073741824, ioReadBps: 4096, ioWriteBps: 8192, pids: 7, diskBytes: 9e8 } });
+  assert(pPoint && pPoint.cpu === 312.9 && pPoint.memBytes === 1073741824 && pPoint.ioWriteBps === 8192,
+    "metrics.tick: WS frame → adaptServerMetrics → subscribeServerMetrics callback (full chain, cpu uncapped)");
+  disposeSM();
+
+  // (i3) REAL pipeline render: open a RUNNING server's Performance tab. It seeds from the
+  // REST metrics block (immediate chart) then a real monitor tick grows the live window.
+  const liveSv = st.serversStore.getState().list.find((s) => s.status === "online");
+  if (liveSv) {
+    await nav("#/servers/" + liveSv.id + "/performance");
+    await sleep(250);   // mount + REST seed
+    const perfHtml = w.document.getElementById("root").innerHTML;
+    assert(/live · 1 Hz|% core/.test(perfHtml) && !perfHtml.includes("Work in progress"),
+      "performance: live charts render from the REST seed (subscribe → seed → chart, not the old WIP state)");
+    // The subscriber-gated pump now ticks ~1 Hz → the rendered "live window · N samples" grows past the seed.
+    let grew = false;
+    for (let i = 0; i < 60; i++) {
+      const m = w.document.getElementById("root").innerHTML.match(/live window · (\d+) sample/);
+      if (m && Number(m[1]) >= 2) { grew = true; break; }
+      await sleep(150);
+    }
+    assert(grew, "performance: a REAL monitor metrics.tick grew the live window (subscribe → WS → render)");
+    await nav("#/fleet");
+  } else {
+    console.log("  ⚠ skip performance (i3): no running server on this backend to prove live ticks");
   }
 
   // ---- Phase 5: command + install write paths (slice 6) -------------------

@@ -2007,6 +2007,27 @@ body { overflow: hidden; }
   font-size: 11.5px; font-weight: 600; color: var(--fg-3);
 }
 
+/* Live per-server metrics (PerformanceTab) — banner when the feed pauses, an
+   honest "not measured" placeholder where a chart can't be drawn, and the
+   processes/footprint stat block. */
+.perf-stale-banner {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 12px;
+  padding: 9px 13px; font-size: 12.5px; color: var(--fg-2);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-subtle));
+  border-radius: var(--r-md);
+}
+.perf-stale-banner svg { color: var(--warning); flex: none; }
+.perf-nochart {
+  display: flex; align-items: center; gap: 9px; min-height: 120px;
+  padding: 0 4px; color: var(--fg-3); font-size: 12.5px; line-height: 1.5;
+}
+.perf-nochart svg { flex: none; color: var(--fg-4); }
+.perf-stats { display: flex; gap: 24px; padding: 8px 0 4px; }
+.perf-stat { display: flex; flex-direction: column; gap: 4px; }
+.perf-stat__label { font-size: 11.5px; color: var(--fg-3); }
+.perf-stat__val { font-size: 22px; font-weight: 700; color: var(--fg-1); line-height: 1; letter-spacing: -0.01em; }
+
 /* Watchdog-down treatments. Process visibility + lifecycle actions are the
    watchdog vertical; when it's down the table is unavailable and actions lock. */
 .proc-num--off { filter: grayscale(1); opacity: 0.5; }

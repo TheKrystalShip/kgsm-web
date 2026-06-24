@@ -13,7 +13,17 @@ import React from "react";
 // props.range     : "1h" | "24h" | "7d" | "30d"
 // props.yMin / yMax : optional bounds; auto-computed if missing
 
-function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare }) {
+// Live x-axis labels for a rolling window. The window holds N points at ~1 Hz, so
+// it spans ~(N-1) seconds — label the left edge with that span ("-90s" / "-2m"),
+// the midpoint, and "now". Pass windowSec to override the 1 Hz assumption.
+function liveXTicks(N, windowSec) {
+  const spanS = windowSec != null ? windowSec : Math.max(0, N - 1);
+  if (spanS < 5) return [{ i: 1, l: "now" }];   // seed-only / just-opened: don't label a sub-5s window
+  const fmt = (s) => s <= 0 ? "now" : s >= 90 ? "-" + Math.round(s / 60) + "m" : "-" + Math.round(s) + "s";
+  return [{ i: 0, l: fmt(spanS) }, { i: 0.5, l: fmt(spanS / 2) }, { i: 1, l: "now" }];
+}
+
+function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec }) {
   const W = 600;
   const H = height;
   const padL = 30, padR = 12, padT = 8, padB = 22;
@@ -29,12 +39,12 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
 
   const gridYs = [0, 0.5, 1].map(p => padT + p * (H - padT - padB));
 
-  const xTicks = {
+  const xTicks = range === "live" ? liveXTicks(N, windowSec) : ({
     "1h":  [{ i: 0, l: "-60m" }, { i: 0.25, l: "-45" }, { i: 0.5, l: "-30" }, { i: 0.75, l: "-15" }, { i: 1, l: "now" }],
     "24h": [{ i: 0, l: "-24h" }, { i: 0.25, l: "-18" }, { i: 0.5, l: "-12" }, { i: 0.75, l: "-6" }, { i: 1, l: "now" }],
     "7d":  [{ i: 0, l: "-7d" },  { i: 0.5, l: "-3d" },  { i: 1, l: "now" }],
     "30d": [{ i: 0, l: "-30d" }, { i: 0.5, l: "-15d" }, { i: 1, l: "now" }],
-  }[range] || [];
+  }[range] || []);
 
   const fmtY = (v) => {
     if (max > 1000) return Math.round(v) + "";
