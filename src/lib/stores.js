@@ -253,6 +253,114 @@ async function fetchServerMetricsHistory(serverId, range, hostId) {
   return api.host(hostId).get("/servers/" + serverId + "/metrics/history?range=" + r);
 }
 
+// ---- File browser (per-server working-dir tree + editor cache) -----------
+// Keyed by host+server. Caches the lazily-loaded directory listings (flat, by
+// path — "" is the root), which folders are EXPANDED, and the last-opened
+// file's content+etag. So re-entering the Files tab paints the tree AND the
+// editor instantly from cache, then revalidates the tree in the background
+// (stale-while-revalidate, exactly like the `everLoaded` surfaces above).
+//
+// There is NO filesystem WS channel (the stream carries servers/jobs/audit/
+// metrics/alerts/network — not files), so "live" here means refetch-on-revisit
+// (filesStore.enter), never a push.
+//
+// Honesty + write-safety: a cached listing is last-known-real (same SWR the
+// servers list uses), not fabricated. A cached file's content is only ever
+// shown after a deliberate open did a fresh GET; tab re-entry restores that
+// last-known content for instant paint, and clicking a file always re-GETs it
+// fresh. The etag-guarded PUT (412 → reload prompt) is the safety net that
+// stops a stale cached file clobbering newer bytes on disk.
+const filesKey = (hostId, serverId) => (hostId || "_") + "/" + serverId;
+const _emptyFilesEntry = () => ({ dirs: {}, expanded: {}, open: null, everLoaded: false });
+// The store seam: a server carries its host, and like every write path here we
+// route through the host-scoped client so the per-host bearer/401-retry runs.
+const _filesClient = (hostId) => ((hostId && api.host) ? api.host(hostId) : api);
+const filesStore = createStore({ byServer: {} });
+filesStore.entry = (hostId, serverId) =>
+  filesStore.getState().byServer[filesKey(hostId, serverId)] || null;
+const _patchFiles = (key, fn) =>
+  filesStore.setState(s => ({ ...s, byServer: { ...s.byServer, [key]: fn(s.byServer[key] || _emptyFilesEntry()) } }));
+
+// Fetch one directory listing (path "" = root) into the store. A COLD load
+// marks the dir `loading` with null entries (the row shows "Loading…"); a
+// background REVALIDATE keeps the cached entries in place (status flips to
+// loading but `entries` survives) so it never flashes a skeleton over good
+// data. On success it REPLACES entries/truncated; expansion lives in a separate
+// map keyed by path, so a folder that vanished simply stops rendering and a new
+// one appears collapsed — no reconciliation pass needed. A failed revalidate
+// keeps the last-known entries (SWR) and only surfaces the error when there's
+// nothing cached to show. Never rejects (callers fire-and-forget).
+filesStore.loadDir = (hostId, serverId, path) => {
+  const key = filesKey(hostId, serverId);
+  const cur = ((filesStore.getState().byServer[key] || {}).dirs || {})[path] || null;
+  const keptEntries = cur && cur.entries ? cur.entries : null;
+  const keptTrunc = !!(cur && cur.truncated);
+  _patchFiles(key, e => ({ ...e, dirs: { ...e.dirs, [path]: { entries: keptEntries, truncated: keptTrunc, status: "loading", error: null } } }));
+  const url = "/servers/" + serverId + "/files" + (path ? "?path=" + encodeURIComponent(path) : "");
+  return _filesClient(hostId).get(url).then(
+    (res) => {
+      _patchFiles(key, e => ({
+        ...e,
+        everLoaded: path === "" ? true : e.everLoaded,
+        dirs: { ...e.dirs, [path]: { entries: (res && res.entries) || [], truncated: !!(res && res.truncated), status: "ready", error: null } },
+      }));
+    },
+    (err) => {
+      _patchFiles(key, e => ({
+        ...e,
+        dirs: { ...e.dirs, [path]: { entries: keptEntries || [], truncated: keptTrunc, status: "error", error: err } },
+      }));
+    }
+  );
+};
+
+// Toggle a folder open/closed. Opening lazily fetches its children the first
+// time (or after an error); a cached folder opens instantly and is reconciled
+// on the next filesStore.enter revalidate.
+filesStore.toggleDir = (hostId, serverId, path) => {
+  const key = filesKey(hostId, serverId);
+  const entry = filesStore.getState().byServer[key] || _emptyFilesEntry();
+  const willOpen = !entry.expanded[path];
+  _patchFiles(key, e => ({ ...e, expanded: { ...e.expanded, [path]: willOpen } }));
+  const d = entry.dirs[path];
+  if (willOpen && (!d || (d.status !== "ready" && d.status !== "loading"))) filesStore.loadDir(hostId, serverId, path);
+};
+
+// Enter the Files tab for a server: paint the cache instantly, then revalidate
+// the root and every currently-expanded folder in the background.
+filesStore.enter = (hostId, serverId) => {
+  const entry = filesStore.entry(hostId, serverId);
+  filesStore.loadDir(hostId, serverId, "");
+  if (entry) Object.keys(entry.expanded).forEach((p) => {
+    if (p !== "" && entry.expanded[p]) filesStore.loadDir(hostId, serverId, p);
+  });
+};
+
+// Open a file's content fresh (a deliberate user action always re-GETs) and
+// cache it as `open` so a later tab re-entry restores the editor instantly.
+// Resolves the cached descriptor; rejects with the API error (the component
+// maps binary/too-large by envCode).
+filesStore.openFile = (hostId, serverId, path) => {
+  const key = filesKey(hostId, serverId);
+  return _filesClient(hostId).get("/servers/" + serverId + "/files/content?path=" + encodeURIComponent(path)).then((res) => {
+    const open = { path: res.path, content: res.content, etag: res.etag, sizeBytes: res.sizeBytes };
+    _patchFiles(key, e => ({ ...e, open }));
+    return open;
+  });
+};
+
+// Save the editor draft (etag-guarded PUT). On success updates the cache so
+// content === the saved draft and the etag advances (dirty → false). Rejects
+// with the API error so the component can detect 412 (changed on disk).
+filesStore.saveFile = (hostId, serverId, path, content, etag) => {
+  const key = filesKey(hostId, serverId);
+  return _filesClient(hostId).put("/servers/" + serverId + "/files/content?path=" + encodeURIComponent(path), { content, etag, origin: "ui" }).then((res) => {
+    const open = { path, content, etag: res.etag, sizeBytes: res.sizeBytes };
+    _patchFiles(key, e => ({ ...e, open }));
+    return open;
+  });
+};
+
 // ---- Server write actions (the two mutation paths into the engine) ------
 // Both go through the HOST-SCOPED client (api.host) so the per-host session
 // gate runs (bearer injected + 401 → re-auth) and the M5 provenance origin is
@@ -675,4 +783,4 @@ try {
   auditStore.refresh().catch(swallow);
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

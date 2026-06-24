@@ -1,17 +1,20 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { api } from "../lib/apiClient.js";
+import { useStore } from "../lib/store.js";
+import { filesKey, filesStore } from "../lib/stores.js";
 
 // File browser & editor — a VSCode-like lazy tree on the left, a plain editor on
-// the right. Wired to GET/PUT /servers/{id}/files (Tier 3 #12): the root listing
-// loads on mount, a folder's children load on first expand (one directory per
-// request), a file opens raw into the editor, and Save does an etag PUT.
+// the right. Wired to GET/PUT /servers/{id}/files (Tier 3 #12), but the tree,
+// expansion state and last-opened file all live in `filesStore` (keyed by
+// host+server), NOT component state — so re-entering the Files tab paints
+// instantly from cache and revalidates in the background (stale-while-revalidate).
+// The root + expanded folders refetch on enter; clicking a file always re-GETs.
 //
 // Honesty: sizes/mtimes are measured (blank when the backend reports null);
 // binary/too-large files are SHOWN in the tree but refuse to open with a reason
 // (never rendered as garbage); a truncated directory shows a banner, never a
-// silent gap.
+// silent gap. A cached listing is last-known-real, not fabricated.
 
 // Human-readable byte size; null/undefined => "" (the backend's honest "unknown").
 function formatBytes(n) {
@@ -25,35 +28,33 @@ function formatBytes(n) {
 
 const joinPath = (parent, name) => (parent ? parent + "/" + name : name);
 const errText = (e, fallback) => (e && (e.userMessage || e.message)) || fallback;
-const enc = encodeURIComponent;
 
-// One row in the tree. A folder lazily fetches its own children on first expand
-// and keeps them in local state; a file/symlink/special is a leaf that opens (or,
-// when not openable, shows why on hover and stays dimmed).
-function FileTreeRow({ entry, parent, depth, client, serverId, activePath, onOpenFile }) {
+// Stable empty slice — the selector returns undefined until a server's entry
+// exists, so this gives the render a constant-shaped fallback.
+const EMPTY_FILES = { dirs: {}, expanded: {}, open: null, everLoaded: false };
+
+// One row in the tree. A folder reads its expanded flag + lazily-loaded children
+// from filesStore (passed down as `dirs`/`expanded` maps), so the whole tree —
+// including which folders are open — survives a tab switch. A file/symlink/
+// special is a leaf that opens (or, when not openable, shows why on hover).
+function FileTreeRow({ entry, parent, depth, dirs, expanded, activePath, onOpenFile, onToggle }) {
   const path = joinPath(parent, entry.name);
-  const [open, setOpen] = React.useState(false);
-  const [children, setChildren] = React.useState(null); // null = not loaded
-  const [truncated, setTruncated] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [err, setErr] = React.useState(null);
   const pad = 8 + depth * 14;
 
   if (entry.kind === "dir") {
-    const toggle = () => {
-      const next = !open;
-      setOpen(next);
-      if (next && children === null && !loading) {
-        setLoading(true); setErr(null);
-        client.get("/servers/" + serverId + "/files?path=" + enc(path)).then(
-          (res) => { setChildren((res && res.entries) || []); setTruncated(!!(res && res.truncated)); setLoading(false); },
-          (e) => { setErr(errText(e, "Couldn't open folder.")); setChildren([]); setLoading(false); }
-        );
-      }
-    };
+    const open = !!expanded[path];
+    const d = dirs[path] || null;
+    const children = open && d ? d.entries : null;
+    // "Loading…" only on a COLD expand (no cached children) — a background
+    // revalidate keeps the cached children visible and never flashes.
+    const loading = open && d && d.status === "loading" && !d.entries;
+    // Surface a folder error only when there's nothing cached to show; a failed
+    // revalidate keeps the last-known children (SWR).
+    const err = open && d && d.status === "error" && !(d.entries && d.entries.length) ? d.error : null;
+    const truncated = !!(d && d.truncated);
     return (
       <>
-        <div className="fb-row fb-row--folder" style={{ paddingLeft: pad }} onClick={toggle}>
+        <div className="fb-row fb-row--folder" style={{ paddingLeft: pad }} onClick={() => onToggle(path)}>
           <Icon name={open ? "chevron-down" : "chevron-right"} size={14} />
           <Icon name={open ? "folder-open" : "folder"} size={15} />
           <span>{entry.name}</span>
@@ -61,10 +62,10 @@ function FileTreeRow({ entry, parent, depth, client, serverId, activePath, onOpe
         {open && (
           <>
             {loading && <div className="fb-row" style={{ paddingLeft: pad + 30, color: "var(--fg-4)" }}>Loading…</div>}
-            {err && <div className="fb-row" style={{ paddingLeft: pad + 30, color: "var(--danger)" }}>{err}</div>}
+            {err && <div className="fb-row" style={{ paddingLeft: pad + 30, color: "var(--danger)" }}>{errText(err, "Couldn't open folder.")}</div>}
             {children && children.map((c) => (
               <FileTreeRow key={c.name} entry={c} parent={path} depth={depth + 1}
-                client={client} serverId={serverId} activePath={activePath} onOpenFile={onOpenFile} />
+                dirs={dirs} expanded={expanded} activePath={activePath} onOpenFile={onOpenFile} onToggle={onToggle} />
             ))}
             {truncated && (
               <div className="fb-row" style={{ paddingLeft: pad + 30, color: "var(--warning-fg)", fontSize: 11, cursor: "default" }}>
@@ -101,43 +102,44 @@ function FileTreeRow({ entry, parent, depth, client, serverId, activePath, onOpe
 }
 
 function FileBrowser({ server }) {
-  // Server-scoped client (per-host bearer/base) — the BackupsList convention.
-  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
   const serverId = server.id;
+  const hostId = (server && server.hostId) || null;
 
-  const [roots, setRoots] = React.useState(null);  // null = loading, [] = empty
-  const [rootTruncated, setRootTruncated] = React.useState(false);
-  const [treeError, setTreeError] = React.useState(null);
+  // The cached tree + open file for this server (survives tab switches). The
+  // selector returns a stable ref until this server's slice changes.
+  const fs = useStore(filesStore, s => s.byServer[filesKey(hostId, serverId)]) || EMPTY_FILES;
+  const root = fs.dirs[""] || null;
+  const open = fs.open;                 // cached { path, content, etag, sizeBytes } or null
 
-  const [active, setActive] = React.useState(null); // { path, content, etag, sizeBytes }
-  const [draft, setDraft] = React.useState("");
+  // The editor draft is the one piece kept local — an in-progress edit is
+  // transient and not preserved across a tab switch (the saved content IS,
+  // restored from cache below). dirty = draft diverged from the cached content.
+  const [draft, setDraft] = React.useState(open ? open.content : "");
   const [opening, setOpening] = React.useState(false);
   const [openIssue, setOpenIssue] = React.useState(null); // { path, message } — binary/too-large/etc
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState(null);
   const [staleReload, setStaleReload] = React.useState(false);
 
-  // Load the root directory on mount / when the server changes.
+  // Enter the tab / switch server: paint the cache, revalidate the tree in the
+  // background, and reset the transient editor UI (restoring the draft from the
+  // cached file so re-entry shows what you were looking at instantly).
   React.useEffect(() => {
-    let alive = true;
-    setRoots(null); setTreeError(null); setRootTruncated(false);
-    setActive(null); setOpenIssue(null); setSaveError(null);
-    client.get("/servers/" + serverId + "/files").then(
-      (res) => { if (!alive) return; setRoots((res && res.entries) || []); setRootTruncated(!!(res && res.truncated)); },
-      (e) => { if (!alive) return; setRoots([]); setTreeError(errText(e, "Couldn't load files.")); }
-    );
-    return () => { alive = false; };
+    filesStore.enter(hostId, serverId);
+    const cached = filesStore.entry(hostId, serverId);
+    setDraft((cached && cached.open && cached.open.content) || "");
+    setOpenIssue(null); setSaveError(null); setStaleReload(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverId, server && server.hostId]);
+  }, [serverId, hostId]);
 
-  const dirty = !!active && draft !== active.content;
+  const dirty = !!open && draft !== open.content;
 
   const openFile = (path) => {
     setOpening(true); setSaveError(null); setStaleReload(false); setOpenIssue(null);
-    client.get("/servers/" + serverId + "/files/content?path=" + enc(path)).then(
-      (res) => { setActive({ path: res.path, content: res.content, etag: res.etag, sizeBytes: res.sizeBytes }); setDraft(res.content); setOpening(false); },
+    filesStore.openFile(hostId, serverId, path).then(
+      (o) => { setDraft(o.content); setOpening(false); },
       (e) => {
-        setActive(null); setOpening(false);
+        setOpening(false);
         const code = e && e.envCode;
         setOpenIssue({
           path,
@@ -152,18 +154,18 @@ function FileBrowser({ server }) {
   // Picking a file from the tree warns before discarding unsaved edits; the
   // reload-after-412 path calls openFile directly (no guard — the user chose it).
   const pickFile = (path) => {
-    if (dirty && active && !window.confirm("Discard unsaved changes to " + active.path + "?")) return;
+    if (dirty && open && !window.confirm("Discard unsaved changes to " + open.path + "?")) return;
     openFile(path);
   };
-  const reload = () => { if (active) openFile(active.path); };
-  const reset = () => { if (active) setDraft(active.content); };
+  const onToggle = (path) => filesStore.toggleDir(hostId, serverId, path);
+  const reload = () => { if (open) openFile(open.path); };
+  const reset = () => { if (open) setDraft(open.content); };
 
   const save = () => {
-    if (!active || saving) return;
+    if (!open || saving) return;
     setSaving(true); setSaveError(null); setStaleReload(false);
-    client.put("/servers/" + serverId + "/files/content?path=" + enc(active.path),
-      { content: draft, etag: active.etag, origin: "ui" }).then(
-      (res) => { setActive((a) => ({ ...a, content: draft, etag: res.etag, sizeBytes: res.sizeBytes })); setSaving(false); },
+    filesStore.saveFile(hostId, serverId, open.path, draft, open.etag).then(
+      () => { setSaving(false); },   // store now has content === draft + new etag → dirty clears
       (e) => {
         setSaving(false);
         if (e && (e.code === 412 || e.envCode === "precondition_failed")) {
@@ -175,21 +177,28 @@ function FileBrowser({ server }) {
     );
   };
 
+  // Root listing state. entries == null → cold load (never held data) → skeleton;
+  // a background revalidate keeps entries non-null so it never flashes.
+  const rootEntries = root ? root.entries : null;
+  const rootCold = rootEntries == null;
+  const treeError = root && root.status === "error" && !(root.entries && root.entries.length) ? root.error : null;
+  const rootTruncated = !!(root && root.truncated);
+
   return (
     <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId}>
       <div className="fb-card">
         {/* ---- tree ---- */}
         <div className="fb-tree">
-          {roots == null ? (
+          {rootCold ? (
             <div className="fb-row" style={{ color: "var(--fg-4)", cursor: "default" }}>Loading…</div>
           ) : treeError ? (
-            <div className="fb-row" style={{ color: "var(--danger)", cursor: "default" }}>{treeError}</div>
-          ) : roots.length === 0 ? (
+            <div className="fb-row" style={{ color: "var(--danger)", cursor: "default" }}>{errText(treeError, "Couldn't load files.")}</div>
+          ) : rootEntries.length === 0 ? (
             <div className="fb-row" style={{ color: "var(--fg-4)", cursor: "default" }}>Empty directory</div>
           ) : (
-            roots.map((e) => (
+            rootEntries.map((e) => (
               <FileTreeRow key={e.name} entry={e} parent="" depth={0}
-                client={client} serverId={serverId} activePath={active && active.path} onOpenFile={pickFile} />
+                dirs={fs.dirs} expanded={fs.expanded} activePath={open && open.path} onOpenFile={pickFile} onToggle={onToggle} />
             ))
           )}
           {rootTruncated && (
@@ -209,7 +218,7 @@ function FileBrowser({ server }) {
               <div style={{ fontSize: 13.5, color: "var(--fg-2)", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{openIssue.path}</div>
               <div style={{ fontSize: 12.5 }}>{openIssue.message}</div>
             </div>
-          ) : !active ? (
+          ) : !open ? (
             <div className="fb-editor__empty">
               <Icon name="file-text" size={26} strokeWidth={1.6} />
               <div style={{ fontSize: 13 }}>Select a file to view or edit.</div>
@@ -218,10 +227,10 @@ function FileBrowser({ server }) {
             <>
               <div className="fb-editor__bar">
                 <Icon name="file-text" size={14} />
-                <span className="fb-editor__path"><b>{active.path}</b></span>
+                <span className="fb-editor__path"><b>{open.path}</b></span>
                 {dirty && <span className="fb-editor__dirty"><span className="dot" />unsaved changes</span>}
                 <span className="fb-editor__spacer" />
-                <span style={{ color: "var(--fg-4)", fontSize: 11 }}>{formatBytes(active.sizeBytes)}</span>
+                <span style={{ color: "var(--fg-4)", fontSize: 11 }}>{formatBytes(open.sizeBytes)}</span>
               </div>
               <textarea
                 className="fb-editor__textarea"
