@@ -3,8 +3,7 @@ import { alertHost } from "../components/ContextualAlerts.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { alertBuckets, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
-import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
-import { api } from "../lib/apiClient.js";
+import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { askAssistantUsable } from "../lib/capabilities.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
@@ -164,11 +163,6 @@ function AlertsPage({ onOpenServer, onAsk, onOpenAudit, initialServerId }) {
   const shownCount = ff.length + fr.length;
   const total = firing.length + resolved.length;
 
-  // Demo affordance: stand in for the monitor pushing a resolution over the
-  // `alerts` stream, so the auto-resolve path can be watched live.
-  const resolvable = firing.find(a => a.autoResolves && !a.escalated);
-  const simulateResolve = () => api && api.mockMonitorResolve && api.mockMonitorResolve();
-
   const SEVS = [
     { id: "all",    label: "All severities" },
     { id: "danger", label: "Critical" },
@@ -234,13 +228,6 @@ function AlertsPage({ onOpenServer, onAsk, onOpenAudit, initialServerId }) {
 
         <ToolbarSpacer />
         <ToolbarCount shown={shownCount} total={total} unit="alerts" />
-        <ToolbarButton
-          icon="radio-tower"
-          onClick={simulateResolve}
-          disabled={!resolvable}
-          title={resolvable ? "Simulate the monitor resolving “" + resolvable.title + "”" : "No auto-resolvable conditions firing"}>
-          Simulate monitor resolution
-        </ToolbarButton>
       </Toolbar>
 
       {total === 0 ? (

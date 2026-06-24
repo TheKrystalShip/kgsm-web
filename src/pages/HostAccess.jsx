@@ -1,12 +1,9 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
-import { LIVE, MOCK } from "../lib/config.js";
+import { CONNECTIONS } from "../lib/config.js";
 import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
-import { can } from "../lib/persona.js";
 import { TIER_LABEL, sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore } from "../lib/stores.js";
-import { OAuthIcon } from "./LoginPage.jsx";
 
 // HostAccess.jsx — UI for the per-host identity/session layer (Model A).
 //
@@ -60,45 +57,26 @@ function HostDeniedNotice({ host, onBack, onManage, embedded }) {
   );
 }
 
-// A freshly-added host you DO have access to: valid-but-empty telemetry shape
-// (mirrors makeHostSkeleton) so the fleet/diagnostics never crash; _pending so
-// it reads as "awaiting first agent check-in" until metrics arrive.
-function skeletonHost(name, hostname) {
-  const slug = (name || hostname || "host").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 24) || "host";
-  let id = slug, n = 2;
-  while (hostsStore && hostsStore.find(id)) id = slug + "-" + n++;
-  return {
-    id, name: name || "New host", hostname: hostname || "host.example", region: "—",
-    online: true, tier: "operator", boot_time: new Date().toISOString().slice(0, 19),
-    kernel: "—", os: "—", panel_version: "0.14.2",
-    cpu: { model: "—", cores: 0, threads: 0, freq_ghz: 0, usage_pct: 0, per_core: [], load_avg: [0, 0, 0], temp_c: 0 },
-    ram: { total_gb: 0, used_gb: 0, cached_gb: 0, buffers_gb: 0, free_gb: 0, swap_total_gb: 0, swap_used_gb: 0 },
-    disks: [], network: { interfaces: [], open_ports: [] }, sensors: [], processes: [],
-    events: [{ ts: new Date().toISOString().slice(0, 19), severity: "info", icon: "plug", text: "Host registered — awaiting first agent check-in" }],
-    logs: [], _pending: true,
-  };
-}
-
 function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   const [url, setUrl] = React.useState("");
-  // phase: idle | probing | needs_auth | not_kgsm | unreachable | (mock: opening | verifying | denied)
+  // phase: idle | probing | needs_auth | not_kgsm | unreachable
   const [phase, setPhase] = React.useState("idle");
   const normalized = url.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
   const valid =
     /^[a-z0-9.-]+\.[a-z]{2,}(:\d+)?$/i.test(normalized) ||
     /^localhost(:\d+)?$/i.test(normalized) ||
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(normalized);
-  const busy = phase === "probing" || phase === "opening" || phase === "verifying";
+  const busy = phase === "probing";
 
-  // Already connected (LIVE) outside the demo → this is a SECOND host. Multi-host
-  // fan-out (Slice B) isn't wired yet, so a 2nd connection would silently show only
-  // the first host's data — be honest rather than pretend it worked.
-  const multiPending = LIVE && !MOCK;
+  // Already connected → this is a SECOND host. Multi-host fan-out (Slice B) isn't
+  // wired yet, so a 2nd connection would silently show only the first host's
+  // data — be honest rather than pretend it worked.
+  const multiPending = CONNECTIONS.length > 0;
 
   // Real connect: probe the public handshake, resolve identity, register + reload.
   //   ok         → auth-disabled / already-authed: identity from /me, into the app.
   //   needs_auth → auth-ENABLED: register the host (URL only, id resolved after
-  //                login) and reload → LIVE + no identity → the real Discord
+  //                login) and reload → a connected host + no identity → the Discord
   //                LoginPage, which bounces against THIS host's /auth/discord/start.
   const connectReal = async () => {
     if (!valid || busy) return;
@@ -107,12 +85,12 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     if (res.status === "ok") {
       addConnection(registryEntry(res.origin, res.name, res.hostId));
       setAppUser(res.user);                 // app-shell identity from /me
-      window.location.reload();             // re-eval config → LIVE; boot against the connected host
+      window.location.reload();             // re-eval config → boot against the connected host
       return;
     }
     if (res.status === "needs_auth") {
       // id is null here — /hosts is 401 pre-login; completeOAuthLogin reconciles it
-      // with the bearer after Discord. Register so a reload goes LIVE → LoginPage.
+      // with the bearer after Discord. Register so a reload boots connected → LoginPage.
       addConnection(registryEntry(res.origin, res.name, null));
       window.location.reload();
       return;
@@ -120,29 +98,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     setPhase(res.status);                    // not_kgsm | unreachable
   };
 
-  // MOCK demo: the original faked Discord round-trip (no real backend). A URL
-  // containing "community"/"noaccess" demos the denied path.
-  const connectMock = () => {
-    if (!valid || busy) return;
-    const willDeny = /community|noaccess|no-access/i.test(normalized);
-    setPhase("opening");
-    setTimeout(() => {
-      setPhase("verifying");
-      setTimeout(() => {
-        if (willDeny) { setPhase("denied"); return; }
-        const name = normalized.split(".")[0].replace(/^./, c => c.toUpperCase());
-        const host = skeletonHost(name, normalized);
-        host.url = normalized;
-        hostsStore.add(host);
-        sessionStore.bootstrap(host.id, { interactive: true }).then(() => {
-          sessionStore.register(host);
-          onAdded && onAdded(host.id);
-        });
-      }, 900);
-    }, 700);
-  };
-
-  const connect = MOCK ? connectMock : connectReal;
+  const connect = connectReal;
 
   // Honest copy per failure phase (real connect). needs_auth is NOT a failure
   // any more — it registers + reloads into the Discord LoginPage (connectReal).
@@ -166,9 +122,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
         <div className="login-card add-host-card">
           <div className="login-card__heading">{firstRun ? "Connect your first host" : "Connect a host"}</div>
           <div className="login-card__sub">
-            {MOCK
-              ? "A host is a machine running the Krystal agent. We’ll connect using the Discord account you’re already signed in with."
-              : "A host runs the kgsm-api control panel. Enter its address — we’ll verify it’s a kgsm-api and connect."}
+            A host runs the kgsm-api control panel. Enter its address — we’ll verify it’s a kgsm-api and connect.
           </div>
 
           {multiPending ? (
@@ -184,7 +138,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
               <input
                 value={url}
                 onChange={e => { setUrl(e.target.value); if (phase !== "idle" && phase !== "probing") setPhase("idle"); }}
-                placeholder={MOCK ? "krystal-1.tks.example" : "http://127.0.0.1:8080  ·  https://your-host"}
+                placeholder="http://127.0.0.1:8080  ·  https://your-host"
                 spellCheck="false" autoCapitalize="off" autoCorrect="off"
                 disabled={busy}
                 onKeyDown={e => { if (e.key === "Enter") connect(); }} />
@@ -192,15 +146,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
             {url && !valid && <span className="add-host__err">Enter a valid host address.</span>}
           </label>
 
-          {phase === "denied" ? (
-            <div className="add-host__denied">
-              <Icon name="lock" size={15} />
-              <div>
-                <b>Connected, but no access.</b> Your Discord identity checks out, but you
-                don’t have a role on this host. Ask its admin to grant you one.
-              </div>
-            </div>
-          ) : fail ? (
+          {fail ? (
             <div className="add-host__denied">
               <Icon name="alert-triangle" size={15} />
               <div><b>{fail.title}.</b> {fail.body}</div>
@@ -213,18 +159,12 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
             disabled={!valid || busy}
             onClick={connect}>
             {phase === "probing"   && (<><span className="oauth-spinner" /> Verifying the host…</>)}
-            {phase === "opening"   && (<><span className="oauth-spinner" /> Opening Discord…</>)}
-            {phase === "verifying" && (<><span className="oauth-spinner" /> Verifying with the host…</>)}
-            {!busy && (MOCK
-              ? (<><OAuthIcon provider="discord" /> Connect with Discord</>)
-              : (<><Icon name="plug" size={15} /> Connect</>))}
+            {!busy && (<><Icon name="plug" size={15} /> Connect</>)}
           </button>
 
           <div className="add-host__note">
             <Icon name="shield-check" size={13} />
-            <span>{MOCK
-              ? "The host verifies your Discord identity once, then issues its own session. Roles are checked per host."
-              : "Each host issues its own session and checks your role independently — access can differ per host."}</span>
+            <span>Each host issues its own session and checks your role independently — access can differ per host.</span>
           </div>
           </>)}
         </div>
@@ -240,4 +180,4 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   );
 }
 
-export { AddHostPage, HostAuthBadge, HostDeniedNotice, skeletonHost };
+export { AddHostPage, HostAuthBadge, HostDeniedNotice };

@@ -1,9 +1,14 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { KRYSTAL_DATA } from "../lib/data.js";
 
 // File browser — tree on the left, editor on the right.
+//
+// NOT WIRED YET: there is no file API on the host, so the tab renders a
+// work-in-progress state. The full tree + editor UI below is kept ready — flip
+// FILES_WIRED to true and hydrate `tree`/`file` from the files endpoint when it
+// lands.
+const FILES_WIRED = false;
 
 function FileTreeRow({ node, depth = 0, activePath, onPick }) {
   const [open, setOpen] = React.useState(node.open || false);
@@ -32,8 +37,8 @@ function FileTreeRow({ node, depth = 0, activePath, onPick }) {
 }
 
 function FileBrowser() {
-  const tree = KRYSTAL_DATA.files;
-  const file = KRYSTAL_DATA.fileContent;
+  const tree = [];                          // TODO: hydrate from the files endpoint when FILES_WIRED
+  const file = { path: "", lines: [] };     // TODO: hydrate the open file when FILES_WIRED
   const [activePath, setActivePath] = React.useState(file.path);
 
   // Download the file currently open in the editor. Reconstructs the text from
@@ -49,6 +54,16 @@ function FileBrowser() {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+
+  if (!FILES_WIRED) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
+        <Icon name="folder" size={26} strokeWidth={1.6} />
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
+        <div style={{ marginTop: 4, fontSize: 12.5 }}>There's no file API on this host yet — the browser lights up when it lands.</div>
+      </div>
+    );
+  }
 
   return (
     <BriefCard icon="folder" title="Files">

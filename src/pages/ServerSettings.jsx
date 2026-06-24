@@ -6,6 +6,13 @@ import { serverCapUsable } from "../lib/capabilities.js";
 // Settings panel — for things that don't belong in raw config files.
 // Autostart, scheduled restarts, crash recovery, update policy, resource caps,
 // player notifications.
+//
+// NOT WIRED YET: the editable-config backend isn't here, so the controls below
+// have no honest source to read or persist to. The tab renders a work-in-
+// progress state rather than showing fabricated toggle positions. The full form
+// UI is kept ready — flip SETTINGS_WIRED to true and read/write the settings
+// endpoint when it lands.
+const SETTINGS_WIRED = false;
 
 function SettingsRow({ icon, title, sub, children }) {
   // Mirrors the NeedsAttention / RecentActivity entry line: a rounded icon
@@ -83,6 +90,16 @@ function ServerSettings({ server }) {
     cpuPriority: "normal",
   });
   const set = (k, v) => setS(prev => ({ ...prev, [k]: v }));
+
+  if (!SETTINGS_WIRED) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
+        <Icon name="settings" size={26} strokeWidth={1.6} />
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
+        <div style={{ marginTop: 4, fontSize: 12.5 }}>The editable-settings backend isn't here yet — this panel lights up when it lands.</div>
+      </div>
+    );
+  }
 
   // Per-card watchdog indicator (replaces the page banner): "Watchdog down ●".
   const watchdogLed = (

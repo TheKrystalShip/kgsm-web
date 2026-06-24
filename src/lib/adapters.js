@@ -1,13 +1,12 @@
 // adapters.js — translate kgsm-api DTOs into the shapes the SPA components read.
 //
-// The backend emits an HONEST, narrower model than the prototype fixtures: no
-// per-server players/ip/uptime, no per-process host tables — kgsm-api omits
-// anything it can't measure (the "never fabricate" invariant). So the cardinal
-// rule here: a value the backend doesn't provide maps to null / "unknown" /
-// empty — NEVER to 0 or an invented default. The components render "—" for
-// those; see WIRING.md §5.
+// The backend emits an HONEST, narrow model: no per-server players/ip/uptime, no
+// per-process host tables — kgsm-api omits anything it can't measure (the "never
+// fabricate" invariant). So the cardinal rule here: a value the backend doesn't
+// provide maps to null / "unknown" / empty — NEVER to 0 or an invented default.
+// The components render "—" for those; see WIRING.md §5.
 //
-// camelCase (api) → the fixture field names the components already use.
+// camelCase (api) → the field names the components already use.
 
 const round = (n, d = 0) => {
   if (n == null || !isFinite(n)) return null;
@@ -228,10 +227,9 @@ export const adaptLibrary = (arr) => (Array.isArray(arr) ? arr.map(adaptLibraryE
 // api returns { data:[…], nextCursor } (architecture.html §6 keyset page). Preserve
 // the page envelope as { rows, nextCursor } so the store can WALK the cursor — the
 // log is paginated, and a single fetch would leave everything older than the first
-// page permanently unreachable (the real bug this fixes). MOCK bypasses this adapter
-// (resolveGet returns the bare fixture array), so the store normalizes both shapes.
-// `nextCursor` is the opaque rowid of the oldest row in this page, or null when there
-// are no older rows. Row shapes align (actor carries an extra `kind` harmlessly).
+// page permanently unreachable (the real bug this fixes). `nextCursor` is the
+// opaque rowid of the oldest row in this page, or null when there are no older
+// rows. Row shapes align (actor carries an extra `kind` harmlessly).
 export function adaptAudit(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
   return { rows: rows.map((e) => ({ ...e })), nextCursor: (page && page.nextCursor) || null };
@@ -256,9 +254,8 @@ function alertIcon(a) {
 }
 // One alert: honest passthrough of every field the API sources (id/severity/
 // source/title/detail/serverId/hostId/anchor/status/raisedAt/escalated/attempts/
-// resolvedAt/resolution) plus a derived display icon. `prompt`/`autoResolves` are
-// demo-only (no upstream source) → left absent, never fabricated. Shared by the
-// REST page (below) and the live `alert.raise` stream message (adaptStreamMessage).
+// resolvedAt/resolution) plus a derived display icon. Shared by the REST page
+// (below) and the live `alert.raise` stream message (adaptStreamMessage).
 export function adaptAlert(a) {
   if (!a) return a;
   return { ...a, icon: a.icon || alertIcon(a) };
@@ -271,8 +268,8 @@ export function adaptAlerts(page) {
 // ---- Jobs (command progress over the `jobs` stream) --------------------
 // API Job state is queued|running|succeeded|failed; the FE job tracker reads a
 // coarse running-vs-done (spinner until terminal, then clears). Collapse the two
-// terminal states to the FE's "done" so the existing store logic
-// (`state === "done" ? clear : { verb, state }`) works for mock AND live.
+// terminal states to the FE's "done" so the store logic
+// (`state === "done" ? clear : { verb, state }`) stays simple.
 const JOB_TERMINAL = { succeeded: true, failed: true };
 export function adaptJob(be) {
   if (!be) return be;

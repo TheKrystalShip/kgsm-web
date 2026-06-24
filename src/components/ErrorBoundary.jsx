@@ -1,8 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
 import { api, connectionStore, realtimeStore } from "../lib/apiClient.js";
-import { can } from "../lib/persona.js";
-import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 
@@ -13,7 +11,7 @@ import { hostsStore } from "../lib/stores.js";
 //                               App-level = last resort; content-level = keeps
 //                               the shell alive while one page recovers.
 //   2. ConnectivityBanner     — the single connection-status slot, by precedence:
-//                               browser OFFLINE → backend UNREACHABLE (warm REST
+//                               browser offline → backend UNREACHABLE (warm REST
 //                               drop) → one or more HOST links dropped (named).
 //   2b. HostConnection        — per-host live/reconnecting/offline indicator, on
 //                               each host's own surfaces (the channel is per host).
@@ -62,15 +60,9 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// A component that throws on render — the dev panel mounts this inside the
-// content boundary to demonstrate per-page recovery.
-function CrashNow() {
-  throw new Error("Simulated render crash (dev tools)");
-}
-
 // ---- 2. Connectivity banner (the single connection-status slot) -----------
 // One banner, three layered cases by precedence so they never stack:
-//   1) browser OFFLINE   — global; no network means every host link is down.
+//   1) browser offline  — global; no network means every host link is down.
 //   2) backend UNREACHABLE — warm REST drop; affects all hosts ("Can't reach
 //      Krystal"). Owns this case so the per-host list below stays quiet.
 //   3) per-host link DROPPED — one or more hosts lost their live channel while
@@ -181,7 +173,7 @@ function HostConnection({ hostId, full }) {
 }
 
 // ---- 3. Cold-start takeover (nothing to show) -----------------------------
-function ColdStartDown({ retrying, onRetry, onLogout, devMode }) {
+function ColdStartDown({ retrying, onRetry, onLogout }) {
   return (
     <div className="cold-down">
       <div className="cold-down__card">
@@ -198,11 +190,6 @@ function ColdStartDown({ retrying, onRetry, onLogout, devMode }) {
           </button>
           {onLogout && <button className="cold-down__ghost" onClick={onLogout}>Sign out</button>}
         </div>
-        {devMode && (
-          <button className="cold-down__demo" onClick={() => { if (api.__setHealth) api.__setHealth("ok"); onRetry(); }}>
-            <Icon name="flask-conical" size={12} /> demo · restore backend &amp; retry
-          </button>
-        )}
         <div className="cold-down__hint"><Icon name="info" size={12} /> The connection is re-checked each time you retry.</div>
       </div>
     </div>
@@ -257,97 +244,4 @@ function SurfaceError({ title, detail, onRetry, retrying }) {
   );
 }
 
-// ---- Dev panel (demo harness; only shown with ?dev) -----------------------
-function DevPanel({ health, connStatus, slow, onToggleHealth, onToggleSlow, onCrash, onExpireSession }) {
-  const [open, setOpen] = React.useState(true);
-  // Per-host realtime channels (drop one host's WS while the others stream).
-  const hosts = useStore(hostsStore, s => s.list);
-  useStore(realtimeStore, s => s);   // re-render on channel changes
-  const sessions = useStore(sessionStore, s => s.byHost);
-  if (!open) {
-    return (
-      <button className="dev-panel__fab" onClick={() => setOpen(true)} title="Resilience demo tools">
-        <Icon name="flask-conical" size={15} />
-      </button>
-    );
-  }
-  return (
-    <div className="dev-panel">
-      <div className="dev-panel__head">
-        <Icon name="flask-conical" size={13} />
-        <span>Resilience demo</span>
-        <button className="dev-panel__close" onClick={() => setOpen(false)} aria-label="Hide"><Icon name="x" size={13} /></button>
-      </div>
-      <div className="dev-panel__row">
-        <span>Backend</span>
-        <button className={"dev-panel__toggle" + (health === "down" ? " is-down" : "")} onClick={onToggleHealth}>
-          <span className="dev-panel__dot"></span>{health === "down" ? "DOWN" : "OK"}
-        </button>
-      </div>
-      <div className="dev-panel__row">
-        <span>Network</span>
-        <button className={"dev-panel__toggle" + (slow ? " is-slow" : "")} onClick={onToggleSlow}>
-          <span className="dev-panel__dot"></span>{slow ? "SLOW" : "FAST"}
-        </button>
-      </div>
-      <div className="dev-panel__row dev-panel__row--sub">
-        <span>Realtime</span>
-        <span className="dev-panel__hint-inline">per host · each its own WS</span>
-      </div>
-      {hosts.map(h => {
-        const sock = api.__hostSocket ? api.__hostSocket(h.id) : "up";
-        return (
-          <div className="dev-panel__row dev-panel__row--host" key={h.id}>
-            <span>{h.name}</span>
-            <button className={"dev-panel__toggle" + (sock === "up" ? "" : " is-down")}
-              onClick={() => api.__setHostSocket(h.id, sock === "down" ? "up" : "down")}>
-              <span className="dev-panel__dot"></span>{sock === "up" ? "LIVE" : "DROP"}
-            </button>
-          </div>
-        );
-      })}
-      <div className="dev-panel__row dev-panel__row--sub">
-        <span>Identity</span>
-        <span className="dev-panel__hint-inline">per-host sessions · §6·a</span>
-      </div>
-      <div className="dev-panel__row">
-        <span>discord.com</span>
-        <button className={"dev-panel__toggle" + (sessionStore.discordLive() ? "" : " is-down")}
-          onClick={() => sessionStore.discordLive() ? sessionStore.dropDiscord() : sessionStore.restoreDiscord()}
-          title="Drop the discord.com session → next bounce needs an interactive consent">
-          <span className="dev-panel__dot"></span>{sessionStore.discordLive() ? "SESSION" : "LOGGED OUT"}
-        </button>
-      </div>
-      {hosts.map(h => {
-        const st = (sessions[h.id] || {}).status || "none";
-        return (
-          <div className="dev-panel__row dev-panel__row--host" key={"auth-" + h.id}>
-            <span>{h.name}</span>
-            <span className="dev-panel__authbtns">
-              <button className={"dev-panel__toggle" + (st === "denied" ? " is-down" : "")}
-                onClick={() => st === "denied" ? sessionStore.grant(h.id) : sessionStore.revoke(h.id)}
-                title={st === "denied" ? "Grant role (clear 403)" : "Revoke role (force 403)"}>
-                <span className="dev-panel__dot"></span>{st === "denied" ? "403" : st === "live" ? "OK" : st.toUpperCase().slice(0, 4)}
-              </button>
-              <button className="dev-panel__mini" title="Force session expiry (→ silent refresh on next call)"
-                onClick={() => sessionStore.expire(h.id)}><Icon name="timer-reset" size={11} /></button>
-            </span>
-          </div>
-        );
-      })}
-      <button className="dev-panel__action" onClick={() => sessionStore.forgetHosts()}><Icon name="server-off" size={12} /> Forget all hosts (→ add-host)</button>
-      {onExpireSession && <button className="dev-panel__action" onClick={onExpireSession}><Icon name="user-x" size={12} /> Expire panel session (→ login)</button>}
-      <div className="dev-panel__row">
-        <span>Connection</span>
-        <code className="dev-panel__conn">{connStatus}</code>
-      </div>
-      <button className="dev-panel__action" onClick={onCrash}><Icon name="bug" size={12} /> Crash this page</button>
-      <button className="dev-panel__action" onClick={() => window.location.reload()}><Icon name="rotate-cw" size={12} /> Cold reload</button>
-      <div className="dev-panel__hint">
-        <b>Slow + Cold reload</b> = first-load skeletons (no data yet). <b>Slow + Refresh</b> = data stays put while it re-fetches. <b>Backend down + Refresh</b> = surface error. <b>Drop a host</b> = that host shows Reconnecting + polling fallback while the others keep streaming. <code>?api=down</code> = cold start.
-      </div>
-    </div>
-  );
-}
-
-export { AppCrash, ColdStartDown, ConnectivityBanner, ContentError, CrashNow, DevPanel, ErrorBoundary, HostConnection, SurfaceError };
+export { AppCrash, ColdStartDown, ConnectivityBanner, ContentError, ErrorBoundary, HostConnection, SurfaceError };

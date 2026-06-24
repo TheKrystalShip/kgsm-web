@@ -4,7 +4,6 @@ import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
-import { LIVE } from "../lib/config.js";
 
 // Server hero card — top status, name, action chips, IP.
 
@@ -47,9 +46,8 @@ function ServerHero({ server, onAction }) {
   const wdReason = "Watchdog unavailable on this host — lifecycle actions are paused";
   // kgsm-api doesn't expose an `update` verb yet (deferred from M3 — there's no
   // honest update-check source either). Rather than offer a button that would 400
-  // against a live backend, disable it with a reason. The mock keeps it as a demo
-  // affordance (its fake state machine handles `update`).
-  const updateUnavailable = LIVE;
+  // against the backend, disable it with a reason.
+  const updateUnavailable = true;
   const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
   // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone);
   // the detail hero prefers the hero image, then the cover, then the gradient.
@@ -69,7 +67,7 @@ function ServerHero({ server, onAction }) {
           {canOps && <button className="hero__edit" aria-label="Rename"><Icon name="pencil" size={16} /></button>}
         </h1>
         {/* Runtime is honest backend metadata (native vs container) — surface it
-            as a small tag. Absent in mock fixtures → renders nothing there. */}
+            as a small tag. Absent → renders nothing. */}
         {server.runtime && (
           <div className="hero__tags">
             <span className="hero__tag" title="Supervision type">

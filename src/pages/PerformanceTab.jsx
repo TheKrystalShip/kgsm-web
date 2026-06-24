@@ -3,8 +3,6 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { serverMetricsFreshness } from "../components/HostCardBody.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { TimeSeriesChart, detectAnomalies } from "../components/TimeSeriesChart.jsx";
-import { LIVE } from "../lib/config.js";
-import { KRYSTAL_DATA } from "../lib/data.js";
 
 // PerformanceTab — time-series metrics for one server, plus z-score
 // anomaly detection surfaced as inline chart markers, and an optional
@@ -17,12 +15,17 @@ import { KRYSTAL_DATA } from "../lib/data.js";
 // Detection rule: any point > mean + 2σ over the visible window for ≥ 2
 // consecutive points. Cheap, robust to scale, no per-metric tuning. See
 // detectAnomalies() in TimeSeriesChart.jsx.
+//
+// NOT WIRED YET: there is no per-server metrics-history source (the monitor's
+// per-server capability isn't reporting on this host, and there's no
+// historical-series endpoint), so the tab renders a work-in-progress state. The
+// full charting UI below is kept ready — flip METRICS_WIRED to true and hydrate
+// `baseMetrics` from the metrics endpoint when it lands.
+const METRICS_WIRED = false;
 
 // Generate a comparison series for the same length, deterministically.
 // In production this is just `?compare=last-week` on the metrics endpoint —
-// the backend returns the matching shape from the prior period. Here we
-// reproduce that vibe with a different seed + a mild scale tilt so the
-// comparison line visibly differs without being obviously synthetic.
+// the backend returns the matching shape from the prior period.
 function genCompare(seed, length, scale = 0.9) {
   let s = seed;
   const r = () => { s = (s * 9301 + 49297) % 233280 / 233280; return s; };
@@ -37,15 +40,11 @@ function genCompare(seed, length, scale = 0.9) {
 }
 
 function PerformanceTab({ server, onAsk }) {
-  // LIVE: there's no per-server time-series source yet (the monitor's per-server
-  // capability isn't reporting on this host, and there's no historical-series
-  // endpoint). Show an honest empty-state rather than fixture charts. (Early —
-  // before the hooks below; LIVE is a module-load constant so order stays stable.)
-  if (LIVE) {
+  if (!METRICS_WIRED) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
         <Icon name="line-chart" size={26} strokeWidth={1.6} />
-        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Performance metrics not available yet</div>
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
         <div style={{ marginTop: 4, fontSize: 12.5 }}>Per-server metrics history has no source on this host yet — the deep-dive will light up when the monitor reports per-server.</div>
       </div>
     );
@@ -53,12 +52,11 @@ function PerformanceTab({ server, onAsk }) {
   const [range, setRange] = React.useState("24h");
   const [compareTo, setCompareTo] = React.useState("off");
   const [live, setLive] = React.useState(false);
-  const baseMetrics = KRYSTAL_DATA.metricsByServer[server.id];
+  const baseMetrics = null;   // TODO: hydrate from the metrics endpoint when METRICS_WIRED
 
-  // Live mode: tail-window simulation. Every ~1.5s a new point is appended
-  // and the oldest is dropped. New points are nudged from the prior value
-  // so the line stays continuous. In production this is a WebSocket / SSE
-  // stream from `${API_BASE}/servers/{id}/metrics/stream`.
+  // Live tail-window: every ~1.5s a new point is appended and the oldest is
+  // dropped. In production this is a WebSocket / SSE stream from the metrics
+  // endpoint; the tail seed comes from baseMetrics.
   const [tail, setTail] = React.useState(null);
   React.useEffect(() => {
     if (!live || !baseMetrics) { setTail(null); return; }

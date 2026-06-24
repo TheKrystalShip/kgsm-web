@@ -1,10 +1,8 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { LIVE } from "../lib/config.js";
 import { api } from "../lib/apiClient.js";
 import { awaitJob } from "../lib/stores.js";
-import { KRYSTAL_DATA } from "../lib/data.js";
 
 // Backups list — one row per snapshot. Rendered through the shared BriefCard
 // shell; each entry uses the same .chat-brief__item row style as the dashboard's
@@ -12,13 +10,10 @@ import { KRYSTAL_DATA } from "../lib/data.js";
 // (App.ServerDetailPage hides it for viewers), so the create/restore actions are
 // safe to show here without a second gate.
 //
-// LIVE vs mock: the live backend (GET /servers/{id}/backups) reports a backup's
-// NAME ONLY — no size / timestamp / type, and there is no download or delete
-// endpoint. So the live row is honest-thin (name + Restore), never a fabricated
-// size/age. The bundled fixture keeps the richer demo for offline mode.
-
-// ---- live: one server's real backups ------------------------------------
-function BackupsLive({ server }) {
+// The backend (GET /servers/{id}/backups) reports a backup's NAME ONLY — no
+// size / timestamp / type, and there is no download or delete endpoint. So the
+// row is honest-thin (name + Restore), never a fabricated size/age.
+function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
   const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | null
@@ -97,6 +92,14 @@ function BackupsLive({ server }) {
                   <button className="icon-btn" title="Restore" onClick={() => restoreBackup(b.name)} disabled={!!busy}>
                     {restoring ? <span className="oauth-spinner" /> : <Icon name="rotate-ccw" size={14} />}
                   </button>
+                  {/* Download / delete have no backend endpoint yet — kept as
+                      disabled affordances (work in progress), never faked. */}
+                  <button className="icon-btn" title="Download — not available yet" disabled>
+                    <Icon name="download" size={14} />
+                  </button>
+                  <button className="icon-btn icon-btn--danger" title="Delete — not available yet" disabled>
+                    <Icon name="trash-2" size={14} />
+                  </button>
                 </div>
               </div>
             );
@@ -105,45 +108,6 @@ function BackupsLive({ server }) {
       )}
     </BriefCard>
   );
-}
-
-// ---- mock: the bundled offline demo (richer fixture) --------------------
-function BackupsMock() {
-  const backups = KRYSTAL_DATA.backups;
-  return (
-    <BriefCard
-      icon="database"
-      title="Backups"
-      count={backups.length + " / 10 slots"}
-      countTone="neutral"
-      meta="Auto-snapshot every 6h · retained 14 days"
-      action={<button className="fb-editor__btn"><Icon name="plus" size={14} strokeWidth={2.2} /> &nbsp;Back up now</button>}
-    >
-      <div className="chat-brief__list">
-        {backups.map((b, i) => (
-          <div className="chat-brief__item chat-brief__item--static" key={i}>
-            <span className="chat-brief__icon"><Icon name="database" size={14} /></span>
-            <div className="chat-brief__body">
-              <span className="chat-brief__item-title chat-brief__item-title--mono">
-                <span className="chat-brief__titletext">{b.name}</span>
-              </span>
-              <span className="chat-brief__detail">{b.when} · {b.size}</span>
-            </div>
-            <span className={"backup-row__tag backup-row__tag--" + b.type}>{b.type}</span>
-            <div className="backup-row__actions">
-              <button className="icon-btn" title="Restore"><Icon name="rotate-ccw" size={14} /></button>
-              <button className="icon-btn" title="Download"><Icon name="download" size={14} /></button>
-              <button className="icon-btn icon-btn--danger" title="Delete"><Icon name="trash-2" size={14} /></button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </BriefCard>
-  );
-}
-
-function BackupsList({ server }) {
-  return (LIVE && server) ? <BackupsLive server={server} /> : <BackupsMock />;
 }
 
 export { BackupsList };

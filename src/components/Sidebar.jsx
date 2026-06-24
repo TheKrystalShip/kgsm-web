@@ -1,6 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
-import { KRYSTAL_LABELS } from "../lib/data.js";
+import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { HostAuthBadge } from "../pages/HostAccess.jsx";
@@ -9,7 +9,7 @@ import { OAuthIcon } from "../pages/LoginPage.jsx";
 // Sidebar component — brand, primary nav, quick actions.
 
 // Catalog nav label — read from the shared label map so it can't drift from the
-// dashboard's "Recently added" band or the breadcrumb. See data.js KRYSTAL_LABELS.
+// dashboard's "Recently added" band or the breadcrumb. See labels.js KRYSTAL_LABELS.
 const CATALOG_LABEL = (KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog";
 
 // HostSwitcher — GLOBAL scope selector. Lives above the nav and reframes the
@@ -276,8 +276,8 @@ function Sidebar({ onHome, homeActive, onServers, serversActive, serversCount = 
 }
 
 function AccountAvatar({ user, size = 24 }) {
-  // Discord avatars in production come from cdn.discordapp.com via the OAuth
-  // profile. For the demo we synthesise a teal-gradient circle with an initial.
+  // Discord avatars come from cdn.discordapp.com via the OAuth profile; until one
+  // is available we synthesise a teal-gradient circle with an initial.
   const initial = (user.display || user.name || "?")[0].toUpperCase();
   return (
     <span style={{

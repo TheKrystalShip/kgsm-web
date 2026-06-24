@@ -1,18 +1,14 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { takeOAuthError } from "../lib/authRedirect.js";
-import { API_BASE, LIVE } from "../lib/config.js";
+import { API_BASE } from "../lib/config.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // LoginPage — the unauthenticated landing surface.
 //
 // All of Krystal sits behind this. Discord OAuth is the primary path (the
 // product is built for a Discord crew), with Google / GitHub / Microsoft
-// stubbed out as secondary providers for any future non-Discord audiences.
-//
-// In the demo, every provider triggers the same fake auth round-trip — a
-// short spinner, then a synthesised user. Wire to real OAuth endpoints
-// behind `KRYSTAL_API_BASE/auth/{provider}/start` in production.
+// shown as secondary providers for any future non-Discord audiences.
 
 function OAuthIcon({ provider, size = 20 }) {
   const s = { width: size, height: size, display: "block" };
@@ -53,38 +49,15 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-// User profile per provider. In production the OAuth callback returns the real
-// identity (Discord username, avatar, email) and we store whatever it sends —
-// so every user sees THEIR own name after signing in. For this prototype these
-// objects stand in for that callback response; the Discord entry is the seeded
-// identity ("Heisen") since Discord is the live sign-in path. This is the single
-// source of the logged-in username — nothing downstream should hardcode a name.
-const FAKE_PROFILES = {
-  discord:   { name: "Heisen",      display: "Heisen",        provider: "discord",   email: "heisen@krystalship.example" },
-  google:    { name: "haru.dev",    display: "Haru",          provider: "google",    email: "haru@gmail.example" },
-  github:    { name: "haru-codes",  display: "haru-codes",    provider: "github",    email: "haru@users.noreply.github.com" },
-  microsoft: { name: "h.kael",      display: "Haru Kael",     provider: "microsoft", email: "h.kael@outlook.example" },
-};
-
 // LoginPage — the unauthenticated gate, shown once a host is connected but no
-// identity is established yet. Two sharply-separated modes:
-//   LIVE → RealLogin: a real Discord OAuth bounce to the CONNECTED host. No fakes.
-//   MOCK → DemoLogin: the fixtures/demo sign-in (tests only).
-// (When neither LIVE nor MOCK the app is OFFLINE → the connect screen comes
-// before this gate, so exactly one of the two always applies here.)
-function LoginPage({ onLogin }) {
-  if (LIVE) return <RealLogin />;
-  return <DemoLogin onLogin={onLogin} />;
-}
-
-// The real sign-in: a full-page OAuth bounce to the connected host's
-// /auth/discord/start. The callback 302s back to this SPA with the session in the
-// URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin callback —
-// the app reboots already authed. Auth is PER HOST, so we sign in against the one
-// connected host (API_BASE) and SHOW the exact origin we bounce to: a
-// localhost-vs-127.0.0.1 mismatch would otherwise fail as an opaque state-cookie
-// 400. "Connect a different host" drops the registry → back to the connect screen.
-function RealLogin() {
+// identity is established yet. A full-page Discord OAuth bounce to the connected
+// host's /auth/discord/start. The callback 302s back to this SPA with the session
+// in the URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin
+// callback — the app reboots already authed. Auth is PER HOST, so we sign in
+// against the one connected host (API_BASE) and SHOW the exact origin we bounce
+// to: a localhost-vs-127.0.0.1 mismatch would otherwise fail as an opaque
+// state-cookie 400. "Connect a different host" drops the registry → connect screen.
+function LoginPage() {
   const [busy, setBusy] = React.useState(false);
   const [error] = React.useState(() => takeOAuthError());
   const origin = API_BASE || "";
@@ -97,7 +70,7 @@ function RealLogin() {
   };
   const useDifferentHost = () => {
     try { sessionStore.forgetHosts(); } catch (e) {}
-    window.location.reload();   // registry now empty → OFFLINE → the connect screen
+    window.location.reload();   // registry now empty → the connect screen
   };
 
   return (
@@ -148,129 +121,6 @@ function RealLogin() {
 
         <div className="login-shell__legal">
           New here? This host sets up your access automatically on first sign-in, based on your Discord role.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// DemoLogin — the fixtures/demo sign-in (MOCK only; tests). The fake round-trip
-// synthesises a user (FAKE_PROFILES); the persona lens forces a role to preview
-// each tier. None of this runs in LIVE.
-function DemoLogin({ onLogin }) {
-  const [busy, setBusy] = React.useState(null); // provider id or null
-  const [stay, setStay] = React.useState(true);
-  // Preview-as switch (demo/verification lever): forces ONE role across the
-  // whole panel so an admin can see exactly what each tier sees, then sign back
-  // in to switch. Demo-only — real authorization is the per-host Discord tier.
-  const [persona, setPersona] = React.useState("admin");
-  // A failed/denied OAuth round-trip lands back here with #error=… (captured +
-  // stashed in main.jsx); surface it once so the user isn't left guessing.
-  const [error] = React.useState(() => takeOAuthError());
-
-  const handleProvider = (provider) => {
-    if (busy) return;
-    setBusy(provider);
-    setTimeout(() => {
-      const profile = FAKE_PROFILES[provider] || FAKE_PROFILES.discord;
-      onLogin({ ...profile, stay, persona });
-    }, 900);
-  };
-
-  return (
-    <div className="login-shell">
-      <div className="login-shell__inner">
-        <div className="login-shell__brand">
-          <img src="/assets/tks-mark.png" alt="" />
-          <div className="login-shell__brand-name">The Krystal Ship</div>
-          <div className="login-shell__tagline">Spin up game servers without the SSH dance.</div>
-        </div>
-
-        <div className="login-card">
-          <div className="login-card__heading">Sign in to Krystal</div>
-          {error && (
-            <div className="login-card__error" role="alert">
-              <Icon name="alert-triangle" size={14} />
-              {error === "denied"
-                ? "Your Discord account doesn’t have a role on this host."
-                : "Sign-in didn’t complete — please try again."}
-            </div>
-          )}
-          <div className="login-card__sub">Use the same Discord account you use with the crew. Your servers and roles come along with you.</div>
-
-          <button
-            type="button"
-            className="oauth-btn oauth-btn--discord"
-            disabled={!!busy}
-            onClick={() => handleProvider("discord")}>
-            {busy === "discord"
-              ? (<><span className="oauth-spinner" /> Connecting to Discord…</>)
-              : (<><OAuthIcon provider="discord" /> Continue with Discord</>)}
-          </button>
-
-          <div className="oauth-divider">Discord only for now</div>
-
-          <div className="oauth-row">
-            <button type="button" className="oauth-btn oauth-btn--icon-only"
-              disabled
-              title="Discord is the only sign-in method right now"
-              aria-label="Continue with Google (unavailable)">
-              <OAuthIcon provider="google" />
-            </button>
-            <button type="button" className="oauth-btn oauth-btn--icon-only"
-              disabled
-              title="Discord is the only sign-in method right now"
-              aria-label="Continue with GitHub (unavailable)">
-              <OAuthIcon provider="github" />
-            </button>
-            <button type="button" className="oauth-btn oauth-btn--icon-only"
-              disabled
-              title="Discord is the only sign-in method right now"
-              aria-label="Continue with Microsoft (unavailable)">
-              <OAuthIcon provider="microsoft" />
-            </button>
-          </div>
-
-          <label className="login-options" onClick={(e) => { if (e.target.tagName !== "INPUT") setStay(!stay); }}>
-            <span className={"login-checkbox" + (stay ? " login-checkbox--on" : "")}>
-              {stay && <Icon name="check" size={12} strokeWidth={3} />}
-            </span>
-            Stay signed in on this device
-          </label>
-
-          <div className="login-persona">
-            <div className="login-persona__label">
-              <Icon name="eye" size={12} /> Preview the panel as
-            </div>
-            <div className="login-persona__seg" role="radiogroup" aria-label="Preview the panel as">
-              <button type="button" role="radio" aria-checked={persona === "admin"}
-                className={"login-persona__opt" + (persona === "admin" ? " is-on" : "")}
-                onClick={() => setPersona("admin")}>
-                <Icon name="shield-check" size={13} /> Admin
-              </button>
-              <button type="button" role="radio" aria-checked={persona === "operator"}
-                className={"login-persona__opt" + (persona === "operator" ? " is-on" : "")}
-                onClick={() => setPersona("operator")}>
-                <Icon name="wrench" size={13} /> Operator
-              </button>
-              <button type="button" role="radio" aria-checked={persona === "viewer"}
-                className={"login-persona__opt" + (persona === "viewer" ? " is-on" : "")}
-                onClick={() => setPersona("viewer")}>
-                <Icon name="gamepad-2" size={13} /> Viewer
-              </button>
-            </div>
-            <div className="login-persona__hint">
-              {persona === "admin"
-                ? "Full control \u2014 everything, including Fleet & host management."
-                : persona === "operator"
-                  ? "Operate servers, set notes, view Alerts & Audit. No Fleet."
-                  : "Play-only \u2014 game servers & catalog. No ops, Alerts or Audit."}
-            </div>
-          </div>
-        </div>
-
-        <div className="login-shell__legal">
-          New here? Krystal sets up your account automatically on first sign-in. By continuing you agree to our&nbsp;<a href="#">terms</a> and&nbsp;<a href="#">privacy policy</a>.
         </div>
       </div>
     </div>

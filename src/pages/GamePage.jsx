@@ -5,7 +5,6 @@ import { KRYSTAL_PORT_DEFAULTS } from "../components/InstallModal.jsx";
 import { KPI } from "../components/KPI.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { canOn } from "../lib/persona.js";
-import { LIVE } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { offeringHosts } from "./LibraryPage.jsx";
@@ -47,9 +46,9 @@ function gameBlueprint(id) {
 
 // Servers created from a catalog blueprint — the SINGLE match rule, shared by the
 // blueprint detail page AND the library cards/counts so they can never drift.
-// Match on the backend blueprint id; the rawg_slug branch is the mock path,
-// guarded non-null on both sides or two slug-less live servers (rawg_slug:null)
-// would match EVERY blueprint via null === null (a live data-corruption bug).
+// Match on the backend blueprint id; the rawg_slug branch is a fallback, guarded
+// non-null on both sides or two slug-less servers (rawg_slug:null) would match
+// EVERY blueprint via null === null (a data-corruption bug).
 function instancesOfBlueprint(game, servers) {
   return (servers || []).filter(s =>
     (s.blueprint && s.blueprint === game.id) ||
@@ -106,11 +105,11 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
   const artBg = heroImg
     ? `linear-gradient(135deg, rgba(11,15,20,0.45) 0%, transparent 60%), url("${heroImg}")`
     : game.art;
-  // Description precedence (decision 6): API `description` → the local blurb ONLY
-  // as a mock fallback → nothing. Never fabricate copy on a LIVE backend.
-  const description = game.description ?? (LIVE ? null : bp.blurb);
+  // Description precedence (decision 6): API `description` → nothing. Never
+  // fabricate copy the backend didn't serve.
+  const description = game.description ?? null;
   // RAWG metadata chips — genres then a few top tags. Guard undefined (only some
-  // catalog fixtures carry them) and hide when empty.
+  // catalog entries carry them) and hide when empty.
   const genres = game.genres || [];
   const tags = game.tags || [];
   const metaChips = [...genres, ...tags.slice(0, 6)];

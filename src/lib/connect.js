@@ -2,8 +2,8 @@
 //
 // The SPA is a multi-host client with no global API: you tell it WHICH kgsm-api
 // to talk to, and it verifies identity against THAT host. This module owns the
-// probe + the registry/identity writes. The pure helpers are unit-tested
-// (smoke-offline); connectHost is the impure orchestrator (fetch injectable).
+// probe + the registry/identity writes. The pure helpers are unit-testable;
+// connectHost is the impure orchestrator (fetch injectable).
 //
 // SCOPE: the auth-DISABLED connect path is the live one. A real auth-enabled
 // host returns 401 from /me (no bearer yet) and completing Discord OAuth needs a

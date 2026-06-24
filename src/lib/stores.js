@@ -1,50 +1,30 @@
-import { api } from "./apiClient.js";
-import { CONNECTIONS, LIVE, MOCK, reconcileConnectionId } from "./config.js";
-import { KRYSTAL_DATA } from "./data.js";
+import { api, realtimeStore } from "./apiClient.js";
+import { CONNECTIONS, reconcileConnectionId } from "./config.js";
 import * as merge from "./merge.js";
 import { createStore, useStore } from "./store.js";
 
 // stores.js — domain stores (the server-authoritative cache the UI reads from).
 //
-// Each store holds one domain's data, hydrated from the API and — in
-// production — kept live over the WebSocket. Components read them with useStore
-// and never touch KRYSTAL_DATA directly. As real endpoints ship, only
-// the hydrate source below changes; no component is touched. See
-// architecture.html (§4, §7).
+// Each store holds one domain's data, hydrated from the API and kept live over
+// the WebSocket. Components read them with useStore and never reach the API seam
+// directly. See architecture.html (§4, §7).
 
 // ---- Game servers -------------------------------------------------------
-// Cold-load vs background-refresh: in slow-network mode (?slow=1 / dev toggle)
-// the surface stores start EMPTY so the very first load shows skeletons; in
-// normal mode they hydrate synchronously from the fixture (instant, no flash).
-// `everLoaded` is the guard that makes skeletons COLD-ONLY: once a store has
-// held data, a later refetch keeps showing it (stale-while-revalidate) and
-// never flashes skeletons again — the refresh spinner / connection banner
-// cover the background fetch instead.
-const _slow = (() => { try { return !!(api && api.__slow && api.__slow()); } catch (e) { return false; } })();
-// "Cold" boot = start surface stores EMPTY and hydrate asynchronously from the
-// backend. True in slow-network demo mode (?slow=1) AND whenever a live backend
-// is wired (VITE_API_BASE) — in live mode there are no fixtures to show, so we
-// always fetch real data on boot. Default (mock, fast) keeps the synchronous
-// fixture seed for an instant, flash-free first paint.
-const _cold = _slow || LIVE;
-// Fixtures seed ONLY in the MOCK demo. A cold (LIVE/slow) boot starts empty and
-// fetches; an OFFLINE boot (no connection, no MOCK) starts empty and fetches
-// nothing — the app shows the connect screen before any data surface renders.
-const _seed = (arr) => ((!_cold && MOCK) ? arr : []);
-
+// Every surface store starts EMPTY and hydrates asynchronously from the backend
+// (the boot block at the bottom kicks the first fetch). `everLoaded` is the guard
+// that makes skeletons COLD-ONLY: once a store has held data, a later refetch
+// keeps showing it (stale-while-revalidate) and never flashes skeletons again —
+// the refresh spinner / connection banner cover the background fetch instead.
 const serversStore = createStore({
-  // Mock hydration: synchronous from the fixture so there's no first-paint
-  // flash (cold-load skeletons only appear in slow mode — see _seed).
-  list: _seed((KRYSTAL_DATA.servers || []).map(s => ({ ...s }))),
-  status: _cold ? "loading" : "ready",   // ready | loading | error
+  list: [],
+  status: "loading",   // ready | loading | error
   error: null,
-  everLoaded: !_cold,                     // true once real data has landed
+  everLoaded: false,   // true once real data has landed
 });
 
-// Domain actions. These mirror the server: the fake state machine in App still
-// drives transitions for now (it stands in for KGSM), writing through here so
-// the store stays the single reactive source. Migrating those transitions to
-// api.post("/servers/{id}/commands") + the `jobs` channel is the next step.
+// Local store mutators. The authoritative transitions come from the backend over
+// the `servers`/`jobs` channels (commandServer → api.post); these helpers apply
+// those pushes so the store stays the single reactive source the UI reads.
 serversStore.patch = (id, partial) =>
   serversStore.setState(s => ({ ...s, list: s.list.map(x => (x.id === id ? { ...x, ...partial } : x)) }));
 serversStore.add = (server) =>
@@ -61,8 +41,8 @@ serversStore.find = (id) =>
 serversStore.refresh = () => {
     serversStore.setState(s => ({ ...s, status: "loading", error: null }));
     // Fan out across every connected host and merge by id (each server is owned
-    // by one host, tagged hostId by the backend). MOCK / lone seed → a single get,
-    // so N=1 is identical to before. A partial failure (one host down) shows the
+    // by one host, tagged hostId by the backend). A lone connection → a single
+    // get, so N=1 is the simple case. A partial failure (one host down) shows the
     // rest; only an all-hosts failure is an error.
     return api.fanOut("/servers").then(results => {
       const okr = results.filter(r => r.ok);
@@ -81,9 +61,8 @@ serversStore.refresh = () => {
     });
   };
 
-// Keep the store live from the server's `servers` channel. In the mock this is
-// where lifecycle-command transitions (status/uptime) land; in production it's
-// the same WebSocket push. This replaces the old in-component state machine.
+// Keep the store live from the server's `servers` channel — lifecycle-command
+// transitions (status/uptime) and roster changes arrive here as WebSocket pushes.
 api.stream.subscribe(["servers"], (m) => {
   if (m.type === "server.patch" && m.data && m.data.id) {
     // server.patch carries a FULL element to merge by id → UPSERT: patch an
@@ -123,8 +102,9 @@ jobsStore.get = (id) => (id ? jobsStore.getState().byId[id] || null : null);
 // Track the in-flight command per server from the `jobs` channel, so action
 // buttons can show progress (spinner) and lock siblings until it completes.
 api.stream.subscribe(["jobs"], (m) => {
-  // mock pushes `job`; live pushes `job.patch` (adaptJob collapses the API's
-  // succeeded|failed terminal states to "done", so this one branch serves both).
+  // The `jobs` channel pushes `job.patch` (adaptJob collapses the API's
+  // succeeded|failed terminal states to "done"). `job` is accepted too for the
+  // raw test-injection path.
   if ((m.type === "job" || m.type === "job.patch") && m.data) {
     jobsStore.upsert(m.data);              // retain by id for command-verify correlation
     const { serverId, verb, state } = m.data;
@@ -137,10 +117,10 @@ api.stream.subscribe(["jobs"], (m) => {
 //   api.get("/hosts").then(list => hostsStore.setState({ list }));
 //   api.stream.subscribe(["hosts/primary/metrics"], m => hostsStore.patch(m.data.id, m.data));
 const hostsStore = createStore({
-  list: _seed((KRYSTAL_DATA.hosts || []).map(h => ({ ...h }))),
-  status: _cold ? "loading" : "ready",
+  list: [],
+  status: "loading",
   error: null,
-  everLoaded: !_cold,
+  everLoaded: false,
 });
 hostsStore.patch = (id, partial) =>
   hostsStore.setState(s => ({ ...s, list: s.list.map(x => (x.id === id ? { ...x, ...partial } : x)) }));
@@ -167,16 +147,8 @@ hostsStore.refresh = () => {
     if (results.length && !okr.length) { const err = results[0].err; hostsStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
     okr.forEach(r => { const h = (r.data || [])[0]; if (r.conn && h && h.id) reconcileConnectionId(r.conn.url, h.id); });
     const list = merge.mergeHosts(okr.map(r => r.data));
-    hostsStore.setState(s => {
-      // LIVE: the connected hosts are authoritative → replace. MOCK: keep
-      // client-added hosts the fixture fetch doesn't know (the demo add-host flow).
-      if (LIVE) return { ...s, list, status: "ready", error: null, everLoaded: true };
-      const fetched = new Map(list.map(h => [h.id, h]));
-      const known = new Set(s.list.map(h => h.id));
-      const merged = s.list.map(h => fetched.has(h.id) ? { ...h, ...fetched.get(h.id) } : h);
-      list.forEach(h => { if (!known.has(h.id)) merged.push(h); });
-      return { ...s, list: merged, status: "ready", error: null, everLoaded: true };
-    });
+    // The connected hosts are authoritative → replace.
+    hostsStore.setState(s => ({ ...s, list, status: "ready", error: null, everLoaded: true }));
     return list;
   });
 };
@@ -238,10 +210,9 @@ hostsStore.clearMetricsStamp = (id) => {
 // Subscriber-gated on BOTH ends: the kgsm-api MetricsPump scrapes the monitor only
 // while a client is subscribed, and we subscribe ONLY while the deep-dive is open
 // → an idle panel costs nothing. The disposer unsubscribes the socket topic (so the
-// server pump idles again) AND clears the freshness stamp. LIVE-only — the mock has
-// no host-metrics emitter, so this is a no-op there (returns an inert disposer).
+// server pump idles again) AND clears the freshness stamp.
 function subscribeHostMetrics(hostId) {
-  if (!LIVE || !hostId) return () => {};
+  if (!hostId) return () => {};
   const topic = "hosts/" + hostId + "/metrics";
   const dispose = api.stream.subscribe([topic], (m) => {
     if (m && m.type === "host.metrics" && m.data) hostsStore.mergeMetrics(hostId, m.data);
@@ -256,9 +227,7 @@ function subscribeHostMetrics(hostId) {
 // authoritative result arrives over the WS — a lifecycle command's status +
 // job progress on the `servers`/`jobs` channels, an install's new server on
 // `servers` (server.patch) once kgsm finishes the off-request work. Callers
-// handle a rejected 401 (open the re-auth modal). The mock seam answers both
-// (runServerCommand for the command verb; the LIVE install path is App's mock
-// fabrication, so installServer is only ever called when LIVE).
+// handle a rejected 401 (open the re-auth modal).
 
 // Issue a lifecycle command (start|stop|restart|open_ports). `origin` tags the
 // driving surface on the kgsm event + the audit row it sources (M5) — "ui" for a
@@ -315,8 +284,11 @@ function awaitJob(jobId, hostId) {
     const socketUp = () => {
       try {
         if (_jobLiveProbe) return !!_jobLiveProbe(hostId);
-        if (!hostId || !api.__hostSocket) return true;
-        return api.__hostSocket(hostId) === "up";
+        if (!hostId) return true;
+        const rt = realtimeStore.getState();
+        if (!rt.online) return false;
+        const h = rt.hosts[hostId];
+        return h ? h.mode === "live" : true;   // no entry yet → assume up (don't give up early)
       } catch (e) { return true; }
     };
     const tick = () => {
@@ -330,11 +302,11 @@ function awaitJob(jobId, hostId) {
   });
 }
 
-// Confirm + execute an assistant-proposed command (slice 9b / fork (a)): the SAME
-// M3 path the UI buttons use, stamped origin:"assistant" (M5 provenance). NO double-
-// write, NO fabricated audit row — the backend writes the audit from the kgsm event
-// echo (the old mock handler that did both is gated off in LIVE). Returns the outcome
-// the chat composes command.verified from: { status: succeeded|failed|unknown|sent,
+// Confirm + execute an assistant-proposed command (fork (a)): the SAME M3 path
+// the UI buttons use, stamped origin:"assistant" (M5 provenance). NO double-write,
+// NO fabricated audit row — the backend writes the audit from the kgsm event echo.
+// Returns the outcome the chat composes command.verified from:
+// { status: succeeded|failed|unknown|sent,
 // job?, jobId }. The status reached + the audit row arrive on the WS, exactly as for
 // a UI command. `token` on the proposal is inert for this path (it routes to M3, not
 // the assistant's /confirm) → never sent.
@@ -428,18 +400,17 @@ const auditInScope = (ev, hostId) => {
 // Append-only event stream. Production: hydrate from api.get("/audit") (cursor
 // paginated) and prepend new events arriving on the `audit` WS channel.
 //
-// Every record carries `hostId` (part of the schema). Host-level and account
-// events set it explicitly; server events get it derived from their server at
-// hydration, so the source of truth (serverId) isn't duplicated by hand.
-const _serverHostMap = {};
-(KRYSTAL_DATA.servers || []).forEach(s => { _serverHostMap[s.id] = s.hostId || null; });
-const _withHost = (e) => ({ ...e, hostId: e.hostId || (e.serverId ? (_serverHostMap[e.serverId] || null) : null) });
+// Host-level and account events carry `hostId` explicitly; server events carry
+// only a serverId and their host is derived at lookup time from serversStore
+// (auditEventHost), so the source of truth isn't duplicated by hand and it
+// tolerates servers hydrating after the log.
+const _withHost = (e) => ({ ...e });
 const auditStore = createStore({
-  list: _seed((KRYSTAL_DATA.auditLog || []).map(_withHost)),
-  status: _cold ? "loading" : "ready",
+  list: [],
+  status: "loading",
   error: null,
-  everLoaded: !_cold,
-  // Keyset paging (LIVE only). `nextCursor` is the rowid to pass as ?cursor= for
+  everLoaded: false,
+  // Keyset paging. `nextCursor` is the rowid to pass as ?cursor= for
   // the next (older) page, or null = the whole log is loaded ("complete"). The
   // page reads `nextCursor != null` as "older events exist, not yet loaded" and
   // discloses that — so its client-side search never silently returns "no match"
@@ -455,21 +426,14 @@ const auditStore = createStore({
 auditStore.prepend = (entry) =>
   auditStore.setState(s => ({ ...s, list: [_withHost(entry), ...s.list] }));
 
-// One keyset page off the live endpoint (limit clamps to <=200 server-side).
-// Returns { rows, nextCursor } in BOTH modes: LIVE hits adaptAudit (the envelope);
-// MOCK's resolveGet returns the bare fixture array (no query parsing) → nextCursor
-// null. We only ever attach a query string in LIVE (the mock resolver matches the
-// path exactly and would 404 on "/audit?…").
+// One keyset page off the endpoint (limit clamps to <=200 server-side). Returns
+// { rows, nextCursor } — adaptAudit unwraps the { data, nextCursor } envelope.
 const AUDIT_BATCH = 200;   // the server's max page — fetch it whole
 const AUDIT_CAP = 1000;    // initial-walk ceiling: auto-completes a typical per-host
                            //   log (→ search is honest over the whole loaded set); a
                            //   larger log stops here and discloses + offers "load older".
 let _auditGen = 0;         // bumped by refresh() → invalidates an in-flight loadMore
 const _fetchAuditPage = (cursor, params) => {
-  if (!LIVE) return api.get("/audit").then(page => ({
-    rows: (Array.isArray(page) ? page : (page && page.rows) || []).map(_withHost),
-    nextCursor: null,
-  }));
   const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
   if (cursor) qs.set("cursor", cursor);
   for (const k in (params || {})) { const v = params[k]; if (v != null && v !== "") qs.set(k, v); }
@@ -481,10 +445,10 @@ const _fetchAuditPage = (cursor, params) => {
 
 // Re-fetch the log (status → loading → ready/error). The audit page reads
 // `status` to show its timeline skeleton. `params` = the server-side filter set
-// (severity/serverId/actor/since/category); blank → the whole log. In LIVE this
-// WALKS the keyset cursor (filtered) up to AUDIT_CAP so events older than the
-// first page are reachable; a fresh refresh bumps the generation so a slow
-// in-flight loadMore can't append onto the new list.
+// (severity/serverId/actor/since/category); blank → the whole log. This WALKS the
+// keyset cursor (filtered) up to AUDIT_CAP so events older than the first page are
+// reachable; a fresh refresh bumps the generation so a slow in-flight loadMore
+// can't append onto the new list.
 auditStore.refresh = (params) => {
   const gen = ++_auditGen;
   const filterParams = params || {};
@@ -493,7 +457,7 @@ auditStore.refresh = (params) => {
   // recent window from each host and merge-sorts newest-first (mergeAuditRows). A
   // unified cross-host "load older" (k-way cursor) is a documented follow-up — for
   // now nextCursor is null (no global load-older); per-host drill-in covers depth.
-  if (LIVE && CONNECTIONS.length > 1) {
+  if (CONNECTIONS.length > 1) {
     const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
     for (const k in filterParams) { const v = filterParams[k]; if (v != null && v !== "") qs.set(k, v); }
     return api.fanOut("/audit?" + qs.toString()).then(results => {
@@ -508,7 +472,7 @@ auditStore.refresh = (params) => {
   return _fetchAuditPage(null, filterParams).then(async (page) => {
     let rows = page.rows;
     let next = page.nextCursor;
-    while (LIVE && next && rows.length < AUDIT_CAP) {
+    while (next && rows.length < AUDIT_CAP) {
       const more = await _fetchAuditPage(next, filterParams);
       rows = rows.concat(more.rows);
       next = more.nextCursor;
@@ -523,13 +487,13 @@ auditStore.refresh = (params) => {
 };
 // Fetch the next (older) keyset page and APPEND it — the "Load older events"
 // action when the FILTERED log exceeds the initial walk. Reuses the active
-// filterParams so the cursor stays on the same filtered set. No-op unless LIVE
-// with an outstanding cursor and not already loading. De-dups by id (defensive)
-// and drops its result if a refresh replaced the list underneath it (generation
+// filterParams so the cursor stays on the same filtered set. No-op without an
+// outstanding cursor or while already loading. De-dups by id (defensive) and
+// drops its result if a refresh replaced the list underneath it (generation
 // guard). A failed load is non-fatal: keep what's loaded, leave the affordance.
 auditStore.loadMore = () => {
   const st = auditStore.getState();
-  if (!LIVE || !st.nextCursor || st.loadingMore) return Promise.resolve();
+  if (!st.nextCursor || st.loadingMore) return Promise.resolve();
   const gen = _auditGen;
   const cursor = st.nextCursor;
   const filterParams = st.filterParams || {};
@@ -553,13 +517,12 @@ api.stream.subscribe(["audit"], (m) => {
 });
 
 // ---- Game library (installable catalog) ---------------------------------
-// Mostly static; hydrate from api.get("/library"). Listed for completeness so
-// every page reads a store, never the fixture.
+// Mostly static; hydrate from api.get("/library"). Every page reads this store.
 const libraryStore = createStore({
-  list: _seed((KRYSTAL_DATA.catalog || []).slice()),
-  status: _cold ? "loading" : "ready",   // ready | loading | error
+  list: [],
+  status: "loading",   // ready | loading | error
   error: null,
-  everLoaded: !_cold,
+  everLoaded: false,
 });
 // Force a re-fetch of the catalog and re-populate the in-memory store. Games
 // are added server-side (a new server registers its game in the backend), so
@@ -569,8 +532,8 @@ const libraryStore = createStore({
 libraryStore.refresh = () => {
   libraryStore.setState(s => ({ ...s, status: "loading", error: null }));
   // Fan out the catalog across hosts; the SAME game on multiple hosts de-dups to
-  // one entry whose `hosts` UNIONs the offering (mergeLibrary). MOCK / lone seed
-  // (no source hostId) keeps the fixture's own offering untouched.
+  // one entry whose `hosts` UNIONs the offering (mergeLibrary). A lone connection
+  // (no source hostId) leaves the entry's offering untouched.
   return api.fanOut("/library").then(results => {
     const okr = results.filter(r => r.ok);
     if (results.length && !okr.length) { const err = results[0].err; libraryStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
@@ -631,8 +594,8 @@ function resolveGameNames() {
   if (changed) serversStore.setState(s => ({ ...s, list: next }));
 }
 libraryStore.subscribe(resolveGameNames);
-// Run once at init: the seed above is synchronous (MOCK) so the subscribe never
-// fires for it; without this the join only ran on a later refresh/stream tick.
+// Run once at init in case servers hydrate before the library does — without this
+// the join would only run on the next refresh/stream tick.
 resolveGameNames();
 
 // ---- Favorites (client-local, persisted) --------------------------------
@@ -667,21 +630,16 @@ favoritesStore.set = (id, on) => favoritesStore.setState(s => {
 // Convenience hook — returns a stable boolean, so it won't churn renders.
 const useIsFavorite = (id) => useStore(favoritesStore, s => s.ids.includes(id));
 
-// ---- Cold boot (live backend, or slow-network demo) ----------------------
-// When a live backend is wired (VITE_API_BASE) OR the demo boots in slow mode
-// (?slow=1 / persisted dev flag), kick a real async hydrate of every surface
-// store: live mode fetches real data (no fixtures to show); slow mode shows
-// skeletons for ~1.4s exactly as a latent backend would. Default (mock, fast)
-// keeps the synchronous fixture data above — instant, no flash. The dev "Slow
-// network" toggle calls these same refreshes at runtime to re-enter loading.
+// ---- Boot hydrate -------------------------------------------------------
+// Every surface store starts empty; kick a real async hydrate on boot so the
+// first paint shows skeletons until the backend answers. Each store records its
+// own error state, so a failed fetch surfaces inline rather than throwing here.
 try {
-  if (_cold) {
-    const swallow = () => {};   // each store records its own error state
-    serversStore.refresh().catch(swallow);
-    libraryStore.refresh().catch(swallow);
-    hostsStore.refresh().catch(swallow);
-    auditStore.refresh().catch(swallow);
-  }
+  const swallow = () => {};
+  serversStore.refresh().catch(swallow);
+  libraryStore.refresh().catch(swallow);
+  hostsStore.refresh().catch(swallow);
+  auditStore.refresh().catch(swallow);
 } catch (e) {}
 
 export { __setJobTiming, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, useIsFavorite, useSelectedHostId };

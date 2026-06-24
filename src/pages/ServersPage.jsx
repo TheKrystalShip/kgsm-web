@@ -134,7 +134,7 @@ function ServersPage({ servers, onOpenServer, onAction, onLibrary, hosts = [], s
     if (refreshing) return;
     setRefreshing(true);
     // Hold the spinner a beat so the action reads as a real fetch even when the
-    // (mock) API resolves instantly.
+    // API resolves quickly.
     const settle = new Promise(r => setTimeout(r, 450));
     Promise.all([serversStore.refresh(), settle]).finally(() => setRefreshing(false)).catch(() => {});
   };

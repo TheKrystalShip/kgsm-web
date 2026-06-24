@@ -1,6 +1,6 @@
 import { api } from "./apiClient.js";
 import { takePendingTokens } from "./authRedirect.js";
-import { LIVE, REGISTRY_KEY } from "./config.js";
+import { REGISTRY_KEY } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
 
@@ -41,19 +41,12 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // REGISTRY_KEY (localStorage, URLs only) is owned by config.js — the base layer
   // reads it to derive the connection set; we write it on connect/forget.
 
-  // TTLs — must mirror the backend (SessionTokenService). `?authdemo=fast`
-  // compresses them so the proactive refresh + the cap re-bounce are watchable in
-  // seconds. SESSION_CAP_MS = the absolute refresh-token life (kept in sync with
-  // the backend's RefreshTtl, now 30 days — see the storage-budget note above).
-  const fast = (() => { try { return new URLSearchParams(location.search).get("authdemo") === "fast"; } catch (e) { return false; } })();
-  const ACCESS_TTL_MS  = fast ? 8000  : 15 * 60 * 1000;            // access-token life
-  const PROACTIVE_AT   = 0.75;                                     // refresh at 75% of life
-  const SESSION_CAP_MS = fast ? 40000 : 30 * 24 * 60 * 60 * 1000;  // absolute cap → silent re-bounce
-
-  // The global SSO anchor. In production this is the implicit discord.com
-  // cookie; here it's a flag the login sets and the dev panel can drop to demo
-  // the login_required → interactive-fallback path.
-  let discordSessionLive = true;
+  // TTLs — must mirror the backend (SessionTokenService). SESSION_CAP_MS = the
+  // absolute refresh-token life (kept in sync with the backend's RefreshTtl, now
+  // 30 days — see the storage-budget note above).
+  const ACCESS_TTL_MS  = 15 * 60 * 1000;            // access-token life
+  const PROACTIVE_AT   = 0.75;                       // refresh at 75% of life
+  const SESSION_CAP_MS = 30 * 24 * 60 * 60 * 1000;  // absolute cap → silent re-bounce
 
   const store = createStore({ byHost: {} });
 
@@ -127,83 +120,51 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     timers[id] = setTimeout(() => refresh(id), Math.round(ACCESS_TTL_MS * PROACTIVE_AT));
   }
 
-  // ---- bootstrap (the silent / interactive authorize bounce) -------------
-  // Resolves to: 'live' | 'denied' | 'login_required' | 'error'. Callers that
-  // get 'login_required' fall back to bootstrap({interactive:true}).
-  function bootstrap(id, opts) {
-    opts = opts || {};
-    const interactive = !!opts.interactive;
+  // ---- bootstrap (resolve identity + tier from GET /me) ------------------
+  // Resolves to: 'live' | 'denied' | 'login_required' | 'error'. On
+  // 'login_required' the UI bounces to the Discord OAuth login (LoginPage /
+  // HostReauth) and the session lands back via completeOAuthLogin.
+  function bootstrap(id) {
     setRec(id, { status: "bootstrapping", error: null });
 
-    // Live backend: identity + tier come from GET /me (the seam injects the
-    // bearer when we hold one). Auth-disabled hosts answer 200 tier=admin with no
-    // token; an auth-enabled host with no bearer answers 401 → login_required.
-    // The interactive Discord bounce is a BACKEND GAP — the callback returns JSON
-    // with no SPA token handoff (WIRING.md §6), so a real login can't complete
-    // from here yet; tier resolution + route gating work against an auth-disabled
-    // host today and self-heal once the handoff lands.
-    if (LIVE) {
-      // Adopt a token just handed back by the OAuth fragment redirect, if any
-      // (single-host: the lone host owns it). Set it BEFORE /me so the bearer
-      // rides the tier call (auth-enabled hosts need it; auth-disabled ignores it).
-      const pending = takePendingTokens();
-      if (pending && pending.access) {
-        const t = Date.now();
-        writeRefresh(id, pending.refresh || null);   // persist for the days-later rotation
-        setRec(id, {
-          status: "live", token: pending.access, refresh: pending.refresh || null,
-          tier: "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
-        });
-      }
-      // Route /me to THIS host (api.get(path, hostId)) — NOT the default connection
-      // — so at N≥2 each host's tier resolves from its OWN /me + bearer. Use the
-      // low-level get (with the host id), never api.host(id) here: that runs the
-      // auth gate, which calls bootstrap → infinite recursion (bootstrap IS the gate).
-      return api.get("/me", id).then(me => {
-        const now = Date.now();
-        const cur = getRec(id);
-        setRec(id, {
-          status: "live", tier: (me && me.tier) || "none",
-          token: (cur && cur.token) || (me && me.token) || null,
-          refresh: (cur && cur.refresh) || null,
-          exp: now + ACCESS_TTL_MS, capExp: now + SESSION_CAP_MS, error: null,
-        }, true);
-        scheduleRefresh(id);
-        return "live";
-      }, err => {
-        const unauth = err && (err.code === 401 || err.status === 401);
-        setRec(id, { status: "expired", error: unauth ? "login_required" : "unreachable" });
-        return unauth ? "login_required" : "error";
+    // Identity + tier come from GET /me (the seam injects the bearer when we hold
+    // one). Auth-disabled hosts answer 200 tier=admin with no token; an auth-
+    // enabled host with no bearer answers 401 → login_required, and the UI bounces
+    // to Discord via LoginPage / HostReauth (the OAuth fragment redirect lands the
+    // session back through completeOAuthLogin / takePendingTokens).
+    //
+    // Adopt a token just handed back by the OAuth fragment redirect, if any
+    // (single-host: the lone host owns it). Set it BEFORE /me so the bearer rides
+    // the tier call (auth-enabled hosts need it; auth-disabled ignores it).
+    const pending = takePendingTokens();
+    if (pending && pending.access) {
+      const t = Date.now();
+      writeRefresh(id, pending.refresh || null);   // persist for the days-later rotation
+      setRec(id, {
+        status: "live", token: pending.access, refresh: pending.refresh || null,
+        tier: "none", exp: t + ACCESS_TTL_MS, capExp: t + SESSION_CAP_MS, error: null,
       });
     }
-
-    // Silent SSO needs a live discord.com session. Without one — and without an
-    // interactive prompt — the IdP answers login_required.
-    if (!discordSessionLive && !interactive) {
-      setRec(id, { status: "expired", error: "login_required" });
-      return Promise.resolve("login_required");
-    }
-
-    // The popup lands on the host's /auth/discord/callback. The host verifies
-    // identity once and answers with its bot-resolved verdict + a host token.
-    return api.get("/auth/discord/callback?host=" + encodeURIComponent(id) + "&prompt=" + (interactive ? "consent" : "none"))
-      .then(res => {
-        if (res && res.verdict === "denied") {
-          clearTimer(id);
-          setRec(id, { status: "denied", tier: "none", token: null, error: "forbidden" }, true);
-          return "denied";
-        }
-        const prev = getRec(id);
-        const now = Date.now();
-        setRec(id, {
-          status: "live", tier: res.tier, token: res.token,
-          exp: now + ACCESS_TTL_MS,
-          capExp: (prev && prev.capExp) || (now + SESSION_CAP_MS),
-          error: null,
-        }, true);
-        scheduleRefresh(id);
-        return "live";
-      }, () => { setRec(id, { status: "expired", error: "unreachable" }); return "error"; });
+    // Route /me to THIS host (api.get(path, hostId)) — NOT the default connection
+    // — so at N≥2 each host's tier resolves from its OWN /me + bearer. Use the
+    // low-level get (with the host id), never api.host(id) here: that runs the
+    // auth gate, which calls bootstrap → infinite recursion (bootstrap IS the gate).
+    return api.get("/me", id).then(me => {
+      const now = Date.now();
+      const cur = getRec(id);
+      setRec(id, {
+        status: "live", tier: (me && me.tier) || "none",
+        token: (cur && cur.token) || (me && me.token) || null,
+        refresh: (cur && cur.refresh) || null,
+        exp: now + ACCESS_TTL_MS, capExp: now + SESSION_CAP_MS, error: null,
+      }, true);
+      scheduleRefresh(id);
+      return "live";
+    }, err => {
+      const unauth = err && (err.code === 401 || err.status === 401);
+      setRec(id, { status: "expired", error: unauth ? "login_required" : "unreachable" });
+      return unauth ? "login_required" : "error";
+    });
   }
 
   // ---- adopt (a session established OUT of band, e.g. the OAuth landing) --
@@ -236,44 +197,35 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   function refresh(id) {
     const rec = getRec(id);
     if (!rec || rec.status === "denied") return Promise.resolve(statusOf(id));
-    if (LIVE) {
-      if (inflight[id]) return inflight[id];
-      const refreshTok = (rec && rec.refresh) || readRefresh(id);
-      // No refresh token to rotate (e.g. an auth-disabled host, or a legacy
-      // pre-fix session) — fall back to re-confirming identity via GET /me.
-      if (!refreshTok) return bootstrap(id, { interactive: false });
-      const p = api.refreshSession(id, refreshTok).then(
-        res => {
-          const now = Date.now();
-          // tier rides the refresh response so the RETURNING-VISITOR path (cold boot:
-          // no in-memory tier after a browser close, and we skip the /me round-trip)
-          // still resolves the role for UI gating. Keep any prior tier if the backend
-          // omits it (older api), never silently downgrade to none.
-          const cur = getRec(id);
-          const tier = (res && res.tier) || (cur && cur.tier) || "none";
-          setRec(id, { status: "live", token: (res && res.token) || null, refresh: refreshTok, tier, exp: now + ACCESS_TTL_MS, error: null }, true);
-          scheduleRefresh(id);
-          return "live";
-        },
-        () => {
-          // Refresh token invalid or past the absolute cap → genuinely expired.
-          // Drop the dead credential so we don't retry it; the UI offers re-auth.
-          forgetRefresh(id);
-          setRec(id, { status: "expired", refresh: null, error: "login_required" });
-          return "expired";
-        }
-      );
-      inflight[id] = p;
-      p.then(() => { if (inflight[id] === p) delete inflight[id]; }, () => { if (inflight[id] === p) delete inflight[id]; });
-      return p;
-    }
-    if (rec.capExp && Date.now() >= rec.capExp) return bootstrap(id, { interactive: false });
-    return api.post("/auth/session/refresh", { host: id })
-      .then(res => {
-        setRec(id, { status: "live", token: res.token, exp: Date.now() + ACCESS_TTL_MS, error: null }, true);
+    if (inflight[id]) return inflight[id];
+    const refreshTok = (rec && rec.refresh) || readRefresh(id);
+    // No refresh token to rotate (e.g. an auth-disabled host, or a legacy
+    // pre-fix session) — fall back to re-confirming identity via GET /me.
+    if (!refreshTok) return bootstrap(id);
+    const p = api.refreshSession(id, refreshTok).then(
+      res => {
+        const now = Date.now();
+        // tier rides the refresh response so the RETURNING-VISITOR path (cold boot:
+        // no in-memory tier after a browser close, and we skip the /me round-trip)
+        // still resolves the role for UI gating. Keep any prior tier if the backend
+        // omits it (older api), never silently downgrade to none.
+        const cur = getRec(id);
+        const tier = (res && res.tier) || (cur && cur.tier) || "none";
+        setRec(id, { status: "live", token: (res && res.token) || null, refresh: refreshTok, tier, exp: now + ACCESS_TTL_MS, error: null }, true);
         scheduleRefresh(id);
         return "live";
-      }, () => { setRec(id, { status: "expired", error: "refresh_failed" }); return "expired"; });
+      },
+      () => {
+        // Refresh token invalid or past the absolute cap → genuinely expired.
+        // Drop the dead credential so we don't retry it; the UI offers re-auth.
+        forgetRefresh(id);
+        setRec(id, { status: "expired", refresh: null, error: "login_required" });
+        return "expired";
+      }
+    );
+    inflight[id] = p;
+    p.then(() => { if (inflight[id] === p) delete inflight[id]; }, () => { if (inflight[id] === p) delete inflight[id]; });
+    return p;
   }
 
   // ---- ensure (lazy bootstrap, used by the api seam on first use / 401) ---
@@ -290,48 +242,26 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     // Rotate it into a fresh access token SILENTLY — no Discord bounce, no doomed
     // /me 401. (A rec must exist for refresh() to run; refresh() reads the token
     // from localStorage via readRefresh when the in-memory rec doesn't carry it.)
-    if (LIVE && readRefresh(id)) {
+    if (readRefresh(id)) {
       if (!getRec(id)) setRec(id, { status: "bootstrapping" });
       return refresh(id);
     }
-    return bootstrap(id, { interactive: false });
+    return bootstrap(id);
   }
 
   // ---- reauthorize (interactive, gesture-bound — from HostReauthModal) ----
-  // THIS is the only place an interactive Discord consent is allowed: the user
-  // clicked "Re-authorize". The consent popup re-establishes the discord.com SSO
-  // anchor, so on success we mark it live again (production: the IdP cookie;
-  // here: our flag) — which lets every OTHER lapsed host heal silently on its
-  // next call, no second prompt.
+  // The user clicked "Re-authorize". Re-run identity resolution; an auth-enabled
+  // host that still 401s drives the UI back to the Discord OAuth bounce.
   function reauthorize(id) {
-    return bootstrap(id, { interactive: true }).then(r => {
-      if (r === "live") discordSessionLive = true;
-      return r;
-    });
+    return bootstrap(id);
   }
   // A host whose session lapsed and could NOT be silently renewed → the UI shows
   // the expired surface + Re-authorize. (denied is terminal and handled apart.)
   function needsReauth(id) { return statusOf(id) === "expired"; }
 
-  // ---- dev / demo levers (driven from the Resilience panel) --------------
-  function revoke(id) {                              // simulate role removed on this host → 403
-    const h = hostsStore && hostsStore.find(id);
-    if (h) hostsStore.update(id, { authDenied: true });
-    clearTimer(id);
-    setRec(id, { status: "denied", tier: "none", token: null }, true);
-  }
-  function grant(id) {                               // re-grant the role and re-bootstrap
-    const h = hostsStore && hostsStore.find(id);
-    if (h) hostsStore.update(id, { authDenied: false });
-    return bootstrap(id, { interactive: false });
-  }
+  // Mark a host's session expired (the api seam calls this on a mid-flight 401
+  // before its one silent-heal retry).
   function expire(id) { clearTimer(id); setRec(id, { status: "expired", exp: 0, error: "expired" }, true); }
-  function dropDiscord() {                           // log out of discord.com → next bounce needs consent
-    discordSessionLive = false;
-    Object.keys(store.getState().byHost).forEach(id => { if (statusOf(id) === "live") expire(id); });
-  }
-  function restoreDiscord() { discordSessionLive = true; }
-  function discordLive() { return discordSessionLive; }
   function forgetHosts() {                           // drop every host → app shows the Add-host intermediate
     Object.keys(timers).forEach(clearTimer);
     Object.keys(store.getState().byHost).forEach(forgetSession);
@@ -354,37 +284,15 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     store.setState({ byHost: {} });
   }
 
-  // ---- init: seed sessions for the hosts we know about -------------------
-  // A persisted (in-tab) session resumes with no bounce. Otherwise we seed the
-  // already-bootstrapped state from the host's flags so the app is usable on
-  // first paint (equivalent to "this tab already silently authorized"). A
-  // fresh tab with no persisted session would instead lazily bootstrap on first
-  // use via ensure().
+  // ---- init: resume persisted sessions for the hosts we know about --------
+  // A persisted (in-tab) session resumes with no bounce; otherwise the host is
+  // left unbootstrapped and the reactive block below bootstraps it from GET /me as
+  // the host list hydrates. NEVER fabricate a tier/token from host flags.
   function seed() {
     const hosts = (hostsStore && hostsStore.getState().list) || [];
-    // Live mode: NEVER fabricate a tier/token from host flags. Resume a persisted
-    // in-tab session if present; otherwise leave the host unbootstrapped — the
-    // reactive block below bootstraps it from GET /me as the host list hydrates.
-    if (LIVE) {
-      const live = {};
-      hosts.forEach(h => { const p = readSession(h.id); if (p) { live[h.id] = p; if (p.status === "live") scheduleRefresh(h.id); } });
-      store.setState({ byHost: live });
-      return;
-    }
-    const byHost = {};
-    hosts.forEach(h => {
-      const persisted = readSession(h.id);
-      if (persisted) { byHost[h.id] = persisted; if (persisted.status === "live") scheduleRefresh(h.id); return; }
-      if (h.authDenied) { byHost[h.id] = { status: "denied", tier: "none", token: null }; }
-      else {
-        const now = Date.now();
-        byHost[h.id] = { status: "live", tier: h.tier || "operator", token: "tok_seed_" + h.id, exp: now + ACCESS_TTL_MS, capExp: now + SESSION_CAP_MS };
-        scheduleRefresh(h.id);
-      }
-      register(h);
-    });
-    store.setState({ byHost });
-    Object.keys(byHost).forEach(writeSession);
+    const live = {};
+    hosts.forEach(h => { const p = readSession(h.id); if (p) { live[h.id] = p; if (p.status === "live") scheduleRefresh(h.id); } });
+    store.setState({ byHost: live });
   }
 
   // Public surface.
@@ -401,15 +309,10 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.needsReauth = needsReauth;
   store.register = register;
   store.readRegistry = readRegistry;
-  store.revoke = revoke;
-  store.grant = grant;
   store.expire = expire;
-  store.dropDiscord = dropDiscord;
-  store.restoreDiscord = restoreDiscord;
-  store.discordLive = discordLive;
   store.forgetHosts = forgetHosts;
   store.signOut = signOut;
-  store.config = { ACCESS_TTL_MS, PROACTIVE_AT, SESSION_CAP_MS, fast };
+  store.config = { ACCESS_TTL_MS, PROACTIVE_AT, SESSION_CAP_MS };
 
   const sessionStore = store;
   // Human-readable tier labels, shared by the badge + settings.
@@ -417,12 +320,12 @@ import { hostsStore, selectedHostStore } from "./stores.js";
 
   seed();
 
-  // Live mode: bootstrap each host's tier from GET /me as the host list hydrates.
-  // hostsStore loads async, so seed() runs before the live host exists — without
-  // this the gated surfaces would stay at tier `none` and redirect to the viewer
-  // home. Idempotent: only hosts with no session are bootstrapped (bootstrap
-  // flips status off `none` synchronously, so none is bootstrapped twice).
-  if (LIVE && hostsStore) {
+  // Bootstrap each host's tier from GET /me as the host list hydrates. hostsStore
+  // loads async, so seed() runs before the host exists — without this the gated
+  // surfaces would stay at tier `none` and redirect to the viewer home. Idempotent:
+  // only hosts with no session are bootstrapped (bootstrap flips status off `none`
+  // synchronously, so none is bootstrapped twice).
+  if (hostsStore) {
     const bootstrapNewHosts = () => {
       (hostsStore.getState().list || []).forEach(h => {
         if (statusOf(h.id) === "none") { register(h); ensure(h.id); }

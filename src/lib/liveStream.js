@@ -2,9 +2,7 @@
 //
 // A self-contained WebSocket lifecycle wrapped behind a tiny seam so apiClient
 // can wire it without an import cycle: this module imports NOTHING from apiClient
-// (it only takes callbacks). The mock simulated channel (apiClient `chans`/`emit`)
-// is a different thing for a different mode and stays entirely separate — this is
-// the LIVE path only, picked when `LIVE` is set (see apiClient).
+// (it only takes callbacks).
 //
 // Protocol (kgsm-api StreamProtocol / architecture.html §3·b):
 //   client → server : { type: "subscribe"|"unsubscribe", topics: [...] }
@@ -32,7 +30,7 @@ const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
 //              (the owner re-hydrates the REST stores here to catch missed deltas)
 //   onMessage— (msg:{topic,type,data}) => void, one parsed server frame
 //   onMode   — (mode:"live"|"reconnecting"|"offline") => void, for realtimeStore
-// Returns { subscribe(topics), unsubscribe(topics), close(), mode() }.
+// Returns { subscribe(topics), unsubscribe(topics), reconnect(), close(), mode() }.
 export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
   const topics = new Set();
   let socket = null;
@@ -99,6 +97,15 @@ export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
     (list || []).forEach((t) => topics.delete(t));
     send({ type: "unsubscribe", topics: list });
   }
+  // User-driven "reconnect now": drop the backoff and re-open immediately. Tears
+  // down any existing socket first so a half-open connection can't linger.
+  function reconnect() {
+    if (closed) return;
+    clearTimer();
+    attempts = 0;
+    if (socket) { try { socket.close(); } catch (e) {} socket = null; }
+    connect();
+  }
   function close() {
     closed = true;
     clearTimer();
@@ -107,5 +114,5 @@ export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
   }
 
   connect();
-  return { subscribe, unsubscribe, close, mode: () => mode };
+  return { subscribe, unsubscribe, reconnect, close, mode: () => mode };
 }

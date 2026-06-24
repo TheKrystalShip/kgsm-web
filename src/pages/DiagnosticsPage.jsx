@@ -29,7 +29,7 @@ import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 //   3. Processes  — sortable process table with kill actions
 //   4. Logs       — Krystal panel / auth / dmesg log streams
 //
-// Backed by window.KRYSTAL_DATA.hosts[].
+// Backed by hostsStore (hydrated from GET /hosts + live metric ticks).
 
 // ---------- Helpers ----------
 
@@ -935,7 +935,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   // (hosts/{id}/metrics → host.metrics) so cpu/ram/disk/network update in place.
   // The disposer (returned by subscribeHostMetrics) unsubscribes the socket topic +
   // clears the freshness stamp on unfocus / host switch, so the server's
-  // subscriber-gated pump idles again. No-op in mock mode (the helper is LIVE-gated).
+  // subscriber-gated pump idles again.
   React.useEffect(() => subscribeHostMetrics(focusHostId), [focusHostId]);
   const [editing, setEditing] = React.useState(null);
   const [removing, setRemoving] = React.useState(null);

@@ -2,7 +2,7 @@ import React from "react";
 import { ConsolePanel } from "./components/ConsolePanel.jsx";
 import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
 import { DashBandList, loadBandOrder, saveBandOrder } from "./components/DashLayout.jsx";
-import { ColdStartDown, ConnectivityBanner, ContentError, CrashNow, DevPanel, ErrorBoundary } from "./components/ErrorBoundary.jsx";
+import { ColdStartDown, ConnectivityBanner, ContentError, ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { Icon } from "./components/Icon.jsx";
 import { SubTabs } from "./components/SubTabs.jsx";
@@ -13,9 +13,9 @@ import { ServerNotice } from "./components/ServerNotice.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { StatTiles } from "./components/StatTiles.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
-import { LIVE, MOCK, OFFLINE } from "./lib/config.js";
+import { CONNECTIONS } from "./lib/config.js";
 import { assistantHosts, assistantHostsAll, capUsable } from "./lib/capabilities.js";
-import { KRYSTAL_DATA, KRYSTAL_LABELS } from "./lib/data.js";
+import { KRYSTAL_LABELS } from "./lib/labels.js";
 import { can, canOn, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
@@ -41,7 +41,7 @@ import { ServerSettings } from "./pages/ServerSettings.jsx";
 import { ServersPage } from "./pages/ServersPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
 
-// App — top-level shell. Auth gate, routing, fake state machine.
+// App — top-level shell. Auth gate + routing.
 
 const AUTH_LS_KEY = "krystal:auth";
 const AUTH_SS_KEY = "krystal:auth:session";
@@ -114,11 +114,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // Files / Backups / Settings / Performance are operator surfaces — hidden for
   // players, not merely disabled. safeTab keeps a stale tab in the URL from
   // rendering an empty body when the tab isn't available to this user.
-  // In LIVE we also hide tabs with no honest backend source yet: Files (no file
-  // API) and Settings (the editable-config redesign is deferred) — better absent
-  // than showing fabricated fixtures. They stay in the MOCK demo.
-  const liveHidden = (t) => LIVE && (t.id === "files" || t.id === "settings");
-  const tabs = (canOps ? allTabs : allTabs.filter(t => t.id === "overview")).filter(t => !liveHidden(t));
+  const tabs = canOps ? allTabs : allTabs.filter(t => t.id === "overview");
   const safeTab = tabs.some(t => t.id === tab) ? tab : "overview";
 
   // ---- Overview layout customization (client-side, per-browser) -----------
@@ -279,9 +275,9 @@ function Breadcrumb({ route, ctx, onNavigate }) {
 
 function App() {
   // --- Auth ---
-  // Query overrides for the design-system demo:
+  // Dev/QA query overrides (UI state only, no data faking):
   //   ?auth=out   — force logged-out
-  //   ?first-run  — force the welcome overlay even with seed data
+  //   ?first-run  — force the welcome overlay even when hosts are already configured
   const qp = new URLSearchParams(window.location.search);
   const forcedOut = qp.get("auth") === "out";
   const forcedFirstRun = qp.has("first-run");
@@ -317,28 +313,11 @@ function App() {
     } catch (e) {}
   }, [user]);
 
-  const handleLogin = (u) => {
-    // Persist, then hard-reload into the app. A full reload (rather than an
-    // in-place setUser) keeps App's hook count stable across the auth boundary —
-    // several dock-restore hooks live below the `!user` gate, so flipping user
-    // null→set in place trips React's Rules of Hooks. It also mirrors a real
-    // OAuth callback landing on a fresh document. We strip the logged-out demo
-    // overrides so ?auth=out / ?first-run don't bounce us back to the login.
-    writeStoredUser(u);
-    try { sessionStorage.setItem("krystal:justLoggedIn", "1"); } catch (e) {}
-    const url = new URL(window.location.href);
-    url.searchParams.delete("auth");
-    url.searchParams.delete("first-run");
-    const target = url.toString();
-    // Stripping a demo param changes the URL → replace navigates + reloads.
-    // With no param to strip the URL is unchanged, so replace() wouldn't reload
-    // (it'd be a no-op / hash-only) — force a full reload in that case.
-    if (target !== window.location.href) window.location.replace(target);
-    else window.location.reload();
-  };
   const handleLogout = () => {
-    // Same reasoning as handleLogin: reload out to the login surface rather than
-    // swapping <App> → <LoginPage> in place.
+    // Reload out to the login surface rather than swapping <App> → <LoginPage> in
+    // place — keeps App's hook count stable across the auth boundary (several
+    // dock-restore hooks live below the `!user` gate, so flipping user in place
+    // trips React's Rules of Hooks).
     writeStoredUser(null);
     // Drop the per-host credentials too — the refresh token is long-lived
     // (weeks), so without this a reload would silently rotate straight back in.
@@ -349,19 +328,6 @@ function App() {
       sessionStorage.removeItem("krystal:justLoggedIn");
       sessionStorage.removeItem("krystal:returnTo");
     } catch (e) {}
-    window.location.reload();
-  };
-  // The PANEL identity itself lapsed (a global 401, distinct from a per-host
-  // session expiry). Eject to the full LoginPage — but stash the current route
-  // first so re-auth lands them back exactly here (the hash router, #01, makes
-  // this a one-liner). This is the ONLY auth case that takes over the whole app.
-  // Reload (not in-place) for the same hook-stability reason as login/logout;
-  // returnTo survives in sessionStorage and the effect above restores it.
-  const handleSessionLost = () => {
-    try {
-      sessionStorage.setItem("krystal:returnTo", window.location.hash || "");
-    } catch (e) {}
-    writeStoredUser(null);
     window.location.reload();
   };
 
@@ -409,9 +375,9 @@ function App() {
   const initialInstall = (() => {
     const g = qp.get("install");
     if (!g) return null;
-    // Resolve from the library STORE (hydrated from /library in LIVE), not the
-    // fixture. If it hasn't loaded yet, a bare { id } stub is enough — the install
-    // modal resolves the full blueprint from libraryList once it lands.
+    // Resolve from the library STORE (hydrated from /library). If it hasn't
+    // loaded yet, a bare { id } stub is enough — the install modal resolves the
+    // full blueprint from libraryList once it lands.
     return libraryStore.getState().list.find(c => c.id === g) || { id: g };
   })();
 
@@ -580,9 +546,8 @@ function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  // --- Resilience: connection bootstrap, banner/cold state, dev crash ---
+  // --- Resilience: connection bootstrap, banner/cold state ---
   const conn = useStore(connectionStore, s => s);
-  const devMode = qp.has("dev") || (() => { try { return localStorage.getItem("krystal:dev") === "1"; } catch (e) { return false; } })();
   // The cold bootstrap: one real fetch on mount. Success → 'live' + everLoaded
   // (shell stays); failure → 'down' with nothing loaded → cold-start takeover.
   // Reused by every Retry. The guard() in the api seam flips connectionStore.
@@ -591,25 +556,8 @@ function App() {
     return api.get("/servers").catch(() => {});
   }, []);
   React.useEffect(() => { retryConnection(); }, [retryConnection]);
-  // Dev-only: a render crash to demonstrate the content boundary. Cleared on
-  // navigation (and by the boundary's Try-again), so recovery is one click.
-  const [crash, setCrash] = React.useState(false);
   // The host whose session needs interactive re-auth → drives HostReauthModal.
   const [reauthHostId, setReauthHostId] = React.useState(null);
-  React.useEffect(() => { setCrash(false); }, [route]);
-  const [slowOn, setSlowOn] = React.useState(() => { try { return api.__slow ? api.__slow() : false; } catch (e) { return false; } });
-  const toggleSlow = () => {
-    const next = !slowOn;
-    setSlowOn(next);
-    api.__setSlow(next);
-    // Re-enter loading on every surface so skeletons appear right now.
-    if (next) {
-      serversStore.refresh().catch(() => {});
-      libraryStore.refresh().catch(() => {});
-      hostsStore.refresh().catch(() => {});
-      auditStore.refresh().catch(() => {});
-    }
-  };
 
   React.useEffect(() => {
     if (initialInstall) setRoute({ kind: "library" });
@@ -623,16 +571,12 @@ function App() {
     ? (libraryList.find(g => g.id === route.id) || null)
     : null;
 
-  const setServer = (id, patch) => {
-    serversStore.patch(id, patch);
-  };
   const append = (id, line) => {
     setExtraLog(prev => ({ ...prev, [id]: [...(prev[id] || []), line] }));
   };
 
-  // Console lines now arrive from the server over the `console` channel (the
-  // mock backend emits them while processing a command), instead of being
-  // written inline by the action handler.
+  // Console lines arrive from the server over the `console` channel, not written
+  // inline by the action handler.
   React.useEffect(() => {
     return api.stream.subscribe(["console"], (m) => {
       if (m.type === "console.line" && m.data) append(m.data.serverId, m.data.line);
@@ -654,76 +598,6 @@ function App() {
     });
   };
 
-  // An action the assistant proposed and the user confirmed in chat. Runs the
-  // exact same handler as the UI buttons (so behaviour can't diverge), then
-  // writes an audit entry crediting the user but flagging it as assistant-
-  // initiated — the paper trail makes clear the bot didn't act on its own.
-  const handleAssistantAction = (a) => {
-    // MOCK-ONLY (slice 9b): in LIVE, a confirmed assistant proposal runs entirely
-    // inside ChatPage → confirmCommand() (the M3 path, origin:"assistant"), which
-    // does NOT fabricate an audit row (the backend writes it from the kgsm echo).
-    // The chat's LIVE path never calls onRunAction, but this guard is belt-and-
-    // suspenders: it makes the double-write/wrong-origin/fabricated-row landmark
-    // below unreachable outside the fixtures demo no matter who calls it.
-    if (!MOCK) return;
-    const now = new Date();
-    // open_ports doesn't map to a server-lifecycle verb — handle it here:
-    // flip the server's closed required ports to open in the host data and
-    // log a network audit entry.
-    if (a.verb === "open_ports") {
-      const hosts = KRYSTAL_DATA.hosts || [];
-      const srv = servers.find(s => s.id === a.serverId);
-      const host = hosts.find(h => h.id === (srv && srv.hostId)) || hosts[0];
-      let opened = [];
-      if (host && srv) {
-        // Recompute closed ports the same way the registry does.
-        const openSet = new Set(host.network.open_ports.filter(p => p.server === srv.id).map(p => p.port));
-        const cfg = srv.config || {};
-        const base = typeof cfg.port === "number" ? cfg.port : null;
-        const extras = { valheim: (p)=>[p,p+1,p+2], ark:(p)=>[p,27015], rust:(p)=>[p,p+1] }[srv.id];
-        let required = base != null ? (extras ? extras(base) : [base]) : [];
-        if (typeof cfg.query === "number") required.push(cfg.query);
-        required = [...new Set(required)];
-        const proto = host.network.open_ports.find(p => p.server === srv.id)?.proto || "udp";
-        opened = required.filter(p => !openSet.has(p));
-        opened.forEach(port => host.network.open_ports.push({ port, proto, server: srv.id, app: srv.id + "_server" }));
-      }
-      const entry = {
-        id: "evt_" + now.getTime().toString(36),
-        ts: now.toISOString().slice(0, 19),
-        actor: { name: user?.name || "haru", provider: user?.provider || "discord" },
-        action: "network.ports.open",
-        severity: "info",
-        target: { kind: "server", id: a.serverId, name: a.serverName },
-        serverId: a.serverId,
-        summary: `opened port${opened.length === 1 ? "" : "s"} ${opened.join(", ")} for ${a.serverName}`,
-        meta: { source: "assistant", ports: opened.join(", ") },
-      };
-      auditStore.prepend(entry);
-      return;
-    }
-    handleAction(a.verb, a.serverId);
-    const VERB_SUMMARY = {
-      start: "started", stop: "stopped", restart: "restarted", update: "ran an update check on",
-    };
-    const VERB_ACTION = {
-      start: "server.start", stop: "server.stop", restart: "server.restart", update: "server.update",
-    };
-    const VERB_SEV = { start: "success", stop: "warn", restart: "info", update: "info" };
-    const entry = {
-      id: "evt_" + now.getTime().toString(36),
-      ts: now.toISOString().slice(0, 19),
-      actor: { name: user?.name || "haru", provider: user?.provider || "discord" },
-      action: VERB_ACTION[a.verb] || "server." + a.verb,
-      severity: VERB_SEV[a.verb] || "info",
-      target: { kind: "server", id: a.serverId, name: a.serverName },
-      serverId: a.serverId,
-      summary: `${VERB_SUMMARY[a.verb] || a.verb} ${a.serverName}`,
-      meta: { source: "assistant" },
-    };
-    // Prepend so the audit page + dashboard feed show it at the top.
-    auditStore.prepend(entry);
-  };
 
   // Library cards are BLUEPRINTS — clicking one opens the game detail page, not
   // a running server. "Create server" on that page opens the install modal
@@ -734,58 +608,23 @@ function App() {
   };
 
   const confirmInstall = (cfg) => {
-    // LIVE: install for real (POST /servers → 202 { job }; kgsm assigns the id and
+    // Install for real (POST /servers → 202 { job }; kgsm assigns the id and
     // runs the download off-request). We do NOT fabricate a server row — the new
     // instance surfaces on the `servers` channel (server.patch) when the install
     // job settles, which can take a while for a large download. Close the modal and
     // land on the roster; the server appears there when it's ready. (Per-instance
     // install progress isn't shown yet — the job's serverId isn't in the roster
     // until the server exists, so its `jobs` ticks have nothing to attach to.)
-    if (LIVE) {
-      installServer(cfg).then(() => {
-        setInstalling(null);
-        setFirstRun(false);
-        setRoute({ kind: "servers" });
-        serversStore.refresh().catch(() => {});
-      }, err => {
-        // 401 → re-auth that host; other failures (400 bad blueprint / 409 in-flight /
-        // 503 engine absent) leave the modal open so the unfinished install stays visible.
-        if (err && err.code === 401) setReauthHostId(cfg.hostId);
-      });
-      return;
-    }
-    const newServer = {
-      id: cfg.game.id + "-" + cfg.id,
-      rawg_slug: cfg.game.rawg_slug,
-      name: cfg.name,
-      game: cfg.game.name,
-      status: cfg.autostart ? "updating" : "offline",
-      uptime: "—",
-      ip: `50.20.248.${100 + servers.length}:${cfg.port}`,
-      players: { current: 0, max: cfg.slots },
-      cpu: 0,
-      ram: { used: 0, max: 4 },
-      version: cfg.version,
-      hostId: cfg.hostId || null,
-      art: cfg.game.art,
-      log: [
-        { ts: new Date().toTimeString().slice(0,8), tag: "info", text: `Downloading ${cfg.game.name} server (${cfg.version})…` },
-      ],
-    };
-    serversStore.add(newServer);
-    setInstalling(null);
-    setRoute({ kind: "server", id: newServer.id });
-    setFirstRun(false);
-    if (cfg.autostart) {
-      setTimeout(() => {
-        setServer(newServer.id, { status: "online", uptime: "0h 0m 02s" });
-        append(newServer.id, { ts: new Date().toTimeString().slice(0,8), tag: "ok", text: "Server online" });
-      }, 1800);
-    } else {
-      setTimeout(() => {
-        append(newServer.id, { ts: new Date().toTimeString().slice(0,8), tag: "ok", text: "Install complete. Ready to start." });
-      }, 1400);
-    }
+    installServer(cfg).then(() => {
+      setInstalling(null);
+      setFirstRun(false);
+      setRoute({ kind: "servers" });
+      serversStore.refresh().catch(() => {});
+    }, err => {
+      // 401 → re-auth that host; other failures (400 bad blueprint / 409 in-flight /
+      // 503 engine absent) leave the modal open so the unfinished install stays visible.
+      if (err && err.code === 401) setReauthHostId(cfg.hostId);
+    });
   };
 
   const serverForRender = activeServer ? {
@@ -829,16 +668,16 @@ function App() {
   const useAl = useAlerts || (() => null);
   useAl();
 
-  // OFFLINE: no kgsm-api connected and not the fixtures demo → the connect screen
-  // is the entry surface. There's no global API to sign into before you pick one,
-  // so this comes BEFORE the login gate. OFFLINE is a module-load constant (a
-  // successful connect writes the registry + reloads), so this early return is
-  // stable across the mount — safe alongside the other post-hooks gates below.
-  if (OFFLINE) {
+  // No host connected yet → the connect screen is the entry surface. There's no
+  // global API to sign into before you pick one, so this comes BEFORE the login
+  // gate. The connection set is read at module load (a successful connect writes
+  // the registry + reloads), so this early return is stable across the mount —
+  // safe alongside the other post-hooks gates below.
+  if (!CONNECTIONS.length) {
     return <AddHostPage firstRun />;
   }
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage />;
   }
 
   // Live alert counts for the sidebar badge — driven by the server feed and
@@ -940,7 +779,7 @@ function App() {
   }
 
   if (conn.status === "down" && !conn.everLoaded) {
-    return <ColdStartDown retrying={conn.retrying} onRetry={retryConnection} onLogout={handleLogout} devMode={devMode} />;
+    return <ColdStartDown retrying={conn.retrying} onRetry={retryConnection} onLogout={handleLogout} />;
   }
 
   // Scoped to a host where this Discord role is denied → the terminal 403
@@ -1032,8 +871,7 @@ function App() {
             }} />
           <ErrorBoundary
             resetKey={KrystalRouter.routeToHash(route)}
-            fallback={(reset, error) => <ContentError error={error} onRetry={() => { setCrash(false); reset(); }} onHome={() => setRoute({ kind: "home" })} />}>
-          {crash && <CrashNow />}
+            fallback={(reset, error) => <ContentError error={error} onRetry={reset} onHome={() => setRoute({ kind: "home" })} />}>
           {denyGate ? (
             <HostDeniedNotice host={deniedHost}
               onBack={() => selectHost("all")}
@@ -1108,8 +946,7 @@ function App() {
             onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
             onOpenView={openView}
             onNavigate={handleAssistantNavigate}
-            getServerState={getServerState}
-            onRunAction={handleAssistantAction} />}
+            getServerState={getServerState} />}
           {route.kind === "server" && (
             <ServerDetailPage server={serverForRender} onAction={handleAction}
               tab={route.tab || "overview"}
@@ -1147,8 +984,7 @@ function App() {
             onNavigate={handleAssistantNavigate}
             onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
             onOpenView={openView}
-            getServerState={getServerState}
-            onRunAction={handleAssistantAction} />
+            getServerState={getServerState} />
         )}
       </aside>
       {assistantOpen && <div className="assistant-dock-scrim" onClick={() => setAssistantOpen(false)}></div>}
@@ -1171,15 +1007,6 @@ function App() {
           <Icon name="bot" size={22} />
         </button>
       )}
-      {devMode && <DevPanel
-        health={api.__health ? api.__health() : "ok"}
-        connStatus={conn.status}
-        slow={slowOn}
-        onToggleHealth={() => api.__setHealth(api.__health() === "down" ? "ok" : "down")}
-        onToggleSlow={toggleSlow}
-        onCrash={() => setCrash(true)}
-        onExpireSession={handleSessionLost}
-      />}
       {reauthHostId && (
         <HostReauthModal
           host={hosts.find(h => h.id === reauthHostId) || { id: reauthHostId, name: reauthHostId }}

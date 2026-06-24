@@ -42,9 +42,9 @@ function mergeLibrary(taggedLists) {
       byId.set(g.id, cur);
     }
   }
-  // When sources carried a hostId, set the unioned offering. When none did (the
-  // MOCK path — fixtures already carry their own `hosts`), leave the entry as-is
-  // rather than clobbering its offering with an empty set.
+  // When sources carried a hostId, set the unioned offering. When none did (a
+  // lone connection routed id-less), leave the entry as-is rather than clobbering
+  // its offering with an empty set.
   return [...byId.values()].map(({ entry, hosts }) => (hosts.size ? { ...entry, hosts: [...hosts] } : { ...entry }));
 }
 

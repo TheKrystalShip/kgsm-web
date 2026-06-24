@@ -1,20 +1,19 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
-import { LIVE } from "../lib/config.js";
 import { api } from "../lib/apiClient.js";
 
 // ConsolePanel — the server's stdout feed.
 //
-// LIVE: a finite REST tail hydrates the scrollback (GET /servers/{id}/console?
+// A finite REST tail hydrates the scrollback (GET /servers/{id}/console?
 // tail=N → { lines: [string] }, oldest-first), then the per-server WS topic
 // servers/{id}/console follows live lines (console.line { id, seq, line }). The
 // console is FOLLOW-ONLY upstream (#8) — there is no command-send channel — so the
-// input is replaced with an honest read-only note in LIVE (for everyone, not a
-// permission thing). MOCK keeps the fixture log + the simulated command input.
+// input is replaced with an honest read-only note (for everyone, not a
+// permission thing).
 
 function renderLine(line, idx) {
-  // §...§ wrapping = teal highlight (player names, world names). A LIVE line is a
-  // raw stdout string with no ts/tag; a mock line carries { ts, tag, text }.
+  // §...§ wrapping = teal highlight (player names, world names). A stdout line is
+  // a raw string with no ts/tag; a structured line carries { ts, tag, text }.
   const text = typeof line === "string" ? line : (line.text || "");
   const parts = text.split(/§([^§]+)§/g).map((p, i) =>
     i % 2 === 1 ? <span key={i} className="tag-player">{p}</span> : p
@@ -63,7 +62,7 @@ function useLiveConsole(server) {
 
 function ConsolePanel({ server, extraLines = [], readOnly }) {
   const bodyRef = React.useRef(null);
-  const live = LIVE && !!server;
+  const live = !!server;
   const liveLines = useLiveConsole(live ? server : null);
   const lines = React.useMemo(
     () => (live ? (liveLines || []) : [...((server && server.log) || []), ...extraLines]),

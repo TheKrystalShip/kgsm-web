@@ -8,7 +8,7 @@
 // establish the app-shell identity from /me so the app mounts authed with no
 // LoginPage flash. A normal load (a #/route or no hash) is a no-op.
 
-import { API_V1, API_BASE, LIVE, reconcileConnectionId } from "./config.js";
+import { API_V1, API_BASE, CONNECTIONS, reconcileConnectionId } from "./config.js";
 
 const PENDING_KEY = "krystal:oauth:pending";   // sessionStorage {access,refresh} (one-shot)
 const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one-shot)
@@ -68,7 +68,7 @@ export function takeOAuthError() {
 //                   no token, so it loaded nothing).
 // On failure we drop the stash so we never half-authenticate, and record an error.
 export async function completeOAuthLogin(captured) {
-  if (!LIVE || !captured || !captured.access) return;
+  if (!CONNECTIONS.length || !captured || !captured.access) return;
   const bearer = "Bearer " + captured.access;
   const authHeaders = { Authorization: bearer, Accept: "application/json" };
   try {

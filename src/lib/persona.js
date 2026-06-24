@@ -1,5 +1,4 @@
 import React from "react";
-import { KRYSTAL_DATA } from "./data.js";
 import { sessionStore } from "./sessionStore.js";
 import { hostsStore } from "./stores.js";
 
@@ -97,8 +96,7 @@ import { hostsStore } from "./stores.js";
     catch (e) { return null; }
   }
   function getHosts() {
-    return (hostsStore && hostsStore.getState().list)
-      || (KRYSTAL_DATA && KRYSTAL_DATA.hosts) || [];
+    return (hostsStore && hostsStore.getState().list) || [];
   }
 
   // ── roleOn — the effective role on one host (override-aware) ────────────────

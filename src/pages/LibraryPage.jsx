@@ -4,7 +4,7 @@ import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { LibrarySkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
-import { KRYSTAL_LABELS } from "../lib/data.js";
+import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
@@ -13,14 +13,13 @@ import { gameBlueprint, instancesOfBlueprint } from "./GamePage.jsx";
 // Library — Steam-like game catalog with search + category filter.
 // Cover art is whatever the backend sends on each catalog entry (game.cover):
 // the backend resolves it server-side and keeps any provider key off the
-// browser. When cover is absent we fall back to the themed gradient defined in
-// data.js. The frontend never talks to an image provider directly — see
-// architecture.html §3·i.
+// browser. When cover is absent we fall back to a themed gradient. The frontend
+// never talks to an image provider directly — see architecture.html §3·i.
 
 // ---------- "Recently added" helpers (shared with the dashboard) ----------
-// The catalog now carries an `addedAt` ISO date per game. Reference "now" is
-// the newest addedAt in the catalog, so the relative labels always read fresh
-// regardless of wall-clock — these are simulated dates, not live data.
+// The catalog carries an `addedAt` ISO date per game. Reference "now" is the
+// newest addedAt in the catalog, so the relative labels always read fresh
+// regardless of wall-clock.
 const RECENT_WINDOW_DAYS = 30;
 
 function libraryNow(list) {
@@ -368,7 +367,7 @@ function Library({ onOpenGame, initialFilter }) {
     if (refreshing) return;
     setRefreshing(true);
     // Keep the spinner up for at least a beat so the action reads as "fetched",
-    // even if the (mock) API resolves instantly.
+    // even if the API resolves quickly.
     const settle = new Promise(r => setTimeout(r, 450));
     Promise.all([libraryStore.refresh(), settle]).finally(() => setRefreshing(false)).catch(() => {});
   };

@@ -4,7 +4,6 @@ import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AccountAvatar } from "../components/Sidebar.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
-import { LIVE } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
 import { auditEventHost, auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
@@ -201,11 +200,11 @@ function AuditEventRow({ ev, now, hosts }) {
   );
 }
 
-// "Load older events" — shown only when the live keyset cursor has rows older than
+// "Load older events" — shown only when the keyset cursor has rows older than
 // the loaded window (auditStore.nextCursor != null). It discloses that the loaded
 // window is partial — so the client-side search/filters below never look exhaustive
-// when they aren't — and pulls the next page. Mock and a fully-loaded log have a
-// null cursor, so this never renders there.
+// when they aren't — and pulls the next page. A fully-walked log has a null
+// cursor, so this never renders there.
 function LoadOlder({ count, loadingMore }) {
   return (
     <div className="audit-loadmore">
@@ -226,10 +225,10 @@ function LoadOlder({ count, loadingMore }) {
 function AuditLogPage({ initialSeverity, initialServer }) {
   const all = useStore(auditStore, s => s.list);
   const dataLoading = useStore(auditStore, s => s.status === "loading" && !s.everLoaded);
-  // Keyset paging (LIVE): a non-null cursor means older events exist beyond the
-  // loaded window. That makes the load "incomplete" — so the per-option counts
-  // below would be undercounts (we omit them) and the search/filters cover only
-  // the loaded window (we disclose that). Mock + a fully-walked log → cursor null.
+  // Keyset paging: a non-null cursor means older events exist beyond the loaded
+  // window. That makes the load "incomplete" — so the per-option counts below
+  // would be undercounts (we omit them) and the search/filters cover only the
+  // loaded window (we disclose that). A fully-walked log → cursor null.
   const incomplete = useStore(auditStore, s => !!s.nextCursor);
   const loadingMore = useStore(auditStore, s => s.loadingMore);
   const allServers = useStore(serversStore, s => s.list);
@@ -255,29 +254,24 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   // "attention" = warn + danger (what the Alerts button pre-selects).
   const [severity, setSeverity] = React.useState(initialSeverity || "all");
 
-  // LIVE: push the structured filters to the backend so the keyset cursor walks
-  // the FILTERED log — otherwise an old crash / backup / actor event sits
-  // unreachable behind newer noise. Re-query whenever a pushed filter changes;
-  // free-text search stays client-side over the loaded window. Mock keeps
-  // everything client-side (the full fixture is already loaded).
+  // Push the structured filters to the backend so the keyset cursor walks the
+  // FILTERED log — otherwise an old crash / backup / actor event sits unreachable
+  // behind newer noise. Re-query whenever a pushed filter changes; free-text
+  // search stays client-side over the loaded window.
   const serverParams = React.useMemo(
-    () => (LIVE ? auditServerParams({ severity, server, actor, range, category }, Date.now()) : null),
+    () => auditServerParams({ severity, server, actor, range, category }, Date.now()),
     [severity, server, actor, range, category]
   );
   const serverKey = serverParams ? JSON.stringify(serverParams) : "";
   React.useEffect(() => {
-    if (!LIVE) return;
     auditStore.refresh(serverParams).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverKey]);
 
-  // The "now" anchor. Mock: the latest event in the fixture (so the demo's day
-  // buckets + relative times don't drift). LIVE: real wall-clock — relative times
-  // are vs now, and it matches the server's `since` (also real-now-relative).
-  const now = React.useMemo(
-    () => (LIVE ? new Date() : (scoped.length ? parseTs(scoped[0].ts) : new Date())),
-    [scoped]
-  );
+  // The "now" anchor: real wall-clock — relative times are vs now, and it matches
+  // the server's `since` (also real-now-relative). Recomputed when the loaded set
+  // changes so streamed-in events keep fresh relative times.
+  const now = React.useMemo(() => new Date(), [scoped]);
 
   // Debounce the free-text search so we don't re-query on every keystroke. The
   // dropdowns and range tabs apply instantly; only typing waits out a 250ms
@@ -344,12 +338,11 @@ function AuditLogPage({ initialSeverity, initialServer }) {
     };
   }, [scoped]);
 
-  // Per-option counts are honest only over the full client-side set (mock). In
-  // LIVE the loaded set is server-FILTERED (and possibly partial), so a count
-  // would be relative to the current filter, not an absolute total over the log —
-  // and there's no aggregation endpoint to source honest totals. So omit counts in
-  // LIVE entirely (never-fabricate); the chips render label-only when undefined.
-  const cnt = (v) => (LIVE ? undefined : v);
+  // The loaded set is server-FILTERED (and possibly partial), so a per-option
+  // count would be relative to the current filter, not an absolute total over the
+  // log — and there's no aggregation endpoint to source honest totals. So omit
+  // counts entirely (never-fabricate); the chips render label-only when undefined.
+  const cnt = () => undefined;
 
   return (
     <>

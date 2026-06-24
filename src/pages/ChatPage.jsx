@@ -5,10 +5,8 @@ import { AccountAvatar } from "../components/Sidebar.jsx";
 import { TimeSeriesChart } from "../components/TimeSeriesChart.jsx";
 import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
-import { KrystalChat } from "../lib/chatTools.js";
 import { confirmCommand, scopeServers, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
-import { LIVE } from "../lib/config.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
 
 // ChatPage — the assistant UI for a per-host assistant capability.
@@ -27,19 +25,6 @@ const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ENDPOINT_LS = "krystal:chat:endpoint";
 const CHAT_MODEL_LS    = "krystal:chat:model";
 const DEFAULT_ENDPOINT = "http://localhost:11434";
-const DEFAULT_MODEL    = "gemma3";
-
-const SYSTEM_PROMPT =
-  "You are Krystal's built-in assistant, helping a small gaming community run " +
-  "their dedicated game servers. Be concise, friendly, and technical when asked. " +
-  "You can explain server configs, troubleshoot crashes, and suggest commands.\n\n" +
-  "You have live access to the website's data. When a 'Live website data' block " +
-  "is supplied below a user message, treat it as ground truth — cite specific " +
-  "metrics, anomalies, and audit events in your answer. If a spike in resource " +
-  "usage lines up with an audit event (like a backup or update), point that out " +
-  "as the likely cause. If you need to know WHEN something happened to look it up, " +
-  "ask the user a short follow-up question (e.g. 'When did you notice the lag?').";
-
 // ---------- persistence ----------
 function loadConversations() {
   try {
@@ -111,7 +96,7 @@ function commandMeta(verb) {
 // so correlating one buys fragility for no gain (a conscious deviation from the plan's
 // "3-source correlation" → job-outcome primary + locally-composed headline). `lines[]`
 // is honest-thin: the real job error on failure, nothing fabricated. status "unknown"
-// (no WS response) → an honest "couldn't confirm", never a fake ✓. open_ports is intent-
+// (no WS response) → an honest "couldn't confirm", never a fabricated ✓. open_ports is intent-
 // only (the client never receives the port list) → the headline stays generic; naming
 // ports would fabricate. Pure + exported so the deliverable is unit-exercised.
 const VERB_PAST = { start: "Started", stop: "Stopped", restart: "Restarted" };
@@ -527,68 +512,13 @@ function EvidenceNetwork({ c, onOpen }) {
   );
 }
 
-// ---------- action proposals ----------
-// Confirm-first action buttons the assistant proposes. Every action here came
-// from KrystalChat.inferActions(), which only emits verbs that map 1:1 to a
-// real App.handleAction() and pass the action's applies(server) guard — so
-// nothing the model says can surface a button the website can't actually run.
-// Two-step: tap proposes → "Confirm"/"Cancel" → runs + marks done.
-function ChatActions({ msg, onRun }) {
-  const [pendingId, setPendingId] = React.useState(null);
-  const done = msg.done; // { id, label } once an action has been run
-
-  if (done) {
-    return (
-      <div className="chat-actions">
-        <div className="chat-actions__done">
-          <Icon name="check" size={13} strokeWidth={2.6} />
-          <span>Ran <b>{done.label}</b> on {done.serverName} · logged to audit</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="chat-actions">
-      <div className="chat-actions__label">
-        <Icon name="zap" size={12} /> Suggested {msg.actions.length > 1 ? "actions" : "action"}
-      </div>
-      <div className="chat-actions__row">
-        {msg.actions.map(a => {
-          const armed = pendingId === a.id;
-          if (armed) {
-            return (
-              <div className="chat-action chat-action--armed" key={a.id}>
-                <span className="chat-action__confirm-q">{a.confirm}</span>
-                <div className="chat-action__confirm-btns">
-                  <button className={"chat-action__go chat-action__go--" + a.tone} onClick={() => { setPendingId(null); onRun(a); }}>
-                    <Icon name="check" size={13} strokeWidth={2.4} /> Confirm
-                  </button>
-                  <button className="chat-action__cancel" onClick={() => setPendingId(null)}>Cancel</button>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <button key={a.id} className={"chat-action chat-action--" + a.tone} onClick={() => setPendingId(a.id)}>
-              <Icon name={a.icon} size={13} strokeWidth={2.2} />
-              <span>{a.label}</span>
-              {a.reason && <span className="chat-action__reason">{a.reason}</span>}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ---------- live command proposal (slice 9b) ----------
-// A §5·a `command.proposed` rendered as a confirm-first action card. Unlike
-// ChatActions (mock, client-inferred), this is the assistant's REAL proposal
-// relayed over the turn SSE. API-backed verbs (start/stop/restart/open_ports) arm
-// → Confirm → run the M3 path (confirmCommand, origin:"assistant"); the rest render
-// disabled with an honest reason (no API endpoint yet — spec §6). Two-step like
-// ChatActions so a destructive verb can't fire on a single tap.
+// ---------- live command proposal ----------
+// A §5·a `command.proposed` rendered as a confirm-first action card — the
+// assistant's REAL proposal relayed over the turn SSE. API-backed verbs
+// (start/stop/restart/open_ports) arm → Confirm → run the M3 path
+// (confirmCommand, origin:"assistant"); the rest render disabled with an honest
+// reason (no API endpoint yet — spec §6). Two-step so a destructive verb can't
+// fire on a single tap.
 function ChatCommand({ msg, onRun }) {
   const [armed, setArmed] = React.useState(false);
   const meta = commandMeta(msg.verb);
@@ -670,43 +600,6 @@ function ScopeChip({ servers, value, onChange }) {
         {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
     </label>
-  );
-}
-
-// ---------- follow-up chips ----------
-// Tappable next-question suggestions shown only beneath the latest assistant
-// answer. Grounded in the conversation's scoped server + last user intent, so
-// they stay relevant. Tapping sends immediately — they're quick follow-ups.
-function ChatFollowups({ suggestions, onPick }) {
-  if (!suggestions || !suggestions.length) return null;
-  return (
-    <div className="chat-followups">
-      {suggestions.map((s, i) => (
-        <button key={i} className="chat-followup" onClick={() => onPick(s)}>
-          <Icon name="corner-down-right" size={12} />
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ---------- navigation suggestions ----------
-// Contextual "jump to the relevant screen" chips. Distinct from follow-ups:
-// these navigate the app rather than sending a message. Grounded in
-// KrystalChat.suggestNavigation so every target maps to a real route.
-function ChatNavSuggestions({ suggestions, onNavigate }) {
-  if (!suggestions || !suggestions.length) return null;
-  return (
-    <div className="chat-navsugg">
-      {suggestions.map((s, i) => (
-        <button key={i} className="chat-navchip" onClick={() => onNavigate && onNavigate(s.target)}>
-          <Icon name={s.icon} size={13} />
-          {s.label}
-          <Icon name="arrow-up-right" size={12} strokeWidth={2.2} />
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -924,7 +817,7 @@ function ChatSystemNotice({ msg }) {
   );
 }
 
-function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageContext, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
+function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
   // The assistant is a per-host capability the BACKEND routes to — there is no
   // browser-side endpoint or model config. Connection state + model are read
   // from the selected host's `assistant` capability; when it isn't operational
@@ -1058,16 +951,14 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
     }));
   };
 
-  // ---- live turn (slice 9a) ----
+  // ---- assistant turn ----
   // Stream a real assistant turn (kgsm-api POST /assistant/turn → §5·a SSE) and
-  // translate its frames onto the SAME message roles the mock thread uses, so the
-  // render layer is unchanged: text.delta → the assistant bubble; tool.start → a
-  // pending "reading…" pill spliced in just before the streaming bubble;
-  // tool.result → that pill resolved to its summary; error → an in-band failure;
-  // done → the authoritative full reply (reconciled only when present). The
-  // assistant owns context/memory/tools, so nothing the mock fabricates (evidence
-  // cards, gathered context) is produced here. Command proposals (fork (a)) and
-  // post-action verification land in slice 9b.
+  // translate its frames onto the thread's message roles: text.delta → the
+  // assistant bubble; tool.start → a pending "reading…" pill spliced in just
+  // before the streaming bubble; tool.result → that pill resolved to its summary;
+  // error → an in-band failure; done → the authoritative full reply (reconciled
+  // only when present). The assistant owns context/memory/tools. Command
+  // proposals (fork (a)) + post-action verification are handled below.
   const sendLive = async (convId, text, userMsg) => {
     setConvos(prev => prev.map(c => {
       if (c.id !== convId) return c;
@@ -1086,9 +977,9 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
     try {
       // {prompt} only — the scope chip has NO turn transport (the body carries no
       // server field; the assistant resolves the server from the prompt). The chip
-      // stays a display + follow-up-grounding affordance in LIVE. See WIRING §9.
-      // A voice note whose transcription failed has empty text → send the same
-      // marker the mock uses, so the turn reads instead of a 400 on an empty prompt.
+      // stays a display + follow-up-grounding affordance. See WIRING §9.
+      // A voice note whose transcription failed has empty text → send a short
+      // marker, so the turn reads instead of a 400 on an empty prompt.
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
       await api.host(assistantHost.id).turn({ prompt }, { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
@@ -1152,177 +1043,11 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
       return;
     }
 
-    // LIVE: stream a real assistant turn (kgsm-api POST /assistant/turn → §5·a
-    // SSE). The assistant owns its own context, memory (keyed on the forwarded
-    // Discord id) and tools — so we send only the bare prompt, NOT the mock's
-    // SYSTEM_PROMPT, history, or gathered "live website data" (that fixture-
-    // driven context routing below would fabricate evidence the backend doesn't
-    // vouch for). Command proposals + verification (fork (a)) land in slice 9b.
-    if (LIVE) { sendLive(convId, text, userMsg); return; }
-
-    // --- Context routing: decide what website data would help answer this,
-    // gather it, and surface faded "reading…" pills in the thread. ---
-    let contextText = "";
-    let contextPills = [];
-    let evidenceCards = [];
-    let proposedActions = [];
-    let scopeNotice = null;
-    // Context routing works off the spoken/typed text; a voice note with no
-    // transcript still posts, it just can't pull live data on its own.
-    const routeText = text || "";
-    if (KrystalChat && routeText) {
-      const inferred = KrystalChat.inferContext(routeText, serverRef.current);
-      if (inferred.serverId && inferred.serverId !== serverRef.current) {
-        // First time this conversation locks onto a server — flag it inline
-        // so the user sees the scope change, like the "Reading…" pills.
-        const wasUnscoped = !serverRef.current;
-        const srv = serversStore.getState().list.find(s => s.id === inferred.serverId);
-        if (srv) scopeNotice = { role: "scope", label: (wasUnscoped ? "Focused this chat on " : "Switched focus to ") + srv.name, serverId: srv.id };
-        setScope(inferred.serverId);
-      }
-      contextText = inferred.contextText;
-      evidenceCards = inferred.evidence || [];
-      proposedActions = inferred.actions || [];
-      contextPills = inferred.pills.map(p => ({
-        role: "context", label: p.label, detail: p.detail, state: "pending",
-      }));
-    }
-
-    // Append user message, any context pills, then an empty assistant
-    // placeholder we'll stream into.
-    setConvos(prev => prev.map(c => {
-      if (c.id !== convId) return c;
-      const title = c.messages.length === 0 ? (text.slice(0, 40) || "Voice note") : c.title;
-      const lead = scopeNotice ? [scopeNotice] : [];
-      return { ...c, title, messages: [...c.messages, userMsg, ...lead, ...contextPills, { role: "assistant", content: "" }] };
-    }));
-
-    // Let the pills read as "in progress" briefly, then settle to done — a
-    // clear signal the assistant consulted live data.
-    // Sequence the pills one-at-a-time — like watching the assistant call each
-    // tool in turn ("checking host… → found it"). Each pill resolves pending →
-    // done with a stagger, instead of all settling at once.
-    if (contextPills.length) {
-      for (let k = 0; k < contextPills.length; k++) {
-        await new Promise(res => setTimeout(res, k === 0 ? 450 : 600));
-        setConvos(prev => prev.map(c => {
-          if (c.id !== convId) return c;
-          let seen = -1;
-          const msgs = c.messages.map(m => {
-            if (m.role !== "context") return m;
-            seen++;
-            return seen === k ? { ...m, state: "done" } : m;
-          });
-          return { ...c, messages: msgs };
-        }));
-      }
-      // Brief beat after the last tool resolves before the answer streams.
-      await new Promise(res => setTimeout(res, 250));
-    }
-
-    setBusy(true);
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    // Build the message history sent to Ollama. Context pills are UI-only, so
-    // we strip them and instead fold the gathered data into a system message.
-    const priorConvo = convos.find(c => c.id === convId);
-    // Voice notes carry their transcript as content; if a note had no
-    // transcript, hand the model a short marker so the turn still reads.
-    const forModel = (m) => ({
-      role: m.role,
-      content: m.content || (m.voice ? "[The user sent a voice note; transcription was unavailable.]" : ""),
-    });
-    const history = (priorConvo ? priorConvo.messages : [])
-      .filter(m => m.role === "user" || m.role === "assistant")
-      .map(forModel);
-    const turnMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...history,
-      forModel(userMsg),
-    ];
-    if (contextText) {
-      turnMessages.push({
-        role: "system",
-        content: "Live website data for the user's last message:\n\n" + contextText,
-      });
-    }
-    const payload = { model, messages: turnMessages, stream: true };
-
-    try {
-      // Routed through the backend to the host's assistant — the browser never
-      // holds a model endpoint. (The mock backend has no streaming chat, so in
-      // the demo this falls through to the graceful per-host error below.)
-      const r = await fetch("/api/v1/hosts/" + assistantHost.id + "/assistant/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: ctrl.signal,
-      });
-      if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
-
-      const reader = r.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let acc = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop(); // keep the partial line
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const obj = JSON.parse(line);
-            if (obj.message?.content) {
-              acc += obj.message.content;
-              setConvos(prev => prev.map(c => {
-                if (c.id !== convId) return c;
-                const msgs = [...c.messages];
-                msgs[msgs.length - 1] = { role: "assistant", content: acc };
-                return { ...c, messages: msgs };
-              }));
-            }
-          } catch (e) { /* ignore keepalive / partial */ }
-        }
-      }
-    } catch (e) {
-      const aborted = e.name === "AbortError";
-      setConvos(prev => prev.map(c => {
-        if (c.id !== convId) return c;
-        const msgs = [...c.messages];
-        const lastMsg = msgs[msgs.length - 1];
-        msgs[msgs.length - 1] = {
-          role: "assistant",
-          content: (lastMsg.content && !aborted)
-            ? lastMsg.content + "\n\n_⚠ Interrupted — the assistant connection dropped._"
-            : lastMsg.content || (aborted
-            ? "_Stopped._"
-            : "⚠️ " + assistantHost.name + "’s assistant didn’t respond. The backend couldn’t reach this host’s assistant — try again, or check the host."),
-          error: !aborted && !lastMsg.content,
-        };
-        return { ...c, messages: msgs };
-      }));
-    } finally {
-      // Drop the evidence cards in beneath the answer — the actual data
-      // behind the assistant's diagnosis, so the user can verify it.
-      if (evidenceCards.length) {
-        setConvos(prev => prev.map(c => {
-          if (c.id !== convId) return c;
-          return { ...c, messages: [...c.messages, { role: "evidence", cards: evidenceCards }] };
-        }));
-      }
-      // Then the grounded, confirm-first action proposals (if any apply).
-      if (proposedActions.length) {
-        setConvos(prev => prev.map(c => {
-          if (c.id !== convId) return c;
-          return { ...c, messages: [...c.messages, { role: "actions", actions: proposedActions }] };
-        }));
-      }
-      setBusy(false);
-      abortRef.current = null;
-    }
+    // Stream a real assistant turn (kgsm-api POST /assistant/turn → §5·a SSE).
+    // The assistant owns its own context, memory (keyed on the forwarded Discord
+    // id) and tools, so we send only the bare prompt. Command proposals +
+    // verification (fork (a)) are handled inside sendLive / runLiveCommand.
+    sendLive(convId, text, userMsg);
   };
 
   const stop = () => { if (abortRef.current) abortRef.current.abort(); };
@@ -1358,40 +1083,9 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
     startBriefingChat({ serverId: seed.serverId, prompt: seed.prompt });
   }, [seed && seed.nonce]);
 
-  // Run a confirmed action. Marks the proposal message done in-thread, then
-  // delegates to App (which performs the real state change + audit log).
-  const runAction = (action) => {
-    if (onRunAction) onRunAction(action);
-    const verifyId = uid();
-    setConvos(prev => prev.map(c => {
-      if (c.id !== activeId) return c;
-      const msgs = c.messages.map(m =>
-        (m.role === "actions" && m.actions.some(a => a.id === action.id && a.serverId === action.serverId) && !m.done)
-          ? { ...m, done: { id: action.id, label: action.label, serverName: action.serverName } }
-          : m
-      );
-      // Drop a pending verification marker right after — the assistant
-      // proactively confirms the action landed instead of leaving the user
-      // to wonder.
-      return { ...c, messages: [...msgs, { role: "verify", id: verifyId, action, state: "pending" }] };
-    }));
-
-    // Wait for the action's effect to settle (App's fake state machine), then
-    // re-check and resolve the marker. Delays mirror App's action timings.
-    const delay = { stop: 700, open_ports: 800, start: 1900, restart: 1900, update: 1700 }[action.verb] || 1200;
-    setTimeout(() => {
-      const live = getServerState ? getServerState(action.serverId) : null;
-      const result = KrystalChat ? KrystalChat.verifyAction(action, live) : { ok: true, headline: "Done.", lines: [] };
-      setConvos(prev => prev.map(c => {
-        if (c.id !== activeId) return c;
-        return { ...c, messages: c.messages.map(m => m.role === "verify" && m.id === verifyId ? { ...m, state: "done", result } : m) };
-      }));
-    }, delay);
-  };
-
-  // Confirm + run an assistant-proposed command (slice 9b, LIVE / fork (a)). Routes
-  // through confirmCommand → the SAME M3 path as the UI buttons, origin:"assistant"
-  // (NO double-write, NO fabricated audit — that mock landmark is gated off in LIVE).
+  // Confirm + run an assistant-proposed command (fork (a)). Routes through
+  // confirmCommand → the SAME M3 path as the UI buttons, origin:"assistant"
+  // (the backend writes the audit row from the kgsm echo — never the SPA).
   // Marks the card confirmed, drops a pending verify marker, then resolves it from
   // the job outcome the WS carries back. The card is rendered from its own fields;
   // only the EXECUTE path resolves a server row (for its hostId) — falling back to the
@@ -1552,31 +1246,10 @@ function ChatPage({ user, onOpenServer, onOpenView, onRunAction, docked, pageCon
                       ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
                       : m.role === "command"
                         ? <ChatCommand key={i} msg={m} onRun={runLiveCommand} />
-                      : m.role === "actions"
-                        ? <ChatActions key={i} msg={m} onRun={runAction} />
                         : m.role === "verify"
                           ? <ChatVerify key={i} msg={m} />
                           : <ChatMessage key={i} msg={m} user={user} />
               )}
-              {/* Follow-up chips beneath the latest assistant answer only. */}
-              {!busy && (() => {
-                const msgs = active.messages;
-                const lastIdx = msgs.length - 1;
-                const last = msgs[lastIdx];
-                if (!last || last.role !== "assistant" || !last.content || last.error) return null;
-                // Find the most recent user message to ground the suggestions.
-                let lastUser = "";
-                for (let j = lastIdx; j >= 0; j--) { if (msgs[j].role === "user") { lastUser = msgs[j].content; break; } }
-                const server = serversStore.getState().list.find(s => s.id === scopeId) || null;
-                const sugg = KrystalChat ? KrystalChat.suggestFollowups(lastUser, server) : [];
-                const nav = KrystalChat ? KrystalChat.suggestNavigation(lastUser, server) : [];
-                return (
-                  <>
-                    <ChatNavSuggestions suggestions={nav} onNavigate={onNavigate} />
-                    <ChatFollowups suggestions={sugg} onPick={send} />
-                  </>
-                );
-              })()}
             </div>
           )}
         </div>

@@ -6,7 +6,7 @@ import { Toggle } from "../pages/ServerSettings.jsx";
 
 // InstallModal — overlay form for spinning up a new game server.
 // Props:
-//   game     — catalog entry from data.js (name, art, rawg_slug…)
+//   game     — catalog entry from the library store (name, art, rawg_slug…)
 //   onClose  — () => void
 //   onInstall — (config) => void   // called when user confirms
 
@@ -29,7 +29,7 @@ const PORT_DEFAULTS = {
   projectzomboid: { port: 16261, slots: 16, dir: "zomboid_${id}" },
 };
 
-// Fake build channels — real product fetches available versions per game.
+// Standard build channels — offered until the backend reports per-game versions.
 const VERSION_OPTIONS = [
   { value: "stable",      label: "Latest stable" },
   { value: "beta",        label: "Public beta" },

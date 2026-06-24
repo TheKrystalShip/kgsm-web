@@ -11,8 +11,8 @@ import { parseTs } from "../pages/AuditLogPage.jsx";
 // who's on, what build, is an update waiting, and how fresh is the last backup.
 //
 // "Now" is anchored to the most-recent audit event (like the dashboard's
-// backup KPI) so the demo's relative durations read sensibly instead of being
-// measured against the real wall clock.
+// backup KPI) so the relative durations read sensibly against the freshest known
+// event rather than drifting from wall-clock when the feed is quiet.
 
 function StatTiles({ server }) {
   const auditList = useStore(auditStore, s => s.list);

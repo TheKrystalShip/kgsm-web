@@ -2,17 +2,15 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
 import { api } from "../lib/apiClient.js";
-import { LIVE } from "../lib/config.js";
 import { hostsStore } from "../lib/stores.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // Discord integration — webhook config + per-event notification toggles + a real
-// test send. In LIVE this is wired to the host's kgsm-api /integrations/discord
+// test send, wired to the host's kgsm-api /integrations/discord
 // (admin-gated): the server defines the event catalog, the webhook is a write-only
 // secret (GET returns only a masked hint), and toggles/test hit the backend. The
-// slash-command list + message preview below stay illustrative in both modes (the
-// control bot is kgsm-bot's surface, honestly null here). Without a backend
-// (VITE_API_BASE unset) the page falls back to the bundled demo.
+// slash-command list + message preview below stay illustrative (the control bot is
+// kgsm-bot's surface, honestly null here).
 //
 // SettingsSection / SettingsRow / Toggle are re-used from ServerSettings.jsx.
 
@@ -40,7 +38,7 @@ function buildIntegrationPatch({ webhook, webhookDirty, clearWebhook, channelLab
 const INPUT_STYLE = { background: "var(--surface-3)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-md)", height: 32, padding: "0 10px", color: "var(--fg-1)", fontFamily: "var(--font-mono)", fontSize: 12.5, width: 340, outline: "none" };
 const NOISE_STYLE = { fontSize: 11.5, color: "var(--fg-3)", fontFamily: "var(--font-mono)" };
 
-// ---------- LIVE config (wired to kgsm-api /integrations/discord) ----------
+// ---------- config (wired to kgsm-api /integrations/discord) ----------
 function DiscordLiveConfig() {
   const hostId = (hostsStore.getState().list[0] || {}).id || null;
   // Tier is read once (non-reactive) — fine because Settings is opened well after the
@@ -154,49 +152,6 @@ function DiscordLiveConfig() {
   );
 }
 
-// ---------- mock config (bundled demo — no backend) ----------
-function DiscordMockConfig() {
-  const [webhook, setWebhook] = React.useState("https://discord.com/api/webhooks/1234567890/abc-def-***");
-  const [channel, setChannel] = React.useState("#krystal-ops");
-  const events = [
-    { id: "online",    title: "Server online",         desc: "Posted when a server comes online — includes IP and player slot count.",            on: true,  noise: "every time" },
-    { id: "offline",   title: "Server offline",        desc: "Posted on graceful shutdown.",                                                       on: true,  noise: "every time" },
-    { id: "crash",     title: "Crash / restart",       desc: "Posted when the watchdog kicks. Pings @ops if max-crash limit is hit.",              on: true,  noise: "with ping" },
-    { id: "update",    title: "Update available",      desc: "Posted once per new game build detected on the upstream channel.",                  on: true,  noise: "once per build" },
-    { id: "backup",    title: "Backup snapshot",       desc: "Daily success summary with file size & retention status.",                          on: false, noise: "daily digest" },
-    { id: "join",      title: "Player joins / leaves", desc: "Useful for small communities; can get noisy on busy servers.",                      on: false, noise: "muted by default" },
-    { id: "installed", title: "Game installed",        desc: "Heads-up when someone in the crew adds a new game from the library.",               on: true,  noise: "once" },
-    { id: "lowdisk",   title: "Resource alerts",       desc: "CPU > 90% for 5min, RAM > cap, free disk < 5 GB.",                                   on: true,  noise: "with ping" },
-  ];
-  const [state, setState] = React.useState(Object.fromEntries(events.map(e => [e.id, e.on])));
-  const flip = (id) => setState(prev => ({ ...prev, [id]: !prev[id] }));
-
-  return (
-    <>
-      <SettingsSection title="Webhook">
-        <SettingsRow icon="webhook" title="Discord webhook URL"
-          sub="Paste a channel webhook. Server > Settings > Integrations > Webhooks > New Webhook in Discord.">
-          <input value={webhook} onChange={e => setWebhook(e.target.value)} style={INPUT_STYLE} />
-          <button className="fb-editor__btn">Test</button>
-        </SettingsRow>
-        <SettingsRow icon="hash" title="Posting as"
-          sub="Channel name surfaced in alerts (cosmetic — Discord controls the real channel).">
-          <input value={channel} onChange={e => setChannel(e.target.value)} style={{ ...INPUT_STYLE, fontSize: 13, width: 200 }} />
-        </SettingsRow>
-      </SettingsSection>
-
-      <SettingsSection title="What to announce">
-        {events.map(e => (
-          <SettingsRow key={e.id} icon="bell" title={e.title} sub={e.desc}>
-            <span style={NOISE_STYLE}>{e.noise}</span>
-            <Toggle on={state[e.id]} onChange={() => flip(e.id)} />
-          </SettingsRow>
-        ))}
-      </SettingsSection>
-    </>
-  );
-}
-
 function DiscordPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -207,7 +162,7 @@ function DiscordPage() {
         </div>
       </div>
 
-      {LIVE ? <DiscordLiveConfig /> : <DiscordMockConfig />}
+      <DiscordLiveConfig />
 
       {/* Slash commands preview — illustrative; control commands are kgsm-bot's
           surface, not this webhook (the integration's `bot` block is honestly null). */}

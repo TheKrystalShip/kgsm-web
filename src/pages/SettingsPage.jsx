@@ -36,8 +36,8 @@ function SettingsPage({ user, onLogout }) {
   const [section, setSection] = React.useState("account");
 
   // Profile fields come from the authenticated user (sourced from the OAuth
-  // provider at login); the falls-back are empty rather than a hardcoded name.
-  // Demo-local edit state — a real build persists via the REST API / localStorage.
+  // provider at login); the fallbacks are empty rather than a hardcoded name.
+  // Local edit state — persisted via the REST API / localStorage once wired.
   const [profile, setProfile] = React.useState({
     display: user?.display || user?.name || "",
     handle: user?.name || "",

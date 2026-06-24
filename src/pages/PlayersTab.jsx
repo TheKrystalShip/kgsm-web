@@ -1,8 +1,6 @@
 import React from "react";
 import { CardTable } from "../components/CardTable.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { LIVE } from "../lib/config.js";
-import { KRYSTAL_DATA } from "../lib/data.js";
 
 // PlayersTab — online + banned + allowlist for a single server, with kick/ban.
 //
@@ -11,6 +9,12 @@ import { KRYSTAL_DATA } from "../lib/data.js";
 // button row at the bottom). Action buttons carry inline labels that are
 // hidden on desktop via CSS and shown on mobile so touch users don't have
 // to guess what each icon does.
+//
+// NOT WIRED YET: there is no roster source (live player-presence tracking is
+// still in progress), so the tab renders a work-in-progress state. The full
+// roster + moderation UI below is kept ready — flip ROSTER_WIRED to true and
+// hydrate `all` from the roster endpoint when it lands.
+const ROSTER_WIRED = false;
 
 function pingClass(p) {
   if (p == null) return "";
@@ -78,19 +82,16 @@ function PlayerActions({ p }) {
 }
 
 function PlayersTab({ server, readOnly }) {
-  // LIVE: there's no roster source yet (player-presence tracking is in progress).
-  // Show an honest empty-state rather than fixture players. (Early — before the
-  // hooks below; LIVE is a module-load constant so the hook order stays stable.)
-  if (LIVE) {
+  if (!ROSTER_WIRED) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
         <Icon name="users" size={26} strokeWidth={1.6} />
-        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Player roster not available yet</div>
+        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
         <div style={{ marginTop: 4, fontSize: 12.5 }}>Live player presence tracking is in progress — no roster source on this host yet.</div>
       </div>
     );
   }
-  const all = KRYSTAL_DATA.playersByServer[server.id] || [];
+  const all = [];   // TODO: hydrate from the roster endpoint when ROSTER_WIRED
   const [filter, setFilter] = React.useState("all");
   const counts = {
     all: all.length,
