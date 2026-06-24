@@ -11,7 +11,7 @@ import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { capUsable } from "../lib/capabilities.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 import { ACTION_META, fmtRelative, parseTs } from "./AuditLogPage.jsx";
 import { HostCapacityStrip } from "./DiagnosticsPage.jsx";
 import { GameCard, libraryNow, recentlyAddedGames } from "./LibraryPage.jsx";
@@ -161,6 +161,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   // searchable list. Single source: auditStore.
   const auditList = useStore(auditStore, s => s.list);
   const hosts = useStore(hostsStore, s => s.list);
+  const pings = useStore(pingStore, s => s.byHost);
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
   const selectedId = useSelectedHostId();
   const auditScoped = React.useMemo(
@@ -226,10 +227,16 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
     const d = Math.floor(h / 24), rh = h % 24;
     return rh ? `${d}d ${rh}h` : `${d}d`;
   };
-  // 1) Ping — operator's live link to the host. Lower is better; non-interactive.
-  // There's no honest round-trip-ping source yet → null → "no reading" (never a
-  // fabricated latency).
-  const pingMs = null;
+  // 1) Ping — operator's live link to the host(s). Lower is better; non-interactive.
+  // Client-measured round trip to /api/v1/ping (pingStore, keyed by host id). For a
+  // single scoped host it's that host's reading; under "all" it's the WORST (max)
+  // across hosts that have a reading — the slowest link, matching the other summary
+  // tiles' worst-case framing. No reading (probe failed / not yet measured) → null
+  // → "no reading" (never a fabricated latency).
+  const pingVals = (selectedId === "all" ? hosts : hosts.filter(h => h.id === selectedId))
+    .map(h => pings[h.id]).filter(p => p && p.ms != null).map(p => p.ms);
+  const pingMs = pingVals.length ? Math.max(...pingVals) : null;
+  const pingMultiHost = selectedId === "all" && pingVals.length > 1;
   const pingTone = pingMs == null ? "muted" : pingMs < 60 ? "ok" : pingMs < 120 ? "warn" : "danger";
   // 2) Updates available — servers on an older build, excluding ones already
   //    mid-update. Actionable to-do, not an error → info tone.
@@ -299,7 +306,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
         <Kpi
           icon="activity" label="Ping"
           value={pingMs == null ? "—" : pingMs} unit={pingMs == null ? null : "ms"}
-          sub={pingMs == null ? "no reading" : "your connection"}
+          sub={pingMs == null ? "no reading" : (pingMultiHost ? `slowest of ${pingVals.length} hosts` : "your connection")}
           tone={pingTone}
         />
         <Kpi

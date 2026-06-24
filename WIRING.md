@@ -73,7 +73,7 @@ treatment):
 | `pages/PlayersTab.jsx:80` | `KRYSTAL_DATA.playersByServer[id]` (roster) | none — only `player.join/leave` audit | **C** (presence WIP) |
 | `pages/BackupsList.jsx:14` | `KRYSTAL_DATA.backups` | none — only `backup.*` audit | **C** |
 | `pages/FileBrowser.jsx` | ~~`KRYSTAL_DATA.files`/`fileContent`~~ | `GET/PUT /servers/{id}/files…` (lazy tree + read + save) | **WIRED** (Tier 3 #12) |
-| `pages/DashboardPage.jsx:230` | `KRYSTAL_DATA.session.ping_ms`/`region` | ping = client-measurable RTT; region none | **B**(ping)/**D**(region) |
+| `pages/DashboardPage.jsx:230` | ~~`KRYSTAL_DATA.session.ping_ms`~~/`region` | ping = `GET /api/v1/ping` (client-measured RTT, `pingStore`); region none | **WIRED**(ping)/**D**(region) |
 | `pages/LibraryPage.jsx`, `components/Sidebar.jsx` | `KRYSTAL_LABELS.catalog` | static UI label, not domain data | n/a (keep) |
 
 (`DiagnosticsPage.jsx:31` only *mentions* `KRYSTAL_DATA` in a comment — it reads

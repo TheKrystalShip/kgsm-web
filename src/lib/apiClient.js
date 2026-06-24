@@ -236,6 +236,29 @@ import("./stores.js").then((m) => {
     if (tail) { const evt = parseSseEvent(tail); if (evt && onEvent) onEvent(evt); }
   }
 
+  // ---- latency probe (the dashboard Ping KPI) -----------------------------
+  // Measure the CLIENT-side round trip to a host's /api/v1/ping — a deliberately
+  // tiny, AUTH-FREE target (kgsm-api PingController). The server can't observe the
+  // round trip, so WE clock it: t0 → response received. Sent as a BARE GET with no
+  // Authorization header (an auth header would trip a CORS preflight and inflate the
+  // first reading) and cache:"no-store" (so a cached 200 can't fake a ~0ms result).
+  // Returns the RTT in ms, or null on any failure → the KPI honestly reads "no
+  // reading" (never a fabricated latency, never 0). Deliberately ISOLATED from
+  // markSuccess/markFailure: ping is a side channel, not the cold-start signal.
+  async function pingHost(hostId) {
+    const base = apiV1Of(hostId);
+    if (!base) return null;
+    const clock = (typeof performance !== "undefined" && performance.now) ? () => performance.now() : () => Date.now();
+    const t0 = clock();
+    let res;
+    try { res = await fetch(base + "/ping", { method: "GET", cache: "no-store" }); }
+    catch (e) { return null; }                 // unreachable → no honest reading
+    const rtt = clock() - t0;                   // response received → that's the round trip
+    if (!res.ok) return null;
+    try { await res.text(); } catch (e) {}      // drain the tiny body (frees the connection)
+    return Math.round(rtt);
+  }
+
   async function get(path, hostId) {
     if (!CONNECTIONS.length) return Promise.reject(offlineError());
     return liveGet(path, hostId);
@@ -429,7 +452,7 @@ import("./stores.js").then((m) => {
   }
 
   const api = {
-    get, post, patch, put, stream, fanOut, refreshSession,
+    get, post, patch, put, stream, fanOut, refreshSession, pingHost,
     host: hostScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,

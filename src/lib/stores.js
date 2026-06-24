@@ -771,6 +771,37 @@ favoritesStore.set = (id, on) => favoritesStore.setState(s => {
 // Convenience hook — returns a stable boolean, so it won't churn renders.
 const useIsFavorite = (id) => useStore(favoritesStore, s => s.ids.includes(id));
 
+// ---- Link latency (the dashboard Ping KPI) ------------------------------
+// Per-host round-trip latency to each connected kgsm-api, measured CLIENT-side
+// (api.pingHost → GET /api/v1/ping, clocked there). Keyed by BACKEND host id so the
+// dashboard reads the scoped host's value (and the worst across hosts under "all").
+// A reading is { ms, at }; ms is null when the last probe failed → the KPI shows
+// "no reading" (honest unknown — never a stale or fabricated number).
+const pingStore = createStore({ byHost: {} });
+pingStore.record = (hostId, ms) =>
+  pingStore.setState(s => ({ byHost: { ...s.byHost, [hostId]: { ms, at: Date.now() } } }));
+
+const PING_INTERVAL_MS = 5000;
+let _pingTimer = null;
+function pingTick() {
+  // Skip while the tab is hidden — a background panel needs no live ping, and the
+  // reading would be stale by the time it's looked at anyway.
+  if (typeof document !== "undefined" && document.hidden) return;
+  const list = hostsStore.getState().list || [];
+  for (const h of list) {
+    if (!h || !h.id) continue;
+    api.pingHost(h.id).then(ms => pingStore.record(h.id, ms), () => pingStore.record(h.id, null));
+  }
+}
+function startPingLoop() {
+  if (_pingTimer || !CONNECTIONS.length) return;
+  // Fire one probe the moment the host list first hydrates (don't wait a full
+  // interval for the first reading), then poll on a fixed cadence.
+  if ((hostsStore.getState().list || []).length) pingTick();
+  else { const un = hostsStore.subscribe(() => { if ((hostsStore.getState().list || []).length) { un(); pingTick(); } }); }
+  _pingTimer = setInterval(pingTick, PING_INTERVAL_MS);
+}
+
 // ---- Boot hydrate -------------------------------------------------------
 // Every surface store starts empty; kick a real async hydrate on boot so the
 // first paint shows skeletons until the backend answers. Each store records its
@@ -781,6 +812,7 @@ try {
   libraryStore.refresh().catch(swallow);
   hostsStore.refresh().catch(swallow);
   auditStore.refresh().catch(swallow);
+  startPingLoop();
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
