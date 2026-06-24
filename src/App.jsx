@@ -89,6 +89,55 @@ function alertAssistantPrompt(item) {
     + ". What's likely causing it, and how do I fix it?";
 }
 
+// ServerGate — the async-state gate for the server-detail route. `serverForRender`
+// is legitimately null in three non-crash cases: the servers store is still on its
+// first fetch (a deep-link / hard refresh lands here before it resolves), that
+// first fetch FAILED, or the store is loaded but no server carries this id. We
+// discriminate them off the store's own state machine and render an honest
+// loading / error / not-found surface — NEVER ServerDetailPage with a null server,
+// whose every child dereferences `server.*` and would throw into the content
+// boundary (the crash this replaces). `everLoaded` is the real "first fetch
+// finished" signal: a warm refresh preserves the list, so a null past everLoaded
+// is a true 404, not a transient.
+function ServerGate({ id, status, everLoaded, onBack, onRetry }) {
+  const wrap = { textAlign: "center", padding: "64px 0", color: "var(--fg-3)" };
+  const title = { marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 };
+  const sub = { fontSize: 12.5, maxWidth: 460, margin: "4px auto 0" };
+  if (!everLoaded && status === "error") {
+    return (
+      <div style={wrap}>
+        <Icon name="circle-x" size={26} strokeWidth={1.7} />
+        <div style={title}>Couldn’t load your servers</div>
+        <div style={sub}>The server list didn’t load, so this page can’t open yet.</div>
+        <div style={{ marginTop: 18 }}>
+          <button className="chip" onClick={onRetry}><Icon name="rotate-cw" size={14} /> Try again</button>
+        </div>
+      </div>
+    );
+  }
+  if (!everLoaded) {
+    return (
+      <div style={wrap}>
+        <span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}>
+          <Icon name="loader-2" size={26} strokeWidth={1.7} />
+        </span>
+        <div style={title}>Loading server…</div>
+        <div style={sub}>Fetching this server from its host.</div>
+      </div>
+    );
+  }
+  return (
+    <div style={wrap}>
+      <Icon name="server-off" size={26} strokeWidth={1.6} />
+      <div style={title}>Server not found</div>
+      <div style={sub}>No server with the id “{id}” is on any connected host — it may have been removed, or the link is out of date.</div>
+      <div style={{ marginTop: 18 }}>
+        <button className="chip" onClick={onBack}><Icon name="arrow-left" size={14} /> Back to servers</button>
+      </div>
+    </div>
+  );
+}
+
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit }) {
   if (useAlerts) useAlerts();
   // Controlled by the route so the tab lives in the URL (#/servers/<id>/<tab>):
@@ -336,6 +385,13 @@ function App() {
   // local state. useStore re-renders this tree when the store changes; the
   // store is always current, so delayed post-action reads use serversStore.find.
   const servers = useStore(serversStore, s => s.list);
+  // The servers store's own async-state machine — used to gate the server-detail
+  // route so a deep-link / hard refresh that lands before the first fetch resolves
+  // renders a loading state instead of crashing on a null server. `everLoaded`
+  // flips on the first successful hydrate; a warm refresh preserves the list, so a
+  // null server PAST everLoaded is genuinely absent (a 404), not still-loading.
+  const serversStatus = useStore(serversStore, s => s.status);
+  const serversLoaded = useStore(serversStore, s => s.everLoaded);
   const libraryList = useStore(libraryStore, s => s.list);
   const getServerState = (id) => serversStore.find(id);
   // Global host scope (sidebar switcher). "all" → aggregate; else one host.
@@ -563,8 +619,13 @@ function App() {
     if (initialInstall) setRoute({ kind: "library" });
   }, []);
 
+  // No `|| servers[0]` fallback: a deep-link to an unknown id must resolve to a
+  // genuine "not found", never silently swap in some other server — that fallback
+  // both crashed the detail page when the store was empty (null `server` → every
+  // child dereferences `server.*`) and showed the WRONG server when it wasn't. The
+  // route render below gates on this being null (ServerGate).
   const activeServer = route.kind === "server"
-    ? servers.find(s => s.id === route.id) || servers[0]
+    ? servers.find(s => s.id === route.id) || null
     : null;
   // The catalog blueprint behind a game detail page (#/library/<id>).
   const activeGame = route.kind === "game"
@@ -947,15 +1008,18 @@ function App() {
             onOpenView={openView}
             onNavigate={handleAssistantNavigate}
             getServerState={getServerState} />}
-          {route.kind === "server" && (
-            <ServerDetailPage server={serverForRender} onAction={handleAction}
-              tab={route.tab || "overview"}
-              onTabChange={(t) => setRoute({ kind: "server", id: route.id, tab: t === "overview" ? undefined : t })}
-              onAsk={askAboutAlert}
-              onOpenServer={(id) => setRoute({ kind: "server", id })}
-              onViewServerAlerts={(id) => setRoute({ kind: "attention", serverId: id })}
-              onViewServerAudit={(id) => setRoute({ kind: "audit", serverId: id })}
-            />
+          {route.kind === "server" && (serverForRender
+            ? <ServerDetailPage server={serverForRender} onAction={handleAction}
+                tab={route.tab || "overview"}
+                onTabChange={(t) => setRoute({ kind: "server", id: route.id, tab: t === "overview" ? undefined : t })}
+                onAsk={askAboutAlert}
+                onOpenServer={(id) => setRoute({ kind: "server", id })}
+                onViewServerAlerts={(id) => setRoute({ kind: "attention", serverId: id })}
+                onViewServerAudit={(id) => setRoute({ kind: "audit", serverId: id })}
+              />
+            : <ServerGate id={route.id} status={serversStatus} everLoaded={serversLoaded}
+                onBack={() => setRoute({ kind: "servers" })}
+                onRetry={() => serversStore.refresh().catch(() => {})} />
           )}
           </>)}
           </ErrorBoundary>
