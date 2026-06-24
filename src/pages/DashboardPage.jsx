@@ -109,6 +109,16 @@ function RecentActivity({ hostId, serverId, onViewAll, max = 3, title = "Recent 
       countTone="neutral"
       onViewAll={onViewAll}
     >
+      {scoped.length === 0 ? (
+        // Calm placeholder when the audit feed is empty, mirroring the Alerts
+        // card's all-clear state so the dashboard never shows a blank card.
+        // Neutral tone (not "success") — an empty log isn't good or bad.
+        <div className="chat-brief__empty chat-brief__empty--neutral">
+          <Icon name="scroll-text" size={20} />
+          <span className="chat-brief__empty-title">No recent activity</span>
+          <span className="chat-brief__empty-sub">Actions across your servers will show up here.</span>
+        </div>
+      ) : (
       <div className="chat-brief__list">
         {recent.map(ev => {
           const meta = ACTION_META[ev.action] || { icon: "circle-dot", tone: "info" };
@@ -124,6 +134,7 @@ function RecentActivity({ hostId, serverId, onViewAll, max = 3, title = "Recent 
           );
         })}
       </div>
+      )}
     </BriefCard>
   );
 }
