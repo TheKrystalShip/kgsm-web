@@ -5,6 +5,7 @@ import { AccountAvatar } from "../components/Sidebar.jsx";
 import { TimeSeriesChart } from "../components/TimeSeriesChart.jsx";
 import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
+import { canOperate } from "../lib/persona.js";
 import { confirmCommand, scopeServers, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
@@ -24,6 +25,7 @@ import { ACTION_META } from "./AuditLogPage.jsx";
 const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ENDPOINT_LS = "krystal:chat:endpoint";
 const CHAT_MODEL_LS    = "krystal:chat:model";
+const CHAT_ACTIONS_LS  = "krystal:chat:actions";   // the "Actions" toggle (operator+ only), persisted
 const DEFAULT_ENDPOINT = "http://localhost:11434";
 // ---------- persistence ----------
 function loadConversations() {
@@ -839,6 +841,14 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   const [input, setInput]       = React.useState("");
   const [busy, setBusy]         = React.useState(false);
 
+  // The "Actions" toggle — lets the assistant suggest + run changes (start/stop/restart/…). It is
+  // INTENT, not authority: only operator+ on this host even see it (viewers never can), and the
+  // backend re-folds it with the caller's verified tier (kgsm-api → X-Relay-Can-Act), so flipping
+  // it on a host where you're a viewer does nothing. Persisted across sessions; default OFF (safe).
+  const canUseActions = !!(assistantHost && canOperate(assistantHost.id));
+  const [actionsOn, setActionsOn] = React.useState(() => loadSetting(CHAT_ACTIONS_LS, "") === "1");
+  React.useEffect(() => { saveSetting(CHAT_ACTIONS_LS, actionsOn ? "1" : "0"); }, [actionsOn]);
+
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
   const taRef     = React.useRef(null);
@@ -981,7 +991,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
       // A voice note whose transcription failed has empty text → send a short
       // marker, so the turn reads instead of a 400 on an empty prompt.
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
-      await api.host(assistantHost.id).turn({ prompt }, { onEvent: applyFrame, signal: ctrl.signal });
+      // `actions` = the toggle's intent (only meaningful for operator+; the backend re-checks tier).
+      const allowActions = actionsOn && canUseActions;
+      await api.host(assistantHost.id).turn({ prompt, actions: allowActions }, { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
       const reason = e && e.code === 503 ? assistantHost.name + "’s assistant is currently unavailable."
@@ -1267,6 +1279,22 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
               <div className="chat-composer__bar">
                 {assistantHost && (
                   <ScopeChip servers={scopeServers(serversStore.getState().list, assistantHost.id)} value={scopeId} onChange={changeScope} />
+                )}
+                {/* Actions toggle — operator+ only (viewers never see it). Lets the assistant
+                    suggest + run changes; each one is still a confirm-first card (ChatCommand). */}
+                {canUseActions && (
+                  <button
+                    type="button"
+                    className={"chat-act-toggle" + (actionsOn ? " chat-act-toggle--on" : "")}
+                    onClick={() => setActionsOn(v => !v)}
+                    title={actionsOn
+                      ? "Actions ON — the assistant can suggest and run changes (you confirm each one). Click to turn off."
+                      : "Actions OFF — the assistant only answers. Turn on to let it suggest and run changes."}
+                    aria-pressed={actionsOn}>
+                    <Icon name={actionsOn ? "zap" : "zap-off"} size={13} />
+                    <span className="chat-act-toggle__label">Actions</span>
+                    <span className="chat-act-toggle__state">{actionsOn ? "On" : "Off"}</span>
+                  </button>
                 )}
                 <span className="chat-composer__bar-spacer"></span>
                 {!busy && !input.trim() && assistantUsable && (

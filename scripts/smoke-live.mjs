@@ -58,8 +58,11 @@ const vite = await createServer({ server: { middlewareMode: true }, appType: "cu
 let fail = 0;
 try {
   const cfg = await vite.ssrLoadModule("/src/lib/config.js");
-  if (!cfg.LIVE || cfg.API_V1 !== API + "/api/v1") {
-    console.error(`✗ config not live: LIVE=${cfg.LIVE} API_V1=${cfg.API_V1} (expected ${API}/api/v1)`);
+  // "Live" = at least one resolved connection (the VITE_API_BASE seed). config.js dropped
+  // the old LIVE/MOCK duality, so CONNECTIONS is the only signal (cfg.LIVE is gone — the
+  // old check silently always-failed, swallowed by the console.error wrapper).
+  if (!cfg.CONNECTIONS || cfg.CONNECTIONS.length < 1 || cfg.API_V1 !== API + "/api/v1") {
+    console.error(`✗ config not live: CONNECTIONS=${cfg.CONNECTIONS && cfg.CONNECTIONS.length} API_V1=${cfg.API_V1} (expected ${API}/api/v1)`);
     fail++;
   } else {
     console.log(`✓ config wired live → ${cfg.API_V1}`);
