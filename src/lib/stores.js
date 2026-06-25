@@ -379,6 +379,17 @@ function commandServer(server, verb, origin = "ui") {
   return client.post("/servers/" + server.id + "/commands", { verb, origin });
 }
 
+// Send an arbitrary console command to a running NATIVE server (POST /servers/{id}/
+// console). Fire-and-forget: resolves on a 202 (delivered to the console input) and
+// the server's response, if any, streams back on the servers/{id}/console WS topic —
+// not this return. `origin` tags the driving surface on the kgsm instance_input_sent
+// event + the console.input audit row sourced from it. Callers handle a rejected 401
+// (re-auth) + surface other failures (409 = not running / container).
+function sendConsoleInput(server, text, origin = "ui") {
+  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
+  return client.post("/servers/" + server.id + "/console", { input: text, origin });
+}
+
 // Resolve when a job reaches a terminal state, read from the WS-fed jobsStore.
 // Race-free: the always-on `jobs` subscriber upserts every frame, so we check the
 // CURRENT state first (the terminal frame may have already landed) THEN subscribe
@@ -831,4 +842,4 @@ try {
   startPingLoop();
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

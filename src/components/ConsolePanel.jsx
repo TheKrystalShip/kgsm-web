@@ -1,15 +1,20 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
 import { api } from "../lib/apiClient.js";
+import { sendConsoleInput } from "../lib/stores.js";
+import { serverOperable } from "../lib/persona.js";
 
-// ConsolePanel — the server's stdout feed.
+// ConsolePanel — the server's stdout feed + command input.
 //
 // A finite REST tail hydrates the scrollback (GET /servers/{id}/console?
 // tail=N → { lines: [string] }, oldest-first), then the per-server WS topic
-// servers/{id}/console follows live lines (console.line { id, seq, line }). The
-// console is FOLLOW-ONLY upstream (#8) — there is no command-send channel — so the
-// input is replaced with an honest read-only note (for everyone, not a
-// permission thing).
+// servers/{id}/console follows live lines (console.line { id, seq, line }).
+//
+// The input sends an arbitrary console command (POST /servers/{id}/console) to a
+// running NATIVE server; the response, if any, streams back on the same WS topic
+// (no local echo — we never fabricate console output, only show real stdout). The
+// input is shown only to operators on native servers; otherwise an honest read-only
+// note explains why (container / no permission).
 
 function renderLine(line, idx) {
   // §...§ wrapping = teal highlight (player names, world names). A stdout line is
@@ -64,6 +69,9 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   const bodyRef = React.useRef(null);
   const live = !!server;
   const liveLines = useLiveConsole(live ? server : null);
+  const [draft, setDraft] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [err, setErr] = React.useState(null);
   const lines = React.useMemo(
     () => (live ? (liveLines || []) : [...((server && server.log) || []), ...extraLines]),
     [live, liveLines, server, extraLines]
@@ -72,6 +80,31 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [lines.length]);
   const loading = live && liveLines == null;
+
+  // The command channel is native-only (the watchdog owns a native process's stdin;
+  // Docker owns a container's), needs operator permission ON THIS host, and is hidden
+  // in a forced read-only view (the player tab). The backend re-checks all of this —
+  // this only decides whether to show the input vs. an honest read-only note.
+  const isNative = live && server.runtime === "native";
+  const canSend = live && !readOnly && isNative && serverOperable(server);
+
+  const submit = (e) => {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setErr(null);
+    sendConsoleInput(server, text).then(
+      () => { setDraft(""); setSending(false); },   // delivered — the response streams in live
+      (e2) => { setSending(false); setErr((e2 && (e2.userMessage || e2.message)) || "Couldn't send the command."); }
+    );
+  };
+
+  // When the input is hidden, say why (only meaningful for a live server).
+  const note = !live ? null
+    : !isNative ? { icon: "terminal-square", text: "Console input isn’t available for container servers — Docker owns their console." }
+    : { icon: "lock", text: "Read-only — you don’t have permission to send console commands." };
+
   return (
     <section className="console-card">
       <div className="console-card__head">
@@ -85,20 +118,29 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
       <div className="console-card__body" ref={bodyRef}>
         {loading ? <div className="ln" style={{ color: "var(--fg-3)" }}>Loading console…</div> : lines.map(renderLine)}
       </div>
-      {live ? (
+      {canSend ? (
+        <>
+          <form className="console-card__input" onSubmit={submit}>
+            <input
+              value={draft}
+              onChange={e => { setDraft(e.target.value); if (err) setErr(null); }}
+              placeholder="Type a console command (e.g. say hello, kick player)…"
+              spellCheck="false"
+              disabled={sending}
+            />
+            <button type="submit" disabled={!draft.trim() || sending}>Send</button>
+          </form>
+          {err ? (
+            <div className="console-card__error" role="alert">
+              <Icon name="triangle-alert" size={12} /> {err}
+            </div>
+          ) : null}
+        </>
+      ) : note ? (
         <div className="console-card__readonly">
-          <Icon name="terminal-square" size={12} /> Live stdout · read-only (no command channel yet)
+          <Icon name={note.icon} size={12} /> {note.text}
         </div>
-      ) : readOnly ? (
-        <div className="console-card__readonly">
-          <Icon name="lock" size={12} /> Read-only — you don’t have permission to send console commands.
-        </div>
-      ) : (
-        <form className="console-card__input" onSubmit={e => e.preventDefault()}>
-          <input placeholder="Type a console command (e.g. say hello, kick player)…" />
-          <button type="submit">Send</button>
-        </form>
-      )}
+      ) : null}
     </section>
   );
 }
