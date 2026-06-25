@@ -28,7 +28,10 @@ export const REGISTRY_KEY = "krystal:hosts:registry";
 function readRegistry() {
   try {
     const arr = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem(REGISTRY_KEY)) || "[]");
-    return Array.isArray(arr) ? arr.filter(h => h && h.url) : [];
+    // Self-heal: a registry URL is always a full http(s) ORIGIN (connect.js stores `new URL().origin`).
+    // A scheme-less entry (e.g. a bare "hotrod") is a corruption artifact — it would resolve to
+    // https://hotrod via originOf and break every call. Drop it so the seed / connect screen take over.
+    return Array.isArray(arr) ? arr.filter(h => h && h.url && /^https?:\/\//i.test(h.url)) : [];
   } catch (e) { return []; }
 }
 

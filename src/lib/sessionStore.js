@@ -1,6 +1,6 @@
 import { api } from "./apiClient.js";
 import { takePendingTokens } from "./authRedirect.js";
-import { REGISTRY_KEY } from "./config.js";
+import { REGISTRY_KEY, apiOriginOf } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
 
@@ -106,8 +106,15 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   }
   function writeRegistry(list) { try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch (e) {} }
   function register(host) {
+    // The registry stores the CONNECTION ORIGIN we actually reach this host at — an explicit url if
+    // the caller has one, else the origin we're ALREADY talking to it on (apiOriginOf, from the seed
+    // or a prior registry entry). NEVER the backend's self-reported hostname/id: those aren't
+    // reachable URLs (a bare "hotrod" → https://hotrod via originOf), and falling back to them here
+    // would clobber a good origin every time GET /hosts reloads. No real origin ⇒ don't write.
+    const url = host.url || apiOriginOf(host.id);
+    if (!url || !/^https?:\/\//i.test(url)) return;
     const list = readRegistry().filter(h => h.id !== host.id);
-    list.push({ id: host.id, url: host.url || host.hostname || host.id, name: host.name || host.id });
+    list.push({ id: host.id, url, name: host.name || host.label || host.id });
     writeRegistry(list);
   }
 
