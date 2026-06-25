@@ -13,6 +13,15 @@ import { writeFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
 
 const API = process.env.KGSM_API || "http://127.0.0.1:8097";
 
+// The instance name this smoke emits SYNTHETIC `instance-started` events for, to drive
+// the live audit/realtime checks below. The audit log is append-only and persistent, so
+// these rows outlive the run — they MUST NOT masquerade as a real game-server start.
+// Using an obviously-synthetic name (not a real instance like factorio-test) keeps the
+// pipeline test honest: a `server.start` row for "__smoke_probe__" reads as test data,
+// never a phantom factorio-test start in the operator's audit trail. kgsm `events emit`
+// does not validate the name, so no such instance need exist.
+const AUDIT_PROBE = "__smoke_probe__";
+
 // Preflight: the backend must be reachable, else this smoke is meaningless.
 try {
   const r = await fetch(API + "/api/v1");
@@ -360,9 +369,11 @@ try {
   }
   assert(rtMode === "live", `realtime WS connected (mode=${rtMode})`);
 
-  // (b) audit.append end-to-end: a real kgsm event → WS → prepended row
+  // (b) audit.append end-to-end: a real kgsm event → WS → prepended row.
+  // Emitted for the synthetic AUDIT_PROBE, not a real instance, so this persistent
+  // append doesn't leave a phantom factorio-test start in the audit log.
   const beforeTop = (st.auditStore.getState().list[0] || {}).id;
-  execSync("/home/heisen/tks/kgsm/kgsm.sh events emit instance-started factorio-test");
+  execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
   let appended = false;
   for (let i = 0; i < 40; i++) {
     const top = st.auditStore.getState().list[0];
@@ -949,7 +960,9 @@ try {
   // backend so the cursor walks the FILTERED log (old matching events stay
   // reachable behind newer noise). DB was wiped (Ts storage changed to ticks), so
   // seed it deterministically first.
-  for (let i = 0; i < 6; i++) execSync("/home/heisen/tks/kgsm/kgsm.sh events emit instance-started factorio-test");
+  // Seed against the synthetic AUDIT_PROBE (not a real instance): these rows persist in
+  // the append-only audit log, so they must read as test data, never phantom real starts.
+  for (let i = 0; i < 6; i++) execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
   let seeded = 0;
   for (let i = 0; i < 50; i++) {
     seeded = (await api.get("/audit?limit=200")).rows.length;
@@ -995,9 +1008,9 @@ try {
   // rows; an unknown server → 0 (filtered server-side, not client-trimmed); a
   // future `since` → 0 while a 1h-ago `since` returns the recent rows (a real
   // bound, not all-or-nothing). Proves the params reach the backend + filter there.
-  const fScoped = await st.auditStore.refresh({ serverId: "factorio-test" });
-  assert(fScoped.length > 0 && fScoped.every(r => r.serverId === "factorio-test"),
-    `audit pushdown: refresh({serverId}) → ${fScoped.length} rows, all scoped to factorio-test`);
+  const fScoped = await st.auditStore.refresh({ serverId: AUDIT_PROBE });
+  assert(fScoped.length > 0 && fScoped.every(r => r.serverId === AUDIT_PROBE),
+    `audit pushdown: refresh({serverId}) → ${fScoped.length} rows, all scoped to ${AUDIT_PROBE}`);
   const fNone = await st.auditStore.refresh({ serverId: "no-such-server-xyz" });
   assert(fNone.length === 0 && st.auditStore.getState().nextCursor === null,
     "audit pushdown: refresh({serverId:unknown}) → 0 rows (filtered server-side, cursor null)");

@@ -100,7 +100,16 @@ function RecentActivity({ hostId, serverId, onViewAll, max = 3, title = "Recent 
     [auditList, hostId, serverId]
   );
   const recent = scoped.slice(0, max);
-  const now = scoped.length ? parseTs(scoped[0].ts) : new Date();
+  // 1s clock so the "Xs ago" labels tick up live instead of freezing until the
+  // next audit entry arrives or the page reloads. `now` is the wall clock (same
+  // reference the full Audit log page uses), not the newest entry's own
+  // timestamp — pinning to that made the latest row read "0s ago" forever.
+  const [, setClock] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setClock(c => c + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const now = new Date();
   return (
     <BriefCard
       icon="scroll-text"
@@ -205,12 +214,15 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   const catalogVisible = libraryList.slice(0, catalogFit);
   // Fit-to-width for the bottom Servers row, mirroring Recently added but
   // capped at 4 — show only as many tiles as fit one row, never more than 4.
+  // The layout itself is the shared `.server-grid` (same as the Library page),
+  // so MIN matches that grid's `minmax(280px, 1fr)` column — this just caps how
+  // many featured tiles to render so the preview stays a single row.
   const serverRowRef = React.useRef(null);
   const [serverFit, setServerFit] = React.useState(4);
   React.useLayoutEffect(() => {
     const el = serverRowRef.current;
     if (!el) return;
-    const MIN = 240, GAP = 12, PAD = 0; // tile min width, gap (no row padding)
+    const MIN = 280, GAP = 12, PAD = 0; // tile min width, gap (no row padding)
     const compute = () => {
       const w = el.clientWidth - PAD;
       setServerFit(Math.max(1, Math.min(4, Math.floor((w + GAP) / (MIN + GAP)))));
@@ -415,7 +427,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
               <button className="dash-servers-empty__link" onClick={() => onServers()}>View all servers</button>
             </div>
           ) : (
-            <div className="server-grid" ref={serverRowRef} style={{ gridTemplateColumns: `repeat(${Math.min(serverFit, featuredServers.length)}, 1fr)` }}>
+            <div className="server-grid" ref={serverRowRef}>
               {featuredVisible.map(s => (
                 <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={selectedId === "all"} />
               ))}
