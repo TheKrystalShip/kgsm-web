@@ -574,11 +574,27 @@ const AUDIT_CAP = 1000;    // initial-walk ceiling: auto-completes a typical per
                            //   log (→ search is honest over the whole loaded set); a
                            //   larger log stops here and discloses + offers "load older".
 let _auditGen = 0;         // bumped by refresh() → invalidates an in-flight loadMore
+// Which host this single-host walk reads. The sole/selected connection's id, so
+// the call routes through that host's AUTH-GATED client (api.host(id)) — the bare
+// api.get bypasses the per-host bearer + ensure()/401-retry, which under an
+// auth-enabled backend means an unauthenticated 401 and an empty log on cold boot
+// (the live WS still authenticates, so streamed appends appear but the backfill
+// never does). At boot selectedHost is "all" (hosts not hydrated yet) → fall back
+// to the lone connection. Null only for an id-less seed, where there's no bearer
+// to attach anyway → plain api.get (matches the multi-host fanOut: id ? scoped : bare).
+const _auditHostId = () => {
+  const sel = selectedHostStore.getState().id;
+  if (sel && sel !== "all") return sel;
+  const c = CONNECTIONS[0];
+  return c && c.id ? c.id : null;
+};
 const _fetchAuditPage = (cursor, params) => {
   const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
   if (cursor) qs.set("cursor", cursor);
   for (const k in (params || {})) { const v = params[k]; if (v != null && v !== "") qs.set(k, v); }
-  return api.get("/audit?" + qs.toString()).then(page => ({
+  const id = _auditHostId();
+  const client = id ? api.host(id) : api;   // auth-gated when we know the host id
+  return client.get("/audit?" + qs.toString()).then(page => ({
     rows: ((page && page.rows) || []).map(_withHost),
     nextCursor: (page && page.nextCursor) || null,
   }));
