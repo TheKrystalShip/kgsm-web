@@ -950,7 +950,7 @@ function App() {
             servers={scopedServers}
             canFleet={can("nav.fleet")}
             onOpenServer={(id) => setRoute({ kind: "server", id })}
-            onAction={(id, action) => { setRoute({ kind: "server", id }); setTimeout(() => handleAction(action), 0); }}
+            onAction={(id, action) => handleAction(action, id)}
             onLibrary={(filter) => setRoute({ kind: "library", filter })}
             onInstall={openGame}
             onAudit={() => setRoute({ kind: "audit" })}
@@ -975,7 +975,7 @@ function App() {
             onSelectHost={selectHost}
             initialStatus={route.status}
             onOpenServer={(id) => setRoute({ kind: "server", id })}
-            onAction={(id, action) => { setRoute({ kind: "server", id }); setTimeout(() => handleAction(action), 0); }}
+            onAction={(id, action) => handleAction(action, id)}
             onLibrary={() => setRoute({ kind: "library" })}
           />}
           {route.kind === "library" && <Library key={route.filter || "all"} onOpenGame={openGame} onDeploy={handleInstall} initialFilter={route.filter} />}
@@ -985,7 +985,7 @@ function App() {
                 servers={servers}
                 onCreate={(g) => setInstalling(g)}
                 onOpenServer={(id) => setRoute({ kind: "server", id })}
-                onAction={(id, action) => { setRoute({ kind: "server", id }); setTimeout(() => handleAction(action), 0); }}
+                onAction={(id, action) => handleAction(action, id)}
                 onBrowse={() => setRoute({ kind: "library" })}
               />
             : <div style={{ padding: "60px 0", textAlign: "center", color: "var(--fg-3)" }}>

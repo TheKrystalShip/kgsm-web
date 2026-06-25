@@ -36,9 +36,14 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // Players (viewer / consumer preview) can't operate this host — the quick
   // lifecycle row is replaced with a Join / connect button instead.
   const canOps = serverOperable ? serverOperable(server) : true;
+  // Open-on-click is scoped to the art, name and notice regions only — NOT the
+  // whole tile. The quick-action buttons and the Join control live in the body
+  // right next to those regions; making the whole tile clickable used to swallow
+  // their clicks, so nothing above the buttons carries an open handler anymore.
+  const open = () => onOpen(server.id);
   return (
-    <div className="server-tile" onClick={() => onOpen(server.id)}>
-      <div className="server-tile__art" style={{ background: art, backgroundSize: "cover", backgroundPosition: "center" }}>
+    <div className="server-tile">
+      <div className="server-tile__art" onClick={open} style={{ background: art, backgroundSize: "cover", backgroundPosition: "center" }}>
         <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
           title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
           <span className="dot"></span>
@@ -60,10 +65,10 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         <span className="server-tile__game">{server.game}</span>
       </div>
       <div className="server-tile__body">
-        <div className="server-tile__name">{server.name}</div>
+        <div className="server-tile__name" onClick={open}>{server.name}</div>
         {server.notice
-          ? <div className="server-tile__notice">{server.notice}</div>
-          : <div className="server-tile__notice server-tile__notice--empty">No server note</div>}
+          ? <div className="server-tile__notice" onClick={open}>{server.notice}</div>
+          : <div className="server-tile__notice server-tile__notice--empty" onClick={open}>No server note</div>}
         <div className="server-tile__meta">
           <span><Icon name="users" size={11} /> {server.players ? server.players.current + "/" + server.players.max : "—"}</span>
           <span className={"server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "")}><Icon name="cpu" size={11} /> {server.cpu == null ? "—" : server.cpu + "%"}</span>
@@ -75,7 +80,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
           )}
         </div>
         {canOps && (
-          <div className="server-tile__quick" onClick={(e) => e.stopPropagation()}>
+          <div className="server-tile__quick">
             <ServerActionButton verb="start"   disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
             <ServerActionButton verb="restart" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
             <ServerActionButton verb="stop"    disabled={!isOnline || watchdogDown}              reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
@@ -84,7 +89,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         {/* Join / connect — shown to everyone (operators play too), below their
             lifecycle controls. */}
         {ServerConnect && (
-          <div className="server-tile__connect" onClick={(e) => e.stopPropagation()}>
+          <div className="server-tile__connect">
             <ServerConnect server={server} variant="tile" />
           </div>
         )}

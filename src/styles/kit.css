@@ -1332,8 +1332,11 @@ body { overflow: hidden; }
 .dash-section h2 .count { font-size: 11.5px; font-weight: 600; color: var(--fg-3); background: var(--surface-2); padding: 2px 8px; border-radius: 999px; }
 
 .server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.server-tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; cursor: pointer; transition: border-color var(--d-fast) var(--ease-out); }
+.server-tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--d-fast) var(--ease-out); }
 .server-tile:hover { border-color: var(--border-strong); }
+/* Only the art, title and notice open the server — not the whole tile — so the
+   quick-action / Join controls below stay independently clickable. */
+.server-tile__art, .server-tile__name, .server-tile__notice { cursor: pointer; }
 .server-tile__art { position: relative; height: 88px; background-size: cover; background-position: center; }
 .server-tile__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, var(--surface-1) 0%, transparent 60%); }
 .server-tile__pill { position: absolute; top: 10px; left: 10px; z-index: 2; font-size: 11px; font-weight: 600; padding: 3px 8px 3px 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
