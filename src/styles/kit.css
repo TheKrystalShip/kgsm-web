@@ -4,6 +4,16 @@
 html, body, #root { height: 100%; margin: 0; }
 body { overflow: hidden; }
 
+/* Global scrollbar — matches Monaco's slider (the theme's scrollbarSlider tokens):
+   a thin, track-less, subtly-inset thumb instead of the chunky OS default that
+   clashed with the dark theme. Applies to every scrollable surface site-wide.
+   scrollbar-width/color cover Firefox. */
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.13); border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); border: 3px solid transparent; background-clip: padding-box; }
+
 /* App shell */
 .app {
   display: grid;
@@ -751,14 +761,7 @@ body { overflow: hidden; }
 .fb-briefcard .fb-tree { min-height: 0; }
 .fb-editor__btn--sm { height: 30px; padding: 0 10px; font-size: 12.5px; }
 .fb-tree { border-right: 1px solid var(--border-subtle); padding: 10px; overflow-y: auto; background: var(--surface-0); }
-/* Tree scrollbar — matches Monaco's slider (the theme's scrollbarSlider tokens):
-   a thin, track-less, subtly-inset thumb instead of the chunky OS default that
-   clashed with the dark theme. scrollbar-width/color cover Firefox. */
-.fb-tree { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent; }
-.fb-tree::-webkit-scrollbar { width: 11px; height: 11px; }
-.fb-tree::-webkit-scrollbar-track { background: transparent; }
-.fb-tree::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.13); border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
-.fb-tree::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); border: 3px solid transparent; background-clip: padding-box; }
+/* The tree's scrollbar styling now comes from the global rule at the top of this file. */
 .fb-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); cursor: pointer; color: var(--fg-2); font-size: 13px; font-family: var(--font-mono); }
 .fb-row:hover { background: var(--surface-2); color: var(--fg-1); }
 .fb-row--active { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
