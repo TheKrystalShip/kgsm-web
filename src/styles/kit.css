@@ -3778,6 +3778,25 @@ body { overflow: hidden; }
 .ev-health__label { color: var(--fg-1); font-weight: 600; white-space: nowrap; }
 .ev-health__detail { color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; }
 
+/* fleet roll-up evidence */
+.ev-fleet { padding: 4px 12px 12px; display: flex; flex-direction: column; }
+.ev-fleet__row {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: baseline;
+  padding: 6px 0; font-size: 12.5px;
+}
+.ev-fleet__row + .ev-fleet__row { border-top: 1px solid var(--border-subtle); }
+.ev-fleet__icon {
+  width: 16px; height: 16px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; align-self: center;
+}
+/* running = success · stopped = neutral idle (stopped is NOT unhealthy) · unknown = warn */
+.ev-fleet__row--success .ev-fleet__icon { background: var(--success-bg); color: var(--success-fg); }
+.ev-fleet__row--idle    .ev-fleet__icon { background: var(--surface-3);  color: var(--fg-4);        }
+.ev-fleet__row--warn    .ev-fleet__icon { background: var(--warning-bg); color: var(--warning-fg); }
+.ev-fleet__name { color: var(--fg-1); font-weight: 600; white-space: nowrap; }
+.ev-fleet__state { color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; }
+
 /* root-cause chain evidence */
 .ev-chain { padding: 8px 12px 12px; display: flex; flex-direction: column; }
 .ev-chain__step { display: grid; grid-template-columns: 14px auto 1fr; gap: 10px; }

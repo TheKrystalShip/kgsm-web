@@ -183,9 +183,40 @@ function adaptResultCard(card) {
         warns,
       };
     }
+    case "get_status": {
+      // Fleet mode (no instance arg) carries a FleetStatusData roll-up. Single-server
+      // get_status carries no `result` envelope at all (opaque status string upstream),
+      // so this case only ever sees the fleet shape — the servers[] guard makes that
+      // explicit. tones are derived from run-state, NOT the wire severity: stopped is
+      // neutral ("idle"), never red — a stopped server is not unhealthy. An unreadable
+      // server stays "unknown"/warn with its reason, never collapsed to stopped.
+      const d = card.data;
+      if (!d || !Array.isArray(d.servers)) return null;
+      const TONE = { running: "success", stopped: "idle", unknown: "warn" };
+      const servers = d.servers.map(s => {
+        const state = String(s.state || "unknown").toLowerCase();
+        const known = Object.prototype.hasOwnProperty.call(TONE, state);
+        return {
+          instance: s.instance || "—",
+          state: known ? state : "unknown",
+          tone: known ? TONE[state] : "warn",
+          reason: s.reason || null,
+        };
+      });
+      const parts = [];
+      if (typeof d.running === "number") parts.push(d.running + " running");
+      if (typeof d.stopped === "number") parts.push(d.stopped + " stopped");
+      if (d.unavailable) parts.push(d.unavailable + " unavailable");
+      return {
+        kind: "fleet",
+        confidence: card.confidence || null,
+        summary: parts.join(" · ") || (servers.length + " server" + (servers.length === 1 ? "" : "s")),
+        servers,
+      };
+    }
     default:
-      // get_status (fleet) and any future structured tool have real data on the wire
-      // but no renderer yet → keep the text pill, add no card. Never fabricate.
+      // Any future structured tool without a renderer yet → keep the text pill,
+      // add no card. Never fabricate.
       return null;
   }
 }
@@ -499,6 +530,7 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "console")     return <EvidenceConsole     key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "console")} />;
         if (c.kind === "config")      return <EvidenceConfig      key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "files")} />;
         if (c.kind === "host")        return <EvidenceHost        key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
+        if (c.kind === "fleet")       return <EvidenceFleet       key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
         if (c.kind === "network")     return <EvidenceNetwork     key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
         if (c.kind === "health")      return <EvidenceHealth      key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
@@ -699,6 +731,31 @@ function EvidenceHealth({ c, onOpenServer }) {
             <span className="ev-health__detail">{ck.detail}</span>
           </div>
         ))}
+      </div>
+    </EvidenceCardShell>
+  );
+}
+
+function EvidenceFleet({ c, onOpen }) {
+  const STATE = {
+    running: { icon: "circle-check-big", label: "Running" },
+    stopped: { icon: "circle",           label: "Stopped" },
+    unknown: { icon: "help-circle",      label: "Status unavailable" },
+  };
+  return (
+    <EvidenceCardShell icon="layout-grid" title="Fleet status" sub={c.summary}
+      confidence={c.confidence} onOpen={onOpen} openLabel="Open fleet">
+      <div className="ev-fleet">
+        {c.servers.map((s, i) => {
+          const meta = STATE[s.state] || STATE.unknown;
+          return (
+            <div className={"ev-fleet__row ev-fleet__row--" + s.tone} key={i}>
+              <span className="ev-fleet__icon"><Icon name={meta.icon} size={11} strokeWidth={2.6} /></span>
+              <span className="ev-fleet__name">{s.instance}</span>
+              <span className="ev-fleet__state">{s.reason || meta.label}</span>
+            </div>
+          );
+        })}
       </div>
     </EvidenceCardShell>
   );

@@ -710,10 +710,28 @@ try {
   nm = R(nm, { type: "tool.result", id: "tc_0_0", summary: "online" });
   const nbub = nm.find((x) => x.role === "assistant");
   assert(!nbub.cards, "reduceTurnFrame: a result-less tool.result adds no card (honest — text pill only)");
-  assert(A({ tool: "get_status", subject: { id: "x" }, data: { servers: [] } }) === null
+  assert(A({ tool: "get_status", subject: { id: "x" }, data: { servers: [] } }).kind === "fleet"
     && A({ tool: "run_health_check", confidence: "likely", subject: { id: "y" },
          data: { passed: 0, total: 1, skipped: 0, checks: [{ name: "disk", state: "fail", detail: "94% full" }] } }).fails === 1,
-    "adaptResultCard: unknown tool → null; run_health_check → card with computed fail count");
+    "adaptResultCard: get_status fleet → fleet card; run_health_check → card with computed fail count");
+  // get_status fleet (FleetStatusData) → a `fleet` Evidence card; stopped is neutral
+  // (idle, not red), an unreadable server stays unknown/warn with its reason (never stopped).
+  let fm = [{ role: "user", content: "status?" }, { role: "assistant", content: "" }];
+  fm = R(fm, { type: "tool.start", id: "tc_0_0", tool: "get_status" });
+  fm = R(fm, { type: "tool.result", id: "tc_0_0", summary: "2 running, 1 stopped, 1 unavailable",
+    result: { tool: "get_status", confidence: "confirmed", subject: { resource: "host", id: "primary" },
+      data: { running: 2, stopped: 1, unavailable: 1, total: 4, servers: [
+        { instance: "factorio-test", state: "running", severity: "success", reason: null },
+        { instance: "terraria-hardmode", state: "stopped", severity: "info", reason: null },
+        { instance: "valheim", state: "unknown", severity: "warn", reason: "Could not read run-state." },
+      ] } } });
+  const fcard = fm.find((x) => x.role === "assistant").cards[0];
+  assert(fcard && fcard.kind === "fleet" && fcard.confidence === "confirmed"
+    && fcard.summary === "2 running · 1 stopped · 1 unavailable" && fcard.servers.length === 3
+    && fcard.servers[0].tone === "success" && fcard.servers[1].tone === "idle"
+    && fcard.servers[2].tone === "warn" && fcard.servers[2].state === "unknown"
+    && fcard.servers[2].reason === "Could not read run-state.",
+    "reduceTurnFrame: get_status fleet result → a `fleet` card (running=success, stopped=idle, unreadable=warn+reason)");
 
   // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
   // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
