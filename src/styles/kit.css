@@ -3692,6 +3692,8 @@ body { overflow: hidden; }
 .ev-conf--confirmed { background: var(--success-bg); color: var(--success-fg); }
 .ev-conf--likely    { background: var(--info-bg);    color: var(--info-fg);    }
 .ev-conf--possible  { background: var(--surface-3);  color: var(--fg-3);       }
+/* "Confidence:" lead-in, grouped tight to the pill so it reads as one unit */
+.ev-card__conf-label { font-size: 10.5px; font-weight: 600; color: var(--fg-4); flex-shrink: 0; margin-right: -4px; }
 
 /* performance evidence */
 .ev-chart { padding: 10px 12px 4px; }

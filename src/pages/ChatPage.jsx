@@ -530,9 +530,9 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "console")     return <EvidenceConsole     key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "console")} />;
         if (c.kind === "config")      return <EvidenceConfig      key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "files")} />;
         if (c.kind === "host")        return <EvidenceHost        key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
-        if (c.kind === "fleet")       return <EvidenceFleet       key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
+        if (c.kind === "fleet")       return <EvidenceFleet       key={i} c={c} />;
         if (c.kind === "network")     return <EvidenceNetwork     key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
-        if (c.kind === "health")      return <EvidenceHealth      key={i} c={c} onOpenServer={onOpenServer} />;
+        if (c.kind === "health")      return <EvidenceHealth      key={i} c={c} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
         return null;
@@ -567,6 +567,8 @@ function EvidenceCardShell({ icon, title, sub, onOpen, openLabel, children, conf
           <span className="ev-card__title">{title}</span>
           {sub && <span className="ev-card__sub">{sub}</span>}
         </div>
+        {/* Label the confidence pill so a first-time user knows what it indicates. */}
+        {confidence && <span className="ev-card__conf-label">Confidence:</span>}
         <ConfidenceBadge level={confidence} />
         {onOpen && (
           <button className="ev-card__open" onClick={onOpen}>
@@ -708,7 +710,7 @@ function EvidenceRootCause({ c, onOpenServer }) {
   );
 }
 
-function EvidenceHealth({ c, onOpenServer }) {
+function EvidenceHealth({ c }) {
   const verdict = c.fails ? "danger" : c.warns ? "warn" : "success";
   const headline = c.fails
     ? `${c.fails} issue${c.fails === 1 ? "" : "s"} found`
@@ -717,8 +719,7 @@ function EvidenceHealth({ c, onOpenServer }) {
   return (
     <EvidenceCardShell icon="stethoscope" title={"Health check · " + c.serverName}
       sub={`${c.passes}/${c.checks.length} passed`}
-      confidence={c.confidence}
-      onOpen={() => onOpenServer && onOpenServer(c.serverId, "overview")} openLabel="Open server">
+      confidence={c.confidence}>
       <div className={"ev-health__verdict ev-health__verdict--" + verdict}>
         <Icon name={verdict === "success" ? "circle-check-big" : "alert-triangle"} size={13} />
         {headline}
@@ -736,15 +737,17 @@ function EvidenceHealth({ c, onOpenServer }) {
   );
 }
 
-function EvidenceFleet({ c, onOpen }) {
+function EvidenceFleet({ c }) {
+  // Same icon vocabulary as EvidenceHealth (pass=check / skip=minus / warn=alert-triangle)
+  // so the two cards read consistently: running→check, stopped→minus (neutral), unknown→warn.
   const STATE = {
-    running: { icon: "circle-check-big", label: "Running" },
-    stopped: { icon: "circle",           label: "Stopped" },
-    unknown: { icon: "help-circle",      label: "Status unavailable" },
+    running: { icon: "check",          label: "Running" },
+    stopped: { icon: "minus",          label: "Stopped" },
+    unknown: { icon: "alert-triangle", label: "Status unavailable" },
   };
   return (
     <EvidenceCardShell icon="layout-grid" title="Fleet status" sub={c.summary}
-      confidence={c.confidence} onOpen={onOpen} openLabel="Open fleet">
+      confidence={c.confidence}>
       <div className="ev-fleet">
         {c.servers.map((s, i) => {
           const meta = STATE[s.state] || STATE.unknown;
