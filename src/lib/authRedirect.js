@@ -85,13 +85,14 @@ export async function completeOAuthLogin(captured) {
     // 2 + 3: resolve the real host id, adopt the session under it, hydrate. Best-
     // effort — a hiccup here leaves the user signed in (identity is set) but with
     // data unloaded until the next call heals it, never a broken half-login.
-    let hostId = null;
+    let hostId = null, hostName = null;
     try {
       const hr = await fetch(API_V1 + "/hosts", { headers: authHeaders });
       if (hr.ok) {
         const arr = await hr.json();
         const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]);
         hostId = (h && h.id) || null;
+        hostName = (h && (h.label || h.name)) || null;
       }
     } catch (e) {}
     if (hostId) {
@@ -102,6 +103,12 @@ export async function completeOAuthLogin(captured) {
         sessionStore.adoptSession(hostId, {
           token: captured.access, refresh: captured.refresh || null, tier: (me && me.tier) || "none",
         });
+        // Persist this host (with its REAL id) into the localStorage registry so a RELOAD
+        // re-derives the connection WITH that stable id. The per-host session (keyed by id) then
+        // resumes from sessionStorage / the refresh token. Without this a same-origin "self" seed
+        // reverts to an id-less connection on reload and the session can't be matched back —
+        // dropping the user to the unauthenticated/Viewer state with every call 401-ing.
+        sessionStore.register({ id: hostId, url: API_BASE, name: hostName });
       } catch (e) {}
       try {
         const stores = await import("./stores.js");

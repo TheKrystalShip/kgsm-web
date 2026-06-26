@@ -36,7 +36,14 @@ function readRegistry() {
 }
 
 // Optional single-host seed from the build/dev env (also the smoke:live lever).
-const SEED_URL = clean(env.VITE_API_BASE);
+// SAME-ORIGIN deployment: when kgsm-api serves this bundle at / and the API under /api/v1 on
+// the SAME host, build with VITE_API_BASE="self" (or "same-origin") — the seed then resolves to
+// the origin that served the page (window.location.origin), so the bundle carries no baked URL
+// and talks to wherever it was loaded from. Any other value is used verbatim (a full origin).
+const RAW_SEED = clean(env.VITE_API_BASE);
+const SEED_URL = /^(self|same-origin)$/i.test(RAW_SEED)
+  ? (typeof location !== "undefined" ? clean(location.origin) : "")
+  : RAW_SEED;
 const SEED_WS = clean(env.VITE_WS_BASE);
 
 // The connection set the app drives. Real registry wins; otherwise the seed

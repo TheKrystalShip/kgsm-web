@@ -3777,7 +3777,7 @@ body { overflow: hidden; }
 .ev-health__row--warn .ev-health__icon { background: var(--warning-bg); color: var(--warning-fg); }
 .ev-health__row--fail .ev-health__icon { background: var(--danger-bg);  color: var(--danger-fg);  }
 .ev-health__row--skip .ev-health__icon { background: var(--surface-3);  color: var(--fg-4);        }
-.ev-health__label { color: var(--fg-1); font-weight: 600; white-space: nowrap; }
+.ev-health__label { color: var(--fg-1); font-weight: 600; white-space: nowrap; align-self: center; }
 .ev-health__detail { color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; }
 
 /* fleet roll-up evidence */

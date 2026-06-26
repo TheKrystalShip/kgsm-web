@@ -296,9 +296,16 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // left unbootstrapped and the reactive block below bootstraps it from GET /me as
   // the host list hydrates. NEVER fabricate a tier/token from host flags.
   function seed() {
-    const hosts = (hostsStore && hostsStore.getState().list) || [];
+    // Resume persisted sessions for every host known at boot — both the (async-hydrating) host
+    // list AND the localStorage registry. The registry carries the stable host id BEFORE the
+    // GET /hosts round-trip lands, so a same-origin reload restores its access token + tier
+    // IMMEDIATELY (no Viewer flash / no doomed unauthenticated call while a refresh round-trips).
+    const ids = new Set([
+      ...((hostsStore && hostsStore.getState().list) || []).map(h => h && h.id),
+      ...readRegistry().map(h => h && h.id),
+    ].filter(Boolean));
     const live = {};
-    hosts.forEach(h => { const p = readSession(h.id); if (p) { live[h.id] = p; if (p.status === "live") scheduleRefresh(h.id); } });
+    ids.forEach(id => { const p = readSession(id); if (p) { live[id] = p; if (p.status === "live") scheduleRefresh(id); } });
     store.setState({ byHost: live });
   }
 
