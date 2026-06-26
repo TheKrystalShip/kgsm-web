@@ -700,7 +700,7 @@ try {
   const hcard = hbub.cards && hbub.cards[0];
   assert(hcard && hcard.kind === "health" && hcard.serverId === "factorio-test"
     && hcard.confidence === "confirmed" && hcard.passes === 1 && hcard.warns === 1 && hcard.fails === 0
-    && hcard.checks.length === 2 && hcard.checks[0].label === "Server online" && hcard.checks[1].status === "warn",
+    && hcard.checks.length === 2 && hcard.checks[0].label === "Server" && hcard.checks[1].status === "warn",
     "reduceTurnFrame: structured tool.result → a `health` Evidence card on the bubble (counts + labels from HealthData)");
   const hpill = hbub.tools && hbub.tools[0];
   assert(hpill && hpill.state === "done" && hpill.summary === "passed with warnings (1/2)",

@@ -150,7 +150,9 @@ function composeVerified(verb, serverName, settled) {
 // anything else returns null and the turn keeps just the text pill (never a
 // fabricated card). Pure + exported so the projection is smoke-exercisable.
 const HEALTH_CHECK_LABELS = {
-  liveness: "Server online",
+  // State-neutral: the row's detail carries "Running." / "Stopped (idle)." — a fixed
+  // "Server online" label would contradict the detail when the server is stopped.
+  liveness: "Server",
   logs:     "Console",
   updates:  "Updates",
   disk:     "Disk space",
