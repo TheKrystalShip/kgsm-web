@@ -680,6 +680,41 @@ try {
   assert(bubbles.length === 2 && t1.summary === "5/5 passed" && t2.summary === "online" && t1.state === "done" && t2.state === "done",
     "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's tool, NOT turn-1's resolved one");
 
+  // ---- Phase 5c: structured tool.result → rich Evidence card --------------
+  // A `tool.result` carrying the §5·a `result` envelope (run_health_check →
+  // HealthData) is projected onto the bubble as a `health` Evidence card, ALONGSIDE
+  // the resolved text pill (additive). A result-less tool.result adds no card —
+  // honest, no fabrication. The pure adapter is exercised directly too.
+  const { adaptResultCard: A } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+  let hm = [{ role: "user", content: "health?" }, { role: "assistant", content: "" }];
+  hm = R(hm, { type: "tool.start", id: "tc_0_0", tool: "run_health_check" });
+  hm = R(hm, { type: "tool.result", id: "tc_0_0", summary: "passed with warnings (1/2)",
+    result: { tool: "run_health_check", confidence: "confirmed",
+      subject: { resource: "server", id: "factorio-test" },
+      data: { overall: "warn", passed: 1, total: 2, skipped: 0, checks: [
+        { name: "liveness", state: "pass", severity: "success", detail: "Running." },
+        { name: "updates", state: "warn", severity: "update", detail: "Update available." },
+      ] } } });
+  hm = R(hm, { type: "done", text: "One thing to watch." });
+  const hbub = hm.find((x) => x.role === "assistant");
+  const hcard = hbub.cards && hbub.cards[0];
+  assert(hcard && hcard.kind === "health" && hcard.serverId === "factorio-test"
+    && hcard.confidence === "confirmed" && hcard.passes === 1 && hcard.warns === 1 && hcard.fails === 0
+    && hcard.checks.length === 2 && hcard.checks[0].label === "Server online" && hcard.checks[1].status === "warn",
+    "reduceTurnFrame: structured tool.result → a `health` Evidence card on the bubble (counts + labels from HealthData)");
+  const hpill = hbub.tools && hbub.tools[0];
+  assert(hpill && hpill.state === "done" && hpill.summary === "passed with warnings (1/2)",
+    "reduceTurnFrame: structured result is additive — the resolved tool pill keeps its summary");
+  let nm = [{ role: "user", content: "status?" }, { role: "assistant", content: "" }];
+  nm = R(nm, { type: "tool.start", id: "tc_0_0", tool: "get_status" });
+  nm = R(nm, { type: "tool.result", id: "tc_0_0", summary: "online" });
+  const nbub = nm.find((x) => x.role === "assistant");
+  assert(!nbub.cards, "reduceTurnFrame: a result-less tool.result adds no card (honest — text pill only)");
+  assert(A({ tool: "get_status", subject: { id: "x" }, data: { servers: [] } }) === null
+    && A({ tool: "run_health_check", confidence: "likely", subject: { id: "y" },
+         data: { passed: 0, total: 1, skipped: 0, checks: [{ name: "disk", state: "fail", detail: "94% full" }] } }).fails === 1,
+    "adaptResultCard: unknown tool → null; run_health_check → card with computed fail count");
+
   // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
   // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
   // (origin:"assistant", NO double-write/fabricated audit); the SPA composes the

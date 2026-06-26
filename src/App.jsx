@@ -693,18 +693,6 @@ function App() {
     log: [...activeServer.log, ...(extraLog[activeServer.id] || [])],
   } : null;
 
-  // Page context handed to the docked assistant so it tracks where the user is.
-  const pageContext = React.useMemo(() => {
-    const hostScope = selectedHostId === "all"
-      ? { scope: "all", label: "All hosts" }
-      : (() => { const h = hosts.find(x => x.id === selectedHostId); return { scope: selectedHostId, label: h ? h.name : selectedHostId }; })();
-    if (route.kind === "server") {
-      const s = servers.find(x => x.id === route.id);
-      return { view: "server", serverId: route.id, serverName: s ? s.name : null, tab: route.tab || "overview", host: hostScope };
-    }
-    return { view: route.kind, host: hostScope };
-  }, [route, servers, selectedHostId, hosts]);
-
   // Nav chips in chat → real routes. Keeps the dock open so the conversation
   // persists while the page behind it changes.
   const handleAssistantNavigate = (target) => {
@@ -1044,7 +1032,6 @@ function App() {
             assistantHost={assistantHost}
             assistantHosts={assistantHostList}
             onSelectAssistantHost={setAssistantHostId}
-            pageContext={pageContext}
             seed={assistantSeed}
             onClose={() => setAssistantOpen(false)}
             onExpand={() => { setAssistantOpen(false); setRoute({ kind: "chat" }); }}

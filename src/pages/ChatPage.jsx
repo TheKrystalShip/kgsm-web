@@ -6,7 +6,7 @@ import { TimeSeriesChart } from "../components/TimeSeriesChart.jsx";
 import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
-import { confirmCommand, scopeServers, serversStore } from "../lib/stores.js";
+import { confirmCommand, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
 
@@ -140,6 +140,56 @@ function composeVerified(verb, serverName, settled) {
   };
 }
 
+// ---------- §5·a structured result → evidence card ----------
+// A `tool.result` frame may carry a structured `result` envelope (the §5·a
+// ToolResultCard: { tool, confidence, subject:{resource,id}, data, links }) IN
+// ADDITION to its text `summary`. When it does, project it into one of the rich
+// Evidence cards (ChatEvidence) instead of discarding it — the summary still rides
+// on the resolved tool pill; the card is additive. Honest by construction: only a
+// tool with a real structured source AND a matching renderer yields a card;
+// anything else returns null and the turn keeps just the text pill (never a
+// fabricated card). Pure + exported so the projection is smoke-exercisable.
+const HEALTH_CHECK_LABELS = {
+  liveness: "Server online",
+  logs:     "Console",
+  updates:  "Updates",
+  disk:     "Disk space",
+};
+function adaptResultCard(card) {
+  if (!card || !card.tool) return null;
+  const id = (card.subject && card.subject.id) || null;
+  switch (card.tool) {
+    case "run_health_check": {
+      const d = card.data;
+      if (!d || !Array.isArray(d.checks)) return null;   // no structured source → no card
+      let fails = 0, warns = 0;
+      const checks = d.checks.map(ck => {
+        if (ck.state === "fail") fails++;
+        else if (ck.state === "warn") warns++;
+        return {
+          label: HEALTH_CHECK_LABELS[ck.name] || (ck.name || "check"),
+          status: ck.state || "skip",
+          detail: ck.detail || "",
+        };
+      });
+      return {
+        kind: "health",
+        serverId: id,
+        serverName: id || "this server",   // the instance id IS its canonical name in kgsm
+        confidence: card.confidence || null,
+        checks,
+        passes: typeof d.passed === "number" ? d.passed : checks.filter(c => c.status === "pass").length,
+        fails,
+        warns,
+      };
+    }
+    default:
+      // get_status (fleet) and any future structured tool have real data on the wire
+      // but no renderer yet → keep the text pill, add no card. Never fabricate.
+      return null;
+  }
+}
+
 // Pure reducer: fold one live §5·a frame into a conversation's message list. The
 // streaming assistant bubble is always the LAST message; tool pills are spliced
 // in just before it. Exported + pure (no React, no convo state) so the live SSE
@@ -183,7 +233,17 @@ function reduceTurnFrame(messages, ev) {
           break;
         }
       }
-      msgs[lastIdx] = { ...bubble, tools: resTools };
+      let next = { ...bubble, tools: resTools };
+      // A structured `result` envelope rides alongside the text summary when the tool
+      // has a real structured source (e.g. run_health_check → HealthData). Project it
+      // into a rich Evidence card on the bubble (rendered below the reply). Additive:
+      // the pill keeps the summary; adaptResultCard returns null for tools without a
+      // matching renderer, so unknown results add no card (no fabrication).
+      if (ev.result) {
+        const card = adaptResultCard(ev.result);
+        if (card) next = { ...next, cards: (bubble.cards || []).concat(card) };
+      }
+      msgs[lastIdx] = next;
       break;
     }
     case "error": {
@@ -261,6 +321,14 @@ function scaffoldHistory(entries) {
       ? t.tools.map((tl, ti) => ({ id: "h" + ei + "_" + ti, label: toolLabel(tl.tool), state: "done", summary: tl.summary || "" }))
       : [];
     if (tools.length) bubble.tools = tools;
+    // Forward-compat: if a stored tool entry carries its structured `result` envelope,
+    // rebuild the same Evidence card a live turn shows. Dormant until the conversation
+    // read-back surfaces the trajectory `Data` (RecordedToolCall.Data) — then history
+    // lights up with no second mapping. Until then there's no `result` → no card.
+    const cards = Array.isArray(t.tools)
+      ? t.tools.map(tl => (tl && tl.result ? adaptResultCard(tl.result) : null)).filter(Boolean)
+      : [];
+    if (cards.length) bubble.cards = cards;
     // An error/cancelled turn with no reply → an honest marker, never a fabricated answer.
     if (!t.final && t.outcome && t.outcome !== "ok") { bubble.content = "⚠️ This turn didn’t complete."; bubble.error = true; }
     out.push(bubble);
@@ -724,9 +792,11 @@ function ChatCommand({ msg, onRun }) {
   );
 }
 
-// ---------- scope lock notice ----------
-// Inline marker shown when the conversation locks onto (or switches) a server,
-// mirroring the "Reading…" context pills so the scope change is visible.
+// ---------- host-switch notice ----------
+// Inline marker shown when the user switches which host's assistant the chat is
+// talking to ("Now talking to X's assistant"), mirroring the "Reading…" context
+// pills so the change reads inline. (Older conversations may also carry these
+// from the removed per-server scope control; they still render fine.)
 function ChatScopeNotice({ msg }) {
   return (
     <div className="chat-scope-notice">
@@ -767,27 +837,6 @@ function ChatToggleNotice({ msg }) {
   );
 }
 
-// ---------- scope chip ----------
-// Header control showing which game-server the conversation is about, so the
-// user doesn't re-type the name every turn. Auto-set from the first server
-// the assistant resolves; changeable / clearable via the dropdown.
-function ScopeChip({ servers, value, onChange }) {
-  const current = servers.find(s => s.id === value) || null;
-  return (
-    <label className={"chat-scope" + (current ? " chat-scope--on" : "")} title="Which server this chat is about">
-      <Icon name="crosshair" size={13} />
-      <span className="chat-scope__label">
-        {current ? current.name : "All servers"}
-      </span>
-      <Icon name="chevron-down" size={13} />
-      <select value={value || ""} onChange={(e) => onChange(e.target.value || null)}>
-        <option value="">All servers</option>
-        {servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-      </select>
-    </label>
-  );
-}
-
 // ---------- post-action verification ----------
 // After a confirmed action runs, the assistant proactively re-checks and
 // reports whether it worked — pending spinner → ✓/⚠ result with detail lines.
@@ -821,7 +870,7 @@ function ChatVerify({ msg }) {
 }
 
 // ---------- message bubble ----------
-function ChatMessage({ msg, user }) {
+function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
   const isUser = msg.role === "user";
   return (
     <div className={"chat-msg" + (isUser ? " chat-msg--user" : " chat-msg--assistant")}>
@@ -847,6 +896,11 @@ function ChatMessage({ msg, user }) {
               ? null   /* the thinking / pending-tool pill is the activity signal — skip typing dots */
               : <span className="chat-typing"><span></span><span></span><span></span></span>}
         </div>
+        {/* Rich result cards from this turn's structured tool results (§5·a `result`
+            envelopes), below the reply — the "behind the scenes" evidence, mockup-style. */}
+        {!isUser && msg.cards && msg.cards.length > 0 && (
+          <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
+        )}
       </div>
     </div>
   );
@@ -1016,7 +1070,7 @@ function ChatSystemNotice({ msg }) {
   );
 }
 
-function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
+function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
   // The assistant is a per-host capability the BACKEND routes to — there is no
   // browser-side endpoint or model config. Connection state + model are read
   // from the selected host's `assistant` capability; when it isn't operational
@@ -1076,42 +1130,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
   const taRef     = React.useRef(null);
-  const serverRef = React.useRef(null);   // last game-server the convo referenced
-  // Mirror of serverRef in state so the scope header re-renders. serverRef
-  // stays for synchronous reads inside send(); setScope keeps the two aligned.
-  const [scopeId, setScopeId] = React.useState(null);
-  const setScope = (id) => { serverRef.current = id; setScopeId(id); };
-
-  // Manual scope change from the header dropdown. Mirrors the inline notice
-  // that auto-scope produces during send, so picking a server (or clearing to
-  // "All servers") is reflected in the thread every time it changes.
-  const changeScope = (id) => {
-    const next = id || null;
-    if (next === scopeId) return;
-    setScope(next);
-    if (!activeId) return;  // no thread to annotate yet
-    const srv = serversStore.getState().list.find(s => s.id === next);
-    const label = srv ? "Switched focus to " + srv.name : "Cleared focus — now considering all servers";
-    setConvos(prev => prev.map(c => {
-      if (c.id !== activeId || c.messages.length === 0) return c;
-      return { ...c, messages: [...c.messages, { role: "scope", label, serverId: next }] };
-    }));
-  };
 
   const active = convos.find(c => c.id === activeId) || null;
-
-  // Reset the conversation scope when switching chats.
-  React.useEffect(() => { serverRef.current = null; setScopeId(null); }, [activeId]);
-
-  // Page-aware context: when docked and the user navigates to a server page,
-  // silently scope the assistant to that server so its context + suggestions
-  // track wherever they are. Passive (no thread notice) since the user didn't
-  // explicitly ask — the header chip reflects the change.
-  React.useEffect(() => {
-    if (!docked || !pageContext) return;
-    const pid = pageContext.serverId || null;
-    if (pid && pid !== serverRef.current) setScope(pid);
-  }, [docked, pageContext && pageContext.serverId]);
 
   // Persist on every change.
   React.useEffect(() => { saveConversations(convos); }, [convos]);
@@ -1187,12 +1207,11 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
 
   // Switch which host's assistant we're talking to. Posts a visible notice in
   // the thread (never a silent swap — you're changing which AI + backend you're
-  // addressing) and clears the server scope, since a server belongs to a host.
+  // addressing).
   const pickAssistantHost = (id) => {
     if (!onSelectAssistantHost) return;
     const next = (assistantHosts || []).find(h => h.id === id);
     onSelectAssistantHost(id);
-    setScope(null);
     if (activeId && next) {
       setConvos(prev => prev.map(c => (c.id === activeId && c.messages.length > 0)
         ? { ...c, messages: [...c.messages, { role: "scope", label: "Now talking to " + next.name + "\u2019s assistant" }] }
@@ -1258,11 +1277,11 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
       c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, ev) } : c));
 
     try {
-      // The scope CHIP still has no turn transport (the body carries no server field; the assistant
-      // resolves the server from the prompt) — but `conversationId` IS sent now: it is THIS chat's
-      // local id, so each "New chat" gets a FRESH assistant context window. The backend namespaces
-      // memory under web:<userId>:<conversationId>, so a new chat no longer recalls a prior one's
-      // history (the user-id prefix stays server-authoritative → never cross-user). See WIRING §9.
+      // The turn body carries no server field — the assistant resolves the server from the prompt.
+      // `conversationId` IS sent: it is THIS chat's local id, so each "New chat" gets a FRESH
+      // assistant context window. The backend namespaces memory under web:<userId>:<conversationId>,
+      // so a new chat no longer recalls a prior one's history (the user-id prefix stays
+      // server-authoritative → never cross-user). See WIRING §9.
       // A voice note whose transcription failed has empty text → send a short
       // marker, so the turn reads instead of a 400 on an empty prompt.
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
@@ -1350,11 +1369,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
     send(transcript || "", { id, duration, peaks });
   };
 
-  // From a briefing item → pre-fill the composer with its prompt and focus,
-  // also pinning the conversation's server scope so context resolves. We
+  // From a briefing item → pre-fill the composer with its prompt and focus. We
   // pre-fill (rather than auto-send) so the user stays in control.
   const startBriefingChat = (item) => {
-    if (item.serverId) setScope(item.serverId);
     setInput(item.prompt);
     setTimeout(() => {
       const ta = taRef.current;
@@ -1363,12 +1380,12 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   };
 
   // External seed (the "Ask assistant" button on an alert) → pre-fill the
-  // composer with a grounded question about that alert and pin its server
-  // scope. Same pre-fill-don't-send contract as briefing items, keyed on the
-  // seed's nonce so each click re-seeds even when the prompt text is identical.
+  // composer with a grounded question about that alert. Same pre-fill-don't-send
+  // contract as briefing items, keyed on the seed's nonce so each click re-seeds
+  // even when the prompt text is identical.
   React.useEffect(() => {
     if (!seed || !seed.prompt) return;
-    startBriefingChat({ serverId: seed.serverId, prompt: seed.prompt });
+    startBriefingChat({ prompt: seed.prompt });
   }, [seed && seed.nonce]);
 
   // Confirm + run an assistant-proposed command (fork (a)). Routes through
@@ -1540,7 +1557,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
                         ? <ChatCommand key={i} msg={m} onRun={runLiveCommand} />
                         : m.role === "verify"
                           ? <ChatVerify key={i} msg={m} />
-                          : <ChatMessage key={i} msg={m} user={user} />
+                          : <ChatMessage key={i} msg={m} user={user} onOpenServer={onOpenServer} onOpenView={onOpenView} />
               )}
             </div>
           )}
@@ -1557,9 +1574,6 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
                 onChange={onInputChange}
                 onKeyDown={onKeyDown} />
               <div className="chat-composer__bar">
-                {assistantHost && (
-                  <ScopeChip servers={scopeServers(serversStore.getState().list, assistantHost.id)} value={scopeId} onChange={changeScope} />
-                )}
                 {/* Thinking toggle — any tier (reasoning is benign). Makes the assistant reason
                     step by step before answering; the reasoning streams into a collapsed-by-default
                     block above the reply (ChatThinking). */}
@@ -1628,4 +1642,4 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   );
 }
 
-export { API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
+export { adaptResultCard, API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, mergeServerConversations, reduceTurnFrame, scaffoldHistory };

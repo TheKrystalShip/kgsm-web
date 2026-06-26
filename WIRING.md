@@ -427,9 +427,12 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > body is **`{prompt}` only** — the assistant owns context/memory/tools, so none of the mock's fabricated
 > context-routing/evidence runs; `thinking.delta` ignored (think:false). A transcription-less voice note
 > sends the mock's marker prompt (avoids a 400 on an empty prompt).
-> **Conscious gap:** the scope chip has **no turn transport** (`AssistantTurnRequest` carries no server
-> field) — it stays a display + follow-up-grounding affordance; the assistant resolves the server from
-> the prompt. Revisit (fold into prompt, or add an API field) only if real usage needs it.
+> **Scope chip — REMOVED 2026-06-26.** The composer's per-server "scope" selector (a `krystal-design`
+> prototype leftover) was deleted with all its wiring: `ScopeChip`, `scopeId`/`setScope`/`serverRef`,
+> `changeScope`, the docked page-context auto-scope effect, and App.jsx's now-dead `pageContext`. It never
+> had a turn transport (`AssistantTurnRequest` carries no server field — the assistant resolves the server
+> from the prompt), so removal is behaviourally inert. The "Now talking to X's assistant" host-switch
+> notice (which reused the `role:"scope"` render path / `ChatScopeNotice`) is retained.
 > **Validated:** real relay streams §5·a **verbatim** through `AssistantController` (curl, assistant
 > operational); `LeafHealthMonitor` flips the `assistant` capability **operational** when the leaf's
 > `/health` answers (so the FE gate opens naturally) — both proven live against a thin SSE stub at
@@ -440,7 +443,8 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > text streams + the pill pairs by id, and turn-2's reused id resolves turn-2's pill without rewriting
 > turn-1's (the bug above). Green with the assistant
 > both **absent and operational** (hardened the dock-naive GamePage assertion — the now-rendering assistant
-> dock's scope chip lists every host server, which tripped a whole-document grep). build + routes + mount
+> dock's scope chip then listed every host server, which tripped a whole-document grep; chip since removed —
+> see above). build + routes + mount
 > green. **OWED:** the real-leaf (Ollama-backed `kgsm-llm` Service) round-trip.
 
 > **Slice 9b — assistant command confirm (fork (a)) — DONE + VALIDATED 2026-06-21.** The turn's command half:

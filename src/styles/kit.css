@@ -3645,7 +3645,7 @@ body { overflow: hidden; }
 .chat-disc--tool .chat-disc__icon { color: var(--fg-4); }
 
 /* ---------- evidence cards ---------- */
-.chat-evidence { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 4px 40px; }
+.chat-evidence { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 4px 0px; }
 .chat-evidence__label {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
@@ -4022,28 +4022,6 @@ body { overflow: hidden; }
 .chat-brief__item .chat-brief__body { padding: 0; }
 .chat-brief__body .server-tile { background: var(--surface-2); }
 
-/* ---------- scope chip (composer toolbar) ---------- */
-.chat-scope {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 8px 0 10px;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  color: var(--fg-3); cursor: pointer;
-  font-size: 12.5px; font-weight: 500;
-  max-width: 240px;
-  transition: background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
-}
-.chat-scope:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--fg-1); }
-.chat-scope--on { background: var(--krystal-teal-dim); border-color: var(--border-accent); color: var(--krystal-teal); font-weight: 600; }
-.chat-scope__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chat-scope select {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer;
-  appearance: none; -webkit-appearance: none;
-  width: 100%; height: 100%; border: none; font-size: 16px;
-}
-
 /* ---------- actions toggle (operator+ only) ---------- */
 /* Lets the assistant suggest + run changes. OFF by default; ON tints amber to signal the
    assistant now has an elevated, change-capable mode (each change is still a confirm-first card). */
@@ -4097,7 +4075,7 @@ body { overflow: hidden; }
 .chat-followup svg { color: var(--fg-4); }
 .chat-followup:hover svg { color: var(--krystal-teal); }
 
-/* ---------- scope lock notice ---------- */
+/* ---------- host-switch / checkpoint notice ---------- */
 .chat-scope-notice {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 12px; margin: 2px 0;
@@ -4272,8 +4250,6 @@ body { overflow: hidden; }
   .chat-evidence, .chat-actions, .chat-followups { margin-left: 0; }
   .chat-verify { margin-left: 0; }
   .chat-action--armed { min-width: 0; width: 100%; }
-  /* Scope chip: keep it compact in the mobile header. */
-  .chat-scope { max-width: 150px; }
 
   .chat-railbar {
     display: flex; align-items: center; gap: 8px;
