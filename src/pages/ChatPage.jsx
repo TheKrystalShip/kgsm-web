@@ -1210,6 +1210,13 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   };
   const deleteChat = (id, e) => {
     e.stopPropagation();
+    // Soft-delete server-side too, so a removed chat doesn't resurrect from the host's history the next
+    // time the "Chat history" popover is opened. Best-effort + idempotent: any chat that has had a turn is
+    // persisted under its owning host's assistant; deleting an id with no server-side content just writes a
+    // harmless tombstone (and the assistant keeps the transcript — soft-delete only hides it from the list).
+    const chat = convos.find(c => c.id === id);
+    const hostId = (chat && chat.hostId) || (assistantHost && assistantHost.id);
+    if (hostId) api.host(hostId).del("/assistant/conversations/" + encodeURIComponent(id)).catch(() => {});
     setConvos(prev => {
       const next = prev.filter(c => c.id !== id);
       if (id === activeId) setActiveId(next[0]?.id || null);

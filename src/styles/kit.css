@@ -3590,7 +3590,7 @@ body { overflow: hidden; }
    Rendered inside the assistant message body, so it already sits in the text column. */
 .chat-context {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 10px;
+  padding: 5px 0px;
   margin: 2px 0;
   color: var(--fg-3);
   font-size: 12px;
@@ -3622,7 +3622,7 @@ body { overflow: hidden; }
 .chat-disc__toggle {
   display: inline-flex; align-items: center; gap: 8px;
   max-width: 100%;
-  padding: 5px 10px;
+  padding: 5px 0px;
   background: transparent; border: none; border-radius: var(--r-md);
   color: var(--fg-3); cursor: pointer;
   font-family: var(--font-ui); font-size: 12px; font-weight: 500;

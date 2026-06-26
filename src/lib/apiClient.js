@@ -157,6 +157,7 @@ import("./stores.js").then((m) => {
   const livePost = (path, body, hostId) => liveFetch("POST", path, body, hostId);
   const livePatch = (path, body, hostId) => liveFetch("PATCH", path, body, hostId);
   const livePut = (path, body, hostId) => liveFetch("PUT", path, body, hostId);
+  const livedel = (path, hostId) => liveFetch("DELETE", path, null, hostId);
 
   // Rotate a host's access token from its long-lived refresh token (§6·a): POST
   // /auth/session/refresh with the REFRESH token as the bearer (NOT the access
@@ -274,6 +275,10 @@ import("./stores.js").then((m) => {
   async function put(path, body, hostId) {
     if (!CONNECTIONS.length) return Promise.reject(offlineError());
     return livePut(path, body, hostId);
+  }
+  async function del(path, hostId) {
+    if (!CONNECTIONS.length) return Promise.reject(offlineError());
+    return livedel(path, hostId);
   }
 
   // ---- realtime transport (one WebSocket PER connection) ------------------
@@ -428,6 +433,7 @@ import("./stores.js").then((m) => {
       post: (p, b) => withRetry(() => post(p, b, id)),
       patch: (p, b) => withRetry(() => patch(p, b, id)),
       put: (p, b) => withRetry(() => put(p, b, id)),
+      del: (p) => withRetry(() => del(p, id)),
       // Assistant turn (SSE). Pre-call gate only (ensure) — a turn isn't
       // idempotent, so withRetry's replay-on-401 would be wrong; an expired token
       // mid-stream just ends the turn and the per-host expired state surfaces on
@@ -452,7 +458,7 @@ import("./stores.js").then((m) => {
   }
 
   const api = {
-    get, post, patch, put, stream, fanOut, refreshSession, pingHost,
+    get, post, patch, put, del, stream, fanOut, refreshSession, pingHost,
     host: hostScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,
