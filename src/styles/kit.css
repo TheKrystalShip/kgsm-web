@@ -3554,6 +3554,23 @@ body { overflow: hidden; }
 }
 .chat-ctx__pop-nums b { color: var(--fg-1); font-weight: 600; }
 .chat-ctx__pop-empty { color: var(--fg-3); font-size: 12px; }
+/* Footer — the "Compact" CTA: summarize older turns to free the window. A quiet
+   secondary button (matches the dock's restrained styling) sitting under a hairline
+   divider; a no-op/error leaves an inline note beneath it. */
+.chat-ctx__pop-foot {
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.chat-ctx__compact {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; height: 32px; padding: 0 12px;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--r-md);
+  color: var(--fg-1); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.chat-ctx__compact:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border-accent); }
+.chat-ctx__compact:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat-ctx__pop-note { font-size: 11.5px; color: var(--fg-3); text-align: center; }
 .chat-ctx__pop--warn   .chat-ctx__pop-pct       { color: var(--warning-fg); }
 .chat-ctx__pop--warn   .chat-ctx__pop-track > i { background: var(--warning); }
 .chat-ctx__pop--danger .chat-ctx__pop-pct       { color: var(--danger-fg); }

@@ -521,14 +521,14 @@ function ChatContextPill({ msg }) {
 }
 
 // ---------- context-usage meter ----------
-// A compact header gauge of how full the assistant's context window is for the
-// ACTIVE chat — fed by latestUsage(active.messages), so it tracks the selected
+// A compact gauge (in the composer toolbar) of how full the assistant's context window
+// is for the ACTIVE chat — fed by latestUsage(active.messages), so it tracks the selected
 // conversation and updates the instant the user switches chats (or loads one from
 // history). The numbers are the assistant's own (kgsm-llm UsageDto: usedTokens /
-// contextWindow), relayed verbatim by kgsm-api — never derived or fabricated here:
-// no usage → the component isn't rendered at all. Tone escalates teal→amber→red as
-// the window fills; the exact figures live in the title tooltip to keep the header tight.
-function ChatContextMeter({ usage }) {
+// contextWindow), relayed verbatim by kgsm-api — never derived or fabricated here. Always
+// rendered (a fresh chat reads a true 0%). Tone escalates teal→amber→red as the window
+// fills; clicking opens a popover with the exact figures + a "Compact" CTA (onCompact).
+function ChatContextMeter({ usage, onCompact }) {
   // Always rendered — a brand-new chat genuinely sits at 0% (no tokens spent yet),
   // so the gauge shows 0 rather than vanishing until the first turn reports usage.
   // No fabrication: without a real window we don't invent a size — pct is a true 0
@@ -561,11 +561,37 @@ function ChatContextMeter({ usage }) {
   // Clickable: opens a popover with the exact X/Y + % figures. The gauge shares the
   // Thinking/Auto-run pill chrome (.chat-act-toggle) so it reads as a sibling control.
   // The popover is portaled to <body> and auto-flips UPWARD — it sits low in the
-  // viewport (the composer) — see usePortalPopover. A "Compact" CTA will later slot
-  // into the reserved popover footer; deliberately not wired yet.
+  // viewport (the composer) — see usePortalPopover.
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
+
+  // The "Compact" CTA in the popover footer → onCompact (ChatPage runs the real
+  // POST /assistant/conversations/{id}/compact and, on success, drops the checkpoint
+  // divider into the thread). Enabled only when onCompact is supplied (the active chat
+  // has turns to compact and the assistant is reachable). A no-op outcome (already
+  // small) or an error stays in the popover as a quiet note; a real compaction closes
+  // it (the thread divider is the lasting feedback). The gauge itself only drops on the
+  // NEXT turn — compaction returns no new token count, and we never fabricate one.
+  const [compacting, setCompacting] = React.useState(false);
+  const [note, setNote] = React.useState(null);
+  React.useEffect(() => { if (!open) setNote(null); }, [open]);
+  const runCompact = async () => {
+    if (!onCompact || compacting) return;
+    setCompacting(true);
+    setNote(null);
+    try {
+      const r = await onCompact();
+      if (r && r.compacted) setOpen(false);
+      else setNote("Already compact — nothing to summarize yet.");
+    } catch (e) {
+      setNote(e && e.code === 401
+        ? "Session expired — re-authorize this host to compact."
+        : "Couldn’t compact — try again.");
+    } finally {
+      setCompacting(false);
+    }
+  };
 
   return (
     <>
@@ -602,8 +628,21 @@ function ChatContextMeter({ usage }) {
               <span className="chat-ctx__pop-empty">The window fills as the conversation grows.</span>
             )}
           </div>
-          {/* Footer slot reserved for a future "Compact" CTA (a divider + button go
-              here, e.g. .chat-ctx__pop-foot) — intentionally not added yet. */}
+          <div className="chat-ctx__pop-foot">
+            <button
+              type="button"
+              className="chat-ctx__compact"
+              onClick={onCompact ? runCompact : undefined}
+              disabled={!onCompact || compacting}
+              title={onCompact
+                ? "Summarize the older messages to free up the context window"
+                : "Nothing to compact yet — send a message first"}>
+              {compacting
+                ? <><span className="oauth-spinner" /> Compacting…</>
+                : <><Icon name="fold-vertical" size={13} strokeWidth={2.2} /> Compact</>}
+            </button>
+            {note && <span className="chat-ctx__pop-note">{note}</span>}
+          </div>
         </div>,
         document.body
       )}
@@ -1549,6 +1588,30 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
 
   const stop = () => { if (abortRef.current) abortRef.current.abort(); };
 
+  // Compact the active conversation on demand (the context-gauge popover's "Compact" CTA):
+  // POST /assistant/conversations/{id}/compact through the api relay → the assistant
+  // summarizes the history in place (non-destructive). On a real compaction, drop a
+  // checkpoint divider into the thread — the SAME vocabulary a loaded history uses — so the
+  // user sees WHERE it happened. Returns the outcome (or throws) so the popover can show a
+  // no-op / error note. The gauge value only drops on the NEXT turn: compaction returns no
+  // token count, and we never fabricate one.
+  const compactActive = React.useCallback(async () => {
+    if (!assistantHost || !activeId) return { compacted: false };
+    const convId = activeId;
+    const res = await api.host(assistantHost.id).post(
+      "/assistant/conversations/" + encodeURIComponent(convId) + "/compact");
+    const compacted = !!(res && res.compacted);
+    const n = res && typeof res.messagesCompacted === "number" ? res.messagesCompacted : 0;
+    if (compacted) {
+      const label = "Conversation compacted to save context"
+        + (n ? " · " + n + " message" + (n === 1 ? "" : "s") : "");
+      setConvos(prev => prev.map(c => c.id === convId
+        ? { ...c, messages: [...c.messages, { role: "checkpoint", label }] }
+        : c));
+    }
+    return { compacted, messagesCompacted: n };
+  }, [assistantHost && assistantHost.id, activeId]);
+
   // Voice notes: hold the mic, we capture audio + transcribe, then post the
   // note (with its transcript) through the same send pipeline.
   const voice = useVoiceRecorder();
@@ -1766,7 +1829,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               <div className="chat-composer__bar">
                 {/* Context-window gauge — lives here (not the header) so the chat's token
                     occupancy stays in view while typing; always shown, 0% on a fresh chat. */}
-                <ChatContextMeter usage={latestUsage(active && active.messages)} />
+                <ChatContextMeter
+                  usage={latestUsage(active && active.messages)}
+                  onCompact={(assistantUsable && active && active.messages.length > 0) ? compactActive : null} />
                 {/* Thinking toggle — any tier (reasoning is benign). Makes the assistant reason
                     step by step before answering; the reasoning streams into a collapsed-by-default
                     block above the reply (ChatThinking). */}
