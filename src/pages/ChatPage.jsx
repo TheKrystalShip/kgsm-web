@@ -234,6 +234,76 @@ function reduceTurnFrame(messages, ev) {
   return msgs;
 }
 
+// ---------- conversation history (the reverse path) ----------
+// Rebuild a stored conversation's message list from the server transcript
+// (GET /assistant/conversations/{id}). Each turn maps to the SAME message shapes
+// reduceTurnFrame produces for a LIVE turn — a user bubble, then an assistant
+// bubble carrying content + thinking + resolved tool pills — so a loaded history
+// renders through ChatMessage identically to one that streamed in (the §5·a schema
+// reuse: no second renderer). A compaction checkpoint becomes a quiet divider so
+// the user sees the whole history as it happened, compaction included. Pure +
+// exported so the mapping is unit-exercisable.
+function scaffoldHistory(entries) {
+  const out = [];
+  if (!Array.isArray(entries)) return out;
+  entries.forEach((e, ei) => {
+    if (!e) return;
+    if (e.kind === "checkpoint") {
+      out.push({ role: "checkpoint", label: "Conversation compacted to save context", at: e.createdAt });
+      return;
+    }
+    const t = e.turn;
+    if (!t) return;
+    out.push({ role: "user", content: t.prompt || "" });
+    const bubble = { role: "assistant", content: t.final || "" };
+    if (t.thinking) bubble.thinking = t.thinking;
+    const tools = Array.isArray(t.tools)
+      ? t.tools.map((tl, ti) => ({ id: "h" + ei + "_" + ti, label: toolLabel(tl.tool), state: "done", summary: tl.summary || "" }))
+      : [];
+    if (tools.length) bubble.tools = tools;
+    // An error/cancelled turn with no reply → an honest marker, never a fabricated answer.
+    if (!t.final && t.outcome && t.outcome !== "ok") { bubble.content = "⚠️ This turn didn’t complete."; bubble.error = true; }
+    out.push(bubble);
+  });
+  return out;
+}
+
+// Fold the current host's server-side conversation summaries into the local list,
+// so a fresh browser/device shows history that lives server-side (not only in
+// localStorage). Join is by id (the chat id the SPA sent as conversationId == the
+// summary's id). A local convo wins (it already has messages, possibly unsynced) —
+// we only backfill a placeholder title and tag its owning host; a server-only
+// conversation becomes a lazy, unloaded stub fetched on open. Skips the legacy bare
+// per-user convo (id ""), which the SPA can't address. Newest-active first. Pure.
+function mergeServerConversations(local, serverList, hostId) {
+  if (!Array.isArray(serverList) || serverList.length === 0) return local;
+  const byId = new Map(local.map(c => [c.id, c]));
+  const merged = local.slice();
+  for (const s of serverList) {
+    if (!s || !s.id) continue;   // the bare per-user conversation isn't addressable by the SPA
+    const existing = byId.get(s.id);
+    if (existing) {
+      const patch = {};
+      if ((!existing.title || existing.title === "New chat") && s.title) patch.title = s.title;
+      if (!existing.hostId) patch.hostId = hostId;
+      if (Object.keys(patch).length) merged[merged.indexOf(existing)] = { ...existing, ...patch };
+    } else {
+      merged.push({
+        id: s.id,
+        title: s.title || "Untitled chat",
+        messages: [],
+        created: Date.parse(s.createdAt) || 0,
+        lastActivity: Date.parse(s.lastActivityAt) || 0,
+        hostId,
+        remote: true,
+        loaded: false,
+      });
+    }
+  }
+  merged.sort((a, b) => (b.lastActivity || b.created || 0) - (a.lastActivity || a.created || 0));
+  return merged;
+}
+
 // ---------- lightweight markdown ----------
 // Just enough to render fenced code blocks, inline code, and bold — the
 // things an LLM emits constantly. Everything else stays plain text.
@@ -666,6 +736,19 @@ function ChatScopeNotice({ msg }) {
   );
 }
 
+// A compaction checkpoint replayed from history: a quiet divider so a loaded
+// conversation shows WHERE the assistant compacted its context, without hiding
+// anything (the full prior history stays visible above). Reuses the scope-notice
+// styling (centered + muted) so it needs no new CSS.
+function ChatCheckpointNotice({ msg }) {
+  return (
+    <div className="chat-scope-notice" style={{ opacity: 0.65 }}>
+      <Icon name="history" size={12} />
+      <span>{msg.label || "Conversation compacted"}</span>
+    </div>
+  );
+}
+
 // A quiet, centered marker dropped into the thread when the user flips a
 // behaviour toggle (Thinking / Actions), so the change is visible inline as the
 // conversation goes on. Faded by default; the icon picks up the toggle's accent
@@ -862,7 +945,7 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
 // ChatHistory — conversation list as a site-style popover (matches the host
 // switcher / account menus), replacing the old dropdown bar. Opens from the
 // header's history button.
-function ChatHistory({ convos, activeId, onPick, onDelete, conn }) {
+function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -871,9 +954,12 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn }) {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
+  // Fetch the server-side history only on the open transition (lazy) — clicking the
+  // button is the explicit signal; closing/reopening refreshes.
+  const toggle = () => setOpen(o => { const next = !o; if (next && onOpen) onOpen(); return next; });
   return (
     <div className="chat-hist" ref={ref}>
-      <button className={"chat-headbtn" + (open ? " chat-headbtn--on" : "")} onClick={() => setOpen(o => !o)} title="Chat history" aria-label="Chat history" aria-haspopup="menu" aria-expanded={open}>
+      <button className={"chat-headbtn" + (open ? " chat-headbtn--on" : "")} onClick={toggle} title="Chat history" aria-label="Chat history" aria-haspopup="menu" aria-expanded={open}>
         <Icon name="history" size={16} />
       </button>
       {open && (
@@ -882,7 +968,7 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn }) {
             <span className="chat-hist__head-label">Chat history</span>
           </div>
           <div className="chat-hist__list">
-            {convos.length === 0 && <div className="chat-rail__empty">No conversations yet.</div>}
+            {convos.length === 0 && !loading && <div className="chat-rail__empty">No conversations yet.</div>}
             {convos.map(c => (
               <div key={c.id}
                 className={"chat-rail__item" + (c.id === activeId ? " chat-rail__item--active" : "")}
@@ -894,6 +980,11 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn }) {
                 </button>
               </div>
             ))}
+            {loading && (
+              <div className="chat-rail__empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span className="oauth-spinner"></span> Loading chat history…
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1025,6 +1116,48 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   // Persist on every change.
   React.useEffect(() => { saveConversations(convos); }, [convos]);
 
+  // The reverse path is LAZY: the caller's server-side chat history is fetched only
+  // when they explicitly open the "Chat history" popover (loadServerHistory, wired to
+  // ChatHistory's onOpen) — never eagerly on connect, since most opens of the panel
+  // never need it. The popover shows a loading row until the API responds, then
+  // mergeServerConversations folds the results into the list (join by id; local convos
+  // win, so unsynced ones are never clobbered). Each host's assistant has its OWN
+  // store, so this re-fetches per host on each open (cheap; keeps the list fresh). A
+  // request id guards against a stale in-flight response clearing a newer one.
+  const [histLoading, setHistLoading] = React.useState(false);
+  const histReqRef = React.useRef(0);
+  const loadServerHistory = React.useCallback(() => {
+    if (!assistantHost || !assistantUsable) return;
+    const reqId = ++histReqRef.current;
+    setHistLoading(true);
+    api.host(assistantHost.id).get("/assistant/conversations").then(
+      (list) => { if (histReqRef.current === reqId) setConvos(prev => mergeServerConversations(prev, list, assistantHost.id)); },
+      () => { /* no server history available → keep the local list */ })
+      .finally(() => { if (histReqRef.current === reqId) setHistLoading(false); });
+  }, [assistantHost && assistantHost.id, assistantUsable]);
+
+  // Lazily load a server-only conversation's transcript the first time it's opened.
+  // Only a remote, not-yet-loaded, empty stub owned by the CURRENT host is fetched
+  // (a local convo already carries its messages; a stub from another host's
+  // assistant can't be loaded here). Scaffolded through the same message vocabulary
+  // a live turn produces, so it renders identically. Keyed on the active id + host;
+  // the guard makes it idempotent.
+  React.useEffect(() => {
+    if (!assistantHost) return;
+    const c = convos.find(x => x.id === activeId);
+    if (!c || !c.remote || c.loaded || (c.messages && c.messages.length > 0)) return;
+    if (c.hostId && c.hostId !== assistantHost.id) return;
+    let cancelled = false;
+    api.host(assistantHost.id).get("/assistant/conversations/" + encodeURIComponent(c.id)).then(
+      (data) => {
+        if (cancelled) return;
+        const messages = scaffoldHistory(data && data.entries);
+        setConvos(prev => prev.map(x => x.id === c.id ? { ...x, messages, loaded: true } : x));
+      },
+      () => { /* leave the stub unloaded; the user can still continue it (server memory is intact) */ });
+    return () => { cancelled = true; };
+  }, [activeId, assistantHost && assistantHost.id]);
+
   // Mid-session capability change: if THIS host's assistant drops (or returns)
   // while the chat is open, drop a system status row into the active thread.
   // Guarded to the same host so switching hosts doesn't fire it.
@@ -1069,7 +1202,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
 
   // ---- conversation helpers ----
   const newChat = () => {
-    const c = { id: uid(), title: "New chat", messages: [], created: Date.now() };
+    const c = { id: uid(), title: "New chat", messages: [], created: Date.now(), hostId: assistantHost && assistantHost.id };
     setConvos(prev => [c, ...prev]);
     setActiveId(c.id);
     setInput("");
@@ -1164,7 +1297,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
     let convId = activeId;
     if (!convId) {
       convId = uid();
-      const c = { id: convId, title: "New chat", messages: [], created: Date.now() };
+      const c = { id: convId, title: "New chat", messages: [], created: Date.now(), hostId: assistantHost && assistantHost.id };
       setConvos(prev => [c, ...prev]);
       setActiveId(convId);
     }
@@ -1337,7 +1470,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
               </button>
-              <ChatHistory convos={convos} activeId={activeId} onPick={setActiveId} onDelete={deleteChat} conn={conn} />
+              <ChatHistory convos={convos} activeId={activeId} onPick={setActiveId} onDelete={deleteChat} conn={conn} onOpen={loadServerHistory} loading={histLoading} />
             </div>
             {docked && (
               <div className="chat-head__win">
@@ -1390,6 +1523,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
                     ? <ChatSystemNotice key={i} msg={m} />
                   : m.role === "scope"
                     ? <ChatScopeNotice key={i} msg={m} />
+                  : m.role === "checkpoint"
+                    ? <ChatCheckpointNotice key={i} msg={m} />
                   : m.role === "toggle"
                     ? <ChatToggleNotice key={i} msg={m} />
                     : m.role === "evidence"
@@ -1486,4 +1621,4 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   );
 }
 
-export { API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, reduceTurnFrame };
+export { API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
