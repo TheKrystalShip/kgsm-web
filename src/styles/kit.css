@@ -3585,23 +3585,23 @@ body { overflow: hidden; }
 .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes chat-bounce { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 
-/* context pill — faded "reading website data" indicator */
+/* tool/context pill — the assistant running a tool, by its friendly name. Short results
+   render inline here; verbose output collapses into a trace disclosure (.chat-disc below).
+   Rendered inside the assistant message body, so it already sits in the text column. */
 .chat-context {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 10px;
   margin: 2px 0;
   color: var(--fg-3);
   font-size: 12px;
-  font-family: var(--font-mono);
-  opacity: 0.85;
+  font-family: var(--font-ui);
 }
-.chat-context--pending { animation: chat-ctx-in var(--d-base) var(--ease-out); }
-@keyframes chat-ctx-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 0.85; transform: none; } }
+.chat-context--pending { color: var(--fg-2); animation: chat-ctx-in var(--d-base) var(--ease-out); }
+@keyframes chat-ctx-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 .chat-context__icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: var(--fg-4); flex-shrink: 0; }
-.chat-context__label { min-width: 0; }
+.chat-context__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-context__detail { color: var(--fg-4); }
 .chat-context__check { color: var(--success-fg); flex-shrink: 0; }
-.chat-context--pending { color: var(--fg-2); }
 .chat-context--pending .chat-context__label { color: var(--krystal-teal); }
 .chat-context__spinner {
   width: 12px; height: 12px;
@@ -3611,6 +3611,38 @@ body { overflow: hidden; }
   animation: chat-ctx-spin 0.7s linear infinite;
 }
 @keyframes chat-ctx-spin { to { transform: rotate(360deg); } }
+
+/* ---------- assistant trace disclosure (thinking + verbose tool output) ----------
+   One visual language for the assistant's "working" — its reasoning and its tool calls.
+   A quiet, collapsed-by-default row that expands into an inset panel. The two read as
+   siblings: identical chrome, differing ONLY by leading icon + accent (and the tool
+   body stays monospace, since it's machine output). */
+.chat-disc { margin: 2px 0; }   /* both thinking + tool output now live inside the assistant
+                                    message body, so they already sit in the text column */
+.chat-disc__toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  max-width: 100%;
+  padding: 5px 10px;
+  background: transparent; border: none; border-radius: var(--r-md);
+  color: var(--fg-3); cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  text-align: left;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.chat-disc__toggle:hover { background: var(--surface-2); color: var(--fg-2); }
+.chat-disc__icon { flex-shrink: 0; display: inline-flex; }
+.chat-disc__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-disc__chev { color: var(--fg-4); flex-shrink: 0; margin-left: 2px; transition: transform var(--d-base) var(--ease-out); }
+.chat-disc--open .chat-disc__chev { transform: rotate(180deg); }
+/* No card chrome — just faded text, indented to sit under the header label. Less is more. */
+.chat-disc__body {
+  padding: 2px 12px 6px 32px;
+  color: var(--fg-3); font-size: 12.5px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+/* the only accent kept is the collapsed header icon (teal for thinking, muted for tool) */
+.chat-disc--think .chat-disc__icon { color: var(--krystal-teal); }
+.chat-disc--tool .chat-disc__icon { color: var(--fg-4); }
 
 /* ---------- evidence cards ---------- */
 .chat-evidence { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 4px 40px; }
@@ -4027,6 +4059,10 @@ body { overflow: hidden; }
 }
 .chat-act-toggle:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--fg-1); }
 .chat-act-toggle__state { opacity: .55; font-variant-numeric: tabular-nums; }
+/* Disabled (e.g. Auto-run shown to an operator): visible but clearly inert — dimmed, no hover, the
+   not-allowed cursor signalling the capability exists but isn't theirs to use. */
+.chat-act-toggle:disabled { opacity: .45; cursor: not-allowed; }
+.chat-act-toggle:disabled:hover { background: transparent; border-color: var(--border-subtle); color: var(--fg-3); }
 .chat-act-toggle--on {
   background: color-mix(in srgb, var(--warning) 14%, transparent);
   border-color: color-mix(in srgb, var(--warning) 55%, transparent);
@@ -4034,6 +4070,16 @@ body { overflow: hidden; }
 }
 .chat-act-toggle--on:hover { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
 .chat-act-toggle--on .chat-act-toggle__state { opacity: .9; }
+
+/* Thinking toggle — same shape as Actions, but a calm teal accent (reasoning is benign,
+   not a cautionary "can run changes" amber). */
+.chat-think-toggle--on {
+  background: color-mix(in srgb, var(--krystal-teal) 14%, transparent);
+  border-color: color-mix(in srgb, var(--krystal-teal) 55%, transparent);
+  color: var(--krystal-teal); font-weight: 600;
+}
+.chat-think-toggle--on:hover { background: color-mix(in srgb, var(--krystal-teal) 22%, transparent); color: var(--krystal-teal); }
+.chat-think-toggle--on .chat-act-toggle__state { opacity: .9; }
 
 /* ---------- follow-up chips ---------- */
 .chat-followups { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 4px 40px; }
@@ -4062,6 +4108,24 @@ body { overflow: hidden; }
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
 .chat-scope-notice svg { flex-shrink: 0; }
+
+/* behaviour-toggle marker — a quiet, centered line dropped in-thread when the
+   user flips Thinking/Actions, so the change reads inline as the chat goes on.
+   Faded text, no card chrome (matches the trace disclosures); the icon takes
+   the toggle's accent only when switched ON (teal=thinking, amber=actions). */
+.chat-toggle-notice {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 4px 12px; margin: 4px auto;
+  max-width: 88%;
+  font-size: 12px; line-height: 1.45; color: var(--fg-3);
+  text-align: center;
+  animation: chat-ctx-in var(--d-base) var(--ease-out);
+}
+.chat-toggle-notice__icon { flex-shrink: 0; color: var(--fg-4); }
+.chat-toggle-notice__text { min-width: 0; }
+.chat-toggle-notice--on.chat-toggle-notice--think   .chat-toggle-notice__icon { color: var(--krystal-teal); }
+.chat-toggle-notice--on.chat-toggle-notice--actions .chat-toggle-notice__icon { color: var(--warning); }
+@media (prefers-reduced-motion: reduce) { .chat-toggle-notice { animation: none; } }
 
 /* empty state */
 .chat-empty { max-width: 600px; margin: 0 auto; padding: 48px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }

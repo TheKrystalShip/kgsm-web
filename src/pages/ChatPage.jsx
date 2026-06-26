@@ -5,7 +5,7 @@ import { AccountAvatar } from "../components/Sidebar.jsx";
 import { TimeSeriesChart } from "../components/TimeSeriesChart.jsx";
 import { VoiceComposerBar, VoiceNoteBubble, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
-import { canOperate } from "../lib/persona.js";
+import { canOperate, isAdmin } from "../lib/persona.js";
 import { confirmCommand, scopeServers, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 import { ACTION_META } from "./AuditLogPage.jsx";
@@ -26,7 +26,21 @@ const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ENDPOINT_LS = "krystal:chat:endpoint";
 const CHAT_MODEL_LS    = "krystal:chat:model";
 const CHAT_ACTIONS_LS  = "krystal:chat:actions";   // the "Actions" toggle (operator+ only), persisted
+const CHAT_THINK_LS    = "krystal:chat:think";     // the "Thinking" toggle (any tier), persisted
 const DEFAULT_ENDPOINT = "http://localhost:11434";
+
+// In-thread copy dropped when a behaviour toggle flips mid-chat, so the user
+// sees the conversation's rules change as it goes on (both directions).
+const TOGGLE_COPY = {
+  thinking: {
+    on:  "Thinking on — replies may take a little longer but tend to be more thorough and accurate.",
+    off: "Thinking off — the assistant answers directly, for quicker replies.",
+  },
+  actions: {
+    on:  "Auto-run on — the assistant will carry out start/stop/restart actions immediately, without asking you to confirm each one.",
+    off: "Auto-run off — the assistant will propose actions and wait for you to confirm before anything runs.",
+  },
+};
 // ---------- persistence ----------
 function loadConversations() {
   try {
@@ -61,6 +75,7 @@ const TOOL_LABELS = {
   get_config:          "Reading config",
   get_host_diagnostics:"Checking host health",
   trace_root_cause:    "Tracing the root cause",
+  server_command:      "Running command",
 };
 function toolLabel(tool) {
   if (!tool) return "Working";
@@ -140,20 +155,37 @@ function reduceTurnFrame(messages, ev) {
     case "text.delta":
       msgs[lastIdx] = { ...bubble, content: (bubble.content || "") + (ev.text || "") };
       break;
-    case "tool.start":
-      msgs.splice(lastIdx, 0, { role: "context", toolId: ev.id, label: toolLabel(ev.tool), state: "pending" });
+    case "thinking.delta":
+      // The model's reasoning (opt-in via the "Thinking" toggle → think:true). Accumulated on
+      // the bubble and rendered as a collapsed-by-default block above the answer (ChatThinking),
+      // so a long chain-of-thought never dominates the thread. Survives done/error (both spread
+      // the bubble). Frames arrive BEFORE text.delta — the model thinks, then answers.
+      msgs[lastIdx] = { ...bubble, thinking: (bubble.thinking || "") + (ev.text || "") };
       break;
-    case "tool.result":
-      // Resolve only the MOST RECENT still-pending pill with this id. Tool-call ids
-      // are turn-local (they reset per turn), so without the pending guard + reverse
-      // scan a later turn's result would retroactively rewrite a prior turn's pill.
-      for (let k = msgs.length - 1; k >= 0; k--) {
-        if (msgs[k].role === "context" && msgs[k].toolId === ev.id && msgs[k].state === "pending") {
-          msgs[k] = { ...msgs[k], state: "done", label: ev.summary || msgs[k].label };
+    case "tool.start": {
+      // Tool calls belong to the assistant's turn, so they ride ON the streaming bubble (like
+      // thinking) and render inside its body — NOT spliced as a separate row before the bubble,
+      // which made the tool output appear between the user's message and the assistant header.
+      const startTools = (bubble.tools || []).concat({ id: ev.id, label: toolLabel(ev.tool), state: "pending" });
+      msgs[lastIdx] = { ...bubble, tools: startTools };
+      break;
+    }
+    case "tool.result": {
+      // Resolve the most recent still-pending tool with this id. Ids are turn-local (they reset
+      // per turn), but the bubble owns only THIS turn's tools, so the reverse scan is naturally
+      // turn-isolated — a later turn can't rewrite a prior turn's resolved tool.
+      const resTools = (bubble.tools || []).slice();
+      for (let k = resTools.length - 1; k >= 0; k--) {
+        if (resTools[k].id === ev.id && resTools[k].state === "pending") {
+          // Keep the friendly tool name as the label; the result text rides as `summary`
+          // (shown inline when short, collapsed behind the name when verbose).
+          resTools[k] = { ...resTools[k], state: "done", summary: ev.summary || "" };
           break;
         }
       }
+      msgs[lastIdx] = { ...bubble, tools: resTools };
       break;
+    }
     case "error": {
       const note = "⚠️ " + (ev.message || "The assistant failed.");
       msgs[lastIdx] = bubble.content
@@ -197,7 +229,7 @@ function reduceTurnFrame(messages, ev) {
       break;
     }
     default:
-      break;   // thinking.delta and any future additive frame — ignored
+      break;   // any future additive frame — ignored
   }
   return msgs;
 }
@@ -242,10 +274,36 @@ function renderMarkdown(text) {
   });
 }
 
-// ---------- context pill ----------
-// Faded inline indicator that the assistant pulled live website data.
+// ---------- tool/context pill ----------
+// The assistant running a tool, shown by its FRIENDLY name (toolLabel). The result text
+// rides as `summary`: a short one shows inline (· detail); a verbose one — e.g. a
+// server_command staging a confirmation returns a full instruction paragraph meant for the
+// model — collapses behind the friendly name as a trace disclosure (collapsed by default).
 function ChatContextPill({ msg }) {
   const pending = msg.state === "pending";
+  const label = msg.label || "Working";    // the friendly tool name
+  const summary = msg.summary || "";        // the tool's result text
+  const verbose = !pending && (summary.length > 120 || summary.includes("\n"));
+  const [open, setOpen] = React.useState(false);
+
+  if (verbose) {
+    return (
+      <div className={"chat-disc chat-disc--tool" + (open ? " chat-disc--open" : "")}>
+        <button
+          type="button"
+          className="chat-disc__toggle"
+          aria-expanded={open}
+          onClick={() => setOpen(o => !o)}
+        >
+          <Icon name="database" size={13} className="chat-disc__icon" />
+          <span className="chat-disc__label">{label}</span>
+          <Icon name="chevron-down" size={13} strokeWidth={2.2} className="chat-disc__chev" />
+        </button>
+        {open && <div className="chat-disc__body">{summary}</div>}
+      </div>
+    );
+  }
+
   return (
     <div className={"chat-context" + (pending ? " chat-context--pending" : "")}>
       <span className="chat-context__icon">
@@ -254,10 +312,34 @@ function ChatContextPill({ msg }) {
           : <Icon name="database" size={12} />}
       </span>
       <span className="chat-context__label">
-        {pending ? msg.label + "…" : msg.label}
-        {msg.detail && <span className="chat-context__detail"> · {msg.detail}</span>}
+        {pending ? label + "…" : label}
+        {!pending && summary && <span className="chat-context__detail"> · {summary}</span>}
       </span>
       {!pending && <Icon name="check" size={12} strokeWidth={2.6} className="chat-context__check" />}
+    </div>
+  );
+}
+
+// ---------- thinking block ----------
+// The model's step-by-step reasoning (opt-in via the composer "Thinking" toggle →
+// `think:true` on the turn → the assistant's `thinking.delta` frames). It can run
+// long, so it's collapsed by default — a one-line header the user expands to read
+// the reasoning. While the answer hasn't started (`streaming`) it reads "Thinking…".
+function ChatThinking({ text, streaming }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className={"chat-disc chat-disc--think" + (open ? " chat-disc--open" : "")}>
+      <button
+        type="button"
+        className="chat-disc__toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <Icon name="brain" size={13} className="chat-disc__icon" />
+        <span className="chat-disc__label">{streaming ? "Thinking…" : "Thinking"}</span>
+        <Icon name="chevron-down" size={13} strokeWidth={2.2} className="chat-disc__chev" />
+      </button>
+      {open && <div className="chat-disc__body">{text}</div>}
     </div>
   );
 }
@@ -584,6 +666,24 @@ function ChatScopeNotice({ msg }) {
   );
 }
 
+// A quiet, centered marker dropped into the thread when the user flips a
+// behaviour toggle (Thinking / Actions), so the change is visible inline as the
+// conversation goes on. Faded by default; the icon picks up the toggle's accent
+// only when it's switched ON (teal for thinking, amber for actions).
+function ChatToggleNotice({ msg }) {
+  const isThink = msg.toggle === "thinking";
+  const icon = isThink ? "brain" : (msg.on ? "zap" : "zap-off");
+  const cls = "chat-toggle-notice"
+    + (msg.on ? " chat-toggle-notice--on" : "")
+    + (isThink ? " chat-toggle-notice--think" : " chat-toggle-notice--actions");
+  return (
+    <div className={cls}>
+      <Icon name={icon} size={12} className="chat-toggle-notice__icon" />
+      <span className="chat-toggle-notice__text">{msg.label}</span>
+    </div>
+  );
+}
+
 // ---------- scope chip ----------
 // Header control showing which game-server the conversation is about, so the
 // user doesn't re-type the name every turn. Auto-set from the first server
@@ -653,10 +753,16 @@ function ChatMessage({ msg, user }) {
           {msg.voice && <span className="chat-msg__voicetag"><Icon name="mic" size={11} strokeWidth={2.2} /> Voice note</span>}
         </div>
         {msg.voice && VoiceNoteBubble && <VoiceNoteBubble voice={msg.voice} />}
+        {/* The assistant's "working" — reasoning, then tool calls — grouped under its turn,
+            above the reply (the temporal order: think → run tools → answer). */}
+        {!isUser && msg.thinking && <ChatThinking text={msg.thinking} streaming={!msg.content} />}
+        {!isUser && msg.tools && msg.tools.map((t, i) => <ChatContextPill key={(t.id || "t") + ":" + i} msg={t} />)}
         <div className="chat-msg__content">
           {msg.content
             ? renderMarkdown(msg.content)
-            : <span className="chat-typing"><span></span><span></span><span></span></span>}
+            : (msg.thinking || (msg.tools && msg.tools.length))
+              ? null   /* the thinking / pending-tool pill is the activity signal — skip typing dots */
+              : <span className="chat-typing"><span></span><span></span><span></span></span>}
         </div>
       </div>
     </div>
@@ -841,13 +947,40 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
   const [input, setInput]       = React.useState("");
   const [busy, setBusy]         = React.useState(false);
 
-  // The "Actions" toggle — lets the assistant suggest + run changes (start/stop/restart/…). It is
-  // INTENT, not authority: only operator+ on this host even see it (viewers never can), and the
-  // backend re-folds it with the caller's verified tier (kgsm-api → X-Relay-Can-Act), so flipping
-  // it on a host where you're a viewer does nothing. Persisted across sessions; default OFF (safe).
-  const canUseActions = !!(assistantHost && canOperate(assistantHost.id));
+  // The "Auto-run" toggle — AUTO-ACCEPT: when on, the assistant runs the lifecycle action it decides
+  // on immediately, with NO confirm-card step (start/stop/restart/update/backup). Off (default) the
+  // assistant still proposes — you confirm each one. Two-level permission, both re-checked server-side
+  // (the SPA gate is only UX; kgsm-api folds the toggle with the VERIFIED tier → X-Relay-Auto-Act):
+  //   • viewer  → can't act at all → toggle HIDDEN.
+  //   • operator → may propose + confirm, but NOT auto-run → toggle VISIBLE but DISABLED.
+  //   • admin    → may auto-run → toggle ENABLED.
+  // So `canSeeActions` (operator+) drives visibility; `canUseActions` (admin) drives enablement.
+  const canSeeActions = !!(assistantHost && canOperate(assistantHost.id));
+  const canUseActions = !!(assistantHost && isAdmin(assistantHost.id));
   const [actionsOn, setActionsOn] = React.useState(() => loadSetting(CHAT_ACTIONS_LS, "") === "1");
   React.useEffect(() => { saveSetting(CHAT_ACTIONS_LS, actionsOn ? "1" : "0"); }, [actionsOn]);
+  // Effective auto-accept: the toggle's stored intent gated by admin authority, so a stale "on" from
+  // a host where you're now only an operator reads (and sends) as off. The api re-checks anyway.
+  const autoAcceptActive = actionsOn && canUseActions;
+  // The "Thinking" toggle — no permission gate (reasoning is benign; unlike Actions it can't run
+  // anything). When on, the turn carries think:true → the assistant emits thinking.delta frames.
+  const [thinkOn, setThinkOn] = React.useState(() => loadSetting(CHAT_THINK_LS, "") === "1");
+  React.useEffect(() => { saveSetting(CHAT_THINK_LS, thinkOn ? "1" : "0"); }, [thinkOn]);
+
+  // Flip a behaviour toggle and, if a conversation is already underway, drop an
+  // inline notice describing the change so it's visible as the chat continues.
+  // Guarded to non-empty threads — toggling before the first message just sets
+  // state (the button's own On/Off + tooltip already say what it does).
+  const announceToggle = (toggle, on) => {
+    if (!activeId) return;
+    const label = TOGGLE_COPY[toggle][on ? "on" : "off"];
+    setConvos(prev => prev.map(c =>
+      (c.id === activeId && c.messages.length > 0)
+        ? { ...c, messages: [...c.messages, { role: "toggle", toggle, on, label }] }
+        : c));
+  };
+  const toggleThinking = () => { const next = !thinkOn;  setThinkOn(next);  announceToggle("thinking", next); };
+  const toggleActions  = () => { const next = !actionsOn; setActionsOn(next); announceToggle("actions", next); };
 
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
@@ -991,9 +1124,10 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
       // A voice note whose transcription failed has empty text → send a short
       // marker, so the turn reads instead of a 400 on an empty prompt.
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
-      // `actions` = the toggle's intent (only meaningful for operator+; the backend re-checks tier).
-      const allowActions = actionsOn && canUseActions;
-      await api.host(assistantHost.id).turn({ prompt, actions: allowActions }, { onEvent: applyFrame, signal: ctrl.signal });
+      // `actions` = AUTO-ACCEPT intent (admin + toggle). The backend re-checks admin tier before it
+      // lets the assistant auto-run; proposing works regardless of this flag, so off ≠ "can't act".
+      // `think` = the Thinking toggle → the assistant reasons before answering (thinking.delta frames).
+      await api.host(assistantHost.id).turn({ prompt, actions: autoAcceptActive, think: thinkOn }, { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
       const reason = e && e.code === 503 ? assistantHost.name + "’s assistant is currently unavailable."
@@ -1254,6 +1388,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
                     ? <ChatSystemNotice key={i} msg={m} />
                   : m.role === "scope"
                     ? <ChatScopeNotice key={i} msg={m} />
+                  : m.role === "toggle"
+                    ? <ChatToggleNotice key={i} msg={m} />
                     : m.role === "evidence"
                       ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
                       : m.role === "command"
@@ -1280,20 +1416,41 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
                 {assistantHost && (
                   <ScopeChip servers={scopeServers(serversStore.getState().list, assistantHost.id)} value={scopeId} onChange={changeScope} />
                 )}
-                {/* Actions toggle — operator+ only (viewers never see it). Lets the assistant
-                    suggest + run changes; each one is still a confirm-first card (ChatCommand). */}
-                {canUseActions && (
+                {/* Thinking toggle — any tier (reasoning is benign). Makes the assistant reason
+                    step by step before answering; the reasoning streams into a collapsed-by-default
+                    block above the reply (ChatThinking). */}
+                {assistantHost && (
                   <button
                     type="button"
-                    className={"chat-act-toggle" + (actionsOn ? " chat-act-toggle--on" : "")}
-                    onClick={() => setActionsOn(v => !v)}
-                    title={actionsOn
-                      ? "Actions ON — the assistant can suggest and run changes (you confirm each one). Click to turn off."
-                      : "Actions OFF — the assistant only answers. Turn on to let it suggest and run changes."}
-                    aria-pressed={actionsOn}>
-                    <Icon name={actionsOn ? "zap" : "zap-off"} size={13} />
-                    <span className="chat-act-toggle__label">Actions</span>
-                    <span className="chat-act-toggle__state">{actionsOn ? "On" : "Off"}</span>
+                    className={"chat-act-toggle chat-think-toggle" + (thinkOn ? " chat-think-toggle--on" : "")}
+                    onClick={toggleThinking}
+                    title={thinkOn
+                      ? "Thinking ON — the assistant reasons step by step before answering (shown collapsed in the reply). Click to turn off."
+                      : "Thinking OFF — the assistant answers directly. Turn on to have it reason first."}
+                    aria-pressed={thinkOn}>
+                    <Icon name="brain" size={13} />
+                    <span className="chat-act-toggle__label">Thinking</span>
+                    <span className="chat-act-toggle__state">{thinkOn ? "On" : "Off"}</span>
+                  </button>
+                )}
+                {/* Auto-run (auto-accept) toggle — visible to operator+ (viewers never see it), but only
+                    ENABLED for admins. An operator sees it disabled, so it's clear the capability exists
+                    and is admin-only — the real gate is server-side (kgsm-api re-checks admin tier). */}
+                {canSeeActions && (
+                  <button
+                    type="button"
+                    className={"chat-act-toggle" + (autoAcceptActive ? " chat-act-toggle--on" : "")}
+                    onClick={canUseActions ? toggleActions : undefined}
+                    disabled={!canUseActions}
+                    title={!canUseActions
+                      ? "Auto-run is admin-only. As an operator you can still have the assistant propose actions and confirm them yourself."
+                      : autoAcceptActive
+                        ? "Auto-run ON — the assistant carries out start/stop/restart actions immediately, no confirmation. Click to turn off."
+                        : "Auto-run OFF — the assistant proposes actions for you to confirm. Turn on to let it run them automatically."}
+                    aria-pressed={autoAcceptActive}>
+                    <Icon name={autoAcceptActive ? "zap" : "zap-off"} size={13} />
+                    <span className="chat-act-toggle__label">Auto-run</span>
+                    <span className="chat-act-toggle__state">{autoAcceptActive ? "On" : "Off"}</span>
                   </button>
                 )}
                 <span className="chat-composer__bar-spacer"></span>

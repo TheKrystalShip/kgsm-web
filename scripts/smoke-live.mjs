@@ -652,11 +652,11 @@ try {
   assert(turnErr && turnErr.code === 503,
     `assistant turn: pre-stream degrade (503) throws an apiError the SPA renders (code=${turnErr && turnErr.code})`);
 
-  // The frame→message-role translation IS slice 9a's deliverable (sendLive just
-  // wraps this pure reducer in setConvos). Exercise it directly over a TWO-turn
-  // sequence — single-turn coverage can't catch the turn-local-id hazard: tool-call
-  // ids reset per turn (tc_0_0), so a later turn's tool.result must resolve ITS pill
-  // without retroactively rewriting an earlier turn's already-done pill.
+  // The frame→message translation IS slice 9a's deliverable (sendLive just wraps this pure
+  // reducer in setConvos). Tool calls ride ON the assistant bubble (tools[]) — grouped under
+  // its turn, NOT spliced as a separate row before it. Exercise a TWO-turn sequence: tool-call
+  // ids reset per turn (tc_0_0), so turn-2's tool.result must resolve ITS tool — naturally
+  // isolated now, since each bubble owns only its own tools.
   const { reduceTurnFrame: R } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
   let m = [{ role: "user", content: "q1" }, { role: "assistant", content: "" }];
   m = R(m, { type: "text.delta", text: "Checking " });
@@ -664,18 +664,21 @@ try {
   m = R(m, { type: "tool.start", id: "tc_0_0", tool: "run_health_check" });
   m = R(m, { type: "tool.result", id: "tc_0_0", summary: "5/5 passed" });
   m = R(m, { type: "done", text: "All healthy." });
-  const pill1 = m.find((x) => x.role === "context" && x.toolId === "tc_0_0");
-  assert(pill1 && pill1.state === "done" && pill1.label === "5/5 passed",
-    "reduceTurnFrame: tool.start→pill, tool.result resolves it by id with the summary (turn 1)");
+  const bubble1 = m.find((x) => x.role === "assistant");
+  const tool1 = bubble1.tools && bubble1.tools.find((t) => t.id === "tc_0_0");
+  assert(tool1 && tool1.state === "done" && tool1.label === "Running health check" && tool1.summary === "5/5 passed",
+    "reduceTurnFrame: tool.start→tool on the bubble; tool.result resolves it by id (friendly label + summary, turn 1)");
   assert(m[m.length - 1].role === "assistant" && m[m.length - 1].content === "All healthy.",
     "reduceTurnFrame: text.delta streams into the bubble; done reconciles it to the full reply");
-  // Turn 2 — same turn-local tool id reused.
+  // Turn 2 — same turn-local tool id reused on a fresh bubble.
   m = [...m, { role: "user", content: "q2" }, { role: "assistant", content: "" }];
   m = R(m, { type: "tool.start", id: "tc_0_0", tool: "get_status" });
   m = R(m, { type: "tool.result", id: "tc_0_0", summary: "online" });
-  const pills = m.filter((x) => x.role === "context" && x.toolId === "tc_0_0");
-  assert(pills.length === 2 && pills[0].label === "5/5 passed" && pills[1].label === "online",
-    "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's pill, NOT turn-1's done pill");
+  const bubbles = m.filter((x) => x.role === "assistant");
+  const t1 = bubbles[0].tools.find((t) => t.id === "tc_0_0");
+  const t2 = bubbles[1].tools.find((t) => t.id === "tc_0_0");
+  assert(bubbles.length === 2 && t1.summary === "5/5 passed" && t2.summary === "online" && t1.state === "done" && t2.state === "done",
+    "reduceTurnFrame: turn-2 tool.result (reused id) resolves turn-2's tool, NOT turn-1's resolved one");
 
   // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
   // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
