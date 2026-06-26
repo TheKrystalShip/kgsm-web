@@ -529,22 +529,85 @@ function ChatContextPill({ msg }) {
 // no usage → the component isn't rendered at all. Tone escalates teal→amber→red as
 // the window fills; the exact figures live in the title tooltip to keep the header tight.
 function ChatContextMeter({ usage }) {
+  // Always rendered — a brand-new chat genuinely sits at 0% (no tokens spent yet),
+  // so the gauge shows 0 rather than vanishing until the first turn reports usage.
+  // No fabrication: without a real window we don't invent a size — pct is a true 0
+  // and the tooltip says the window is empty; real figures replace it the instant
+  // the assistant's first `done` frame carries usage (kgsm-llm UsageDto).
   const win = usage && usage.contextWindow > 0 ? usage.contextWindow : 0;
-  if (!win) return null;
-  const used = usage.usedTokens >= 0 ? usage.usedTokens : 0;
-  const pct = Math.min(100, Math.round((used / win) * 100));
+  const used = win && usage.usedTokens >= 0 ? usage.usedTokens : 0;
+  const pct = win ? Math.min(100, Math.round((used / win) * 100)) : 0;
   const tone = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
   const fmt = (n) => (typeof n === "number" ? n.toLocaleString() : "—");
-  const remaining = typeof usage.remainingTokens === "number" ? usage.remainingTokens : Math.max(0, win - used);
+  // Compact token count for the tight popover row: 16k / 128k / 1.3M. A leading "~"
+  // flags that the figure was rounded (isn't exact) so it reads as approximate, not
+  // precise — the button tooltip still carries the exact number.
+  const fmtTokens = (n) => {
+    if (typeof n !== "number") return "—";
+    if (n < 1000) return String(n);
+    const big = n >= 1000000;
+    const div = big ? 1000000 : 1000;
+    const rounded = big ? Math.round(n / 100000) / 10 : Math.round(n / 1000);
+    const approx = rounded * div !== n;
+    return (approx ? "~" : "") + rounded + (big ? "M" : "k");
+  };
+  const remaining = win
+    ? (typeof usage.remainingTokens === "number" ? usage.remainingTokens : Math.max(0, win - used))
+    : 0;
+  const title = win
+    ? "Context window · " + fmt(used) + " / " + fmt(win) + " tokens used (" + fmt(remaining) + " left)"
+    : "Context window · empty — fills as the conversation grows";
+
+  // Clickable: opens a popover with the exact X/Y + % figures. The gauge shares the
+  // Thinking/Auto-run pill chrome (.chat-act-toggle) so it reads as a sibling control.
+  // The popover is portaled to <body> and auto-flips UPWARD — it sits low in the
+  // viewport (the composer) — see usePortalPopover. A "Compact" CTA will later slot
+  // into the reserved popover footer; deliberately not wired yet.
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
+
   return (
-    <div
-      className={"chat-ctx chat-ctx--" + tone}
-      title={"Context window · " + fmt(used) + " / " + fmt(win) + " tokens used (" + fmt(remaining) + " left)"}
-    >
-      <Icon name="gauge" size={13} className="chat-ctx__icon" />
-      <span className="chat-ctx__track"><i style={{ width: pct + "%" }} /></span>
-      <span className="chat-ctx__val">{pct}%</span>
-    </div>
+    <>
+      <button
+        type="button"
+        ref={ref}
+        className={"chat-act-toggle chat-ctx chat-ctx--" + tone + (open ? " chat-ctx--open" : "")}
+        onClick={() => setOpen(o => !o)}
+        title={title}
+        aria-haspopup="dialog"
+        aria-expanded={open}>
+        <Icon name="gauge" size={13} className="chat-ctx__icon" />
+        <span className="chat-ctx__track"><i style={{ width: pct + "%" }} /></span>
+        <span className="chat-ctx__val">{pct}%</span>
+      </button>
+      {open && pos && createPortal(
+        <div className={"chat-ctx__pop chat-ctx__pop--" + tone} ref={menuRef} style={pos} role="dialog" aria-label="Context window usage">
+          <div className="chat-ctx__pop-head">
+            <Icon name="gauge" size={13} />
+            <span>Context window</span>
+          </div>
+          <div className="chat-ctx__pop-row">
+            <span className="chat-ctx__pop-pct">{pct}%</span>
+            <span className="chat-ctx__pop-cap">{win ? "of the window used" : "used — no turns yet"}</span>
+          </div>
+          <div className="chat-ctx__pop-track"><i style={{ width: pct + "%" }} /></div>
+          <div className="chat-ctx__pop-nums">
+            {win ? (
+              <>
+                <span><b>{fmtTokens(used)}</b> / {fmtTokens(win)} tokens</span>
+                <span>{fmtTokens(remaining)} left</span>
+              </>
+            ) : (
+              <span className="chat-ctx__pop-empty">The window fills as the conversation grows.</span>
+            )}
+          </div>
+          {/* Footer slot reserved for a future "Compact" CTA (a divider + button go
+              here, e.g. .chat-ctx__pop-foot) — intentionally not added yet. */}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -1078,10 +1141,12 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
 // it floats over the page and stays on screen (z-index above the dock lives in
 // the popover's CSS rule). Returns { pos, menuRef }: render the menu via
 // createPortal(..., document.body) with style={pos} and attach menuRef to it.
-// Placement is auto: a trigger in the viewport's right half (e.g. the narrow
-// right-docked panel) anchors by `right` and grows leftward over the page; a
-// left-half trigger (full-page header) anchors by `left` and grows rightward —
-// so the menu can't run off either screen edge regardless of dock width.
+// Placement is auto on BOTH axes: horizontally, a trigger in the viewport's right
+// half (e.g. the narrow right-docked panel) anchors by `right` and grows leftward,
+// a left-half trigger anchors by `left` and grows rightward; vertically, a trigger
+// in the top half opens downward (`top`) while one low in the viewport — e.g. the
+// composer's context gauge — opens UPWARD (`bottom`), so the menu can't run off any
+// screen edge regardless of dock width or trigger position.
 // Outside-click closes; the trigger and the portaled menu both count as "inside"
 // even though the menu is no longer a DOM child of `ref`.
 function usePortalPopover(open, setOpen, ref) {
@@ -1103,11 +1168,16 @@ function usePortalPopover(open, setOpen, ref) {
       const el = ref.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const top = Math.round(r.bottom + 8);
-      setPos((r.left + r.right) / 2 > vw / 2
-        ? { top, right: Math.round(vw - r.right) }
-        : { top, left: Math.round(Math.max(0, r.left)) });
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const horiz = (r.left + r.right) / 2 > vw / 2
+        ? { right: Math.round(vw - r.right) }
+        : { left: Math.round(Math.max(0, r.left)) };
+      // Open downward by default; a trigger low in the viewport (the composer gauge)
+      // anchors by `bottom` and opens upward so the menu stays on screen.
+      const vert = r.top > vh / 2
+        ? { bottom: Math.round(vh - r.top + 8) }
+        : { top: Math.round(r.bottom + 8) };
+      setPos({ ...horiz, ...vert });
     };
     place();
     window.addEventListener("resize", place);
@@ -1610,7 +1680,6 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             </div>
           </div>
           <div className="chat-head__actions">
-            <ChatContextMeter usage={latestUsage(active && active.messages)} />
             <div className="chat-head__nav">
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
@@ -1695,6 +1764,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
                 onChange={onInputChange}
                 onKeyDown={onKeyDown} />
               <div className="chat-composer__bar">
+                {/* Context-window gauge — lives here (not the header) so the chat's token
+                    occupancy stays in view while typing; always shown, 0% on a fresh chat. */}
+                <ChatContextMeter usage={latestUsage(active && active.messages)} />
                 {/* Thinking toggle — any tier (reasoning is benign). Makes the assistant reason
                     step by step before answering; the reasoning streams into a collapsed-by-default
                     block above the reply (ChatThinking). */}

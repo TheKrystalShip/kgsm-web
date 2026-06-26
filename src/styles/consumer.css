@@ -87,7 +87,7 @@
   border-radius: var(--r-md); padding: 10px 12px;
   color: var(--fg-1); font-family: var(--font-ui); font-size: 14px; line-height: 1.55;
 }
-.motd__input:focus { outline: none; border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.motd__input:focus { outline: none; border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .motd__input::placeholder { color: var(--fg-4); }
 .motd__foot { display: flex; align-items: center; gap: 12px; }
 .motd__count { color: var(--fg-4); font-size: 11.5px; font-family: var(--font-mono); }

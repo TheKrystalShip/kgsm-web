@@ -88,7 +88,7 @@ body { overflow: hidden; }
   font-size: 13px;
   transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
 }
-.sidebar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.sidebar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .sidebar__search > svg { flex-shrink: 0; }
 .sidebar__search input {
   flex: 1; min-width: 0; background: transparent; border: none; outline: none;
@@ -509,7 +509,7 @@ body { overflow: hidden; }
 .console-card__body .tag-player { color: var(--krystal-teal); }
 .console-card__input { display: flex; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); background: var(--surface-1); flex-shrink: 0; }
 .console-card__input input { flex: 1; background: var(--surface-3); border: 1px solid var(--border-subtle); border-radius: var(--r-md); padding: 0 12px; height: 34px; color: var(--fg-1); font-family: var(--font-mono); font-size: 13px; outline: none; }
-.console-card__input input:focus { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.console-card__input input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .console-card__input button { background: var(--krystal-teal); color: var(--fg-inverse); border: none; border-radius: var(--r-md); padding: 0 14px; height: 34px; font-weight: 600; font-size: 13px; cursor: pointer; }
 
 /* ============= Sub-tabs (inside server detail) ============= */
@@ -927,7 +927,7 @@ body { overflow: hidden; }
 .k-field input.mono, .k-field input[type="number"] { font-family: var(--font-mono); }
 .k-field input:focus, .k-field select:focus {
   border-color: var(--border-accent);
-  box-shadow: var(--ring-focus);
+  box-shadow: var(--ring-input);
 }
 .k-field__help { font-size: 11.5px; color: var(--fg-3); }
 
@@ -2455,7 +2455,7 @@ body { overflow: hidden; }
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
 }
-.filter-bar__field select:focus { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.filter-bar__field select:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .filter-bar__range { height: 32px; }
 .filter-bar__clear {
   display: inline-flex; align-items: center; gap: 4px;
@@ -2513,7 +2513,7 @@ body { overflow: hidden; }
   color: var(--fg-3);
   transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
 }
-.toolbar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-focus); color: var(--fg-2); }
+.toolbar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-input); color: var(--fg-2); }
 .toolbar__search input {
   flex: 1; min-width: 0; background: transparent; border: none; outline: none;
   color: var(--fg-1); font-family: var(--font-ui); font-size: 14px;
@@ -3486,17 +3486,15 @@ body { overflow: hidden; }
 }
 
 /* Context-window meter — a compact gauge of the active chat's token occupancy,
-   sitting at the left of the header actions. Mono % + a thin fill track; tone
-   escalates teal→amber→red as the window fills (see ChatContextMeter). */
-.chat-ctx {
-  display: inline-flex; align-items: center; gap: 7px;
-  height: 26px; padding: 0 9px; margin-right: 4px;
-  border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-subtle);
-  color: var(--fg-3); cursor: default; user-select: none;
-}
+   living in the composer toolbar (so it stays in view while typing). It's a CLICKABLE
+   button that SHARES the Thinking/Auto-run pill chrome (.chat-act-toggle), so it reads
+   as a sibling control; .chat-ctx adds only the meter internals (fill track + mono %)
+   and the tone escalation (teal→amber→red). Click opens .chat-ctx__pop with the exact
+   figures. Always rendered — a fresh chat reads 0%. */
+.chat-ctx { user-select: none; }
 .chat-ctx__icon { color: var(--fg-3); flex-shrink: 0; }
 .chat-ctx__track {
-  width: 46px; height: 5px; border-radius: 999px;
+  width: 38px; height: 5px; border-radius: 999px;
   background: var(--surface-3); overflow: hidden; flex-shrink: 0;
 }
 .chat-ctx__track > i {
@@ -3508,17 +3506,58 @@ body { overflow: hidden; }
   font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   font-variant-numeric: tabular-nums; color: var(--fg-2); line-height: 1; min-width: 30px; text-align: right;
 }
-.chat-ctx--warn   { border-color: color-mix(in srgb, var(--warning) 35%, var(--border-subtle)); }
+/* Open (popover showing) — the pressed look the toggles take on hover. */
+.chat-ctx.chat-ctx--open { background: var(--surface-2); border-color: var(--border-strong); color: var(--fg-1); }
+/* Tone escalation rides on the fill + % (the shared pill keeps its neutral border). */
 .chat-ctx--warn   .chat-ctx__track > i { background: var(--warning); }
 .chat-ctx--warn   .chat-ctx__val      { color: var(--warning-fg); }
 .chat-ctx--warn   .chat-ctx__icon     { color: var(--warning-fg); }
-.chat-ctx--danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--border-subtle)); }
 .chat-ctx--danger .chat-ctx__track > i { background: var(--danger); }
 .chat-ctx--danger .chat-ctx__val      { color: var(--danger-fg); }
 .chat-ctx--danger .chat-ctx__icon     { color: var(--danger-fg); }
 
-/* On the narrow docked panel, drop the % label — the bar + tooltip carry it. */
-.chat-page--docked .chat-ctx__val { display: none; }
+/* Context-window popover — opens UPWARD from the composer gauge (usePortalPopover
+   auto-flips because the trigger sits low in the viewport). Portaled to <body> +
+   position:fixed so the dock's overflow:hidden can't clip it; z-index above the dock
+   (60) and resizer (61), below modals/toasts (80/90). A future "Compact" CTA slots
+   into a footer beneath .chat-ctx__pop-nums. */
+.chat-ctx__pop {
+  position: fixed; z-index: 70; width: 244px; max-width: 84vw;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-2);
+  padding: 12px 14px 13px;
+  animation: k-fade var(--d-fast) var(--ease-out);
+}
+.chat-ctx__pop-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--fg-3); margin-bottom: 11px;
+}
+.chat-ctx__pop-head svg { color: var(--fg-3); }
+.chat-ctx__pop-row { display: flex; align-items: baseline; gap: 8px; }
+.chat-ctx__pop-pct {
+  font-family: var(--font-mono); font-size: 23px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--fg-1); line-height: 1;
+}
+.chat-ctx__pop-cap { font-size: 12px; color: var(--fg-3); }
+.chat-ctx__pop-track {
+  margin: 11px 0 8px; height: 6px; border-radius: 999px;
+  background: var(--surface-3); overflow: hidden;
+}
+.chat-ctx__pop-track > i {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--krystal-teal); transition: width var(--d-slow) var(--ease-out);
+}
+.chat-ctx__pop-nums {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums;
+}
+.chat-ctx__pop-nums b { color: var(--fg-1); font-weight: 600; }
+.chat-ctx__pop-empty { color: var(--fg-3); font-size: 12px; }
+.chat-ctx__pop--warn   .chat-ctx__pop-pct       { color: var(--warning-fg); }
+.chat-ctx__pop--warn   .chat-ctx__pop-track > i { background: var(--warning); }
+.chat-ctx__pop--danger .chat-ctx__pop-pct       { color: var(--danger-fg); }
+.chat-ctx__pop--danger .chat-ctx__pop-track > i { background: var(--danger); }
 
 /* History popover — matches the host-switch / account menus. */
 .chat-hist { position: relative; display: inline-flex; }
@@ -4145,13 +4184,26 @@ body { overflow: hidden; }
   background: var(--surface-3); border: 1px solid var(--border-subtle);
   border-radius: var(--r-lg); padding: 10px 10px 8px 14px;
   max-width: 760px; margin: 0 auto;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
 }
-.chat-composer__box:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+/* Focus affordance: a quiet accent border + a hairline same-tone ring — no glow.
+   Less is more; it should read as the field gently coming into focus, not a halo.
+   Shared site-wide as --ring-input (the default text-field highlight); buttons/cards
+   keep the bolder --ring-focus glow for keyboard visibility. */
+.chat-composer__box:focus-within {
+  border-color: var(--border-accent);
+  box-shadow: var(--ring-input);
+}
 .chat-composer__box textarea {
   width: 100%; resize: none; background: transparent; border: none; outline: none;
   color: var(--fg-1); font-family: var(--font-ui); font-size: 14px; line-height: 1.5;
   max-height: 200px; padding: 4px 0 0;
 }
+/* The inner textarea never carries its own highlight — the box owns the focus
+   affordance. Kills the universal :focus-visible ring (tokens.css) on the field, so
+   focusing the input doesn't double up a glow inside the already-accented box. */
+.chat-composer__box textarea:focus,
+.chat-composer__box textarea:focus-visible { outline: none; box-shadow: none; }
 .chat-composer__box textarea::placeholder { color: var(--fg-4); }
 /* Toolbar row beneath the input: context scope on the left, mic/send on the right. */
 .chat-composer__bar { display: flex; align-items: center; gap: 8px; }
@@ -4182,7 +4234,7 @@ body { overflow: hidden; }
   display: flex; align-items: center; gap: 10px;
   max-width: 760px; margin: 0 auto;
   background: var(--surface-3); border: 1px solid var(--border-accent);
-  box-shadow: var(--ring-focus);
+  box-shadow: var(--ring-input);
   border-radius: var(--r-lg); padding: 7px 8px 7px 10px;
 }
 .voice-bar--error { border-color: var(--border-subtle); box-shadow: none; color: var(--danger); }
@@ -4352,7 +4404,7 @@ body { overflow: hidden; }
   outline: none; min-width: 180px;
 }
 .settings-input--mono { font-family: var(--font-mono); font-size: 13px; }
-.settings-input:focus { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.settings-input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .settings-foot { display: flex; justify-content: flex-end; padding-top: 16px; }
 .settings-pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
 .settings-pill--ok { background: var(--success-bg); color: var(--success-fg); }
@@ -4643,7 +4695,7 @@ body { overflow: hidden; }
   transition: border-color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
 }
 .host-switch__trigger:hover { border-color: var(--border-strong); background: var(--surface-3); }
-.host-switch__trigger--open { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.host-switch__trigger--open { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .host-switch__lead { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--fg-3); width: 18px; }
 .host-switch__dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
 .host-switch__dot--online { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
@@ -4953,7 +5005,7 @@ body { overflow: hidden; }
 }
 .host-field__input--mono { font-family: var(--font-mono); }
 .host-field__input::placeholder { color: var(--fg-4); }
-.host-field__input:focus { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.host-field__input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .host-field-row { display: flex; gap: 12px; }
 .host-editor__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 20px; border-top: 1px solid var(--border-subtle); }
 
@@ -5355,7 +5407,7 @@ body { overflow: hidden; }
   border-radius: var(--r-md); overflow: hidden;
   transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
 }
-.add-host__input:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
+.add-host__input:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .add-host__input--bad { border-color: var(--danger); }
 .add-host__scheme { padding: 0 2px 0 12px; color: var(--fg-4); font-family: var(--font-mono); font-size: 13px; flex-shrink: 0; }
 .add-host__input input {

@@ -145,7 +145,8 @@
   --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
   --shadow-2: 0 8px 24px rgba(0,0,0,0.45);
   --shadow-pop: 0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px var(--border-strong);
-  --ring-focus: 0 0 0 3px var(--krystal-teal-ring);
+  --ring-focus: 0 0 0 3px var(--krystal-teal-ring);                          /* buttons/cards/keyboard-nav — a visible glow */
+  --ring-input: 0 0 0 1px color-mix(in srgb, var(--krystal-teal) 20%, transparent);  /* text fields — a quiet hairline ring (pairs with an accent border) */
 
   /* ---------- MOTION --------------------------------------- */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);     /* @kind other */
