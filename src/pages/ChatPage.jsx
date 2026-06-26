@@ -1118,16 +1118,18 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, pageContext, seed, o
       c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, ev) } : c));
 
     try {
-      // {prompt} only — the scope chip has NO turn transport (the body carries no
-      // server field; the assistant resolves the server from the prompt). The chip
-      // stays a display + follow-up-grounding affordance. See WIRING §9.
+      // The scope CHIP still has no turn transport (the body carries no server field; the assistant
+      // resolves the server from the prompt) — but `conversationId` IS sent now: it is THIS chat's
+      // local id, so each "New chat" gets a FRESH assistant context window. The backend namespaces
+      // memory under web:<userId>:<conversationId>, so a new chat no longer recalls a prior one's
+      // history (the user-id prefix stays server-authoritative → never cross-user). See WIRING §9.
       // A voice note whose transcription failed has empty text → send a short
       // marker, so the turn reads instead of a 400 on an empty prompt.
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
       // `actions` = AUTO-ACCEPT intent (admin + toggle). The backend re-checks admin tier before it
       // lets the assistant auto-run; proposing works regardless of this flag, so off ≠ "can't act".
       // `think` = the Thinking toggle → the assistant reasons before answering (thinking.delta frames).
-      await api.host(assistantHost.id).turn({ prompt, actions: autoAcceptActive, think: thinkOn }, { onEvent: applyFrame, signal: ctrl.signal });
+      await api.host(assistantHost.id).turn({ prompt, actions: autoAcceptActive, think: thinkOn, conversationId: convId }, { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
       const reason = e && e.code === 503 ? assistantHost.name + "’s assistant is currently unavailable."
