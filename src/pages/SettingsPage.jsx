@@ -6,11 +6,11 @@ import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { DiscordPage } from "./DiscordPage.jsx";
 import { HostAuthBadge } from "./HostAccess.jsx";
-import { Select, SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
+import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
 
 // SettingsPage — account- and website-level settings (distinct from the
 // per-server Settings sub-tab). Left sub-nav + panels. Reuses the shared
-// SettingsSection / SettingsRow / Toggle / Select controls from
+// SettingsSection / SettingsRow / Toggle controls from
 // ServerSettings.jsx (exported to window).
 
 // Per-host access — one identity (Discord), but a role resolved separately on
@@ -43,17 +43,7 @@ function SettingsPage({ user, onLogout }) {
     handle: user?.name || "",
   });
   const [prefs, setPrefs] = React.useState({
-    defaultRange: "24h",
-    confirmDestructive: true,
     compactDensity: false,
-  });
-  const [assistant, setAssistant] = React.useState(() => {
-    let ep = "http://localhost:11434", model = "gemma3";
-    try {
-      ep = localStorage.getItem("krystal:chat:endpoint") || ep;
-      model = localStorage.getItem("krystal:chat:model") || model;
-    } catch (e) {}
-    return { endpoint: ep, model };
   });
   const setP = (k, v) => setPrefs(prev => ({ ...prev, [k]: v }));
 
@@ -61,7 +51,6 @@ function SettingsPage({ user, onLogout }) {
     { id: "account",      label: "Account",        icon: "user" },
     { id: "connections",  label: "Connections",    icon: "link-2" },
     { id: "discord",      label: "Discord",        icon: "message-circle" },
-    { id: "assistant",    label: "Assistant",      icon: "bot" },
     { id: "tokens",       label: "API tokens",     icon: "key" },
     { id: "danger",       label: "Danger zone",    icon: "triangle-alert" },
   ];
@@ -144,33 +133,6 @@ function SettingsPage({ user, onLogout }) {
 
           {section === "discord" && (
             DiscordPage ? React.createElement(DiscordPage) : null
-          )}
-
-          {section === "assistant" && (
-            <SettingsSection title="Assistant">
-              <SettingsRow icon="server" title="Ollama endpoint" sub="Where the local model is served.">
-                <input className="settings-input settings-input--mono" style={{ width: 220 }} value={assistant.endpoint}
-                  onChange={e => setAssistant(a => ({ ...a, endpoint: e.target.value }))} />
-              </SettingsRow>
-              <SettingsRow icon="bot" title="Model" sub="The model used for chat + diagnostics.">
-                <Select value={assistant.model}
-                  options={[{ value: "gemma3", label: "gemma3" }, { value: "llama3.1", label: "llama3.1" }, { value: "qwen2.5", label: "qwen2.5" }]}
-                  onChange={v => setAssistant(a => ({ ...a, model: v }))} />
-              </SettingsRow>
-              <SettingsRow icon="shield" title="Confirm before actions" sub="Always require a confirm step before the assistant runs an action.">
-                <Toggle on={prefs.confirmDestructive} onChange={v => setP("confirmDestructive", v)} />
-              </SettingsRow>
-              <SettingsRow icon="line-chart" title="Default metrics range" sub="Time window the assistant uses when reading performance.">
-                <Select value={prefs.defaultRange}
-                  options={[{ value: "1h", label: "1 hour" }, { value: "24h", label: "24 hours" }, { value: "7d", label: "7 days" }]}
-                  onChange={v => setP("defaultRange", v)} />
-              </SettingsRow>
-              <div className="settings-foot">
-                <button className="fb-editor__btn" onClick={() => {
-                  try { localStorage.setItem("krystal:chat:endpoint", assistant.endpoint); localStorage.setItem("krystal:chat:model", assistant.model); } catch (e) {}
-                }}>Save changes</button>
-              </div>
-            </SettingsSection>
           )}
 
           {section === "tokens" && (

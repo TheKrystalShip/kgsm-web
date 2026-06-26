@@ -3485,13 +3485,52 @@ body { overflow: hidden; }
   display: inline-flex; align-items: center; justify-content: center; line-height: 1;
 }
 
+/* Context-window meter — a compact gauge of the active chat's token occupancy,
+   sitting at the left of the header actions. Mono % + a thin fill track; tone
+   escalates teal→amber→red as the window fills (see ChatContextMeter). */
+.chat-ctx {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 26px; padding: 0 9px; margin-right: 4px;
+  border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--fg-3); cursor: default; user-select: none;
+}
+.chat-ctx__icon { color: var(--fg-3); flex-shrink: 0; }
+.chat-ctx__track {
+  width: 46px; height: 5px; border-radius: 999px;
+  background: var(--surface-3); overflow: hidden; flex-shrink: 0;
+}
+.chat-ctx__track > i {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--krystal-teal);
+  transition: width var(--d-slow) var(--ease-out), background var(--d-fast) var(--ease-out);
+}
+.chat-ctx__val {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--fg-2); line-height: 1; min-width: 30px; text-align: right;
+}
+.chat-ctx--warn   { border-color: color-mix(in srgb, var(--warning) 35%, var(--border-subtle)); }
+.chat-ctx--warn   .chat-ctx__track > i { background: var(--warning); }
+.chat-ctx--warn   .chat-ctx__val      { color: var(--warning-fg); }
+.chat-ctx--warn   .chat-ctx__icon     { color: var(--warning-fg); }
+.chat-ctx--danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--border-subtle)); }
+.chat-ctx--danger .chat-ctx__track > i { background: var(--danger); }
+.chat-ctx--danger .chat-ctx__val      { color: var(--danger-fg); }
+.chat-ctx--danger .chat-ctx__icon     { color: var(--danger-fg); }
+
+/* On the narrow docked panel, drop the % label — the bar + tooltip carry it. */
+.chat-page--docked .chat-ctx__val { display: none; }
+
 /* History popover — matches the host-switch / account menus. */
 .chat-hist { position: relative; display: inline-flex; }
+/* Portaled to <body> with position:fixed (top/right set inline from the trigger
+   rect) so the docked panel's overflow:hidden can't clip it when the dock is
+   squished narrow — it floats over the page. z-index sits above the dock (60)
+   and its resizer (61), below modals/toasts (80/90). */
 .chat-hist__menu {
-  position: absolute; top: calc(100% + 8px); right: 0; width: 282px; max-width: 84vw;
+  position: fixed; width: 282px; max-width: 84vw;
   background: var(--surface-1); border: 1px solid var(--border-strong);
   border-radius: var(--r-lg); box-shadow: var(--shadow-2);
-  display: flex; flex-direction: column; max-height: 62vh; overflow: hidden; z-index: 30;
+  display: flex; flex-direction: column; max-height: 62vh; overflow: hidden; z-index: 70;
   animation: k-fade var(--d-fast) var(--ease-out);
 }
 .chat-hist__head {
@@ -3504,46 +3543,6 @@ body { overflow: hidden; }
 .chat-hist__list .chat-rail__item { padding: 9px 10px; }
 
 /* Scope chip now lives inside the composer toolbar (see .chat-composer__bar). */
-
-/* ---- settings popover ---- */
-.chat-settings {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
-  width: 320px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-2);
-  padding: 14px;
-  display: flex; flex-direction: column; gap: 14px;
-}
-.chat-settings__head { display: flex; align-items: center; justify-content: space-between; color: var(--fg-1); font-weight: 600; font-size: 13.5px; }
-.chat-settings__close { background: transparent; border: none; color: var(--fg-3); cursor: pointer; display: flex; }
-.chat-settings__close:hover { color: var(--fg-1); }
-.chat-settings__field { display: flex; flex-direction: column; gap: 6px; }
-.chat-settings__field label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); }
-.chat-settings__row { display: flex; gap: 6px; }
-.chat-settings__row input, .chat-settings__row select {
-  flex: 1; min-width: 0;
-  background: var(--surface-3); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md); height: 34px; padding: 0 10px;
-  color: var(--fg-1); font-family: var(--font-mono); font-size: 12.5px; outline: none;
-}
-.chat-settings__row input:focus, .chat-settings__row select:focus { border-color: var(--border-accent); box-shadow: var(--ring-focus); }
-.chat-settings__row button {
-  flex-shrink: 0; background: var(--surface-3); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md); height: 34px; padding: 0 12px;
-  color: var(--fg-1); font-weight: 600; font-size: 12.5px; cursor: pointer;
-  display: inline-flex; align-items: center;
-}
-.chat-settings__row button:hover { border-color: var(--border-strong); background: var(--surface-2); }
-.chat-settings__status { font-size: 11.5px; font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 6px; }
-.chat-settings__status .dot { width: 7px; height: 7px; border-radius: 999px; }
-.chat-settings__status--online { color: var(--success-fg); } .chat-settings__status--online .dot { background: var(--success); }
-.chat-settings__status--warn   { color: var(--warning-fg); } .chat-settings__status--warn .dot   { background: var(--warning); }
-.chat-settings__status--danger { color: var(--danger-fg); }  .chat-settings__status--danger .dot { background: var(--danger); }
-.chat-settings__status--muted  { color: var(--fg-4); }       .chat-settings__status--muted .dot  { background: var(--fg-4); }
-.chat-settings__hint { font-size: 11.5px; color: var(--fg-3); line-height: 1.5; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.chat-settings__hint code { font-family: var(--font-mono); color: var(--krystal-teal); background: var(--surface-0); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
 
 /* ---- thread / scroll ---- */
 .chat-scroll { flex: 1; overflow-y: auto; min-height: 0; }
@@ -4330,7 +4329,6 @@ body { overflow: hidden; }
   .chat-railbar__menu .chat-rail__item { padding: 10px; }
 
   .chat-suggestions { grid-template-columns: 1fr; }
-  .chat-settings { width: calc(100vw - 48px); right: -8px; }
 }
 
 /* ===============================================================
@@ -4503,11 +4501,14 @@ body { overflow: hidden; }
 .asst-host__name { white-space: nowrap; color: var(--fg-2); }
 .asst-host__model { color: var(--fg-4); font-family: var(--font-mono); font-size: 11px; }
 .asst-host__caret { color: var(--fg-4); flex-shrink: 0; }
+/* Portaled to <body> with position:fixed (top/left set inline from the trigger
+   rect) so the docked panel's overflow:hidden can't clip it when narrow — see
+   .chat-hist__menu. z-index above the dock (60) + resizer (61). */
 .asst-host__menu {
-  position: absolute; top: calc(100% + 6px); left: 0; min-width: 226px;
+  position: fixed; min-width: 226px;
   background: var(--surface-1); border: 1px solid var(--border-strong);
   border-radius: var(--r-md); box-shadow: var(--shadow-2);
-  padding: 6px; z-index: 30; display: flex; flex-direction: column; gap: 2px;
+  padding: 6px; z-index: 70; display: flex; flex-direction: column; gap: 2px;
   animation: k-fade var(--d-fast) var(--ease-out);
 }
 .asst-host__menu-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-4); padding: 6px 8px 4px; }

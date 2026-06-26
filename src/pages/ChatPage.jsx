@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon.jsx";
 import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { AccountAvatar } from "../components/Sidebar.jsx";
@@ -23,11 +24,8 @@ import { ACTION_META } from "./AuditLogPage.jsx";
 // architecture.html (§4).
 
 const CHAT_LS_KEY      = "krystal:chat:conversations";
-const CHAT_ENDPOINT_LS = "krystal:chat:endpoint";
-const CHAT_MODEL_LS    = "krystal:chat:model";
 const CHAT_ACTIONS_LS  = "krystal:chat:actions";   // the "Actions" toggle (operator+ only), persisted
 const CHAT_THINK_LS    = "krystal:chat:think";     // the "Thinking" toggle (any tier), persisted
-const DEFAULT_ENDPOINT = "http://localhost:11434";
 
 // In-thread copy dropped when a behaviour toggle flips mid-chat, so the user
 // sees the conversation's rules change as it goes on (both directions).
@@ -306,7 +304,18 @@ function reduceTurnFrame(messages, ev) {
       });
       break;
     case "done": {
-      if (ev.text) msgs[lastIdx] = { ...bubble, content: ev.text };
+      // The terminal frame carries the authoritative full reply (reconciled only
+      // when present) AND the turn's context occupancy (usage: used/window tokens,
+      // see kgsm-llm UsageDto). Usage rides ON the bubble so it travels with the
+      // turn: the header meter reads the most recent bubble's usage (latestUsage),
+      // and a loaded history lights up the same way (scaffoldHistory attaches it
+      // per turn). Absent usage → nothing set → the meter stays hidden (no fabrication).
+      if (ev.text || ev.usage) {
+        let done = bubble;
+        if (ev.text) done = { ...done, content: ev.text };
+        if (ev.usage) done = { ...done, usage: ev.usage };
+        msgs[lastIdx] = done;
+      }
       // Readability: move THIS turn's command cards (the contiguous run spliced just
       // before the bubble) to AFTER the reply. Scoped to the contiguous run, so prior
       // turns' cards (separated by their own user/assistant messages) stay in place.
@@ -350,6 +359,10 @@ function scaffoldHistory(entries) {
     out.push({ role: "user", content: t.prompt || "" });
     const bubble = { role: "assistant", content: t.final || "" };
     if (t.thinking) bubble.thinking = t.thinking;
+    // Per-turn context occupancy from the stored transcript (ConversationTurnDto.usage),
+    // same shape the live `done` frame carries — so a reopened chat's header meter
+    // reflects where the context window stood at that chat's most recent turn.
+    if (t.usage) bubble.usage = t.usage;
     const tools = Array.isArray(t.tools)
       ? t.tools.map((tl, ti) => ({ id: "h" + ei + "_" + ti, label: toolLabel(tl.tool), state: "done", summary: tl.summary || "" }))
       : [];
@@ -367,6 +380,22 @@ function scaffoldHistory(entries) {
     out.push(bubble);
   });
   return out;
+}
+
+// The thread's CURRENT context occupancy = the most recent turn's usage. Usage is
+// per-turn (each turn rebuilds from a windowed history + a fresh system prompt, so
+// it's recomputed, not cumulative) — the latest assistant bubble that carries usage
+// is therefore "how full the window stood last turn". Scans newest-first and stops
+// at the first hit. Returns null when no turn has reported usage yet (a brand-new
+// chat, or an older transcript with no stored usage) → the meter renders nothing.
+// Pure + keyed on `messages`, so it re-derives for free when the active chat switches.
+function latestUsage(messages) {
+  if (!Array.isArray(messages)) return null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.role === "assistant" && m.usage) return m.usage;
+  }
+  return null;
 }
 
 // Fold the current host's server-side conversation summaries into the local list,
@@ -487,6 +516,34 @@ function ChatContextPill({ msg }) {
         {!pending && summary && <span className="chat-context__detail"> · {summary}</span>}
       </span>
       {!pending && <Icon name="check" size={12} strokeWidth={2.6} className="chat-context__check" />}
+    </div>
+  );
+}
+
+// ---------- context-usage meter ----------
+// A compact header gauge of how full the assistant's context window is for the
+// ACTIVE chat — fed by latestUsage(active.messages), so it tracks the selected
+// conversation and updates the instant the user switches chats (or loads one from
+// history). The numbers are the assistant's own (kgsm-llm UsageDto: usedTokens /
+// contextWindow), relayed verbatim by kgsm-api — never derived or fabricated here:
+// no usage → the component isn't rendered at all. Tone escalates teal→amber→red as
+// the window fills; the exact figures live in the title tooltip to keep the header tight.
+function ChatContextMeter({ usage }) {
+  const win = usage && usage.contextWindow > 0 ? usage.contextWindow : 0;
+  if (!win) return null;
+  const used = usage.usedTokens >= 0 ? usage.usedTokens : 0;
+  const pct = Math.min(100, Math.round((used / win) * 100));
+  const tone = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
+  const fmt = (n) => (typeof n === "number" ? n.toLocaleString() : "—");
+  const remaining = typeof usage.remainingTokens === "number" ? usage.remainingTokens : Math.max(0, win - used);
+  return (
+    <div
+      className={"chat-ctx chat-ctx--" + tone}
+      title={"Context window · " + fmt(used) + " / " + fmt(win) + " tokens used (" + fmt(remaining) + " left)"}
+    >
+      <Icon name="gauge" size={13} className="chat-ctx__icon" />
+      <span className="chat-ctx__track"><i style={{ width: pct + "%" }} /></span>
+      <span className="chat-ctx__val">{pct}%</span>
     </div>
   );
 }
@@ -968,44 +1025,6 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
   );
 }
 
-// ---------- settings popover ----------
-function ChatSettings({ endpoint, model, models, status, onEndpoint, onModel, onRefresh, onClose }) {
-  const [draft, setDraft] = React.useState(endpoint);
-  return (
-    <div className="chat-settings" onClick={e => e.stopPropagation()}>
-      <div className="chat-settings__head">
-        <span>Connection</span>
-        <button className="chat-settings__close" onClick={onClose}><Icon name="x" size={14} /></button>
-      </div>
-      <div className="chat-settings__field">
-        <label>Ollama endpoint</label>
-        <div className="chat-settings__row">
-          <input value={draft} onChange={e => setDraft(e.target.value)} placeholder={DEFAULT_ENDPOINT} spellCheck="false" />
-          <button onClick={() => onEndpoint(draft)}>Save</button>
-        </div>
-        <span className={"chat-settings__status chat-settings__status--" + status.tone}>
-          <span className="dot"></span>{status.label}
-        </span>
-      </div>
-      <div className="chat-settings__field">
-        <label>Model</label>
-        <div className="chat-settings__row">
-          <select value={model} onChange={e => onModel(e.target.value)}>
-            {models.length === 0 && <option value={model}>{model}</option>}
-            {models.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <button onClick={onRefresh} title="Refresh model list"><Icon name="refresh-cw" size={13} /></button>
-        </div>
-      </div>
-      <div className="chat-settings__hint">
-        <Icon name="info" size={12} />
-        Ollama must allow browser requests:
-        <code>OLLAMA_ORIGINS='*' ollama serve</code>
-      </div>
-    </div>
-  );
-}
-
 // AssistantHostPicker — chooses WHICH host's assistant the dock talks to.
 // Sourced from assistantHosts(); the assistant is a per-host capability
 // with no central fallback, so this is the only way to switch assistants. Shows
@@ -1013,12 +1032,7 @@ function ChatSettings({ endpoint, model, models, status, onEndpoint, onModel, on
 function AssistantHostPicker({ hosts, current, onSelect }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+  const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
   if (!current) return null;
   const cap = hostCapability(current, "assistant");
   const dotTone = cap.state === "operational" ? "online" : cap.state === "degraded" ? "warn" : "danger";
@@ -1034,8 +1048,8 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
         <span className="asst-host__name">{current.name}</span>
         {many && <Icon name="chevrons-up-down" size={13} className="asst-host__caret" />}
       </button>
-      {open && many && (
-        <div className="asst-host__menu" role="listbox">
+      {open && many && pos && createPortal(
+        <div className="asst-host__menu" role="listbox" ref={menuRef} style={pos}>
           <div className="asst-host__menu-label">Host assistant</div>
           {hosts.map(h => {
             const c = hostCapability(h, "assistant");
@@ -1052,10 +1066,58 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
+}
+
+// usePortalPopover — drives a header popover that's portaled to <body> so the
+// docked panel's overflow:hidden can't clip it when the dock is squished narrow;
+// it floats over the page and stays on screen (z-index above the dock lives in
+// the popover's CSS rule). Returns { pos, menuRef }: render the menu via
+// createPortal(..., document.body) with style={pos} and attach menuRef to it.
+// Placement is auto: a trigger in the viewport's right half (e.g. the narrow
+// right-docked panel) anchors by `right` and grows leftward over the page; a
+// left-half trigger (full-page header) anchors by `left` and grows rightward —
+// so the menu can't run off either screen edge regardless of dock width.
+// Outside-click closes; the trigger and the portaled menu both count as "inside"
+// even though the menu is no longer a DOM child of `ref`.
+function usePortalPopover(open, setOpen, ref) {
+  const menuRef = React.useRef(null);
+  const [pos, setPos] = React.useState(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const h = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return;
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open, setOpen, ref]);
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const top = Math.round(r.bottom + 8);
+      setPos((r.left + r.right) / 2 > vw / 2
+        ? { top, right: Math.round(vw - r.right) }
+        : { top, left: Math.round(Math.max(0, r.left)) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, ref]);
+  return { pos, menuRef };
 }
 
 // ChatHistory — conversation list as a site-style popover (matches the host
@@ -1064,12 +1126,7 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
 function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+  const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
   // Fetch the server-side history only on the open transition (lazy) — clicking the
   // button is the explicit signal; closing/reopening refreshes.
   const toggle = () => setOpen(o => { const next = !o; if (next && onOpen) onOpen(); return next; });
@@ -1078,8 +1135,8 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading
       <button className={"chat-headbtn" + (open ? " chat-headbtn--on" : "")} onClick={toggle} title="Chat history" aria-label="Chat history" aria-haspopup="menu" aria-expanded={open}>
         <Icon name="history" size={16} />
       </button>
-      {open && (
-        <div className="chat-hist__menu" role="menu">
+      {open && pos && createPortal(
+        <div className="chat-hist__menu" role="menu" ref={menuRef} style={pos}>
           <div className="chat-hist__head">
             <span className="chat-hist__head-label">Chat history</span>
           </div>
@@ -1102,7 +1159,8 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1552,6 +1610,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             </div>
           </div>
           <div className="chat-head__actions">
+            <ChatContextMeter usage={latestUsage(active && active.messages)} />
             <div className="chat-head__nav">
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
@@ -1704,4 +1763,4 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   );
 }
 
-export { adaptResultCard, API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
+export { adaptResultCard, API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, latestUsage, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
