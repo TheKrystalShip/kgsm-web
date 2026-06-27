@@ -2971,18 +2971,10 @@ body { overflow: hidden; }
   .content { padding: 16px; gap: 12px; }
   .content__breadcrumb { font-size: 12.5px; }
 
-  /* Top bar is gone — reclaim its height as top padding so the floating menu
-     button (top-left) clears the first row of content. */
-  .app__main { padding-top: 56px; }
-  .app__mobile-menu {
-    display: inline-flex; align-items: center; justify-content: center;
-    position: fixed; top: 12px; left: 12px; z-index: 45;
-    width: 40px; height: 40px; border-radius: var(--r-md);
-    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border: 1px solid var(--border-subtle); color: var(--fg-1); cursor: pointer;
-  }
-  .app__mobile-menu:active { background: var(--surface-2); }
+  /* No top bar and no top-anchored button any more — the mobile nav toggle is a
+     left-edge handle (vertically centred), so no top padding is needed to clear
+     it. The .mnav styles + their ≤768px reveal live in the .mnav section. */
+
   .assistant-fab { right: 16px; bottom: 16px; width: 48px; height: 48px; }
 
   /* Dashboard */
@@ -4544,9 +4536,38 @@ body { overflow: hidden; }
 .assistant-fab:hover { background: var(--krystal-teal-hover); transform: translateY(-2px); }
 .assistant-fab:active { transform: translateY(0); }
 
-/* Mobile floating menu button — base hidden, revealed in the phone media query
-   below now that the top-bar hamburger is gone. */
-.app__mobile-menu { display: none; }
+/* ---------- Mobile nav toggle ---------------------------------------------
+   Visible, tappable opener for the off-canvas sidebar on phones. The left-edge
+   swipe is only a secondary accelerator (and unreliable — browsers steal the
+   edge-drag as "back"), so this is the reliable path. Hidden on desktop and
+   revealed in the ≤768px media query below.
+
+   A slim handle pinned to the middle of the left edge, exactly where the swipe
+   lives, so it reads as "the drawer pulls out from here". */
+.mnav { display: none; }
+.mnav--edge {
+  position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 45;
+  align-items: center; justify-content: center;
+  width: 22px; height: 66px;
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle); border-left: none;
+  color: var(--fg-3); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 3px 0 14px rgba(0,0,0,0.35);
+  transition: background var(--d-fast) var(--ease-out),
+              color var(--d-fast) var(--ease-out);
+}
+.mnav--edge:active { background: var(--surface-2); color: var(--fg-1); }
+.mnav--edge:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+
+/* Reveal on phones. Placed AFTER the base `.mnav { display: none }` so it wins
+   the cascade (equal specificity → later source order wins; a media query does
+   NOT bump priority on its own). */
+@media (max-width: 768px) {
+  .mnav--edge { display: inline-flex; }
+}
 
 /* Assistant host picker — which host's assistant the dock/page is addressing.
    Sits in the chat header; the assistant is per-host with no central fallback. */
@@ -4791,8 +4812,10 @@ body { overflow: hidden; }
 .server-tile__fav:focus-visible { opacity: 1; outline: none; box-shadow: var(--ring-focus); }
 .server-tile__fav.is-on { opacity: 1; color: var(--warning); border-color: rgba(245, 158, 11, 0.4); }
 .server-tile__fav.is-on svg { fill: currentColor; }
-/* Touch / coarse pointers have no hover — keep the affordance discoverable. */
-@media (hover: none) {
+/* No hover to reveal it on: coarse pointers (real touch devices) AND the narrow
+   mobile layout (which also covers a desktop browser previewed at phone width).
+   Keep the star permanently visible there; wide desktop keeps the hover reveal. */
+@media (hover: none), (max-width: 768px) {
   .server-tile__fav { opacity: 1; }
 }
 
@@ -5065,8 +5088,21 @@ body { overflow: hidden; }
 .dash-fleet-row__go { color: var(--fg-4); transition: color var(--d-fast) var(--ease-out); }
 
 @media (max-width: 760px) {
-  .dash-fleet-row { grid-template-columns: 1fr auto; gap: 10px 14px; }
-  .dash-fleet-row__meters { grid-column: 1 / -1; }
+  /* Keep each host on a SINGLE row — name, meters and chevron squish to fit
+     instead of wrapping onto three lines. Switch from the fixed desktop grid to
+     a flex row: the name (least essential — it ellipsizes) gives up space first,
+     the meters compress, the chevron stays fixed. */
+  .dash-fleet-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  /* Name + region keep their natural width (shrink only if truly cramped, never
+     grow), the meters expand into all remaining space, the chevron stays pinned
+     to the right. */
+  .dash-fleet-row__id { flex: 0 1 auto; min-width: 0; }
+  .dash-fleet-row__meters {
+    flex: 1 1 auto; min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  }
+  .dash-fleet-row__offline { flex: 1 1 auto; min-width: 0; }
+  .dash-fleet-row__end { flex: 0 0 auto; }
 }
 
 /* ============================================================= */

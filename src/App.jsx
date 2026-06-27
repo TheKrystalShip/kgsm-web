@@ -322,6 +322,20 @@ function Breadcrumb({ route, ctx, onNavigate }) {
   );
 }
 
+// ---- Mobile nav toggle ----------------------------------------------------
+// The left-edge swipe is a nice accelerator but unreliable: several mobile
+// browsers claim an edge-drag as "back", so the drawer never opens. So on phones
+// (≤768px) we show a slim handle pinned to the middle of the left edge — exactly
+// where the swipe lives — which reads as "the menu pulls out from here". The
+// swipe stays as a secondary accelerator.
+function MobileNavToggle({ onOpen }) {
+  return (
+    <button className="mnav mnav--edge" onClick={onOpen} aria-label="Open menu" title="Menu">
+      <Icon name="chevron-right" size={18} />
+    </button>
+  );
+}
+
 function App() {
   // --- Auth ---
   // Dev/QA query overrides (UI state only, no data faking):
@@ -858,6 +872,10 @@ function App() {
     : false
   );
   const railMode = tw.dockBehavior === "rail" && desktop;
+  // Collapse (icon rail) is a DESKTOP-only affordance. On mobile the sidebar is a
+  // full-width off-canvas drawer with room to spare, so it always renders
+  // expanded — host switcher and account show their full form, same as desktop.
+  const sidebarCollapsed = desktop ? collapsed : false;
   const railReserve = railMode && !assistantOpen ? 56 : 0;
   const appInset = pushingPanel ? dockWidth : railReserve;
 
@@ -894,17 +912,16 @@ function App() {
         selectedHostId={selectedHostId}
         onSelectHost={selectHost}
         open={drawerOpen}
-        collapsed={collapsed}
+        collapsed={sidebarCollapsed}
         onToggleCollapse={() => setCollapsed(c => !c)}
       />
       {drawerOpen && <div className="sidebar-scrim sidebar-scrim--open" onClick={() => setDrawerOpen(false)}></div>}
-      {/* Mobile-only floating menu button — opens the nav drawer now that the
-          top bar (and its hamburger) is gone. Backed by a left-edge swipe.
-          Hidden while the drawer itself is open. */}
+      {/* Mobile-only visible toggle for the off-canvas nav drawer — a slim handle
+          on the left edge, exactly where the swipe lives (the swipe stays as a
+          secondary accelerator but is unreliable across browsers). Hidden while
+          the drawer itself is open. */}
       {!drawerOpen && (
-        <button className="app__mobile-menu" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
-          <Icon name="menu" size={20} />
-        </button>
+        <MobileNavToggle onOpen={() => setDrawerOpen(true)} />
       )}
       <main className="app__main">
         <ConnectivityBanner onRetryRest={retryConnection} />
