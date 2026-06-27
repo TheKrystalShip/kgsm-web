@@ -98,3 +98,30 @@ export async function connectHost(input, opts) {
     return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), tier: (me && me.tier) || "none", hostId };
   } catch (e) { return { status: "unreachable", origin }; }
 }
+
+// ---- dev-only: auto-connect a seed against an auth-DISABLED host ------------
+// A VITE_API_BASE seed (the dev profile, .env.development) would otherwise land on
+// the LoginPage: the app-shell `user` is written ONLY by the Discord callback or
+// the connect screen, and a seed skips both — so an auth-DISABLED dev backend (no
+// Discord to bounce to) is a dead end. Under `npm run dev` we instead resolve the
+// seed's identity exactly as the connect screen does (connectHost → /me 200 →
+// synthesized admin) and establish the session BEFORE the app mounts, so dev boots
+// straight in. This is the same finalize HostAccess does on a successful connect
+// (addConnection + setAppUser), minus the reload — it runs pre-mount.
+//
+// No-op (returns false) unless ALL hold: a seed is set; nothing is configured yet
+// (no stored user, empty registry — never override a real session or a chosen
+// host); and the host is reachable + auth-disabled. An auth-ENABLED seed returns
+// "needs_auth" → we do nothing and the normal LoginPage shows. The CALLER gates on
+// dev mode (import.meta.env.DEV), so this whole path is dead-code-eliminated from a
+// production build.
+export async function devSeedAutoConnect(seedUrl, opts) {
+  if (!seedUrl) return false;
+  try { if (localStorage.getItem(AUTH_LS_KEY)) return false; } catch (e) {}   // already signed in
+  if (readRegistry().length) return false;                                    // a real connection is configured
+  const res = await connectHost(seedUrl, opts);
+  if (res.status !== "ok") return false;                                      // needs_auth / unreachable → normal flow
+  addConnection(registryEntry(res.origin, res.name, res.hostId));
+  setAppUser(res.user);                                                       // app-shell identity from /me
+  return true;
+}
