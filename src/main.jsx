@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { ErrorBoundary, AppCrash } from "./components/ErrorBoundary.jsx";
 import { captureOAuthFragment, completeOAuthLogin } from "./lib/authRedirect.js";
+import { registerServiceWorker } from "./lib/registerSW.js";
 
 // Global styles. Order matters: design tokens (variables + @font-face) first,
 // then the component class library, then consumer overrides.
@@ -17,6 +18,17 @@ import "./styles/consumer.css";
 async function boot() {
   const captured = captureOAuthFragment();
   if (captured && captured.access) await completeOAuthLogin(captured);
+  // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
+  // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
+  // into the app instead of stalling on the Discord LoginPage (which can't complete
+  // against an auth-disabled host). Gated to dev builds → DCE'd in production; a
+  // no-op against an auth-ENABLED seed. See connect.js devSeedAutoConnect.
+  else if (import.meta.env.DEV) {
+    try {
+      const { devSeedAutoConnect } = await import("./lib/connect.js");
+      await devSeedAutoConnect(import.meta.env.VITE_API_BASE);
+    } catch (e) {}
+  }
   createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <ErrorBoundary
@@ -28,5 +40,8 @@ async function boot() {
       </ErrorBoundary>
     </React.StrictMode>
   );
+  // Install the PWA shell SW (production-only; see registerSW.js). Done after
+  // mount so it never contends with first paint.
+  registerServiceWorker();
 }
 boot();

@@ -125,11 +125,14 @@ endpoint lands.
 - **The README's "What's done vs. left" section is STALE.** Auth (Discord OAuth +
   per-host re-auth + refresh-token rotation) and the realtime WebSocket are
   **built and committed** (see `authRedirect.js`, `sessionStore.js`,
-  `liveStream.js`, and the git log) — they are NOT "left". Genuinely still
-  deferred: TypeScript, a unit-test runner, PWA precache, the Files/Settings/
-  Performance/Players backends (their tabs render a "work in progress" state), and
-  parts of multi-host fan-out. Describe current state from code + git, not from
-  that list.
+  `liveStream.js`, and the git log) — they are NOT "left". **PWA installability is
+  also built** (manifest + a production-only same-origin service worker — see the
+  "PWA / installability" section in `README.md`; `public/manifest.webmanifest`,
+  `public/sw.js`, `src/lib/registerSW.js`). Genuinely still deferred: TypeScript, a
+  unit-test runner, a full Workbox **precache** (`vite-plugin-pwa`; the current SW
+  caches on demand, not the whole build manifest), the Files/Settings/Performance/
+  Players backends (their tabs render a "work in progress" state), and parts of
+  multi-host fan-out. Describe current state from code + git, not from that list.
 - **`MIGRATION.md` is a historical playbook and partly stale** — it references
   `src/lib/api.js` / `api-contract.js`, which no longer exist (the seam is
   `apiClient.js` + `adapters.js` + `config.js`).

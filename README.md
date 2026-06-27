@@ -107,7 +107,39 @@ a green production build, and the live backend wiring (servers/hosts/audit/libra
 alerts via `fetch` + adapters + the realtime WebSocket, with honest-unknown
 rendering and the per-host Discord auth gate).
 
+**Done (PWA):** the app is **installable** on Android/desktop Chrome and iOS
+Safari — a web app manifest (`public/manifest.webmanifest`) + a minimal
+same-origin service worker (`public/sw.js`, registered production-only via
+`src/lib/registerSW.js`) that serves an offline app shell while leaving all
+live `kgsm-api` traffic untouched. See "PWA / installability" below.
+
 **Left** (see `WIRING.md §8`): backends for the Files / Settings / Performance /
 Players sub-tabs (their UI renders a "work in progress" state today), optional
-TypeScript, a unit-test runner (Vitest + RTL), and a PWA precache
-(`vite-plugin-pwa`).
+TypeScript, a unit-test runner (Vitest + RTL), and a full Workbox **precache**
+(`vite-plugin-pwa`) — the current SW caches the shell on demand, not the whole
+build manifest up front.
+
+## PWA / installability
+
+The Control Panel is a Progressive Web App: on Android Chrome it offers
+**Install app** (Add to Home Screen) and runs standalone, full-screen, with the
+brand icon. The pieces:
+
+- **`public/manifest.webmanifest`** — name/short_name, `start_url`/`scope` `/`,
+  `display: standalone`, the `#0B0F14` theme/background, and the 192/512/maskable
+  icons in `public/icons/`. Linked from `index.html`.
+- **`public/sw.js`** — a deliberately small service worker. It only intercepts
+  **same-origin GETs** (the app shell): navigations are network-first with an
+  offline fallback to the cached shell; Vite's content-hashed assets are
+  cache-first (stale-while-revalidate). Every cross-origin `kgsm-api` call and
+  WebSocket passes straight through — the SW never sits in the live data path.
+- **`src/lib/registerSW.js`** — registers the SW **in production builds only**
+  (`import.meta.env.PROD`), after `load`. Dev (`npm run dev`) and the jsdom smoke
+  run never register it, so HMR and tests are unaffected.
+- **`index.html`** — also carries the iOS install hints (`apple-touch-icon`,
+  `apple-mobile-web-app-*`), since iOS Safari ignores the manifest.
+
+Installability requires the app be served over **HTTPS** (localhost is exempt) —
+serve `dist/` from an HTTPS origin and Chrome shows the install prompt. To check
+locally: `npm run build && npm run preview`, then open DevTools → Application →
+Manifest / Service Workers.

@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0B0F14" />
     <link rel="icon" href="/assets/tks-mark.png" />
+
+    <!-- PWA: web app manifest drives Android Chrome's "Install app". -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- iOS Safari ignores the manifest, so it needs its own install hints. -->
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Krystal" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <title>Krystal Control Panel</title>
   </head>
   <body>
