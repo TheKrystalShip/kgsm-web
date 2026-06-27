@@ -1359,6 +1359,10 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
   const taRef     = React.useRef(null);
+  // Stick-to-bottom: true while the user is parked at (or near) the bottom of the
+  // thread. The auto-scroll below only fires while this holds, so streaming text
+  // never yanks the view down once the user has scrolled up to read earlier turns.
+  const pinnedRef = React.useRef(true);
 
   const active = convos.find(c => c.id === activeId) || null;
 
@@ -1426,10 +1430,31 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     prevHostRef.current = hostId;
   }, [assistantUsable, assistantHost && assistantHost.id, activeId]);
 
-  // Auto-scroll to bottom as messages stream in.
+  // Auto-scroll to bottom as messages stream in — but ONLY while the user is
+  // already at the bottom. If they've scrolled up to read earlier messages,
+  // appended/streaming text must not pull them back down. `onThreadScroll` keeps
+  // `pinnedRef` in sync with where the user actually is.
   React.useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
   }, [active?.messages, busy]);
+
+  // Switching conversations always lands at the latest message (and re-pins),
+  // regardless of where the user had scrolled in the previous thread.
+  React.useEffect(() => {
+    pinnedRef.current = true;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeId]);
+
+  // Re-pin only when the user is within a hair of the bottom; any deliberate
+  // scroll-up unpins and suspends the auto-scroll until they return to the end.
+  const onThreadScroll = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedRef.current = distanceFromBottom <= 80;
+  }, []);
 
   // No browser-side model probe: the backend owns the connection to each host's
   // assistant. `conn` and `model` above are derived from the host capability.
@@ -1774,7 +1799,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           </div>
         </div>
 
-        <div className="chat-scroll" ref={scrollRef}>
+        <div className="chat-scroll" ref={scrollRef} onScroll={onThreadScroll}>
           {(!active || active.messages.length === 0) ? (
             <div className="chat-empty">
               <span className="chat-empty__logo"><Icon name="bot" size={26} /></span>
