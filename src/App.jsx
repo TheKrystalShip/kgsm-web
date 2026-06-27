@@ -138,6 +138,25 @@ function ServerGate({ id, status, everLoaded, onBack, onRetry }) {
   );
 }
 
+// BootLanding — the neutral hold shown on a fresh DEFAULT landing while the
+// per-host roles resolve. We wait so we can send admins/operators to the
+// dashboard and viewers to Servers WITHOUT first flashing the wrong page (the
+// per-host-role race: homeKind() runs before the host list / tiers are known and
+// buckets everyone as a viewer). Deep links never see this — they carry their own
+// route and render immediately. See App's resolve-landing effect.
+function BootLanding() {
+  return (
+    <div className="app app--booting" style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--fg-3)" }}>
+      <div style={{ textAlign: "center" }}>
+        <span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}>
+          <Icon name="loader-2" size={26} strokeWidth={1.7} />
+        </span>
+        <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>Signing you in…</div>
+      </div>
+    </div>
+  );
+}
+
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit }) {
   if (useAlerts) useAlerts();
   // Controlled by the route so the tab lives in the URL (#/servers/<id>/<tab>):
@@ -416,9 +435,26 @@ function App() {
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
-  useStore(sessionStore, s => s.byHost); // re-render on per-host auth changes
+  const sessionsByHost = useStore(sessionStore, s => s.byHost); // re-render on per-host auth changes
   const scopedServers = scopeServers(servers, selectedHostId);
 
+  // Authorization readiness — the gate the DEFAULT landing waits on (resolve-landing
+  // effect below). We can only pick the persona's home once the host list has loaded
+  // AND every host's session has left its in-flight state, because the role lives in
+  // each host's session (sessionStore.tierOf). Until then homeKind() runs against an
+  // empty host list / unresolved tiers and buckets everyone as a viewer (→ Servers).
+  // expired/denied count as settled — a lapsed or refused host must not block the
+  // landing forever (its tier is simply absent from the aggregate).
+  const authzSettled = hostsLoaded && hosts.every(h => {
+    const st = (sessionsByHost[h.id] && sessionsByHost[h.id].status) || "none";
+    return st !== "none" && st !== "bootstrapping";
+  });
+
+  // Set when the user arrives with NO explicit destination (the fallthrough
+  // below), so we owe them the persona's default page — but only AFTER per-host
+  // roles resolve. A hash / ?view= / ?tab= is an explicit destination and keeps
+  // its own route untouched. Captured into a ref at mount (landedDefaultRef).
+  let landedDefault = false;
   const initialRoute = (() => {
     // The URL hash is the source of truth when present (refresh, deep link,
     // Back/Forward). Fall back to the legacy ?view=/?tab= entry params (used by
@@ -441,6 +477,9 @@ function App() {
     // it, else the servers list (a viewer's actual home). homeKind() reads the
     // one policy; a hash / explicit param above always wins. The result (like
     // every candidate route) is run through resolveRoute below before it lands.
+    // This first call runs before per-host roles are known, so it is provisional —
+    // the resolve-landing effect re-picks it once authorization settles.
+    landedDefault = true;
     return { kind: homeKind ? homeKind() : "home" };
   })();
   const initialTab = qp.get("tab") || "overview";
@@ -464,6 +503,13 @@ function App() {
   const setRoute = React.useCallback((r) => {
     setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
   }, []);
+  // Default-landing gate (the per-host role race). On a DEFAULT landing the route
+  // above was picked before roles were known, so we hold a neutral loading surface
+  // (BootLanding) and don't commit it to the URL until the resolve-landing effect
+  // re-picks the home once authorization settles. A deep link (landedDefault ===
+  // false) starts resolved and renders immediately.
+  const landedDefaultRef = React.useRef(landedDefault);
+  const [landingResolved, setLandingResolved] = React.useState(() => !landedDefault);
   const [tab, setTab] = React.useState("My Servers");
   const [extraLog, setExtraLog] = React.useState({});
   const [installing, setInstalling] = React.useState(initialInstall);
@@ -597,6 +643,11 @@ function App() {
   // replaceState (no spurious history entry); every later navigation writes the
   // hash normally, which pushes a Back-able entry.
   React.useEffect(() => {
+    // Hold off while a default landing is still resolving — the route is provisional
+    // (likely the viewer fallback). Writing it now would leave a stale #/servers in
+    // history that the resolve flips to #/. The first write after landingResolved is
+    // the canonical replaceState (didInitUrl is still false), so no history entry.
+    if (!landingResolved) return;
     const desired = KrystalRouter.routeToHash(route);
     if (window.location.hash === desired) { didInitUrl.current = true; return; }
     if (!didInitUrl.current) {
@@ -604,7 +655,7 @@ function App() {
       try { window.history.replaceState(null, "", desired); return; } catch (e) {}
     }
     try { window.location.hash = desired; } catch (e) {}
-  }, [route]);
+  }, [route, landingResolved]);
 
   // URL -> route. Fires on Back/Forward (and any external hash change). We only
   // setRoute when the URL genuinely points somewhere else, so our own writes
@@ -634,6 +685,19 @@ function App() {
   React.useEffect(() => {
     if (initialInstall) setRoute({ kind: "library" });
   }, []);
+
+  // Resolve the default landing once per-host authorization settles. The initial
+  // render computed homeKind() before the host list / tiers were known — so an
+  // admin or operator would wrongly land on Servers (the viewer home). Now that
+  // roles are resolved, re-pick: admin/operator → the dashboard, viewer/other →
+  // Servers. Fires only for a default landing (a deep link / refreshed page keeps
+  // its route) and only once; the BootLanding hold below covers the wait.
+  React.useEffect(() => {
+    if (landingResolved || !landedDefaultRef.current) return;
+    if (!authzSettled) return;
+    setRoute({ kind: homeKind ? homeKind() : "home" });
+    setLandingResolved(true);
+  }, [authzSettled, landingResolved]);
 
   // No `|| servers[0]` fallback: a deep-link to an unknown id must resolve to a
   // genuine "not found", never silently swap in some other server — that fallback
@@ -845,6 +909,16 @@ function App() {
 
   if (conn.status === "down" && !conn.everLoaded) {
     return <ColdStartDown retrying={conn.retrying} onRetry={retryConnection} onLogout={handleLogout} />;
+  }
+
+  // Default landing still waiting on per-host roles → hold a neutral loading
+  // surface instead of flashing Servers and then jumping to the dashboard once an
+  // admin/operator's role lands (resolve-landing effect above). Placed after the
+  // add-host / cold-start gates so those takeovers still win, and after every hook
+  // so the hook order stays constant across the pending → resolved transition.
+  // Deep links never reach here (landingResolved starts true).
+  if (!landingResolved) {
+    return <BootLanding />;
   }
 
   // Scoped to a host where this Discord role is denied → the terminal 403
