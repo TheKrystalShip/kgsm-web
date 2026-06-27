@@ -4390,6 +4390,31 @@ body { overflow: hidden; }
   .chat-railbar__menu .chat-rail__item { padding: 10px; }
 
   .chat-suggestions { grid-template-columns: 1fr; }
+
+  /* Composer toolbar — compact the three left-side controls on phones so the mic +
+     send buttons can't get pushed off-screen. The context gauge drops its fill
+     meter (keeps icon + %); Thinking / Auto-run drop their text label + state
+     (keep just the icon), collapsing to square icon buttons. Tooltips/aria stay,
+     and the desktop layout (≥769px) is untouched. */
+  .chat-composer__bar { gap: 6px; }
+  .chat-ctx .chat-ctx__track { display: none; }
+  .chat-act-toggle:not(.chat-ctx) .chat-act-toggle__label,
+  .chat-act-toggle:not(.chat-ctx) .chat-act-toggle__state { display: none; }
+  .chat-act-toggle:not(.chat-ctx) { width: 30px; padding: 0; gap: 0; justify-content: center; flex-shrink: 0; }
+
+  /* Skeleton density — on phones the generous desktop padding wastes a lot of a
+     small screen. Tighten the structural chrome (header, thread, composer, box,
+     hint, empty state) and the rail/main gap so more of the screen is conversation.
+     Tap targets (buttons, the conversation dropdown) keep usable sizes. */
+  .chat-page { gap: 8px; }
+  .chat-main__head { padding: 8px 12px; gap: 8px; }
+  .chat-thread { padding: 12px 12px 6px; }
+  .chat-empty { padding: 28px 16px; }
+  .chat-composer { padding: 8px 10px 10px; }
+  .chat-composer__box { padding: 8px 8px 6px 12px; }
+  .chat-composer__hint { margin-top: 5px; }
+  .chat-railbar__trigger { height: 38px; }
+  .chat-railbar__new { width: 38px; height: 38px; }
 }
 
 /* ===============================================================
