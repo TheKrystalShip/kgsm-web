@@ -15,10 +15,24 @@ tree-shaken ES-module build.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173 — no host connected → the connect screen
-npm run build      # → dist/  (minified, hashed, production bundle)
-npm run preview    # serve the built dist/ locally
+npm run dev          # http://localhost:5173 — no host connected → the connect screen
+npm run build        # → dist/  (minified, hashed, production bundle)
+npm run preview      # serve the built dist/ locally
+npm run deploy:prod  # build + sync dist/ into the kgsm-api wwwroot — NO API restart
 ```
+
+## Deploying the frontend (no API restart)
+
+`kgsm-api` serves this SPA same-origin from its `wwwroot/` via ASP.NET's static
+file middleware (read from disk per request — no in-memory content cache). So a
+**pure frontend change** doesn't need an API restart: `npm run deploy:prod`
+(`scripts/deploy-prod.sh`) builds with `VITE_API_BASE=self` and `rsync`s `dist/`
+straight into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service
+user → no sudo). The new bundle is live the moment the files land. Override the
+target with `KGSM_API_WWWROOT=/path`.
+
+For an **API code change**, use the full `kgsm-api/deploy/deploy.sh` instead — it
+publishes the API and re-bundles the SPA, swapping the systemd service.
 
 ## Verifying
 
@@ -51,7 +65,7 @@ kgsm-web/
       tokens.css          design tokens + @font-face (the brand DS)
       kit.css             component class library
       consumer.css        app-level overrides
-  scripts/                smoke-live.mjs (the live-wiring smoke harness)
+  scripts/                smoke-live.mjs (live-wiring smoke) · deploy-prod.sh (frontend-only deploy)
   MIGRATION.md            prototype → production playbook (partly historical)
 ```
 

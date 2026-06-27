@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy:prod": "bash scripts/deploy-prod.sh",
     "smoke": "node scripts/smoke-live.mjs"
   },
   "dependencies": {
