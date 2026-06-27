@@ -4573,12 +4573,15 @@ body { overflow: hidden; }
 .mnav--edge {
   position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 45;
   align-items: center; justify-content: center;
-  width: 22px; height: 66px;
+  /* padding:0 + border-box kill the UA <button> padding that was eating the
+     narrow content box and flex-shrinking the chevron below its 16px. */
+  width: 24px; height: 66px; padding: 0; box-sizing: border-box;
   border-radius: 0 var(--r-lg) var(--r-lg) 0;
   background: color-mix(in srgb, var(--surface-1) 92%, transparent);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle); border-left: none;
-  color: var(--fg-3); cursor: pointer;
+  /* fg-4 so the chevron matches the Fleet-row "go" chevron (dash-fleet-row__go). */
+  color: var(--fg-4); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   box-shadow: 3px 0 14px rgba(0,0,0,0.35);
   transition: background var(--d-fast) var(--ease-out),
@@ -4586,6 +4589,9 @@ body { overflow: hidden; }
 }
 .mnav--edge:active { background: var(--surface-2); color: var(--fg-1); }
 .mnav--edge:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+/* Keep the chevron out of flex-shrink so it renders at its full 16px — identical
+   to the Fleet-row "go" chevron (DashboardPage `dash-fleet-row__go`, also 16px). */
+.mnav--edge > svg { flex: 0 0 auto; }
 
 /* Reveal on phones. Placed AFTER the base `.mnav { display: none }` so it wins
    the cascade (equal specificity → later source order wins; a media query does

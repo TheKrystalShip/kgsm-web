@@ -331,7 +331,9 @@ function Breadcrumb({ route, ctx, onNavigate }) {
 function MobileNavToggle({ onOpen }) {
   return (
     <button className="mnav mnav--edge" onClick={onOpen} aria-label="Open menu" title="Menu">
-      <Icon name="chevron-right" size={18} />
+      {/* Match the Fleet-row "go" chevron exactly (DashboardPage `dash-fleet-row__go`):
+          same icon + default strokeWidth, size 16, muted via the button's fg-4 color. */}
+      <Icon name="chevron-right" size={16} />
     </button>
   );
 }
