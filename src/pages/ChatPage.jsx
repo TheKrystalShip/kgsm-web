@@ -1090,6 +1090,22 @@ function ChatVerify({ msg }) {
   );
 }
 
+// The "typing…" indicator: a classic messaging-app three-dot bubble, shown while
+// the assistant's reply bubble is empty (no content / thinking / tools yet) — the
+// gap between the user hitting send and the first streamed frame. Reads as an
+// incoming message being composed. Once any real signal arrives — text, the
+// Thinking block, or a tool pill — that becomes the activity cue and this is
+// dropped (see ChatMessage).
+function ChatPending() {
+  // Root is a <div>, NOT a <span>: `.chat-msg__content > span { display: block }`
+  // would otherwise flatten the inline-flex bubble and collapse the dots.
+  return (
+    <div className="chat-typing" role="status" aria-label="The assistant is typing">
+      <span></span><span></span><span></span>
+    </div>
+  );
+}
+
 // ---------- message bubble ----------
 function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
   const isUser = msg.role === "user";
@@ -1114,8 +1130,8 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
           {msg.content
             ? renderMarkdown(msg.content)
             : (msg.thinking || (msg.tools && msg.tools.length))
-              ? null   /* the thinking / pending-tool pill is the activity signal — skip typing dots */
-              : <span className="chat-typing"><span></span><span></span><span></span></span>}
+              ? null   /* the thinking / pending-tool pill is the activity signal — skip the loader */
+              : <ChatPending />}
         </div>
         {/* Rich result cards from this turn's structured tool results (§5·a `result`
             envelopes), below the reply — the "behind the scenes" evidence, mockup-style. */}
