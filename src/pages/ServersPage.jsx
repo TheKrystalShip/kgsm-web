@@ -62,7 +62,7 @@ function ServerGroup({ group, groupBy, solo, onOpenServer, onAction, showHost })
         <button className="server-group__toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
           <span className="server-group__caret"><Icon name="chevron-right" size={14} /></span>
           {isBlueprint
-            ? <span className="server-group__chip" style={{ background: items[0].art, backgroundSize: "cover", backgroundPosition: "center" }}></span>
+            ? <span className="server-group__chip" style={{ backgroundImage: items[0].art, backgroundSize: "cover", backgroundPosition: "center" }}></span>
             : <span className="server-group__chip server-group__chip--host"><Icon name="server" size={12} strokeWidth={2.2} /></span>}
           <span className="server-group__name">{group.key}</span>
           <span className="server-group__count">{items.length}</span>

@@ -137,7 +137,7 @@ function ServerListItem({ server, active, onClick }) {
   }[server.status] || "var(--fg-4)";
   return (
     <div className={"server-row" + (active ? " server-row--active" : "")} onClick={onClick}>
-      <div className="server-row__icon" style={{ background: server.cover ? `url("${server.cover}")` : server.art, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+      <div className="server-row__icon" style={{ backgroundImage: server.cover ? `url("${server.cover}")` : server.art, backgroundSize: "cover", backgroundPosition: "center" }}></div>
       <span className="server-row__name">{server.name}</span>
       <span className="server-row__dot" style={{
         background: dotColor,

@@ -58,7 +58,7 @@ function ServerHero({ server, onAction }) {
     : server.art;
   return (
     <section className="hero">
-      <div className="hero__art" style={{ background: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+      <div className="hero__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
       <div className="hero__veil"></div>
       <div className="hero__content">
         <StatusPill status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />

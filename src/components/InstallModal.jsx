@@ -83,7 +83,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   return (
     <div className="k-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form className="k-modal" onSubmit={submit}>
-        <div className="k-modal__art" style={{ background: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+        <div className="k-modal__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
         <div className="k-modal__head">
           <Icon name="download" size={18} style={{ color: "var(--krystal-teal)" }} />
           <span className="k-modal__title">Install {game.name}</span>

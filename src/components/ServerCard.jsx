@@ -43,7 +43,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   const open = () => onOpen(server.id);
   return (
     <div className="server-tile">
-      <div className="server-tile__art" onClick={open} style={{ background: art, backgroundSize: "cover", backgroundPosition: "center" }}>
+      <div className="server-tile__art" onClick={open} style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
         <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
           title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
           <span className="dot"></span>

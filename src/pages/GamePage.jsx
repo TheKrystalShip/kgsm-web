@@ -109,7 +109,7 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
       {/* Hero — blueprint identity. Reuses the server-hero chrome so a game
           and a server read as the same kind of object header. */}
       <section className="hero">
-        <div className="hero__art" style={{ background: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+        <div className="hero__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
         <div className="hero__veil"></div>
         <div className="hero__content">
           <h1 className="hero__name">{game.name}</h1>

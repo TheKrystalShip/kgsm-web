@@ -134,7 +134,7 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
   if (compact) {
     return (
       <div className="game-card" onClick={() => onPick(game)}>
-        <div className="game-card__art" style={{ background: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="game-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
           {count > 0 && (
             <span className="game-card__installed" title={count + " server" + (count === 1 ? "" : "s") + " created"}>
               <Icon name="server" size={11} strokeWidth={2.2} /> {count}
@@ -181,7 +181,7 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
       // Deploy button fires only that button, not the card's open-detail too.
       onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); onPick(game); } }}
     >
-      <div className="bp-card__art" style={{ background: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
+      <div className="bp-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
         {hostLabel && (
           <span className="bp-card__host" title={"Only available on " + hostLabel.replace(/ only$/, "")}>
             <Icon name="server" size={11} strokeWidth={2.1} /> {hostLabel}
