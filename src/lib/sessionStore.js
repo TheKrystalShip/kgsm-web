@@ -47,6 +47,9 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   const ACCESS_TTL_MS  = 15 * 60 * 1000;            // access-token life
   const PROACTIVE_AT   = 0.75;                       // refresh at 75% of life
   const SESSION_CAP_MS = 30 * 24 * 60 * 60 * 1000;  // absolute cap → silent re-bounce
+  // Rotate this long BEFORE the hard expiry so the funnel never hands out a token the backend will
+  // reject for skew (mirrors SessionTokenService's 30s ClockSkew). Also covers a slow refresh round-trip.
+  const EXPIRY_SKEW_MS = 30 * 1000;
 
   const store = createStore({ byHost: {} });
 
@@ -156,7 +159,11 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     // — so at N≥2 each host's tier resolves from its OWN /me + bearer. Use the
     // low-level get (with the host id), never api.host(id) here: that runs the
     // auth gate, which calls bootstrap → infinite recursion (bootstrap IS the gate).
-    return api.get("/me", id).then(me => {
+    // Privileged, UN-FUNNELED identity probe: pass the bearer we hold explicitly (api.meWith) so
+    // liveFetch SKIPS the egress funnel. Routing /me through the funnel would re-enter
+    // ensureFresh()→ensure()→bootstrap and recurse — exactly why refreshSession is privileged too.
+    const probe = getRec(id);
+    return api.meWith(probe && probe.token, id).then(me => {
       const now = Date.now();
       const cur = getRec(id);
       setRec(id, {
@@ -244,16 +251,43 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     const st = statusOf(id);
     if (st === "live") return Promise.resolve("live");
     if (st === "denied") return Promise.resolve("denied");
+    // De-dupe concurrent first-use calls (the boot fan-out + the funnel can hit a host several times
+    // at once) onto ONE in-flight bootstrap/refresh — so the one-shot OAuth-token stash and the /me
+    // probe run once, not N times. refresh() self-registers in inflight; bootstrap() does not, so we
+    // guard either way below.
+    if (inflight[id]) return inflight[id];
     // Returning visitor: the access session (sessionStorage) is gone after a
     // browser close, but a long-lived refresh token survives in localStorage.
     // Rotate it into a fresh access token SILENTLY — no Discord bounce, no doomed
     // /me 401. (A rec must exist for refresh() to run; refresh() reads the token
     // from localStorage via readRefresh when the in-memory rec doesn't carry it.)
+    let p;
     if (readRefresh(id)) {
       if (!getRec(id)) setRec(id, { status: "bootstrapping" });
-      return refresh(id);
+      p = refresh(id);
+    } else {
+      p = bootstrap(id);
     }
-    return bootstrap(id);
+    if (!inflight[id]) {
+      inflight[id] = p;
+      p.then(() => { if (inflight[id] === p) delete inflight[id]; }, () => { if (inflight[id] === p) delete inflight[id]; });
+    }
+    return p;
+  }
+
+  // ---- ensureFresh (the egress funnel's freshness check) ------------------
+  // ensure(), but PROACTIVE about access-token expiry. A host that is nominally "live" can be holding
+  // a token that already lapsed: the proactive-refresh setTimeout is throttled/suspended in a
+  // backgrounded tab (e.g. while in-game), so it may not have fired — and tokenOf() can't see that (it
+  // returns the token without checking exp). So before any request hands out a bearer, rotate it here
+  // when it's expired or within the skew margin of expiring. This is what makes ONE funnel enough:
+  // every REST call (liveFetch) and every WS (re)connect (liveStream) resolves its bearer through here,
+  // so no call site needs its own renewal. Resolves to the same status vocabulary as ensure().
+  function ensureFresh(id) {
+    const rec = getRec(id);
+    if (rec && rec.status === "live" && rec.token && rec.exp && Date.now() >= rec.exp - EXPIRY_SKEW_MS)
+      return refresh(id);
+    return ensure(id);
   }
 
   // ---- reauthorize (interactive, gesture-bound — from HostReauthModal) ----
@@ -319,6 +353,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.adoptSession = adoptSession;
   store.refresh = refresh;
   store.ensure = ensure;
+  store.ensureFresh = ensureFresh;
   store.reauthorize = reauthorize;
   store.needsReauth = needsReauth;
   store.register = register;

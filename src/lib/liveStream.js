@@ -25,7 +25,8 @@ const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
 
 // createLiveStream({ url, bearer, onOpen, onMessage, onMode })
 //   url      — ws(s):// …/api/v1/stream (no query; the bearer is appended here)
-//   bearer   — () => token|null, read at each connect (null under auth-disabled)
+//   bearer   — () => Promise<token|null>|token|null, AWAITED at each connect (the apiClient auth
+//              funnel: it proactively freshens the token; may REJECT when the session is truly dead)
 //   onOpen   — () => void, fired after the socket opens + subs are flushed
 //              (the owner re-hydrates the REST stores here to catch missed deltas)
 //   onMessage— (msg:{topic,type,data}) => void, one parsed server frame
@@ -62,11 +63,18 @@ export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
     reconnectTimer = setTimeout(connect, wait);
   }
 
-  function connect() {
+  async function connect() {
     if (closed || !WS || !url) { setMode(WS ? "reconnecting" : "offline"); return; }
     clearTimer();
     let s;
-    const tok = (() => { try { return bearer && bearer(); } catch (e) { return null; } })();
+    // The bearer is resolved through the egress AUTH FUNNEL (apiClient.authorizedBearer): it PROACTIVELY
+    // rotates an expired/near-expiry access token before we (re)connect, so a reconnect can't dial with a
+    // dead token (the bug that 401-looped the socket). It may REJECT when the session is truly dead
+    // (refresh token gone) — then we connect tokenless, the server 401s, and we back off until a re-auth
+    // or a REST call heals the session and the next attempt carries a fresh token.
+    let tok = null;
+    try { tok = bearer ? await bearer() : null; } catch (e) { tok = null; }
+    if (closed) return;                                   // closed during the await → don't open a stray socket
     const full = tok ? url + (url.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(tok) : url;
     try { s = new WS(full); } catch (e) { scheduleReconnect(); return; }
     socket = s;

@@ -111,6 +111,25 @@ import("./stores.js").then((m) => {
     } catch (e) {}
     return null;
   }
+  // ---- the egress AUTH FUNNEL (the single chokepoint every request resolves its bearer through) ----
+  // Every REST call (liveFetch) and every WS (re)connect (liveStream) asks THIS for the host's bearer.
+  // It PROACTIVELY freshens the session (sessionStore.ensureFresh rotates an expired/near-expiry access
+  // token via the refresh token) so a stale bearer is never sent, and THROWS authError when the session
+  // can't be made live — so a dead session fails the call (→ the UI's re-auth surface) instead of
+  // silently 401-ing. Returns null when the host needs no bearer (auth-disabled). The auth layer's OWN
+  // calls (refreshSession, the bootstrap /me probe via meWith) pass an explicit bearer and so SKIP this
+  // — that is what keeps the funnel from re-entering itself (no ensure→bootstrap→funnel recursion). The
+  // thrown error is tagged `preflight` so the host gate doesn't pointlessly retry a refresh that just failed.
+  async function authorizedBearer(hostId) {
+    const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
+    // No session layer yet (early boot), no host scope, or the aggregate scope → fall back to the sync
+    // best-effort bearer (null when none). Auth-enabled hosts then answer 401 and the UI bounces to login.
+    if (!sessionStore || !sessionStore.ensureFresh || !id || id === "all") return liveBearer(hostId);
+    const st = await sessionStore.ensureFresh(id);
+    if (st === "denied") { const e = authError(403, id); e.preflight = true; throw e; }
+    if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
+    return sessionStore.tokenOf(id);
+  }
   // hostId routes the call to that host's base URL + bearer (multi-host). With a
   // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
   // is byte-identical to the old single global-API_V1 path.
@@ -121,7 +140,7 @@ import("./stores.js").then((m) => {
     // bearerOverride lets a caller send a specific bearer (the refresh-token
     // rotation needs the REFRESH token, not the access token the seam injects).
     // `undefined` = use the host's live access bearer; a string/null = send/omit as given.
-    const tok = bearerOverride !== undefined ? bearerOverride : liveBearer(hostId);
+    const tok = bearerOverride !== undefined ? bearerOverride : await authorizedBearer(hostId);
     if (tok) headers.Authorization = "Bearer " + tok;
     // baseOverride routes off the default /api/v1 base (the auth endpoints are
     // root-routed on the backend, not under /api/v1).
@@ -167,6 +186,14 @@ import("./stores.js").then((m) => {
   // under /api/v1 — so pass the bare origin as the base override.
   function refreshSession(hostId, refreshToken) {
     return liveFetch("POST", "/auth/session/refresh", null, hostId, refreshToken || null, apiOriginOf(hostId));
+  }
+
+  // Privileged, UN-FUNNELED identity probe for the session layer's bootstrap (sessionStore): pass the
+  // bearer we hold explicitly (the access token, or null) so liveFetch SKIPS authorizedBearer. Routing
+  // /me through the funnel would re-enter ensureFresh()→ensure()→bootstrap and recurse — so this is the
+  // bootstrap's escape hatch, exactly as refreshSession is the refresh path's. Not for general call sites.
+  function meWith(bearer, hostId) {
+    return liveFetch("GET", "/me", null, hostId, bearer ?? null).then((j) => adaptResponse("/me", j));
   }
 
   // ---- assistant turn (SSE) ------------------------------------------------
@@ -360,7 +387,7 @@ import("./stores.js").then((m) => {
   if (CONNECTIONS.length) {
     liveStreams = CONNECTIONS.map((conn) => createLiveStream({
       url: wsUrlOf(conn.id),                 // sole-fallback for a lone seed; exact for registered hosts
-      bearer: () => liveBearer(conn.id),     // that host's token (null under auth-disabled)
+      bearer: () => authorizedBearer(conn.id),   // through the funnel: proactively freshened; null under auth-disabled; rejects on a dead session
       onOpen: () => rehydrateAll(),
       onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
       onMode: (mode) => setLiveRealtime(conn.id, mode),
@@ -385,6 +412,22 @@ import("./stores.js").then((m) => {
     window.addEventListener("online", handleOnline);
   }
 
+  // A backgrounded tab THROTTLES/suspends the proactive-refresh setTimeout (sessionStore), so a long
+  // stint with the panel hidden (e.g. while in-game) can let the access token lapse silently — the exact
+  // gap behind the WS 401 loop. On the tab becoming visible again, proactively freshen every connected
+  // host's session (a no-op when the token is still good) so the next REST/WS call already holds a live
+  // bearer, and nudge any socket that's mid-reconnect to retry NOW with the fresh token. This is the ONE
+  // place that backstops the timer — not per-endpoint.
+  function handleVisible() {
+    if (typeof document !== "undefined" && document.hidden) return;
+    if (sessionStore && sessionStore.ensureFresh)
+      CONNECTIONS.forEach((conn) => { if (conn && conn.id) { try { sessionStore.ensureFresh(conn.id).catch(() => {}); } catch (e) {} } });
+    liveStreams.forEach((s) => { if (s && s.mode && s.mode() !== "live" && s.reconnect) s.reconnect(); });
+  }
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("visibilitychange", handleVisible);
+  }
+
   // ---- per-host auth gate (Model A) ---------------------------------------
   // api.host(id) is the host-scoped client: it injects that host's bearer and
   // enforces the 401/403/login_required state machine before any call. denied
@@ -399,46 +442,34 @@ import("./stores.js").then((m) => {
     return e;
   }
   function hostScoped(id) {
-    // Pre-call gate: only SILENT recovery (sessionStore.ensure never pops an
-    // interactive Discord consent — that needs a user gesture, i.e. the re-auth
-    // modal). If silent recovery can't heal it, the call fails with 401 and the
-    // UI surfaces the per-host expired state + Re-authorize.
-    const ensure = () => {
-      const st = hostAuthStatus(id);
-      if (st === "denied") return Promise.reject(authError(403, id));
-      if (st === "live") return Promise.resolve();
-      if (!sessionStore) return Promise.resolve();
-      return sessionStore.ensure(id).then(r => {
-        if (r === "denied") throw authError(403, id);
-        if (r !== "live") throw authError(401, id);
-      });
-    };
-    // Reactive interceptor: a call that passed the gate can STILL come back 401
-    // if the token died mid-flight (early expiry, clock skew, host restart).
-    // Mark the host expired, attempt ONE silent heal, and replay the request
-    // once. Only if that still fails does the 401 propagate to the UI. A
-    // pre-call gate rejection is NOT retried (it's already a silent attempt).
-    const withRetry = (call) => ensure().then(() => call().catch(err => {
-      if (!err || err.code !== 401 || !sessionStore) throw err;
+    // The egress funnel (liveFetch → authorizedBearer) now PROACTIVELY freshens this host's bearer
+    // before every call and throws authError when the session can't be made live, so the old pre-call
+    // gate lives THERE, not here. What remains is ONE reactive heal: a token can still die mid-flight
+    // (clock skew, a host restart) AFTER the funnel approved it — on a 401 RESPONSE, mark the host
+    // expired and replay once; the replay re-enters the funnel, which rotates via the refresh token (or
+    // throws 401 again → propagates to the UI's re-auth). A funnel PRE-FLIGHT 401 (refresh already
+    // failed) is tagged `preflight` and not retried — there's nothing new to gain, and re-running it
+    // would just fail again. Replay-on-401 is safe here because every gated verb below is idempotent in
+    // effect at the kgsm layer for a retry that only happens when the FIRST attempt was rejected unsent-or-
+    // unauthenticated; the SSE turn (not idempotent) deliberately skips the replay.
+    const withRetry = (call) => call().catch(err => {
+      if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
       sessionStore.expire(id);
-      return sessionStore.ensure(id).then(r => {
-        if (r !== "live") throw authError(401, id);
-        return call();
-      });
-    }));
+      return call();
+    });
     return {
-      // Every call carries THIS host's id → liveFetch routes to its base URL +
+      // Every call carries THIS host's id → liveFetch routes to its base URL + the funnel-resolved
       // bearer (multi-host). Sole-connection fallback keeps N=1 identical.
       get: (p) => withRetry(() => get(p, id)),
       post: (p, b) => withRetry(() => post(p, b, id)),
       patch: (p, b) => withRetry(() => patch(p, b, id)),
       put: (p, b) => withRetry(() => put(p, b, id)),
       del: (p) => withRetry(() => del(p, id)),
-      // Assistant turn (SSE). Pre-call gate only (ensure) — a turn isn't
-      // idempotent, so withRetry's replay-on-401 would be wrong; an expired token
-      // mid-stream just ends the turn and the per-host expired state surfaces on
-      // the next call. The bearer + base URL are THIS host's (null token under auth-disabled).
-      turn: (b, o) => ensure().then(() => liveTurn(sessionStore && sessionStore.tokenOf ? sessionStore.tokenOf(id) : null, b, o, id)),
+      // Assistant turn (SSE). The funnel resolves + freshens the bearer; NO withRetry replay — a turn
+      // isn't idempotent, so an expired token mid-stream just ends the turn and the per-host expired
+      // state surfaces on the next call. authorizedBearer throws on a dead session → the turn rejects
+      // with authError (the chat surfaces re-auth). Null token under auth-disabled.
+      turn: (b, o) => authorizedBearer(id).then(tok => liveTurn(tok, b, o, id)),
     };
   }
 
@@ -458,7 +489,7 @@ import("./stores.js").then((m) => {
   }
 
   const api = {
-    get, post, patch, put, del, stream, fanOut, refreshSession, pingHost,
+    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost,
     host: hostScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,
