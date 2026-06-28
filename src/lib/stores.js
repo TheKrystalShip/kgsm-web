@@ -472,14 +472,20 @@ function confirmCommand(server, verb) {
 
 // Install a new server from a blueprint (POST /servers → 202 { job }; the
 // backend assigns the instance id via kgsm generate-id). `blueprint` is the
-// library id the user picked, `name` the instance name; the rest of the install
-// form is accepted-but-inert upstream (§3·h additive-only), so we send only the
-// honored fields — never a fabricated server row. The new server surfaces on
-// `servers` (server.patch) when the install job settles.
+// library id the user picked, `name` the instance name, and `port` the optional
+// Game Port override (now honored upstream — kgsm `install --port`). The rest of
+// the install form is still accepted-but-inert (§3·h additive-only), so we send
+// only the honored fields — never a fabricated server row. The new server
+// surfaces on `servers` (server.patch) when the install job settles.
 function installServer(cfg) {
   const hostId = (cfg && cfg.hostId) || (hostsStore.getState().list[0] || {}).id || null;
   const client = (hostId && api.host) ? api.host(hostId) : api;
-  return client.post("/servers", { blueprint: cfg.game.id, name: cfg.name, origin: "ui" });
+  const body = { blueprint: cfg.game.id, name: cfg.name, origin: "ui" };
+  // Only send a real, in-range port; the backend rejects out-of-range, and an empty
+  // field must not become a fabricated 0. Omit it → kgsm keeps the blueprint default.
+  const port = Number(cfg.port);
+  if (Number.isInteger(port) && port >= 1 && port <= 65535) body.port = port;
+  return client.post("/servers", body);
 }
 
 // ---- Selected host (GLOBAL scope) --------------------------------------

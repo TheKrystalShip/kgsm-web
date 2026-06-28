@@ -984,6 +984,21 @@ body { overflow: hidden; }
   box-shadow: var(--ring-input);
 }
 .k-field__help { font-size: 11.5px; color: var(--fg-3); }
+/* Read-only (host-config-sourced) inputs and disabled selects read as non-editable. */
+.k-field input[readonly] { color: var(--fg-2); cursor: default; }
+.k-field input[readonly]:focus { border-color: var(--border-subtle); box-shadow: none; }
+.k-field input:disabled, .k-field select:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Input with a trailing affix button (e.g. the password reveal eye). */
+.k-input-affix { position: relative; display: flex; }
+.k-input-affix > input { flex: 1 1 auto; width: 100%; padding-right: 40px; }
+.k-input-affix__btn {
+  position: absolute; top: 0; right: 0; height: 38px; width: 38px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: var(--r-md);
+  color: var(--fg-3); cursor: pointer;
+  transition: color var(--d-fast);
+}
+.k-input-affix__btn:hover { color: var(--fg-1); }
 
 /* ============= Login screen ============= */
 .login-shell {

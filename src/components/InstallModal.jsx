@@ -46,11 +46,18 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
     port:    defaultPort,
     query:   "",
     slots:   defaultSlots,
-    dir:     `${game.id}_${id}`,
     password: "",
     autostart: true,
   });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  // Reveal-password toggle for the (optional) server password field.
+  const [showPw, setShowPw] = React.useState(false);
+
+  // The install directory is PER HOST — each box runs its own KGSM with its own config. Derive it from the
+  // currently-selected host so switching host in a multi-host setup instantly reflects that host's default
+  // (the value is already on the host object — no extra fetch). null when the host didn't report one.
+  const selectedHost = offered.find(h => h.id === form.hostId) || null;
+  const installDir = (selectedHost && selectedHost.installDirectory) || null;
 
   // Close on ESC.
   React.useEffect(() => {
@@ -96,19 +103,6 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
         </div>
 
         <div className="k-modal__body">
-          <div className="k-field">
-            <label>Server name</label>
-            <input value={form.name} onChange={e => set("name", e.target.value)} autoFocus />
-            <span className="k-field__help">Shown in the sidebar and Discord notifications.</span>
-          </div>
-
-          <div className="k-field">
-            <label>Version</label>
-            <select value={form.version} onChange={e => set("version", e.target.value)}>
-              {VERSION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-
           {offered.length > 0 && (
             <div className="k-field">
               <label>Host</label>
@@ -118,10 +112,24 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
               <span className="k-field__help">
                 {restricted
                   ? <><Icon name="server" size={11} />&nbsp; Only {offered.map(h => h.name).join(", ")} {offered.length === 1 ? "offers" : "offer"} {game.name.split(":")[0]}.</>
-                  : offered.length <= 1 ? "The only connected host." : "Which machine this server runs on — it'll appear under that host everywhere."}
+                  : offered.length <= 1 ? "The only connected host — its KGSM defaults fill the fields below." : "Which machine this server runs on — its KGSM config supplies the defaults below."}
               </span>
             </div>
           )}
+
+          <div className="k-field">
+            <label>Server name</label>
+            <input value={form.name} onChange={e => set("name", e.target.value)} autoFocus />
+            <span className="k-field__help">Shown in the sidebar and Discord notifications.</span>
+          </div>
+
+          <div className="k-field">
+            <label>Version</label>
+            <select value={form.version} disabled>
+              {VERSION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span className="k-field__help">Version selection isn't available yet — the latest build is installed.</span>
+          </div>
 
           <div className="k-field__row">
             <div className="k-field">
@@ -141,14 +149,33 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
             </div>
             <div className="k-field">
               <label>Password <small>(optional)</small></label>
-              <input type="password" value={form.password} placeholder="leave blank for open" onChange={e => set("password", e.target.value)} />
+              <div className="k-input-affix">
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={form.password}
+                  placeholder="leave blank for open"
+                  onChange={e => set("password", e.target.value)} />
+                <button
+                  type="button"
+                  className="k-input-affix__btn"
+                  tabIndex={-1}
+                  onClick={() => setShowPw(v => !v)}
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  title={showPw ? "Hide password" : "Show password"}>
+                  <Icon name={showPw ? "eye-off" : "eye"} size={15} />
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="k-field">
             <label>Install directory</label>
-            <input className="mono" value={form.dir} onChange={e => set("dir", e.target.value)} />
-            <span className="k-field__help">Relative to <code style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>/krystal/data</code> on the host.</span>
+            <input className="mono" value={installDir || ""} placeholder="Set by this host's KGSM config" readOnly />
+            <span className="k-field__help">
+              {installDir
+                ? <>From {selectedHost ? selectedHost.name : "the host"}'s KGSM config. Installs under <code style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>{installDir}/{game.id}/</code>.</>
+                : "This host's KGSM hasn't reported a default install directory."}
+            </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0 6px" }}>

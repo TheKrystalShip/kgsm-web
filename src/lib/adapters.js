@@ -206,6 +206,10 @@ export function adaptHost(be) {
     sensors: tel.sensors || [],   // hwmon temps now sourced (M-diag depth); [] when none / no snapshot
     processes: [],                // no host process-list source → honest-empty (not fabricated rows)
     events: [], logs: [],
+    // This host's KGSM default install directory (per host — each box runs its own engine). The install
+    // modal shows this real base instead of a hardcoded path. null when the engine/config didn't supply it
+    // (honest unknown, never a fabricated path).
+    installDirectory: be.installDirectory || null,
     _metricsOk: metricsOk,
   };
 }
