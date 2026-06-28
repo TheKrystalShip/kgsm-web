@@ -44,11 +44,6 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   return (
     <div className="server-tile">
       <div className="server-tile__art" onClick={open} style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
-        <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
-          title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
-          <span className="dot"></span>
-          {watchdogDown ? "unknown" : server.status}
-        </span>
         <div className="server-tile__corner">
           {host && <span className="server-tile__host"><Icon name="server" size={10} strokeWidth={2.2} />{host.name}</span>}
           {favoritesStore && (
@@ -65,7 +60,14 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         <span className="server-tile__game">{server.game}</span>
       </div>
       <div className="server-tile__body">
-        <div className="server-tile__name" onClick={open}>{server.name}</div>
+        <div className="server-tile__head">
+          <div className="server-tile__name" onClick={open}>{server.name}</div>
+          <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
+            title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
+            <span className="dot"></span>
+            {watchdogDown ? "unknown" : server.status}
+          </span>
+        </div>
         {server.notice
           ? <div className="server-tile__notice" onClick={open}>{server.notice}</div>
           : <div className="server-tile__notice server-tile__notice--empty" onClick={open}>No server note</div>}
