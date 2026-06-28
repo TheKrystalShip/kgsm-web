@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { useStore } from "../lib/store.js";
@@ -131,6 +132,19 @@ function FileBrowser({ server }) {
   const [saveError, setSaveError] = React.useState(null);
   const [staleReload, setStaleReload] = React.useState(false);
 
+  // Full-screen pop-out for the WHOLE tree+editor grid — a short viewport
+  // otherwise caps the editor at a few lines. Transient view state, not
+  // persisted; popping out the tree too lets you keep switching files (closing
+  // the editor each time isn't practical). Esc / scrim-click / the bar toggle
+  // close it.
+  const [expanded, setExpanded] = React.useState(false);
+  React.useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
   // Draggable tree/editor split — the tree column width (px), remembered per
   // browser so a wide tree (for deep/nested dirs) survives a reload. Drives the
   // `--fb-tree-w` grid column; mirrors the assistant dock's resize pattern.
@@ -166,7 +180,7 @@ function FileBrowser({ server }) {
     filesStore.enter(hostId, serverId);
     const cached = filesStore.entry(hostId, serverId);
     setDraft((cached && cached.open && cached.open.content) || "");
-    setOpenIssue(null); setSaveError(null); setStaleReload(false);
+    setOpenIssue(null); setSaveError(null); setStaleReload(false); setExpanded(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId, hostId]);
 
@@ -222,8 +236,10 @@ function FileBrowser({ server }) {
   const treeError = root && root.status === "error" && !(root.entries && root.entries.length) ? root.error : null;
   const rootTruncated = !!(root && root.truncated);
 
-  return (
-    <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId} className="fb-briefcard">
+  // The tree + editor grid, defined once so the SAME element renders either
+  // inline (in the BriefCard) or inside the full-screen pop-out modal below —
+  // only one is live at a time.
+  const cardBody = (
       <div className="fb-card" style={{ "--fb-tree-w": treeW + "px" }}>
         {/* ---- tree ---- */}
         <div className="fb-tree">
@@ -262,6 +278,9 @@ function FileBrowser({ server }) {
               <Icon name="file-lock" size={26} strokeWidth={1.6} />
               <div style={{ fontSize: 13.5, color: "var(--fg-2)", fontWeight: 600, fontFamily: "var(--font-mono)" }}>{openIssue.path}</div>
               <div style={{ fontSize: 12.5 }}>{openIssue.message}</div>
+              <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm" onClick={() => setExpanded((v) => !v)}>
+                <Icon name={expanded ? "minimize-2" : "maximize-2"} size={13} /> {expanded ? "Exit full screen" : "Full screen"}
+              </button>
             </div>
           ) : !open ? (
             opening ? (
@@ -270,6 +289,9 @@ function FileBrowser({ server }) {
               <div className="fb-editor__empty">
                 <Icon name="file-text" size={26} strokeWidth={1.6} />
                 <div style={{ fontSize: 13 }}>Select a file to view or edit.</div>
+                <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm" onClick={() => setExpanded((v) => !v)}>
+                  <Icon name={expanded ? "minimize-2" : "maximize-2"} size={13} /> {expanded ? "Exit full screen" : "Full screen"}
+                </button>
               </div>
             )
           ) : (
@@ -281,6 +303,11 @@ function FileBrowser({ server }) {
                 {dirty && <span className="fb-editor__dirty"><span className="dot" />unsaved changes</span>}
                 <span className="fb-editor__spacer" />
                 <span style={{ color: "var(--fg-4)", fontSize: 11 }}>{formatBytes(open.sizeBytes)}</span>
+                <button type="button" className="fb-editor__expand" onClick={() => setExpanded((v) => !v)}
+                  title={expanded ? "Exit full screen (Esc)" : "Expand to full screen"}
+                  aria-label={expanded ? "Exit full screen" : "Expand to full screen"}>
+                  <Icon name={expanded ? "minimize-2" : "maximize-2"} size={14} />
+                </button>
               </div>
               <div className="fb-editor__monaco-wrap">
                 <React.Suspense fallback={<div className="fb-editor__empty"><span className="oauth-spinner" /> Loading editor…</div>}>
@@ -306,6 +333,32 @@ function FileBrowser({ server }) {
           )}
         </div>
       </div>
+  );
+
+  return (
+    <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId} className="fb-briefcard">
+      {/* Expand lifts the whole grid (tree + editor) into a full-screen pop-out
+          so a short viewport isn't limited to a few editor lines. While popped,
+          the inline slot keeps a quiet placeholder and the real grid lives in
+          the portal below (portaled to <body>, not promoted in place: .app__main
+          is a container-type ancestor that would otherwise clip a fixed child). */}
+      {expanded ? (
+        <div className="fb-popped-placeholder">
+          <Icon name="maximize-2" size={24} strokeWidth={1.6} />
+          <div style={{ fontSize: 13 }}>Editing in full screen.</div>
+          <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm" onClick={() => setExpanded(false)}>
+            <Icon name="minimize-2" size={13} /> Restore
+          </button>
+        </div>
+      ) : cardBody}
+      {expanded && createPortal(
+        <div className="fb-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+          <div className="fb-modal" role="dialog" aria-modal="true" aria-label={"Files — " + serverId}>
+            {cardBody}
+          </div>
+        </div>,
+        document.body
+      )}
     </BriefCard>
   );
 }

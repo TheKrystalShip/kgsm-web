@@ -748,7 +748,15 @@ body { overflow: hidden; }
    .fb-card, so the editor claims all height down to the footer. The grid's single
    row becomes minmax(0,1fr) so the tree + editor stretch to the card height and
    scroll INTERNALLY (the save bar stays pinned, never pushed off-screen). */
-.content--fill { flex: 1 1 auto; min-height: 0; }
+/* A generous floor (NOT 0) so the editor stays usable when the viewport is short:
+   without it the fill chain collapses the card to ~3–4 editor lines and you'd have
+   to zoom the page out to read. The floor lives HERE, at the TOP of the fill chain,
+   not on .fb-card — flooring the card directly would let it spill past its shrunk
+   flex parents; flooring the container instead makes .app__main (overflow-y:auto @
+   100vh) scroll cleanly. On a tall viewport flex-grow still expands past the floor,
+   so the existing fill + internal-scroll is unchanged. (A planned pop-out full-screen
+   modal will add the upper escape hatch.) */
+.content--fill { flex: 1 1 auto; min-height: 640px; }
 /* Only the file-browser card flexes. The hero / sub-tabs / breadcrumb keep their
    natural height (flex-shrink:0) — otherwise the height-constrained column would
    shrink the hero below its content and its overflow:hidden would clip the
@@ -823,6 +831,52 @@ body { overflow: hidden; }
 .fb-editor__monaco-wrap > section { flex: 1; min-width: 0; }
 .fb-editor__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-3); text-align: center; padding: 24px; background: var(--surface-0); }
 .fb-editor__err { color: var(--danger); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* Expand-to-full-screen toggle in the editor bar — a quiet ghost button at the
+   far right of the path row; flips maximize⇄minimize with the popped state. */
+.fb-editor__expand {
+  background: transparent; border: 1px solid transparent;
+  color: var(--fg-3); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--r-md); padding: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fb-editor__expand:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-subtle); }
+
+/* Full-screen pop-out: the whole tree+editor grid lifted into an overlay so a
+   short viewport isn't capped at a few editor lines. Portaled to <body> (NOT
+   promoted in place) because .app__main is a container-type ancestor, which
+   would otherwise become the containing block for a position:fixed child and
+   clip it. The scrim mirrors the app's other modals; the modal is a flex column
+   the .fb-card fills. */
+.fb-modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(7, 10, 14, 0.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; padding: 24px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.fb-modal {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+/* Fill the modal + scroll internally — mirrors the .fb-briefcard fill rules
+   (the portaled modal isn't inside .fb-briefcard, so those don't reach it). */
+.fb-modal .fb-card { flex: 1 1 auto; min-height: 0; border: none; border-radius: 0; grid-template-rows: minmax(0, 1fr); }
+.fb-modal .fb-tree { min-height: 0; }
+
+/* Quiet stand-in left in the inline card while the editor is popped out — it
+   sits behind the scrim, but keeps the card from collapsing under it (and gives
+   a Restore path if the portal ever fails to paint). */
+.fb-popped-placeholder {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  color: var(--fg-3); text-align: center; padding: 24px;
+}
 
 /* ============= Backups ============= */
 .backup-list { display: flex; flex-direction: column; gap: 8px; }
@@ -3149,10 +3203,23 @@ body { overflow: hidden; }
   .fb-tree {
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
-    max-height: 180px;
+    max-height: 220px;
   }
-  /* On the stacked layout the editor (not the capped tree) takes the fill. */
-  .fb-briefcard .fb-card { grid-template-rows: auto minmax(0, 1fr); }
+  /* Inline stacked layout: the card sizes to its CONTENT and the page scrolls,
+     instead of trying to fill a short viewport — that collapse is what gave the
+     editor no height and hid it behind the card's overflow:hidden. The editor
+     gets an explicit floor so Monaco always has real height; the tree keeps its
+     capped scroll height. Scoped to .fb-briefcard so the full-screen pop-out
+     (which has a definite viewport-sized height) still fills as before. */
+  .content--fill { min-height: 0; }
+  .content--fill > .fb-briefcard { flex: 0 0 auto; }
+  .fb-briefcard .fb-card { flex: 0 0 auto; grid-template-rows: auto auto; }
+  .fb-briefcard .fb-editor { min-height: 560px; }
+  /* The pop-out goes edge-to-edge on a phone and stacks like the inline card —
+     tree capped over a filling editor. */
+  .fb-modal-scrim { padding: 0; }
+  .fb-modal { border: none; border-radius: 0; }
+  .fb-modal .fb-card { grid-template-rows: auto minmax(0, 1fr); }
   /* File-editor toolbar: keep path + unsaved indicator on one row, with the
      path truncating via ellipsis. Save / Reset live in fb-editor__foot — see
      desktop styles — and remain visible regardless of viewport. */
