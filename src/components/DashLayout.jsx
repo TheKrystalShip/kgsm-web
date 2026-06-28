@@ -68,6 +68,18 @@ import { Icon } from "./Icon.jsx";
     return result;
   }
 
+  // Nearest scrollable ancestor — the surface the bands actually scroll inside
+  // (here `.app__main`, overflow-y:auto @ 100vh; the page does NOT scroll on
+  // `window`, so window.scrollY is always 0). Falls back to `window` if none.
+  function getScrollParent(node) {
+    for (let el = node && node.parentElement; el; el = el.parentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === "auto" || oy === "scroll" || oy === "overlay") && el.scrollHeight > el.clientHeight) return el;
+    }
+    return window;
+  }
+  function scrollTopOf(sc) { return sc === window ? window.scrollY : sc.scrollTop; }
+
   // One band: its content wrapped with a grip rail. The rail is the ONLY drag
   // initiator (a real <button>, so ↑/↓ reorder works without a mouse). Dragging
   // is pointer-based — see DashBandList — not native HTML5 DnD, which fires
@@ -127,8 +139,14 @@ import { Icon } from "./Icon.jsx";
       const centers = rects.map((r) => r.top + r.height / 2);
       const gap = nodes.length > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 16;
       const step = rects[from].height + gap; // distance neighbours slide
+      const scroller = getScrollParent(list);
 
-      drag.current = { id, from, to: from, order, nodes, centers, step, startY: e.clientY };
+      // Geometry is snapshotted in VIEWPORT coords (getBoundingClientRect), so the
+      // displacement must be measured in the same frame. `lastY` is the cursor's
+      // last viewport position; `startScroll` anchors the scroller — folding the
+      // live scroll delta into dy is what makes a wheel-scroll mid-drag move the
+      // band with the screen instead of leaving it pinned to the document.
+      drag.current = { id, from, to: from, order, nodes, centers, step, startY: e.clientY, lastY: e.clientY, scroller, startScroll: scrollTopOf(scroller) };
       setDragId(id);
 
       // The dragged node tracks the pointer with no transition; siblings animate.
@@ -139,13 +157,16 @@ import { Icon } from "./Icon.jsx";
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp, { once: true });
       window.addEventListener("pointercancel", onPointerUp, { once: true });
+      // Wheel/trackpad scroll does NOT emit pointermove — without this the band
+      // would freeze in place while the rest of the page scrolls past it.
+      scroller.addEventListener("scroll", onScroll, { passive: true });
       e.preventDefault();
     }
 
-    function onPointerMove(e) {
-      const st = drag.current;
-      if (!st) return;
-      const dy = e.clientY - st.startY;
+    // Re-apply the dragged band's transform + the slot-opening reflow from the
+    // current cursor + scroll position. Called on every pointermove AND scroll.
+    function applyDrag(st) {
+      const dy = (st.lastY - st.startY) + (scrollTopOf(st.scroller) - st.startScroll);
       st.nodes[st.from].style.transform = "translateY(" + dy + "px)";
 
       // Drop index = where the dragged band's centre now sits relative to the
@@ -165,11 +186,24 @@ import { Icon } from "./Icon.jsx";
       }
     }
 
+    function onPointerMove(e) {
+      const st = drag.current;
+      if (!st) return;
+      st.lastY = e.clientY;
+      applyDrag(st);
+    }
+
+    function onScroll() {
+      const st = drag.current;
+      if (st) applyDrag(st);
+    }
+
     function onPointerUp() {
       const st = drag.current;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      if (st && st.scroller) st.scroller.removeEventListener("scroll", onScroll);
       drag.current = null;
       if (!st) { setDragId(null); return; }
       // Clear inline transforms and commit in the same tick: React re-renders to
