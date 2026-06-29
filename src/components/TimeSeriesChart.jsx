@@ -96,7 +96,7 @@ function timeAxisTicks(ms0, ms1) {
   return [0, 0.25, 0.5, 0.75, 1].map(i => ({ i, l: fmt(ms0 + i * (ms1 - ms0)) }));
 }
 
-function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band, times, domain, events, stepSec }) {
+function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band, times, domain, events, stepSec, yScale = "linear" }) {
   const W = VB_W;
   const H = height;
   const padL = PAD_L, padR = PAD_R, padT = PAD_T, padB = PAD_B;
@@ -107,6 +107,18 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   const min = yMin != null ? yMin : Math.min(...allVals, 0);
   const max = yMax != null ? yMax : Math.max(...allVals, 1);
   const span = (max - min) || 1;
+
+  // Y scale — linear, or a zero-safe log (log1p, so an idle 0 sits at the axis and
+  // an order-of-magnitude spike stays readable instead of flattening the baseline).
+  const logY = yScale === "log";
+  const tv = logY ? (v) => Math.log1p(Math.max(0, v)) : (v) => v;
+  const tMin = tv(min), tMax = tv(max);
+  const tSpan = (tMax - tMin) || 1;
+  const yValueAt = (yPx) => {
+    const f = 1 - (yPx - PAD_T) / (H - PAD_T - PAD_B);   // 0 at bottom … 1 at top
+    const t = tMin + f * tSpan;
+    return logY ? Math.expm1(t) : t;
+  };
 
   const N = series[0]?.values.length || 0;
 
@@ -136,7 +148,7 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   const dspan = (d1 - d0) || 1;
   const sxT = (ms) => padL + ((ms - d0) / dspan) * plotW;
   const sx = (i) => useTimeAxis ? sxT(tms[i]) : padL + (i / Math.max(1, N - 1)) * plotW;
-  const sy = (v) => padT + (1 - (v - min) / span) * (H - padT - padB);
+  const sy = (v) => padT + (1 - (tv(v) - tMin) / tSpan) * (H - padT - padB);
 
   // Gap breaks — a sample delta beyond 2.5× the step is downtime: break the line
   // there (never interpolate across a gap) and close the fill per-segment.
@@ -213,7 +225,7 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--border-subtle)" strokeWidth="1" />
             <text x={padL - 6} y={y + 3} fill="var(--fg-4)" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">
-              {fmtY(min + (1 - (y - padT) / (H - padT - padB)) * span)}
+              {fmtY(yValueAt(y))}
             </text>
           </g>
         ))}

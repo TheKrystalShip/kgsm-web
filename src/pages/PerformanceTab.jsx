@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { TimeSeriesChart, detectAnomalies, ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
@@ -97,6 +98,114 @@ function StatStrip({ items }) {
         <span key={i} className="chart-stat"><b>{it.label}</b>{it.value}</span>
       ))}
     </div>
+  );
+}
+
+// MetricChartCard — one Performance chart card with the #5 polish folded in:
+//   • single-chart full-screen pop-out (portal to <body>, Esc/scrim close — the
+//     same pattern as the console card), so a chart can be read big;
+//   • a log-scale toggle (opt-in via allowLog) for the order-of-magnitude metrics
+//     (Disk I/O / Network), so an idle baseline survives next to a spike;
+//   • clickable legend series-toggles on the dual-series cards (mute Read to focus
+//     on Write); hiding rescales to what's left, never hides every series.
+// All three are per-card transient view state; the card body is rendered by one
+// `body(big)` used both inline and in the full-screen portal so the state is shared.
+function MetricChartCard({
+  icon, title, anomalyCount = 0, value, stats, series, unit, legendNote, empty,
+  allowLog = false, range, times, domain, events, stepSec, anomalies, band, yMin = 0,
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const [logScale, setLogScale] = React.useState(false);
+  const [hidden, setHidden] = React.useState(() => new Set());
+  const [fsZoom, setFsZoom] = React.useState(null);   // full-screen-local zoom (own provider)
+
+  React.useEffect(() => {
+    if (!expanded) { setFsZoom(null); return; }
+    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  const multi = series && series.length > 1;
+  const toggleSeries = (key) => setHidden(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    if (next.size >= series.length) return new Set();   // never hide every series → reset
+    return next;
+  });
+  const visible = series ? series.filter(s => !hidden.has(s.key)) : series;
+
+  const controls = !empty && (
+    <span className="chart-card__ctrls">
+      {allowLog && (
+        <button type="button" className={"chart-ctrl chart-ctrl--text" + (logScale ? " on" : "")}
+          title={logScale ? "Switch to linear scale" : "Switch to log scale"} onClick={() => setLogScale(v => !v)}>log</button>
+      )}
+      <button type="button" className="chart-ctrl"
+        title={expanded ? "Close full screen (Esc)" : "Full screen"} onClick={() => setExpanded(v => !v)}>
+        <Icon name={expanded ? "minimize-2" : "maximize-2"} size={13} strokeWidth={2} />
+      </button>
+    </span>
+  );
+
+  const body = (big) => (
+    <div className="chart-brief__body">
+      {empty ? empty : (
+        <>
+          <StatStrip items={stats} />
+          <TimeSeriesChart range={range} times={times} domain={domain} events={events} stepSec={stepSec}
+            series={visible} anomalies={anomalies} band={band} yMin={yMin}
+            yScale={logScale ? "log" : "linear"} height={big ? 380 : 120} />
+          {multi ? (
+            <div className="chart-card__legend">
+              {series.map(s => (
+                <button key={s.key} type="button"
+                  className={"chart-legend-btn" + (hidden.has(s.key) ? " off" : "")}
+                  onClick={() => toggleSeries(s.key)} title={hidden.has(s.key) ? "Show " + s.label : "Hide " + s.label}>
+                  <span className="swatch" style={{ background: s.color }}></span>{s.label}
+                </button>
+              ))}
+              <span style={{ marginLeft: "auto" }}>{unit}{logScale ? " · log" : ""}</span>
+            </div>
+          ) : (legendNote && (
+            <div className="chart-card__legend"><span>{legendNote}{logScale ? " · log scale" : ""}</span></div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+
+  const card = (big) => (
+    <BriefCard className="chart-brief" icon={icon}
+      title={<>{title} {anomalyCount > 0 && <AnomalyBadge count={anomalyCount} />}</>}
+      action={<span className="chart-card__head-right">{controls}{value}</span>}>
+      {body(big)}
+    </BriefCard>
+  );
+
+  return (
+    <>
+      {expanded ? (
+        <div className="chart-brief chart-brief--placeholder">
+          <Icon name="maximize-2" size={20} strokeWidth={1.6} />
+          <span>{title} is in full screen.</span>
+          <button type="button" className="chart-ctrl chart-ctrl--text" onClick={() => setExpanded(false)}>
+            <Icon name="minimize-2" size={12} /> Restore
+          </button>
+        </div>
+      ) : card(false)}
+      {expanded && createPortal(
+        <div className="chart-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+          <div className="chart-modal" role="dialog" aria-modal="true"
+            aria-label={typeof title === "string" ? title : "Chart"}>
+            <ChartHoverProvider zoom={fsZoom} onZoom={range !== "live" ? setFsZoom : undefined}>
+              {card(true)}
+            </ChartHoverProvider>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -257,102 +366,66 @@ function LiveMetrics({ server, stopped }) {
 
       <ChartHoverProvider>
       <div className="chart-grid" style={stale ? { opacity: 0.6 } : undefined}>
-        <BriefCard className="chart-brief" icon="cpu"
-          title={<>CPU {cpuAnoms.length > 0 && <AnomalyBadge count={cpuAnoms.length} />}</>}
-          action={<span className="chart-card__val">{(latest.cpu ?? 0).toFixed(0)}<small>% core</small></span>}>
-          <div className="chart-brief__body">
-            <StatStrip items={cpuStats && [
-              { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
-              { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
-              { label: "min", value: cpuStats.min.toFixed(0) + "%" },
-            ]} />
-            <TimeSeriesChart range="live" times={times}
-              series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpu, fmt: v => v.toFixed(0) + "% core" }]}
-              anomalies={cpuAnoms} yMin={0} height={120} />
-          </div>
-        </BriefCard>
+        <MetricChartCard icon="cpu" title="CPU" anomalyCount={cpuAnoms.length}
+          value={<span className="chart-card__val">{(latest.cpu ?? 0).toFixed(0)}<small>% core</small></span>}
+          stats={cpuStats && [
+            { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
+            { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
+            { label: "min", value: cpuStats.min.toFixed(0) + "%" },
+          ]}
+          series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpu, fmt: v => v.toFixed(0) + "% core" }]}
+          anomalies={cpuAnoms} range="live" times={times} />
 
-        <BriefCard className="chart-brief" icon="hard-drive"
-          title={<>Memory {memAnoms.length > 0 && <AnomalyBadge count={memAnoms.length} />}</>}
-          action={<span className="chart-card__val">{fmtBytes(latest.memBytes)}</span>}>
-          <div className="chart-brief__body">
-            <StatStrip items={memStats && [
-              { label: "avg", value: fmtBytes(memStats.avg) },
-              { label: "peak", value: fmtBytes(memStats.max) },
-              { label: "min", value: fmtBytes(memStats.min) },
-            ]} />
-            <TimeSeriesChart range="live" times={times}
-              series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
-              anomalies={memAnoms} yMin={0} height={120} />
-            <div className="chart-card__legend"><span>{memUnit} used · no per-server cap to chart against</span></div>
-          </div>
-        </BriefCard>
+        <MetricChartCard icon="hard-drive" title="Memory" anomalyCount={memAnoms.length}
+          value={<span className="chart-card__val">{fmtBytes(latest.memBytes)}</span>}
+          stats={memStats && [
+            { label: "avg", value: fmtBytes(memStats.avg) },
+            { label: "peak", value: fmtBytes(memStats.max) },
+            { label: "min", value: fmtBytes(memStats.min) },
+          ]}
+          series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
+          anomalies={memAnoms} range="live" times={times}
+          legendNote={`${memUnit} used · no per-server cap to chart against`} />
 
-        <BriefCard className="chart-brief" icon="network"
-          title={<>Disk I/O {ioAnoms.length > 0 && <AnomalyBadge count={ioAnoms.length} />}</>}
-          action={ioAvail
+        <MetricChartCard icon="network" title="Disk I/O" anomalyCount={ioAnoms.length} allowLog unit={ioUnit}
+          value={ioAvail
             ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>r</small>{fmtBps(latest.ioReadBps)}<small> / </small><small style={{ marginRight: 6 }}>w</small>{fmtBps(latest.ioWriteBps)}</span>
-            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}>
-          <div className="chart-brief__body">
-            {ioAvail ? (
-              <>
-                <StatStrip items={[
-                  ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
-                  ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
-                ]} />
-                <TimeSeriesChart range="live" times={times}
-                  series={[
-                    { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
-                    { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
-                  ]}
-                  anomalies={ioAnoms} yMin={0} height={120} />
-                <div className="chart-card__legend">
-                  <span><span className="swatch" style={{ background: "var(--info)" }}></span>Read</span>
-                  <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Write</span>
-                  <span style={{ marginLeft: "auto" }}>{ioUnit}</span>
-                </div>
-              </>
-            ) : (
-              <div className="perf-nochart">
-                <Icon name="info" size={16} strokeWidth={1.8} />
-                <span>Disk I/O isn't accounted for this server on its host (cgroup io controller off).</span>
-              </div>
-            )}
-          </div>
-        </BriefCard>
+            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}
+          stats={[
+            ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
+            ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
+          ]}
+          series={[
+            { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
+            { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
+          ]}
+          anomalies={ioAnoms} range="live" times={times}
+          empty={ioAvail ? null : (
+            <div className="perf-nochart">
+              <Icon name="info" size={16} strokeWidth={1.8} />
+              <span>Disk I/O isn't accounted for this server on its host (cgroup io controller off).</span>
+            </div>
+          )} />
 
-        <BriefCard className="chart-brief" icon="arrow-down-up"
-          title={<>Network {netAnoms.length > 0 && <AnomalyBadge count={netAnoms.length} />}</>}
-          action={netAvail
+        <MetricChartCard icon="arrow-down-up" title="Network" anomalyCount={netAnoms.length} allowLog unit={netUnit}
+          value={netAvail
             ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>rx</small>{fmtBps(latest.rxBps)}<small> / </small><small style={{ marginRight: 6 }}>tx</small>{fmtBps(latest.txBps)}</span>
-            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}>
-          <div className="chart-brief__body">
-            {netAvail ? (
-              <>
-                <StatStrip items={[
-                  ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
-                  ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
-                ]} />
-                <TimeSeriesChart range="live" times={times}
-                  series={[
-                    { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
-                    { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
-                  ]}
-                  anomalies={netAnoms} yMin={0} height={120} />
-                <div className="chart-card__legend">
-                  <span><span className="swatch" style={{ background: "var(--info)" }}></span>Receive</span>
-                  <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Transmit</span>
-                  <span style={{ marginLeft: "auto" }}>{netUnit}</span>
-                </div>
-              </>
-            ) : (
-              <div className="perf-nochart">
-                <Icon name="info" size={16} strokeWidth={1.8} />
-                <span>Network isn't measured for this server — no per-instance meter on its host (e.g. a container or an un-metered host).</span>
-              </div>
-            )}
-          </div>
-        </BriefCard>
+            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}
+          stats={[
+            ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
+            ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
+          ]}
+          series={[
+            { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
+            { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
+          ]}
+          anomalies={netAnoms} range="live" times={times}
+          empty={netAvail ? null : (
+            <div className="perf-nochart">
+              <Icon name="info" size={16} strokeWidth={1.8} />
+              <span>Network isn't measured for this server — no per-instance meter on its host (e.g. a container or an un-metered host).</span>
+            </div>
+          )} />
       </div>
       </ChartHoverProvider>
     </>
@@ -492,103 +565,70 @@ function HistoricalMetrics({ server, range }) {
       <ChartHoverProvider zoom={zoom} onZoom={setZoom}>
       <div className="chart-grid">
         {cpuVals.length > 0 && (
-          <BriefCard className="chart-brief" icon="cpu"
-            title={<>CPU {cpuAnoms.length > 0 && <AnomalyBadge count={cpuAnoms.length} />}</>}
-            action={<span className="chart-card__val">{cpuVals[cpuVals.length - 1].toFixed(0)}<small>% core</small></span>}>
-            <div className="chart-brief__body">
-              <StatStrip items={cpuStats && [
-                { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
-                { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
-                { label: "min", value: cpuStats.min.toFixed(0) + "%" },
-              ]} />
-              <TimeSeriesChart range={range} times={cpuTimes} domain={domain} events={events} stepSec={step}
-                series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpuVals, fmt: v => v.toFixed(0) + "% core" }]}
-                anomalies={cpuAnoms} yMin={0} height={120}
-                band={cpuMin && cpuMax ? { min: cpuMin, max: cpuMax, color: "var(--krystal-teal)" } : undefined} />
-              {isRollup && <div className="chart-card__legend"><span style={{ color: "var(--fg-4)", fontSize: 11 }}>shaded band = min/max per bucket</span></div>}
-            </div>
-          </BriefCard>
+          <MetricChartCard icon="cpu" title="CPU" anomalyCount={cpuAnoms.length}
+            value={<span className="chart-card__val">{cpuVals[cpuVals.length - 1].toFixed(0)}<small>% core</small></span>}
+            stats={cpuStats && [
+              { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
+              { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
+              { label: "min", value: cpuStats.min.toFixed(0) + "%" },
+            ]}
+            series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpuVals, fmt: v => v.toFixed(0) + "% core" }]}
+            anomalies={cpuAnoms} range={range} times={cpuTimes} domain={domain} events={events} stepSec={step}
+            band={cpuMin && cpuMax ? { min: cpuMin, max: cpuMax, color: "var(--krystal-teal)" } : undefined}
+            legendNote={isRollup ? "shaded band = min/max per bucket" : undefined} />
         )}
 
         {mem.length > 0 && (
-          <BriefCard className="chart-brief" icon="hard-drive"
-            title={<>Memory {memAnoms.length > 0 && <AnomalyBadge count={memAnoms.length} />}</>}
-            action={<span className="chart-card__val">{fmtBytes(memVals[memVals.length - 1])}</span>}>
-            <div className="chart-brief__body">
-              <StatStrip items={memStats && [
-                { label: "avg", value: fmtBytes(memStats.avg) },
-                { label: "peak", value: fmtBytes(memStats.max) },
-                { label: "min", value: fmtBytes(memStats.min) },
-              ]} />
-              <TimeSeriesChart range={range} times={memTimes} domain={domain} events={events} stepSec={step}
-                series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
-                anomalies={memAnoms} yMin={0} height={120}
-                band={memMinBand && memMaxBand ? { min: memMinBand, max: memMaxBand, color: "#FBBF24" } : undefined} />
-              <div className="chart-card__legend"><span>{memUnit} used</span>
-                {isRollup && <span style={{ color: "var(--fg-4)", fontSize: 11, marginLeft: 8 }}>band = min/max</span>}
-              </div>
-            </div>
-          </BriefCard>
+          <MetricChartCard icon="hard-drive" title="Memory" anomalyCount={memAnoms.length}
+            value={<span className="chart-card__val">{fmtBytes(memVals[memVals.length - 1])}</span>}
+            stats={memStats && [
+              { label: "avg", value: fmtBytes(memStats.avg) },
+              { label: "peak", value: fmtBytes(memStats.max) },
+              { label: "min", value: fmtBytes(memStats.min) },
+            ]}
+            series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
+            anomalies={memAnoms} range={range} times={memTimes} domain={domain} events={events} stepSec={step}
+            band={memMinBand && memMaxBand ? { min: memMinBand, max: memMaxBand, color: "#FBBF24" } : undefined}
+            legendNote={`${memUnit} used${isRollup ? " · band = min/max" : ""}`} />
         )}
 
         {ioAvail && (
-          <BriefCard className="chart-brief" icon="network" title="Disk I/O"
-            action={<span className="chart-card__val">
+          <MetricChartCard icon="network" title="Disk I/O" allowLog unit={ioUnit}
+            value={<span className="chart-card__val">
               <small style={{ marginRight: 6 }}>r</small>{fmtBps(ioReadSeries.length ? ioReadSeries[ioReadSeries.length - 1].value : null)}
               <small> / </small>
               <small style={{ marginRight: 6 }}>w</small>{fmtBps(ioWriteSeries.length ? ioWriteSeries[ioWriteSeries.length - 1].value : null)}
-            </span>}>
-            <div className="chart-brief__body">
-              <StatStrip items={[
-                ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
-                ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
-              ]} />
-              <TimeSeriesChart range={range} times={ioTimes} domain={domain} events={events} stepSec={step}
-                series={[
-                  { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
-                  { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
-                ]}
-                yMin={0} height={120} />
-              <div className="chart-card__legend">
-                <span><span className="swatch" style={{ background: "var(--info)" }}></span>Read</span>
-                <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Write</span>
-                <span style={{ marginLeft: "auto" }}>{ioUnit}</span>
-              </div>
-            </div>
-          </BriefCard>
+            </span>}
+            stats={[
+              ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
+              ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
+            ]}
+            series={[
+              { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
+              { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
+            ]}
+            range={range} times={ioTimes} domain={domain} events={events} stepSec={step} />
         )}
 
-        <BriefCard className="chart-brief" icon="arrow-down-up" title="Network"
-          action={netAvail
+        <MetricChartCard icon="arrow-down-up" title="Network" allowLog unit={netUnit}
+          value={netAvail
             ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>rx</small>{fmtBps(netRxSeries.length ? netRxSeries[netRxSeries.length - 1].value : null)}<small> / </small><small style={{ marginRight: 6 }}>tx</small>{fmtBps(netTxSeries.length ? netTxSeries[netTxSeries.length - 1].value : null)}</span>
-            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}>
-          <div className="chart-brief__body">
-            {netAvail ? (
-              <>
-                <StatStrip items={[
-                  ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
-                  ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
-                ]} />
-                <TimeSeriesChart range={range} times={netTimes} domain={domain} events={events} stepSec={step}
-                  series={[
-                    { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
-                    { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
-                  ]}
-                  yMin={0} height={120} />
-                <div className="chart-card__legend">
-                  <span><span className="swatch" style={{ background: "var(--info)" }}></span>Receive</span>
-                  <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Transmit</span>
-                  <span style={{ marginLeft: "auto" }}>{netUnit}</span>
-                </div>
-              </>
-            ) : (
-              <div className="perf-nochart">
-                <Icon name="info" size={16} strokeWidth={1.8} />
-                <span>No network history for this range — recorded only while the server runs with a per-instance meter (native eBPF); a container or un-metered host has none, and data accrues over time.</span>
-              </div>
-            )}
-          </div>
-        </BriefCard>
+            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}
+          stats={[
+            ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
+            ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
+          ]}
+          series={[
+            { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
+            { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
+          ]}
+          range={range} times={netTimes} domain={domain} events={events} stepSec={step}
+          empty={netAvail ? null : (
+            <div className="perf-nochart">
+              <Icon name="info" size={16} strokeWidth={1.8} />
+              <span>No network history for this range — recorded only while the server runs with a per-instance meter (native eBPF); a container or un-metered host has none, and data accrues over time.</span>
+            </div>
+          )} />
       </div>
       </ChartHoverProvider>
     </>

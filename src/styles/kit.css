@@ -1963,6 +1963,56 @@ body { overflow: hidden; }
   border-radius: var(--r-pill); padding: 3px 9px; transition: background var(--d-fast) var(--ease-out);
 }
 .perf-zoom-pill:hover { background: color-mix(in srgb, var(--krystal-teal) 22%, transparent); }
+
+/* ===== Chart card controls (#5): log-scale + full-screen + legend toggles ===== */
+.chart-card__head-right { display: inline-flex; align-items: center; gap: 8px; }
+.chart-card__ctrls { display: inline-flex; align-items: center; gap: 3px; }
+.chart-ctrl {
+  display: inline-flex; align-items: center; gap: 4px; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  color: var(--fg-3); background: transparent;
+  border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
+  cursor: pointer; transition: color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.chart-ctrl:hover { color: var(--fg-1); background: var(--surface-2); border-color: var(--border-strong); }
+.chart-ctrl--text { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.chart-ctrl.on { color: var(--krystal-teal); background: var(--krystal-teal-dim); border-color: var(--border-accent); }
+
+/* Clickable legend entries — toggle a series; a muted one dims + strikes through. */
+.chart-legend-btn {
+  display: inline-flex; align-items: center; gap: 0;
+  font-size: 11.5px; color: var(--fg-3); background: transparent; border: none;
+  padding: 0; cursor: pointer; transition: color var(--d-fast) var(--ease-out), opacity var(--d-fast) var(--ease-out);
+}
+.chart-legend-btn:hover { color: var(--fg-1); }
+.chart-legend-btn .swatch { width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; display: inline-block; vertical-align: middle; transition: opacity var(--d-fast) var(--ease-out); }
+.chart-legend-btn.off { color: var(--fg-4); text-decoration: line-through; }
+.chart-legend-btn.off .swatch { opacity: 0.3; }
+
+/* Full-screen placeholder left in the grid while a chart is popped out. */
+.chart-brief--placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; min-height: 200px; color: var(--fg-3); font-size: 12.5px; text-align: center;
+}
+
+/* Single-chart full-screen pop-out — mirrors the console card pop-out. */
+.chart-modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(7, 10, 14, 0.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; padding: 32px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.chart-modal {
+  margin: auto; width: min(1100px, 100%); max-height: 100%;
+  display: flex; flex-direction: column;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+.chart-modal .chart-brief { margin: 0; }
+@media (max-width: 640px) {
+  .chart-modal-scrim { padding: 0; }
+  .chart-modal { width: 100%; height: 100%; }
+}
 /* Performance charts now use the shared BriefCard shell (window.BriefCard): the
    titled header holds the metric name + anomaly badge + live value, and the
    graph + legend sit in a padded body. The grid is a simple 2-up that collapses
