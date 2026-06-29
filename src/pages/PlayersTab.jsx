@@ -1,4 +1,5 @@
 import React from "react";
+import { BriefCard } from "../components/BriefCard.jsx";
 import { CardTable } from "../components/CardTable.jsx";
 import { Icon } from "../components/Icon.jsx";
 
@@ -83,12 +84,19 @@ function PlayerActions({ p }) {
 
 function PlayersTab({ server, readOnly }) {
   if (!ROSTER_WIRED) {
+    // Anchor the work-in-progress state in the shared BriefCard so it sits in
+    // the same card family as its neighbours (Alerts, Recent activity, Console)
+    // instead of floating between them. Uses the card's neutral empty-state
+    // pattern (NeedsAttention's "all clear" placeholder) — a missing roster
+    // source is neither good nor bad, so the muted variant.
     return (
-      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
-        <Icon name="users" size={26} strokeWidth={1.6} />
-        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
-        <div style={{ marginTop: 4, fontSize: 12.5 }}>Live player presence tracking is in progress — no roster source on this host yet.</div>
-      </div>
+      <BriefCard icon="users" title="Players">
+        <div className="chat-brief__empty chat-brief__empty--neutral">
+          <Icon name="users" size={20} />
+          <span className="chat-brief__empty-title">Work in progress — not available yet</span>
+          <span className="chat-brief__empty-sub">Live player presence tracking is in progress — no roster source on this host yet.</span>
+        </div>
+      </BriefCard>
     );
   }
   const all = [];   // TODO: hydrate from the roster endpoint when ROSTER_WIRED
@@ -136,11 +144,13 @@ function PlayersTab({ server, readOnly }) {
 
   if (all.length === 0) {
     return (
-      <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-lg)", padding: 60, textAlign: "center", color: "var(--fg-3)" }}>
-        <Icon name="users" size={28} />
-        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>No players yet</div>
-        <div style={{ marginTop: 4, fontSize: 13 }}>Once your server is online and someone joins, they'll show up here.</div>
-      </div>
+      <BriefCard icon="users" title="Players">
+        <div className="chat-brief__empty chat-brief__empty--neutral">
+          <Icon name="users" size={20} />
+          <span className="chat-brief__empty-title">No players yet</span>
+          <span className="chat-brief__empty-sub">Once your server is online and someone joins, they'll show up here.</span>
+        </div>
+      </BriefCard>
     );
   }
 
