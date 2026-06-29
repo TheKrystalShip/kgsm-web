@@ -596,7 +596,10 @@ body { overflow: hidden; }
 /* ============= Console ============= */
 .console-card { background: var(--surface-0); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column; min-height: 280px; }
 .console-card__head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-1); flex-shrink: 0; }
-.console-card__title { color: var(--fg-1); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+/* Match the shared card-title style (.chat-brief__title) so the Console header
+   sits in the same family as the other detail-page cards — a small, muted,
+   uppercase tracked label rather than a larger, brighter mixed-case heading. */
+.console-card__title { color: var(--fg-2); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: flex; align-items: center; gap: 7px; }
 .console-card__live { font-size: 11px; font-weight: 600; padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--success-bg); color: var(--success-fg); display: inline-flex; align-items: center; gap: 5px; }
 .console-card__live::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
 /* idle = the server isn't online, so there's no live stdout to follow: drop the

@@ -154,7 +154,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
     <section className="console-card">
       <div className="console-card__head">
         <span className="console-card__title">
-          <Icon name="terminal-square" size={14} strokeWidth={2} />
+          <Icon name="terminal-square" size={13} />
           Console
         </span>
         <span className={"console-card__live" + (pill.live ? "" : " console-card__live--idle")}>{pill.label}</span>
