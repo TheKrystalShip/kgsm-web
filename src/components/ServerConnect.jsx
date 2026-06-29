@@ -57,6 +57,45 @@ function ServerConnect({ server, variant }) {
     );
   }
 
+  // ---- cinematic hero bar variant ----
+  // Compact single row for the server-detail hero's frosted control bar: the connect
+  // address as a glass mono pill, an icon-only copy, then the green Join CTA pinned to
+  // the FAR RIGHT (the bar's primary action, hard against the hero's right edge). No
+  // always-visible note — the "this only launches Steam optimistically" explanation
+  // moves into the button's tooltip so the bar stays clean. Non-Steam games drop the
+  // Join button (address + copy only) and carry the hint on the pill.
+  if (variant === "hero-bar") {
+    const steamHint = online
+      ? `Launch Steam and connect to ${server.game}. If it doesn’t join on its own, paste the address into the game’s server browser.`
+      : "Start the server to join";
+    return (
+      <div className="connect connect--bar">
+        <code
+          className="connect__addr connect__addr--glass"
+          title={join.isSteam ? undefined : `${server.game} isn’t on Steam — copy the address and connect from the game’s own menu.`}>
+          {join.address || "—"}
+        </code>
+        <button
+          className="connect__copy connect__copy--icon"
+          onClick={copy}
+          disabled={!join.address}
+          title={join.address ? (copied ? "Copied" : "Copy connect address") : "The connect address isn’t available yet"}>
+          <Icon name={copied ? "check" : "copy"} size={15} />
+        </button>
+        {join.isSteam && (
+          <a
+            className={"connect__join connect__join--sm" + (online ? "" : " is-disabled")}
+            href={online ? join.steamUrl : undefined}
+            onClick={(e) => { if (!online) e.preventDefault(); }}
+            title={steamHint}>
+            <Icon name="play" size={15} strokeWidth={2.4} />
+            {online ? "Join" : "Offline"}
+          </a>
+        )}
+      </div>
+    );
+  }
+
   // ---- hero variant ----
   return (
     <div className="connect">

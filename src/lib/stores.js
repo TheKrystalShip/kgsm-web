@@ -80,7 +80,12 @@ serversStore.fetchDetail = (id, hostId) => {
   if (!id) return Promise.resolve(null);
   const client = (hostId && api.host) ? api.host(hostId) : api;
   return client.get("/servers/" + id).then(be => {
-    if (be && serversStore.find(id)) serversStore.patch(id, { network: be.network || null });
+    // Merge the detail-only fields onto the cached row WITHOUT clobbering the socket-owned
+    // status/uptime/job: the `network` block (required ⋈ firewall) plus the blueprint's RAWG
+    // cover/hero art (the list/stream omit both → only the detail GET carries them). hero is the
+    // landscape banner the ServerHero renders behind the title.
+    if (be && serversStore.find(id))
+      serversStore.patch(id, { network: be.network || null, cover: be.cover ?? null, hero: be.hero ?? null });
     return be;
   }, () => null);
 };

@@ -467,6 +467,107 @@ body { overflow: hidden; }
 .hero__ip button { background: transparent; border: none; color: var(--fg-3); cursor: pointer; padding: 0; display: flex; }
 .hero__ip button:hover { color: var(--krystal-teal); }
 
+/* ============= Server hero — cinematic variant (server detail page) =============
+   A full-bleed key-art header with a bottom-up scrim, the status pill floated
+   top-left, and the name + every control collected into one frosted "control bar"
+   anchored at the bottom. Borrows the assistant chat window's language: clear
+   zones, restrained colour (tone lives in the action icons, not in four saturated
+   fills), and glass surfaces. The plain `.hero` above is still used as-is by the
+   game/blueprint page (GamePage) — these rules are additive and scoped to
+   `.hero--cinematic`, so that surface is untouched. */
+.hero.hero--cinematic {
+  min-height: 264px;
+  padding: 0;                          /* the body provides its own padding */
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+.hero--cinematic .hero__art { opacity: 0.92; }   /* clean + vivid; the scrim carries legibility */
+.hero__scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(to top,
+    rgba(7,11,15,0.94) 0%,
+    rgba(7,11,15,0.62) 34%,
+    rgba(7,11,15,0.14) 74%,
+    rgba(7,11,15,0.22) 100%);
+}
+.hero__statuspos { position: absolute; top: 16px; left: 18px; z-index: 3; }
+.hero__body {
+  position: relative; z-index: 2;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.hero__heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hero--cinematic .hero__name {
+  font-size: 30px; margin: 0; color: var(--fg-1);
+  text-shadow: 0 2px 18px rgba(0,0,0,0.55);
+}
+.hero--cinematic .hero__edit { color: rgba(255,255,255,0.72); }
+.hero--cinematic .hero__edit:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+/* Frosted backing for the status pill + meta tag so they stay legible over art.
+   Tone (success/warning/danger) stays in the text + dot from the base classes. */
+.hero__status--glass {
+  background: rgba(10,15,20,0.55);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+.hero__tag--glass {
+  background: rgba(10,15,20,0.5);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-color: rgba(255,255,255,0.12); color: var(--fg-1);
+}
+.hero__tag--glass > svg { color: var(--fg-2); }
+
+/* The control bar */
+.hero__bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px; border-radius: var(--r-md);
+  background: rgba(14,20,28,0.62);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.09);
+}
+.hero__group { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+/* The connect group fills the rest of the bar so its Join CTA can pin to the far right
+   (after the lifecycle group + divider for operators; the whole width for viewers). */
+.hero__group--connect { flex: 1 1 auto; min-width: 0; }
+.hero__group--connect > .connect--bar { flex: 1 1 auto; min-width: 0; }
+.hero__bardiv { width: 1px; align-self: stretch; background: rgba(255,255,255,0.14); }
+
+/* Glass lifecycle button (ServerActionButton variant="glass") — ghost button,
+   tone only in the icon. Shares the chip's confirm-first / pending animations. */
+.gbtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 13px;
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  background: transparent; color: var(--fg-1);
+  font-family: var(--font-ui); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--d-fast) var(--ease-out), opacity var(--d-fast) var(--ease-out);
+}
+.gbtn:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
+.gbtn:active:not(:disabled) { background: rgba(255,255,255,0.05); }
+.gbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.gbtn__icon { flex-shrink: 0; }
+.gbtn--start   .gbtn__icon { color: var(--success-fg); }
+.gbtn--update  .gbtn__icon { color: var(--warning-fg); }
+.gbtn--stop    .gbtn__icon { color: var(--danger-fg); }
+.gbtn--restart .gbtn__icon { color: var(--update-fg); }
+/* armed = bright "Confirm?" affordance (same ripple as the chips) */
+.gbtn.is-armed { background: var(--fg-1); color: var(--fg-inverse); animation: chip-armed 1.1s ease-in-out infinite; }
+.gbtn.is-armed:hover { background: var(--fg-1); }
+.gbtn.is-armed .gbtn__icon { color: var(--fg-inverse); }
+/* pending = job in flight (the .act-spin spinner inherits currentColor) */
+.gbtn.is-pending { cursor: progress; opacity: 0.92; }
+
+@media (max-width: 680px) {
+  .hero.hero--cinematic { min-height: 0; }
+  .hero--cinematic .hero__name { font-size: 21px; }
+  .hero__body { padding: 16px; gap: 14px; }
+  .hero__bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .hero__bardiv { display: none; }
+  .hero__group--right { margin-left: 0; }
+  .hero__group { justify-content: flex-start; }
+}
+
 /* ============= Stat tiles (server overview) ============= */
 /* These are KPIs — the grid holds the shared KPI card (window.KPI). Like the
    diagnostics overview, they keep a full traffic-light top hairline on every

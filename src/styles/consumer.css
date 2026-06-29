@@ -44,6 +44,23 @@
 }
 .connect__note > svg { flex-shrink: 0; margin-top: 1px; color: var(--fg-4); }
 
+/* ---- cinematic hero "bar" variant (compact, no note) ---- */
+/* A single inline row that sits inside the server-hero's frosted control bar:
+   green Join CTA (Steam) + glass address pill + icon-only copy. */
+/* The whole cluster (HOST:IP label → Copy → Join) right-aligns and hugs the bar's right
+   edge, in that order. With no Join (non-Steam) the label + copy still hug the right. */
+.connect--bar { flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.connect__join--sm {
+  height: 34px; padding: 0 14px 0 11px; font-size: 13px;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--success) 30%, transparent);
+}
+.connect__addr--glass {
+  background: rgba(10,15,20,0.5);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  font-size: 13px; padding: 7px 11px;
+}
+.connect__copy--icon { width: 34px; height: 34px; padding: 0; justify-content: center; }
+
 /* ---- Join button on a server card (tile variant) ---- */
 .connect-tile {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

@@ -34,17 +34,21 @@ function useConfirmAction(onConfirm, ms = 3500) {
   return { armed, trigger };
 }
 
-// verb: lifecycle verb · variant: "chip" | "quick" · disabled: base guard
+// verb: lifecycle verb · variant: "chip" | "glass" | "quick" · disabled: base guard
 // pendingVerb: the verb of the server's in-flight job (or null) · onRun(verb)
 // reason: optional tooltip shown when disabled (e.g. why the watchdog blocks it)
+//
+// "glass" is the cinematic server-hero button — a ghost button with a tone-coloured
+// icon that lives inside the hero's frosted control bar. It shares the chip's
+// confirm-first + pending behaviour (is-armed / is-pending), only the chrome differs.
 function ServerActionButton({ verb, variant = "quick", disabled, pendingVerb, onRun, reason }) {
   const def = SERVER_ACTION[verb];
   const { armed, trigger } = useConfirmAction(() => onRun(verb));
   const jobRunning = !!pendingVerb;
   const isPending = pendingVerb === verb;
   const isDisabled = disabled || (jobRunning && !isPending);
-  const size = variant === "chip" ? 13 : 11;
-  const iconCls = variant === "chip" ? "chip__icon" : undefined;
+  const size = variant === "quick" ? 11 : 13;
+  const iconCls = variant === "chip" ? "chip__icon" : (variant === "glass" ? "gbtn__icon" : undefined);
   const labelCls = variant === "chip" ? "chip__label" : undefined;
 
   const click = (e) => {
@@ -53,7 +57,10 @@ function ServerActionButton({ verb, variant = "quick", disabled, pendingVerb, on
     if (def.confirm) trigger(); else onRun(verb);
   };
 
-  const cls = (variant === "chip" ? "chip chip--" + def.tone : "")
+  const base = variant === "chip" ? "chip chip--" + def.tone
+    : variant === "glass" ? "gbtn gbtn--" + def.tone
+    : "";
+  const cls = base
     + (armed ? " is-armed" : "")
     + (isPending ? " is-pending" : "");
 

@@ -50,6 +50,12 @@ export function adaptServer(be) {
     // keep the raw backend objects for surfaces that want honest detail:
     metrics: m,
     network: be.network || null,
+    // RAWG art for this server's blueprint, self-hosted by kgsm-api (absolute, directly-renderable
+    // URLs, or null). DETAIL-ONLY — the list/stream omit them, so they're null here until
+    // serversStore.fetchDetail merges the detail body in. hero = landscape banner (the detail-page
+    // background), cover = 2:3 portrait. Never construct these client-side; consume the DTO field.
+    cover: be.cover ?? null,
+    hero: be.hero ?? null,
     steamAppId: be.steamAppId,
     clientSteamAppId: be.clientSteamAppId,
     isSteamAccountRequired: be.isSteamAccountRequired,

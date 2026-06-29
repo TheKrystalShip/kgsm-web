@@ -8,11 +8,13 @@ import { serverOperable } from "../lib/persona.js";
 // Server hero card — top status, name, action chips, IP.
 
 function StatusPill({ status, uptime, watchdogDown }) {
+  // --glass swaps the pill's fill for the frosted dark backing so it stays legible
+  // over the full-bleed key-art (the tone colour stays in the text + dot).
   // The watchdog reports a server's liveness; with it down we can't confirm the
   // status (or trust the uptime), so the pill reads "unknown".
   if (watchdogDown) {
     return (
-      <span className="hero__status hero__status--unknown" title="Watchdog down — server state can’t be confirmed">
+      <span className="hero__status hero__status--unknown hero__status--glass" title="Watchdog down — server state can’t be confirmed">
         <span className="dot"></span>
         status unknown
       </span>
@@ -25,7 +27,7 @@ function StatusPill({ status, uptime, watchdogDown }) {
     crashed: "hero__status hero__status--offline",
   }[status] || "hero__status";
   return (
-    <span className={cls}>
+    <span className={cls + " hero__status--glass"}>
       <span className="dot"></span>
       {status}
       {uptime && uptime !== "—" && <span className="timer">{uptime}</span>}
@@ -49,53 +51,69 @@ function ServerHero({ server, onAction }) {
   // against the backend, disable it with a reason.
   const updateUnavailable = true;
   const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
-  // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone);
-  // the detail hero prefers the hero image, then the cover, then the gradient.
-  // Servers carry no RAWG metadata yet → this falls through to `art` today.
-  const heroImg = server.hero || server.cover || null;
-  const artBg = heroImg
-    ? `linear-gradient(135deg, rgba(11,15,20,0.4) 0%, transparent 60%), url("${heroImg}")`
+  // The cinematic background is the dedicated LANDSCAPE banner (`hero` = RAWG
+  // background_image_additional, self-hosted by kgsm-api), NOT the 2:3 portrait
+  // `cover` — a portrait stretched to a wide banner looks wrong. `hero` is merged
+  // onto the row by serversStore.fetchDetail; null (uncached / no source) falls
+  // straight through to the gradient — we never substitute the cover here.
+  const banner = server.hero || null;
+  // The bottom-up scrim (.hero__scrim) handles text legibility now, so the art
+  // is shown clean and vivid rather than baking a gradient into the image layer.
+  const artBg = banner
+    ? `url("${banner}")`
     : server.art;
   return (
-    <section className="hero">
+    <section className="hero hero--cinematic">
       <div className="hero__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
-      <div className="hero__veil"></div>
-      <div className="hero__content">
+      <div className="hero__scrim"></div>
+      <div className="hero__statuspos">
         <StatusPill status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />
-        <h1 className="hero__name">
-          {server.name}
-          {canOps && <button className="hero__edit" aria-label="Rename"><Icon name="pencil" size={16} /></button>}
-        </h1>
-        {/* Runtime is honest backend metadata (native vs container) — surface it
-            as a small tag. Absent → renders nothing. */}
-        {server.runtime && (
-          <div className="hero__tags">
-            <span className="hero__tag" title="Supervision type">
+      </div>
+      <div className="hero__body">
+        <div className="hero__heading">
+          <h1 className="hero__name">
+            {server.name}
+            {canOps && <button className="hero__edit" aria-label="Rename"><Icon name="pencil" size={16} /></button>}
+          </h1>
+          {/* Runtime is honest backend metadata (native vs container) — surface it
+              as a small glass tag beside the name. Absent → renders nothing. */}
+          {server.runtime && (
+            <span className="hero__tag hero__tag--glass" title="Supervision type">
               <Icon name={server.runtime === "container" ? "box" : "cpu"} size={12} strokeWidth={2} /> {server.runtime}
             </span>
+          )}
+        </div>
+        {/* Frosted control bar: lifecycle actions (operators) on the left, a
+            divider, then the connect/Join group on the right. Players see only
+            the connect group. */}
+        <div className="hero__bar">
+          {canOps && (
+            <>
+              <div className="hero__group">
+                <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="update"  variant="glass" disabled={isUpdating || watchdogDown || updateUnavailable} reason={updateUnavailable ? updReason : (watchdogDown ? wdReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="stop"    variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="restart" variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+              </div>
+              <span className="hero__bardiv" aria-hidden="true"></span>
+            </>
+          )}
+          <div className="hero__group hero__group--connect">
+            {ServerConnect
+              ? <ServerConnect server={server} variant="hero-bar" />
+              : (
+                <div className="hero__ip">
+                  {server.ip}
+                  <button title="Copy"><Icon name="copy" size={14} /></button>
+                </div>
+              )}
           </div>
-        )}
-        {canOps && (
-          <div className="action-row">
-            <ServerActionButton verb="start"   variant="chip" disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
-            <ServerActionButton verb="update"  variant="chip" disabled={isUpdating || watchdogDown || updateUnavailable} reason={updateUnavailable ? updReason : (watchdogDown ? wdReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
-            <ServerActionButton verb="stop"    variant="chip" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
-            <ServerActionButton verb="restart" variant="chip" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
-          </div>
-        )}
+        </div>
         {canOps && watchdogDown && (
           <div className="hero__watchdog-note">
             <Icon name="power-off" size={13} /> Watchdog unavailable — start, stop, restart and update are paused on this host.
           </div>
         )}
-        {ServerConnect
-          ? <ServerConnect server={server} variant="hero" />
-          : (
-            <div className="hero__ip">
-              {server.ip}
-              <button title="Copy"><Icon name="copy" size={14} /></button>
-            </div>
-          )}
       </div>
     </section>
   );
