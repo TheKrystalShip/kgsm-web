@@ -1944,6 +1944,25 @@ body { overflow: hidden; }
 }
 .tschart__evt-flag:hover + .tschart__evt-tip { display: block; }
 .tschart__evt-tip b { color: var(--fg-1); font-weight: 600; margin-right: 6px; }
+
+/* Drag-to-zoom (#4) — a crosshair cursor on the zoomable (time-axis) charts and a
+   teal selection band while dragging out a window. */
+.tschart__overlay--zoomable { cursor: crosshair; }
+.tschart__zoomsel {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: color-mix(in srgb, var(--krystal-teal) 16%, transparent);
+  border-left: 1px solid var(--krystal-teal-ring);
+  border-right: 1px solid var(--krystal-teal-ring);
+}
+/* Zoom-window pill in the history toolbar — shows the active window + clears it. */
+.perf-zoom-pill {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  color: var(--krystal-teal); cursor: pointer;
+  background: var(--krystal-teal-dim); border: 1px solid var(--border-accent);
+  border-radius: var(--r-pill); padding: 3px 9px; transition: background var(--d-fast) var(--ease-out);
+}
+.perf-zoom-pill:hover { background: color-mix(in srgb, var(--krystal-teal) 22%, transparent); }
 /* Performance charts now use the shared BriefCard shell (window.BriefCard): the
    titled header holds the metric name + anomaly badge + live value, and the
    graph + legend sit in a padded body. The grid is a simple 2-up that collapses

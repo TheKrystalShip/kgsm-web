@@ -31,10 +31,16 @@ const PAD_L = 30, PAD_R = 12, PAD_T = 8, PAD_B = 22;
 
 const ChartHoverContext = React.createContext(null);
 
-// Shared hover bus for a group of charts (one crosshair instant across all).
-function ChartHoverProvider({ children }) {
+// Shared bus for a group of charts: one crosshair instant (frac) AND one zoom
+// window (zoom = [ms0, ms1] | null) across all of them, so dragging a region on
+// any chart narrows the time domain on the whole grid in lockstep. Hover is owned
+// here (uncontrolled); zoom is threaded from the owner (PerformanceTab) so it can
+// render the reset affordance and clear it on range/server change.
+function ChartHoverProvider({ children, zoom = null, onZoom }) {
   const [frac, setFrac] = React.useState(null);
-  const value = React.useMemo(() => ({ frac, setFrac }), [frac]);
+  const value = React.useMemo(
+    () => ({ frac, setFrac, zoom, setZoom: onZoom || null }),
+    [frac, zoom, onZoom]);
   return <ChartHoverContext.Provider value={value}>{children}</ChartHoverContext.Provider>;
 }
 
@@ -76,11 +82,26 @@ function liveXTicks(N, windowSec) {
   return [{ i: 0, l: fmt(spanS) }, { i: 0.5, l: fmt(spanS / 2) }, { i: 1, l: "now" }];
 }
 
+// Absolute clock ticks across an explicit [ms0, ms1] domain — used when a chart is
+// zoomed (the preset "-30m/-15m" labels no longer describe the narrowed window).
+function timeAxisTicks(ms0, ms1) {
+  const spanH = (ms1 - ms0) / 3600e3;
+  const multi = spanH > 24;
+  const fmt = (ms) => {
+    const d = new Date(ms);
+    return multi
+      ? `${d.toLocaleString(undefined, { month: "short" })} ${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+      : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+  return [0, 0.25, 0.5, 0.75, 1].map(i => ({ i, l: fmt(ms0 + i * (ms1 - ms0)) }));
+}
+
 function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band, times, domain, events, stepSec }) {
   const W = VB_W;
   const H = height;
   const padL = PAD_L, padR = PAD_R, padT = PAD_T, padB = PAD_B;
   const plotW = W - padL - padR;
+  const clipId = "tsc" + React.useId().replace(/:/g, "");   // per-chart clip (colon-free for url(#…))
 
   const allVals = series.flatMap(s => s.values).concat(compare?.values || []);
   const min = yMin != null ? yMin : Math.min(...allVals, 0);
@@ -89,13 +110,29 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
 
   const N = series[0]?.values.length || 0;
 
+  // ---- Shared bus: hover crosshair + zoom window across the grid ----
+  const shared = React.useContext(ChartHoverContext);
+  const [localFrac, setLocalFrac] = React.useState(null);
+  const frac = shared ? shared.frac : localFrac;
+  const setFrac = shared ? shared.setFrac : setLocalFrac;
+  const interactive = N >= 2;
+
   // Time axis (historical only): position points by real timestamp within a shared
   // domain, so downtime opens a proportional gap and lifecycle markers land at the
   // right wall-clock x. Live stays index-based (uniform ~1 Hz, gap-free).
   const tms = (times && times.length === N) ? times.map(toMs) : null;
   const useTimeAxis = range !== "live" && tms && N >= 2;
-  const d0 = useTimeAxis ? (domain ? toMs(domain[0]) : tms[0]) : 0;
-  const d1 = useTimeAxis ? (domain ? toMs(domain[1]) : tms[N - 1]) : 1;
+  const fullD0 = useTimeAxis ? (domain ? toMs(domain[0]) : tms[0]) : 0;
+  const fullD1 = useTimeAxis ? (domain ? toMs(domain[1]) : tms[N - 1]) : 1;
+
+  // Drag-to-zoom (#4): the effective domain is the shared zoom window when set,
+  // else the full range. Zoom is a pure client-side view transform over the data
+  // already fetched — for the raw tier (15s samples) it recovers real detail that
+  // the full-range view compresses. Only meaningful on the time axis.
+  const canZoom = useTimeAxis && shared && typeof shared.setZoom === "function";
+  const zoomWin = (canZoom && shared.zoom) || null;
+  const d0 = zoomWin ? zoomWin[0] : fullD0;
+  const d1 = zoomWin ? zoomWin[1] : fullD1;
   const dspan = (d1 - d0) || 1;
   const sxT = (ms) => padL + ((ms - d0) / dspan) * plotW;
   const sx = (i) => useTimeAxis ? sxT(tms[i]) : padL + (i / Math.max(1, N - 1)) * plotW;
@@ -107,30 +144,37 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   const breaks = new Set();
   if (isFinite(gapThr)) for (let i = 1; i < N; i++) if (tms[i] - tms[i - 1] > gapThr) breaks.add(i);
 
-  // ---- Hover: shared bus if wrapped in a provider, else local state ----
-  const shared = React.useContext(ChartHoverContext);
-  const [localFrac, setLocalFrac] = React.useState(null);
-  const frac = shared ? shared.frac : localFrac;
-  const setFrac = shared ? shared.setFrac : setLocalFrac;
-  const interactive = N >= 2;
-
   const leftInset = padL / W;
   const plotFrac = plotW / W;
+  const fracAt = (clientX, rect) => {
+    let df = ((clientX - rect.left) / rect.width - leftInset) / plotFrac;
+    return df < 0 ? 0 : df > 1 ? 1 : df;
+  };
 
+  // Drag selection (local — only the releasing chart commits to the shared zoom).
+  const [drag, setDrag] = React.useState(null);   // { a, b } plot fractions, or null
+  const onDown = (e) => { if (canZoom && e.button === 0) { const f = fracAt(e.clientX, e.currentTarget.getBoundingClientRect()); setDrag({ a: f, b: f }); } };
   const onMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
-    const px = (e.clientX - rect.left) / rect.width;
-    let df = (px - leftInset) / plotFrac;
-    df = df < 0 ? 0 : df > 1 ? 1 : df;
-    setFrac(df);
+    const f = fracAt(e.clientX, rect);
+    setFrac(f);
+    if (drag) setDrag(d => d ? { ...d, b: f } : d);
   };
-  const onLeave = () => setFrac(null);
+  const commitZoom = () => {
+    if (drag && canZoom) {
+      const lo = Math.min(drag.a, drag.b), hi = Math.max(drag.a, drag.b);
+      if (hi - lo > 0.02) shared.setZoom([d0 + lo * dspan, d0 + hi * dspan]);   // map within the CURRENT domain (zoom-in-zoom ok)
+    }
+    setDrag(null);
+  };
+  const onLeave = () => { setFrac(null); setDrag(null); };
+  const onDouble = () => { if (canZoom && zoomWin) shared.setZoom(null); };
 
   // Nearest sample to the cursor — by index on the uniform live axis, by x-distance
   // on the time axis (so it honours gaps and uneven spacing).
   let hoverIdx = null;
-  if (frac != null && N > 0) {
+  if (frac != null && N > 0 && !drag) {
     if (!useTimeAxis) hoverIdx = Math.min(N - 1, Math.max(0, Math.round(frac * (N - 1))));
     else {
       const targetX = padL + frac * plotW;
@@ -142,7 +186,9 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
 
   const gridYs = [0, 0.5, 1].map(p => padT + p * (H - padT - padB));
 
-  const xTicks = range === "live" ? liveXTicks(N, windowSec) : ({
+  const xTicks = range === "live" ? liveXTicks(N, windowSec)
+    : zoomWin ? timeAxisTicks(d0, d1)
+    : ({
     "1h":  [{ i: 0, l: "-60m" }, { i: 0.25, l: "-45" }, { i: 0.5, l: "-30" }, { i: 0.75, l: "-15" }, { i: 1, l: "now" }],
     "24h": [{ i: 0, l: "-24h" }, { i: 0.25, l: "-18" }, { i: 0.5, l: "-12" }, { i: 0.75, l: "-6" }, { i: 1, l: "now" }],
     "7d":  [{ i: 0, l: "-7d" },  { i: 0.5, l: "-3d" },  { i: 1, l: "now" }],
@@ -158,19 +204,9 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   return (
     <div className="tschart" style={{ height: H }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
-        {/* Anomaly bands — drawn under everything else as soft amber rectangles
-            marking the time windows where the metric crossed the threshold. */}
-        {anomalies && anomalies.map((a, i) => {
-          const x1 = sx(a.start);
-          const x2 = sx(a.end);
-          return (
-            <rect key={"an" + i}
-              x={x1} y={padT}
-              width={Math.max(2, x2 - x1)}
-              height={H - padT - padB}
-              fill="var(--warning)" opacity="0.13" />
-          );
-        })}
+        <defs>
+          <clipPath id={clipId}><rect x={padL} y={padT} width={plotW} height={H - padT - padB} /></clipPath>
+        </defs>
 
         {/* Gridlines + Y labels */}
         {gridYs.map((y, i) => (
@@ -193,72 +229,98 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
           </text>
         ))}
 
-        {/* Comparison series — dashed, faded, sits below the main line. */}
-        {compare && compare.values && (() => {
-          const d = compare.values
-            .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`)
-            .join(" ");
-          return (
-            <path d={d}
-              fill="none"
-              stroke="var(--fg-3)"
-              strokeWidth="1.2"
-              strokeDasharray="3 4"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              opacity="0.6" />
-          );
-        })()}
+        {/* All data marks clip to the plot box — so a zoomed (narrowed) domain that
+            pushes points past the edges crops cleanly instead of spilling. */}
+        <g clipPath={`url(#${clipId})`}>
+          {/* Anomaly bands — soft amber rectangles over the threshold-crossing windows. */}
+          {anomalies && anomalies.map((a, i) => {
+            const x1 = sx(a.start);
+            const x2 = sx(a.end);
+            return (
+              <rect key={"an" + i}
+                x={x1} y={padT}
+                width={Math.max(2, x2 - x1)}
+                height={H - padT - padB}
+                fill="var(--warning)" opacity="0.13" />
+            );
+          })}
 
-        {/* Min/max band — drawn as a filled polygon between the min and max arrays
-            (rollup tier). Sits under the main series line for visual depth. */}
-        {band && band.min && band.max && band.min.length === N && (() => {
-          const upper = band.max.map((v, i) => `${sx(i)} ${sy(v)}`).join(" L ");
-          const lower = band.min.map((v, i) => `${sx(i)} ${sy(v)}`).reverse().join(" L ");
-          return <path d={`M ${upper} L ${lower} Z`} fill={band.color || "var(--krystal-teal)"} opacity="0.10" />;
-        })()}
+          {/* Comparison series — dashed, faded, sits below the main line. */}
+          {compare && compare.values && (() => {
+            const d = compare.values
+              .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`)
+              .join(" ");
+            return (
+              <path d={d}
+                fill="none"
+                stroke="var(--fg-3)"
+                strokeWidth="1.2"
+                strokeDasharray="3 4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                opacity="0.6" />
+            );
+          })()}
 
-        {/* Series — fills first so they sit under the lines. Both break at gaps
-            (downtime) instead of drawing a misleading line across the absent span. */}
-        {series.map((s, idx) => {
-          if (!s.fill) return null;
-          const segs = []; let cur = [];
-          for (let i = 0; i < N; i++) { if (breaks.has(i) && cur.length) { segs.push(cur); cur = []; } cur.push(i); }
-          if (cur.length) segs.push(cur);
-          const d = segs.map(seg =>
-            seg.map((i, k) => `${k === 0 ? "M" : "L"} ${sx(i)} ${sy(s.values[i])}`).join(" ")
-            + ` L ${sx(seg[seg.length - 1])} ${sy(min)} L ${sx(seg[0])} ${sy(min)} Z`
-          ).join(" ");
-          return <path key={"fill-" + idx} d={d} fill={s.color} opacity="0.12" />;
-        })}
-        {series.map((s, idx) => {
-          const d = s.values.map((v, i) => `${(i === 0 || breaks.has(i)) ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ");
-          return <path key={"ln-" + idx} d={d} fill="none" stroke={s.color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />;
-        })}
+          {/* Min/max band — filled polygon between the min and max arrays (rollup tier). */}
+          {band && band.min && band.max && band.min.length === N && (() => {
+            const upper = band.max.map((v, i) => `${sx(i)} ${sy(v)}`).join(" L ");
+            const lower = band.min.map((v, i) => `${sx(i)} ${sy(v)}`).reverse().join(" L ");
+            return <path d={`M ${upper} L ${lower} Z`} fill={band.color || "var(--krystal-teal)"} opacity="0.10" />;
+          })()}
 
-        {/* Lifecycle event guides (#3) — dashed vertical lines at real wall-clock x. */}
-        {useTimeAxis && events && events.map((ev, i) => {
-          const x = sxT(toMs(ev.t));
-          if (x < padL - 0.5 || x > W - padR + 0.5) return null;
-          return <line key={"ev" + i} x1={x} x2={x} y1={padT} y2={H - padB}
-            stroke={toneColor(ev.tone)} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />;
-        })}
+          {/* Series — fills first so they sit under the lines. Both break at gaps
+              (downtime) instead of drawing a misleading line across the absent span. */}
+          {series.map((s, idx) => {
+            if (!s.fill) return null;
+            const segs = []; let cur = [];
+            for (let i = 0; i < N; i++) { if (breaks.has(i) && cur.length) { segs.push(cur); cur = []; } cur.push(i); }
+            if (cur.length) segs.push(cur);
+            const d = segs.map(seg =>
+              seg.map((i, k) => `${k === 0 ? "M" : "L"} ${sx(i)} ${sy(s.values[i])}`).join(" ")
+              + ` L ${sx(seg[seg.length - 1])} ${sy(min)} L ${sx(seg[0])} ${sy(min)} Z`
+            ).join(" ");
+            return <path key={"fill-" + idx} d={d} fill={s.color} opacity="0.12" />;
+          })}
+          {series.map((s, idx) => {
+            const d = s.values.map((v, i) => `${(i === 0 || breaks.has(i)) ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ");
+            return <path key={"ln-" + idx} d={d} fill="none" stroke={s.color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />;
+          })}
 
-        {/* Current-value dot on the last point */}
-        {series.map((s, idx) => {
-          const v = s.values[s.values.length - 1];
-          return (
-            <circle key={"dot-" + idx} cx={sx(N - 1)} cy={sy(v)} r="3.5"
-              fill={s.color} stroke="var(--surface-1)" strokeWidth="2" />
-          );
-        })}
+          {/* Lifecycle event guides (#3) — dashed vertical lines at real wall-clock x. */}
+          {useTimeAxis && events && events.map((ev, i) => {
+            const x = sxT(toMs(ev.t));
+            if (x < padL - 0.5 || x > W - padR + 0.5) return null;
+            return <line key={"ev" + i} x1={x} x2={x} y1={padT} y2={H - padB}
+              stroke={toneColor(ev.tone)} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />;
+          })}
+
+          {/* Current-value dot on the last point (hidden by the clip when zoomed past it). */}
+          {series.map((s, idx) => {
+            const v = s.values[s.values.length - 1];
+            return (
+              <circle key={"dot-" + idx} cx={sx(N - 1)} cy={sy(v)} r="3.5"
+                fill={s.color} stroke="var(--surface-1)" strokeWidth="2" />
+            );
+          })}
+        </g>
       </svg>
 
       {/* Hover overlay — captures the pointer, draws the synced crosshair, the
           per-series markers, and the tooltip. HTML (not SVG) so it isn't
-          distorted by the chart's horizontal stretch and reads in card type. */}
+          distorted by the chart's horizontal stretch and reads in card type.
+          On the time axis it also owns drag-to-zoom (#4). */}
       {interactive && (
-        <div className="tschart__overlay" onMouseMove={onMove} onMouseLeave={onLeave}>
+        <div className={"tschart__overlay" + (canZoom ? " tschart__overlay--zoomable" : "")}
+          onMouseMove={onMove} onMouseLeave={onLeave}
+          onMouseDown={onDown} onMouseUp={commitZoom} onDoubleClick={onDouble}>
+          {/* Drag selection band (#4) */}
+          {drag && Math.abs(drag.b - drag.a) > 0.001 && (() => {
+            const lo = Math.min(drag.a, drag.b), hi = Math.max(drag.a, drag.b);
+            const loPct = ((padL + lo * plotW) / W) * 100;
+            const wPct = ((hi - lo) * plotW / W) * 100;
+            return <div className="tschart__zoomsel" style={{ left: loPct + "%", width: wPct + "%", top: padT, height: H - padT - padB }} />;
+          })()}
           {hoverIdx != null && (
             <>
               <div className="tschart__crosshair" style={{ left: hoverXPct + "%", top: padT, height: H - padT - padB }} />

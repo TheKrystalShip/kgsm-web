@@ -77,6 +77,18 @@ function seriesStats(vals) {
   return n ? { min: mn, max: mx, avg: sum / n } : null;
 }
 
+// Compact "HH:MM–HH:MM" (or with date across days) for the zoom-window pill.
+function fmtZoomRange([ms0, ms1]) {
+  const p2 = n => String(n).padStart(2, "0");
+  const multiDay = (ms1 - ms0) > 86400e3 || new Date(ms0).getDate() !== new Date(ms1).getDate();
+  const f = ms => {
+    const d = new Date(ms);
+    const t = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    return multiDay ? `${d.toLocaleString(undefined, { month: "short" })} ${d.getDate()} ${t}` : t;
+  };
+  return f(ms0) + "–" + f(ms1);
+}
+
 function StatStrip({ items }) {
   if (!items || !items.length) return null;
   return (
@@ -353,6 +365,7 @@ function HistoricalMetrics({ server, range }) {
   const [data, setData] = React.useState(null);
   const [events, setEvents] = React.useState([]);
   const [nowMs, setNowMs] = React.useState(() => Date.now());
+  const [zoom, setZoom] = React.useState(null);   // [ms0, ms1] | null — drag-to-zoom (#4)
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
@@ -362,6 +375,7 @@ function HistoricalMetrics({ server, range }) {
     setError(null);
     setData(null);
     setEvents([]);
+    setZoom(null);   // a new range/server resets any zoom
     const now = Date.now();
     setNowMs(now);
     const sinceIso = new Date(now - (RANGE_MS[range] || RANGE_MS["1h"])).toISOString();
@@ -444,13 +458,20 @@ function HistoricalMetrics({ server, range }) {
           <Icon name="clock" size={14} strokeWidth={1.8} />
           {tier === "rollup" ? `${step / 60}min avg` : `~${step}s samples`} · {range}
         </span>
+        {zoom && (
+          <button className="perf-zoom-pill" onClick={() => setZoom(null)} title="Reset zoom (or double-click a chart)">
+            <Icon name="zoom-in" size={12} strokeWidth={2} />
+            {fmtZoomRange(zoom)}
+            <Icon name="x" size={12} strokeWidth={2.2} />
+          </button>
+        )}
         <span style={{ flex: 1 }}></span>
         <span style={{ color: "var(--fg-3)", fontSize: 12.5, fontFamily: "var(--font-mono)" }}>
           {cpuSeries.length} point{cpuSeries.length === 1 ? "" : "s"}
         </span>
       </div>
 
-      <ChartHoverProvider>
+      <ChartHoverProvider zoom={zoom} onZoom={setZoom}>
       <div className="chart-grid">
         {cpuVals.length > 0 && (
           <BriefCard className="chart-brief" icon="cpu"
