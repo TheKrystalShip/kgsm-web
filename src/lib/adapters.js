@@ -203,12 +203,20 @@ export function adaptHost(be) {
       : [],
   };
 
+  // Identity card (M8·d): operator-declared region + runtime-derived os/kernel/build, now sourced by the
+  // API. Honest-unknown ("—") when a field is null (region unset, or an unreadable os source).
+  const ident = be.identity || {};
+  const identOs = ident.os || {};
   return {
     id: be.id,
     name: be.label ?? be.id,
     hostname: tel.hostname || be.id,   // real monitor hostname when sampled, else the host id
-    region: "—",
-    os: "—", kernel: "—", panel_version: "—",  // not sourced by the API today → honest-unknown
+    region: ident.region ?? "—",
+    os: identOs.name ?? "—",
+    kernel: identOs.kernel ?? "—",
+    // The honest "which build is this host running" — the API build version (<Version>+git SHA), falling
+    // back to the route version. NOT a hardcoded "—" anymore.
+    panel_version: ident.build || be.panelVersion || "—",
     boot_time: tel.boot_time,
     online: be.status === "online",
     // capabilities pass straight through — the api shape already matches the

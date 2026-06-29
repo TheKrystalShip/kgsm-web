@@ -731,14 +731,27 @@ function uptimeShort(bootTime) {
 
 // ---------- Editor modal (add / edit) ----------
 
+// The host editor. Two modes, but only the EDIT half writes to the API — `PATCH /hosts/{id}` can set
+// exactly the host's IDENTITY OVERRIDES: the display `label` and the free-form `region`. Everything else on
+// a host (hostname, OS, kernel, capacity) is runtime-derived/read-only — the API never sets it — so those
+// inputs are gone (a placeholder of strip-able "—" is treated as empty when prefilling). The ADD mode keeps
+// an address field because connecting to a NEW host needs its URL (that's choosing which kgsm-api, not
+// setting an API field); it stays the client-side registry path.
 function HostEditorModal({ host, onSave, onClose }) {
   const editing = !!host;
-  const [name, setName] = React.useState(host?.name || "");
-  const [hostname, setHostname] = React.useState(host?.hostname || "");
-  const [region, setRegion] = React.useState(host?.region || "");
-  const [os, setOs] = React.useState(host?.os || "");
-  const canSave = name.trim() && hostname.trim();
-  const submit = () => { if (canSave) onSave({ name: name.trim(), hostname: hostname.trim(), region: region.trim() || "—", os: os.trim() || "—" }); };
+  // A display placeholder ("—") prefills as empty so the operator edits real text, not a dash.
+  const clean = (v) => (v && v !== "—" ? v : "");
+  const [name, setName] = React.useState(clean(host?.name));
+  const [hostname, setHostname] = React.useState(clean(host?.hostname));
+  const [region, setRegion] = React.useState(clean(host?.region));
+  // Edit: a label is required (region is optional — clearing it falls back to the host's config default).
+  // Add: an address is required to reach the new host.
+  const canSave = editing ? !!name.trim() : (!!name.trim() && !!hostname.trim());
+  const submit = () => {
+    if (!canSave) return;
+    if (editing) onSave({ label: name.trim(), region: region.trim() });           // → PATCH /hosts/{id}
+    else onSave({ name: name.trim(), hostname: hostname.trim(), region: region.trim() }); // → registry add
+  };
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
@@ -752,7 +765,7 @@ function HostEditorModal({ host, onSave, onClose }) {
           <div className="host-editor__head-icon"><Icon name={editing ? "pencil" : "server-cog"} size={18} /></div>
           <div>
             <h2 className="host-editor__title">{editing ? "Edit host" : "Add a host"}</h2>
-            <p className="host-editor__sub">{editing ? "Update how this machine appears across the panel." : "Register a machine running the Krystal agent. It connects on first check-in."}</p>
+            <p className="host-editor__sub">{editing ? "Set how this machine appears across the panel — its label and region." : "Register a machine running the Krystal agent. It connects on first check-in."}</p>
           </div>
           <button className="host-editor__close" onClick={onClose} aria-label="Close"><Icon name="x" size={16} /></button>
         </div>
@@ -761,20 +774,18 @@ function HostEditorModal({ host, onSave, onClose }) {
             <span className="host-field__label">Display name</span>
             <input className="host-field__input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Frankfurt box" autoFocus />
           </label>
+          {/* Address is connection info — only meaningful when ADDING a host. The API can't change where a
+              host lives, so it isn't shown (nor settable) when editing an existing one. */}
+          {!editing && (
+            <label className="host-field">
+              <span className="host-field__label">Hostname / address</span>
+              <input className="host-field__input host-field__input--mono" value={hostname} onChange={e => setHostname(e.target.value)} placeholder="krystal-3.tks.example" spellCheck="false" />
+            </label>
+          )}
           <label className="host-field">
-            <span className="host-field__label">Hostname / address</span>
-            <input className="host-field__input host-field__input--mono" value={hostname} onChange={e => setHostname(e.target.value)} placeholder="krystal-3.tks.example" spellCheck="false" />
+            <span className="host-field__label">Region <span className="host-field__opt">optional</span></span>
+            <input className="host-field__input host-field__input--mono" value={region} onChange={e => setRegion(e.target.value)} placeholder="e.g. eu-west" spellCheck="false" />
           </label>
-          <div className="host-field-row">
-            <label className="host-field">
-              <span className="host-field__label">Region</span>
-              <input className="host-field__input host-field__input--mono" value={region} onChange={e => setRegion(e.target.value)} placeholder="fra1" spellCheck="false" />
-            </label>
-            <label className="host-field">
-              <span className="host-field__label">OS <span className="host-field__opt">optional</span></span>
-              <input className="host-field__input" value={os} onChange={e => setOs(e.target.value)} placeholder="Debian 12" />
-            </label>
-          </div>
         </div>
         <div className="host-editor__foot">
           <button className="host-btn host-btn--ghost" onClick={onClose}>Cancel</button>
@@ -952,10 +963,25 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   const countFor = (hostId) => servers.filter(s => s.hostId === hostId).length;
 
   // Management actions (shared by grid cards + deep-dive header menu).
+  // Edit writes the identity overrides through the API (PATCH /hosts/{id} { label, region }) — admin-gated
+  // server-side. We update the store optimistically, then reconcile the label/region from the server's
+  // response (the authoritative effective values, incl. a clear falling back to the config default). Add
+  // stays the client-side registry/skeleton path (a new host is reached by URL, not created via the API).
   const saveHost = (fields) => {
-    if (editing && editing.id) hostsStore.update(editing.id, fields);
-    else hostsStore.add(makeHostSkeleton(fields));
-    setEditing(null);
+    if (editing && editing.id) {
+      const id = editing.id;
+      hostsStore.update(id, { name: fields.label, region: fields.region || "—" });   // optimistic
+      setEditing(null);
+      const client = api.host ? api.host(id) : api;
+      Promise.resolve(client.patch("/hosts/" + id, { label: fields.label, region: fields.region }))
+        .then((updated) => {
+          if (updated && updated.id) hostsStore.update(id, { name: updated.name, region: updated.region });
+        })
+        .catch(() => { /* keep optimistic; the next /hosts refetch reconciles authoritative truth */ });
+    } else {
+      hostsStore.add(makeHostSkeleton(fields));
+      setEditing(null);
+    }
   };
   const toggleHost = (host) => hostsStore.update(host.id, { online: !host.online, _pending: false });
   const confirmRemove = () => {
