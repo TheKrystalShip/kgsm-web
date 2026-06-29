@@ -1,4 +1,5 @@
 import React from "react";
+import { hostAddressOf } from "./config.js";
 import { sessionStore } from "./sessionStore.js";
 import { hostsStore } from "./stores.js";
 
@@ -154,18 +155,37 @@ import { hostsStore } from "./stores.js";
   // ⇒ not a Steam game. kgsm-api projects it from the engine blueprint, the single
   // source of truth — the frontend keeps zero game data.
   //
+  // serverPort — the instance's player-facing connect port: the FIRST required
+  // port (kgsm lists the game/connect port first in the blueprint). Sourced from
+  // the detail superset's `network` block (GET /servers/{id}) — null on the bare
+  // list row (network is detail-only) and never fabricated.
+  function serverPort(server) {
+    var req = server && server.network && server.network.required;
+    if (!Array.isArray(req) || !req.length) return null;
+    var p = req[0] && req[0].port;
+    return (typeof p === "number" && p > 0) ? p : null;
+  }
+
   // serverJoin — everything the Join UI needs. `address` is the player-facing
-  // host:port (server.ip already carries it). steamUrl is null for non-Steam games
-  // (or until an address is known) → the UI falls back to copy-connect only.
+  // host:port, composed from the host's address (the origin the SPA reached this
+  // server's host api at — kgsm/monitor source no ip, so the connect origin is the
+  // honest host address) + the instance's connect port (from the detail network
+  // block). Either part unknown → address is null (honest "—", never the string
+  // "null"). steamUrl is null for non-Steam games (or until an address is known) →
+  // the UI falls back to copy-connect only.
   function serverJoin(server) {
     // clientSteamAppId arrives as a string ("0" = not Steam) from the API; coerce.
     var appId = server ? (Number(server.clientSteamAppId) || 0) : 0;
     var isSteam = appId > 0;
-    var address = server ? server.ip : null;
+    var host = server ? hostAddressOf(server.hostId) : "";
+    var port = serverPort(server);
+    var address = (host && port) ? (host + ":" + port) : null;
     return {
       isSteam: isSteam,
       steamId: appId,
       address: address,
+      host: host || null,
+      port: port,
       // steam://connect/<ip:port> — asks Steam to launch the owned client game and
       // join. Offered only for a Steam title (clientSteamAppId > 0) with an address.
       steamUrl: (isSteam && address) ? ("steam://connect/" + address) : null,

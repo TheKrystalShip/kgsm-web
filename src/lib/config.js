@@ -88,6 +88,16 @@ export function apiOriginOf(hostId) {
   const c = connOf(hostId);
   return c ? originOf(c.url) : "";
 }
+// The bare HOSTNAME/IP of a host (no scheme, no port) — the address the SPA
+// reached this host's api at. kgsm/monitor source no ip address, so the connect
+// origin IS the honest host address (the api and its game servers are co-located
+// per host). Used to compose a server's player-facing connect address (host:port).
+// Empty string when no such connection — callers fall back to honest-unknown.
+export function hostAddressOf(hostId) {
+  const o = apiOriginOf(hostId);
+  if (!o) return "";
+  try { return new URL(o).hostname; } catch (e) { return ""; }
+}
 export function wsUrlOf(hostId) {
   const c = connOf(hostId);
   if (!c) return "";

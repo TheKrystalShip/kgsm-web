@@ -22,7 +22,8 @@ function ServerConnect({ server, variant }) {
 
   const copy = (e) => {
     if (e) e.stopPropagation();
-    const text = join.address || server.ip;
+    const text = join.address;
+    if (!text) return;              // no known address → never copy a literal "null"
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(text);
     } catch (err) {}
@@ -70,8 +71,12 @@ function ServerConnect({ server, variant }) {
             {online ? "Join via Steam" : "Server offline"}
           </a>
         )}
-        <code className="connect__addr">{join.address}</code>
-        <button className="connect__copy" onClick={copy} title="Copy connect address">
+        <code className="connect__addr">{join.address || "—"}</code>
+        <button
+          className="connect__copy"
+          onClick={copy}
+          disabled={!join.address}
+          title={join.address ? "Copy connect address" : "The connect address isn’t available yet"}>
           <Icon name={copied ? "check" : "copy"} size={14} />
           {copied ? "Copied" : (join.isSteam ? "Copy connect info" : "Copy IP : port")}
         </button>

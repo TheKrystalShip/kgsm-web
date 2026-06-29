@@ -159,6 +159,16 @@ function BootLanding() {
 
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit }) {
   if (useAlerts) useAlerts();
+  // Pull this server's DETAIL superset on entry — specifically the `network` block
+  // (required ports), which the list/stream omit. It's what gives the connect
+  // address its port (ServerConnect → serverJoin); merged onto the cached row so the
+  // hero re-renders with host:port when it lands. Keyed on id/host → one fetch per
+  // server visit, no churn. (Hook declared unconditionally — Rules of Hooks.)
+  const _srvId = server && server.id;
+  const _srvHost = server && server.hostId;
+  React.useEffect(() => {
+    if (_srvId) serversStore.fetchDetail(_srvId, _srvHost);
+  }, [_srvId, _srvHost]);
   // Controlled by the route so the tab lives in the URL (#/servers/<id>/<tab>):
   // clicking a sub-tab navigates, and Back/Forward move between tabs.
   const tab = tabProp || "overview";

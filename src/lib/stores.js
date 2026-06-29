@@ -53,7 +53,13 @@ serversStore.refresh = () => {
         const cur = new Map(s.list.map(x => [x.id, x]));
         const next = list.map(srv => {
           const c = cur.get(srv.id);
-          return c ? { ...srv, status: c.status, uptime: c.uptime, job: c.job } : srv;
+          // Preserve the fields the LIST shape doesn't carry but we hold for a row:
+          // socket-owned status/uptime/job, AND the detail-only `network` block
+          // (required ports, fetched by serversStore.fetchDetail for the connect
+          // address). The fresh list element has no `network`, so without this a
+          // rehydrate (every WS reopen) would wipe it → the hero connect address
+          // flips back to "—". Detail-fetched-once, survives every list refresh.
+          return c ? { ...srv, status: c.status, uptime: c.uptime, job: c.job, network: c.network } : srv;
         });
         return { ...s, list: next, status: "ready", error: null, everLoaded: true };
       });
@@ -61,6 +67,23 @@ serversStore.refresh = () => {
       return list;
     });
   };
+
+// Fetch one server's DETAIL superset (GET /servers/{id}) and merge its
+// detail-only `network` block (required ports ⋈ firewall) onto the cached row.
+// The list/stream deliberately OMIT network (it's a per-poll firewall probe the
+// backend keeps off the list), so the detail page pulls it on demand — that's
+// where the connect address (host:port) gets its port. Only `network` is patched,
+// so socket-owned fields (status/uptime/in-flight job) are never clobbered by this
+// slower fetch. Routed through the host-scoped client so the per-host auth gate
+// runs. Never rejects — a failure leaves the row as-is (the address stays "—").
+serversStore.fetchDetail = (id, hostId) => {
+  if (!id) return Promise.resolve(null);
+  const client = (hostId && api.host) ? api.host(hostId) : api;
+  return client.get("/servers/" + id).then(be => {
+    if (be && serversStore.find(id)) serversStore.patch(id, { network: be.network || null });
+    return be;
+  }, () => null);
+};
 
 // Keep the store live from the server's `servers` channel — lifecycle-command
 // transitions (status/uptime) and roster changes arrive here as WebSocket pushes.

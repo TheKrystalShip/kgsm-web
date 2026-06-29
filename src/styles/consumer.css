@@ -36,6 +36,8 @@
   transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
 }
 .connect__copy:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.connect__copy:disabled { color: var(--fg-4); cursor: not-allowed; border-color: var(--border-subtle); }
+.connect__copy:disabled:hover { color: var(--fg-4); border-color: var(--border-subtle); }
 .connect__note {
   display: flex; align-items: flex-start; gap: 6px;
   color: var(--fg-3); font-size: 12px; line-height: 1.45; max-width: 540px;
