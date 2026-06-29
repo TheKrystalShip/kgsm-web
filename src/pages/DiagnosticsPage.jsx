@@ -5,7 +5,7 @@ import { HostConnection } from "../components/ErrorBoundary.jsx";
 import { HostMeters, hostHealth, hostMetricsFreshness } from "../components/HostCardBody.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
-import { LogConsole } from "../components/LogConsole.jsx";
+import { ConsoleView } from "../components/ConsoleView.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
@@ -16,7 +16,7 @@ import { capUsable } from "../lib/capabilities.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, logsStore, selectedHostStore, serversStore, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 import { RecentActivity } from "./DashboardPage.jsx";
 import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
@@ -644,40 +644,73 @@ function DiagProcesses({ host }) {
 const LOG_SOURCE_META = {
   api:       { label: "Backend API", hint: "REST · WS · SSE" },
   assistant: { label: "Assistant" },
-  watchdog:  { label: "Watchdog" },
+  watchdog:  { label: "Watchdog", hint: "supervisor" },
+  monitor:   { label: "Monitor", hint: "metrics daemon" },
+  firewall:  { label: "Firewall", hint: "host ports" },
+  bot:       { label: "Discord bot" },
   kernel:    { label: "Kernel" },
   auth:      { label: "Auth" },
 };
 
 function DiagLogs({ host }) {
-  // System/host logs are one stream tagged by source, but we show ONE source at
-  // a time (no merging) — the LogConsole's dropdown switches between them.
-  // Sources are derived from the data so an N-th producer just appears. No
-  // command input here: host logs are read-only (game-server consoles pass
-  // onSend to enable sending).
-  const entries = Array.isArray(host.logs) ? host.logs : [];
-  const order = ["api", "assistant", "watchdog", "kernel", "auth"];
+  // The host's aggregated leaf logs (assistant/monitor/watchdog/firewall/api/bot), merged from the
+  // systemd journal by kgsm-api (GET /hosts/{id}/logs) and kept live by the hosts/{id}/logs WS topic.
+  // We show ONE source at a time — the LogConsole's dropdown switches between them; sources are derived
+  // from the data so a quiet/extra producer just (dis)appears. The host deep-dive is admin-gated
+  // (NAV_FLEET) and the endpoint is operator-gated, so reaching here already clears the read gate.
+  // Read-only: no onSend (system logs aren't a command channel).
+  const hostId = host && host.id;
+  const list = useStore(logsStore, s => s.list);
+  const status = useStore(logsStore, s => s.status);
+  const forHost = useStore(logsStore, s => s.hostId);
+
+  // Hydrate the recent window + open the live tail WHILE this tab is mounted (subscriber-gated end to
+  // end: the kgsm-api journalctl -f runs only while we're subscribed). Re-hydrate on a host switch.
+  React.useEffect(() => {
+    if (!hostId) return undefined;
+    logsStore.refresh(hostId).catch(() => {});
+    return subscribeHostLogs(hostId);
+  }, [hostId]);
+
+  if (!ConsoleView) return null;
+
+  // Only trust the list once it belongs to THIS host (a switch re-hydrates; guard the gap).
+  const ready = forHost === hostId;
+  const entries = ready && Array.isArray(list) ? list : [];
+  const order = ["api", "assistant", "watchdog", "monitor", "firewall", "bot", "kernel", "auth"];
   const present = [...new Set(entries.map(e => e.source))];
   const ids = [...order.filter(id => present.includes(id)), ...present.filter(id => !order.includes(id))];
+  // The console card tails oldest-first (newest at the bottom); the store is newest-first, so reverse.
+  // Each line already carries { at, level, text } — the ConsoleView gutter renders the journald time.
   const sources = ids.map(id => {
     const m = LOG_SOURCE_META[id] || {};
-    return { id, label: m.label || id, hint: m.hint, lines: entries.filter(e => e.source === id) };
+    return { id, label: m.label || id, lines: entries.filter(e => e.source === id).slice().reverse() };
   });
 
-  if (!LogConsole) return null;
-  // Host log streams have no backend source today (no logs API / WS topic — §9 C-gap). With nothing
-  // to show, render the honest-unavailable state rather than a "Live" console sitting empty.
-  if (sources.length === 0) {
-    return (
-      <div className="proc-unavailable">
-        <span className="proc-unavailable__icon"><Icon name="scroll-text" size={26} strokeWidth={1.9} /></span>
-        <div className="proc-unavailable__title">Host logs unavailable</div>
-        <div className="proc-unavailable__sub">This panel needs a host log source (backend / watchdog / kernel / auth streams), which isn’t wired on this host yet.</div>
-        <span className="proc-unavailable__tag"><Icon name="activity" size={12} /> no log source</span>
+  if (sources.length > 0)
+    return <ConsoleView title="Host logs" icon="scroll-text" sources={sources} pill={{ label: "Live", live: true }} resetKey={hostId} />;
+
+  // Nothing to show yet: loading (first fetch / host switch), an error, or a genuinely quiet host —
+  // render the honest state for each rather than a "Live" console sitting empty (never fabricate lines).
+  const phase = (status === "loading" || !ready) ? "loading" : status === "error" ? "error" : "quiet";
+  return (
+    <div className="proc-unavailable">
+      <span className="proc-unavailable__icon"><Icon name="scroll-text" size={26} strokeWidth={1.9} /></span>
+      <div className="proc-unavailable__title">
+        {phase === "loading" ? "Loading host logs…" : phase === "error" ? "Host logs unavailable" : "No recent log lines"}
       </div>
-    );
-  }
-  return <LogConsole title="Host logs" icon="scroll-text" sources={sources} live />;
+      <div className="proc-unavailable__sub">
+        {phase === "loading"
+          ? "Reading the host’s leaf-service journal (assistant · monitor · watchdog · firewall · api · bot)."
+          : phase === "error"
+            ? "Couldn’t read the host log stream — the backend journal source didn’t respond."
+            : "The host’s leaf services haven’t logged anything in the recent window."}
+      </div>
+      <span className="proc-unavailable__tag">
+        <Icon name="activity" size={12} /> {phase === "loading" ? "loading" : phase === "error" ? "no log source" : "quiet"}
+      </span>
+    </div>
+  );
 }
 
 // =====================================================================

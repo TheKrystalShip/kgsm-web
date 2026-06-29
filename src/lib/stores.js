@@ -732,6 +732,66 @@ api.stream.subscribe(["audit"], (m) => {
   if (m.type === "audit.append" && m.data) auditStore.prepend(m.data);
 });
 
+// ---- Host logs (the aggregated leaf-service journal) -------------------
+// The Host page's Logs tab: a recent window of the host's MERGED leaf logs
+// (assistant/monitor/watchdog/firewall/api/bot), hydrated from GET /hosts/{id}/logs
+// (OPERATOR-gated, cursor-paginated) and kept live by the hosts/{id}/logs WS topic.
+// ONE focused host at a time (the host deep-dive), keyed by hostId so a host switch
+// re-hydrates and never blends two hosts' streams. The LogConsole splits the merged
+// list by `source` for its per-source dropdown; a quiet leaf simply shows fewer lines.
+const LOGS_WINDOW = 300;   // recent merged lines pulled on open (spans the active leaves)
+const LOGS_MAX = 2000;     // cap the live-growing window (bounds memory + DOM, newest kept)
+const logsStore = createStore({
+  list: [],
+  status: "loading",   // ready | loading | error
+  error: null,
+  everLoaded: false,
+  hostId: null,        // which host the current window belongs to (guards stale streams)
+});
+// A live line off hosts/{id}/logs: prepend newest-first, drop a dup by id (defensive
+// vs a reconnect re-hydrate overlapping the stream), ignore a frame for a host we're
+// not currently showing, and cap the window so a long live session can't grow unbounded.
+logsStore.prepend = (hostId, line) =>
+  logsStore.setState(s => {
+    if (!line || !line.id) return s;
+    if (s.hostId && hostId && s.hostId !== hostId) return s;
+    if (s.list.length && s.list[0].id === line.id) return s;        // immediate dup (cheap)
+    if (s.list.some(e => e.id === line.id)) return s;               // reconnect overlap
+    const list = [line, ...s.list];
+    return { ...s, list: list.length > LOGS_MAX ? list.slice(0, LOGS_MAX) : list };
+  });
+// Hydrate the recent window for one host. Routes through that host's AUTH-gated client
+// so the bearer rides (the tab gates to operator before calling; this stays correct if
+// reached by a viewer — a 403 → status:"error"). A host switch bumps the generation so
+// a slow in-flight fetch can't land its rows on the newly-selected host.
+let _logsGen = 0;
+logsStore.refresh = (hostId) => {
+  if (!hostId) return Promise.resolve([]);
+  const gen = ++_logsGen;
+  logsStore.setState(s => ({ ...s, status: "loading", error: null, hostId }));
+  return api.host(hostId).get("/hosts/" + hostId + "/logs?limit=" + LOGS_WINDOW).then(page => {
+    if (gen !== _logsGen) return [];
+    const rows = (page && page.rows) || [];
+    logsStore.setState(s => ({ ...s, list: rows, status: "ready", error: null, everLoaded: true, hostId }));
+    return rows;
+  }, err => {
+    if (gen === _logsGen) logsStore.setState(s => ({ ...s, status: "error", error: err, hostId }));
+    throw err;
+  });
+};
+// Live tail: subscribe ONLY while the Logs tab is mounted (subscriber-gated on both
+// ends — the kgsm-api JournalFollowBridge runs ONE journalctl -f only while the topic
+// has subscribers, so an unopened tab costs nothing). The line id is unique; prepend
+// keyed on the closure hostId (the payload is a LogLine, the host is in the topic).
+// Mirror of subscribeHostMetrics. A viewer's subscribe is refused server-side → no frames.
+function subscribeHostLogs(hostId) {
+  if (!hostId) return () => {};
+  const topic = "hosts/" + hostId + "/logs";
+  return api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "log.line" && m.data) logsStore.prepend(hostId, m.data);
+  });
+}
+
 // ---- Game library (installable catalog) ---------------------------------
 // Mostly static; hydrate from api.get("/library"). Every page reads this store.
 const libraryStore = createStore({
@@ -890,4 +950,4 @@ try {
   startPingLoop();
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

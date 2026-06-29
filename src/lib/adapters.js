@@ -284,6 +284,28 @@ export function adaptAudit(page) {
   return { rows: rows.map((e) => ({ ...e })), nextCursor: (page && page.nextCursor) || null };
 }
 
+// ---- Host logs (the aggregated leaf-service journal) --------------------
+// GET /hosts/{id}/logs → { data:[LogLine], nextCursor }. Each line is already the
+// honest FE shape the LogConsole renders ({ id, at, source, level, text }) — the
+// backend tags `source` (watchdog/monitor/assistant/firewall/api/bot) and maps the
+// syslog priority to level. Honest passthrough: a missing level is "info" (never an
+// invented "error"), a missing text is "" — never fabricated. `id` is the journald
+// cursor (also the React key + the keyset paging cursor). Shared by the REST page
+// (adaptLogPage) and the live `log.line` stream frame (adaptStreamMessage).
+export function adaptLogLine(l) {
+  return {
+    id: l && l.id,
+    at: l && l.at,
+    source: (l && l.source) || "unknown",
+    level: (l && l.level) || "info",
+    text: (l && l.text) != null ? l.text : "",
+  };
+}
+export function adaptLogPage(page) {
+  const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
+  return { rows: rows.map(adaptLogLine), nextCursor: (page && page.nextCursor) || null };
+}
+
 // ---- Alerts -------------------------------------------------------------
 // api returns { data:[Alert] }; the FE alerts store consumes an array. The
 // honest backend shape carries no `icon` — an icon is PRESENTATION, not a

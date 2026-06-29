@@ -165,6 +165,7 @@ import("./stores.js").then((m) => {
     if (base === "/hosts") return adapt.adaptHosts(json);
     if (base === "/library") return adapt.adaptLibrary(json);
     if (base === "/audit") return adapt.adaptAudit(json);
+    if (/^\/hosts\/[^/]+\/logs$/.test(base)) return adapt.adaptLogPage(json); // before /hosts/{id} → adaptHost
     if (base === "/alerts") return adapt.adaptAlerts(json);
     if (base === "/me") return adapt.adaptMe(json);
     if (/^\/servers\/[^/]+$/.test(base)) return adapt.adaptServer(json);
@@ -356,6 +357,10 @@ import("./stores.js").then((m) => {
     // point for the Performance deep-dive's live window. The server id is in the TOPIC (the payload
     // carries no id), so subscribeServerMetrics keys off its closure, not data.id.
     if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptServerMetrics(data) };
+    // log.line rides hosts/{id}/logs — one live aggregated journal line (same LogLine shape as the REST
+    // GET /hosts/{id}/logs page, so it adapts identically). Operator-gated at the socket; a viewer never
+    // gets these frames. The Logs tab prepends them onto the hydrated window.
+    if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return { topic, type, data: adapt.adaptLogLine(data) };
     // server.removed {id}, alert.resolve {id,resolution}, alert.retract {id} and
     // audit.append (a record — adaptAudit is per-row identity) need no reshaping.
     return msg;

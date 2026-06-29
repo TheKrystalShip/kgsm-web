@@ -607,9 +607,28 @@ body { overflow: hidden; }
 .console-card__live--idle { background: var(--surface-3); color: var(--fg-3); }
 .console-card__live--idle::before { background: var(--fg-3); animation: none; }
 .console-card__count { margin-left: auto; color: var(--fg-3); font-size: 12px; font-family: var(--font-mono); }
+/* Source dropdown in the head (host logs switch leaf source here; the game console has none). A
+   single source shows a quiet label instead. Mirrors the old LogConsole source chip. */
+.console-card__single { font-size: 11.5px; font-weight: 600; color: var(--fg-3); }
+.console-card__source { position: relative; display: inline-flex; align-items: center; }
+.console-card__source select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
+  color: var(--fg-1); font-family: var(--font-ui); font-size: 11.5px; font-weight: 600;
+  padding: 3px 26px 3px 10px; cursor: pointer; line-height: 1.5;
+}
+.console-card__source select:hover { border-color: var(--border-strong); }
+.console-card__chev { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--fg-3); }
 .console-card__body { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--fg-2); padding: 12px 16px; overflow-y: auto; flex: 1; max-height: 420px; }
 .console-card__body .ln { display: flex; gap: 16px; }
-.console-card__body .ts { color: var(--fg-3); flex-shrink: 0; }
+/* Timestamp gutter: once any line in view is timed (the live feed / host logs) switch to a fixed
+   64px gutter so timed and un-timed lines align; a plain stdout tail keeps the flush flex layout. */
+.console-card__body--ts .ln { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: baseline; }
+.console-card__body .ts { color: var(--fg-4); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.console-card__body .ln__text { min-width: 0; word-break: break-word; }
+.console-card__body .ln--warn  .ln__text { color: var(--warning-fg); }
+.console-card__body .ln--error .ln__text { color: var(--danger-fg); }
+.console-card__body .ln--debug .ln__text { color: var(--fg-4); }
 .console-card__body .tag-ok { color: var(--success-fg); }
 .console-card__body .tag-warn { color: var(--warning-fg); }
 .console-card__body .tag-info { color: var(--info-fg); }

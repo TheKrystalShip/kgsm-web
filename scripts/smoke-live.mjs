@@ -495,8 +495,13 @@ try {
     const SENT = "SMOKE_CONSOLE_FOLLOW_LINE";
     api.__dispatch({ topic: "servers/" + cSv.id + "/console", type: "console.line", data: { id: cSv.id, seq: 999999, line: SENT } });
     await sleep(140);
-    assert(w.document.getElementById("root").innerHTML.includes(SENT),
+    const followHtml = w.document.getElementById("root").innerHTML;
+    assert(followHtml.includes(SENT),
       "console: a live console.line followed onto the panel (subscribe → append → render)");
+    // The live line carries an observed-at timestamp in the gutter (the game console now matches the
+    // host-logs card — the shared ConsoleView, ts-mode on once a line is timed).
+    assert(followHtml.includes("console-card__body--ts") && /<span class="ts">\d{1,2}:\d{2}:\d{2}<\/span>/.test(followHtml),
+      "console: the live line shows a HH:MM:SS timestamp gutter (the shared ConsoleView)");
 
     // (h2) Players still has no LIVE source → honest work-in-progress state, never a fixture roster.
     const ovHtml = w.document.getElementById("root").innerHTML;
@@ -1153,6 +1158,47 @@ try {
 
   await nav("#/dashboard");
   await st.auditStore.refresh();   // restore the store to a clean, complete state
+
+  // ---- Host logs (the aggregated leaf journal — GET /hosts/{id}/logs + logsStore) ----------------
+  // The Logs tab funnels the host's leaf-service journals (assistant/monitor/watchdog/firewall/api/bot)
+  // through kgsm-api. Prove the adapter envelope, the real OPERATOR-gated endpoint (merged + per-source),
+  // the store hydrate, and the live-prepend dedup — the WS log.line path.
+  const lp = adapt.adaptLogPage({ data: [{ id: "s=1", at: "2026-06-29T00:00:00Z", source: "watchdog", level: "warn", text: "x" }], nextCursor: "s=1" });
+  assert(lp.rows.length === 1 && lp.rows[0].id === "s=1" && lp.rows[0].source === "watchdog" && lp.nextCursor === "s=1",
+    "adaptLogPage: { data, nextCursor } → { rows, nextCursor } (LogLine passthrough, envelope preserved)");
+  assert(adapt.adaptLogPage(null).rows.length === 0 && adapt.adaptLogLine({}).level === "info" && adapt.adaptLogLine({}).text === "",
+    "adaptLogPage/adaptLogLine: null → empty page; a level-less line defaults info + text '' (honest, never fabricated)");
+
+  // The real OPERATOR-gated endpoint, merged + per-source. Use the unscoped api.get (the sole/selected
+  // connection — the same resolution the audit-seed checks use), not api.host (which fans across the
+  // N≥2 synthetic connections this smoke registers). adaptResponse maps /hosts/{id}/logs → adaptLogPage.
+  // The real OPERATOR-gated endpoint on the backend under test (KGSM_API), run through the REAL adapter
+  // — proving the backend shape + adaptLogPage together. NB the SPA's api.get routes through the
+  // localStorage host registry, which may still point at a not-yet-redeployed host (the logs endpoint
+  // is new), so we fetch the backend-under-test directly here; end-to-end api.get routing lights up once
+  // that host is redeployed with this build.
+  const KNOWN_SOURCES = new Set(["watchdog", "monitor", "assistant", "firewall", "api", "bot"]);
+  const mergedLogs = adapt.adaptLogPage(await fetch(API + "/api/v1/hosts/" + hmId + "/logs?limit=5").then(r => r.json()));
+  assert(mergedLogs.rows.length > 0 && mergedLogs.rows.every(r => r.id && r.at && r.text != null && r.level && KNOWN_SOURCES.has(r.source)),
+    `host logs (live): GET /hosts/${hmId}/logs → ${mergedLogs.rows.length} merged line(s), each id/at/level/text + a known leaf source (adaptLogPage applied)`);
+
+  const oneSrc = adapt.adaptLogPage(await fetch(API + "/api/v1/hosts/" + hmId + "/logs?source=watchdog&limit=3").then(r => r.json()));
+  assert(oneSrc.rows.every(r => r.source === "watchdog"),
+    `host logs (live): ?source=watchdog filters to that one leaf (${oneSrc.rows.length} line(s))`);
+
+  const badStatus = (await fetch(API + "/api/v1/hosts/" + hmId + "/logs?source=bogus")).status;
+  assert(badStatus === 400, `host logs (live): an unknown ?source= is a 400, never a silent merge (got ${badStatus})`);
+
+  // The store's live-tail logic (the WS log.line path), tested purely — refresh() is a thin
+  // api.host→adaptLogPage wrapper (both halves proven above), so we exercise the part with real logic:
+  // host-scoped prepend with id-dedup (no double-count) + the newest-first head.
+  st.logsStore.setState(s => ({ ...s, list: [], hostId: hmId, status: "ready", everLoaded: true }));
+  st.logsStore.prepend(hmId, { id: "s=live-1", at: "2030-01-01T00:00:00Z", source: "watchdog", level: "info", text: "live" });
+  st.logsStore.prepend(hmId, { id: "s=live-1", at: "2030-01-01T00:00:00Z", source: "watchdog", level: "info", text: "dup" });
+  st.logsStore.prepend("some-other-host", { id: "s=live-2", at: "2030-01-01T00:00:01Z", source: "api", level: "info", text: "wrong host" });
+  const afterPrepend = st.logsStore.getState();
+  assert(afterPrepend.list.length === 1 && afterPrepend.list[0].id === "s=live-1" && afterPrepend.list[0].text === "live",
+    "logsStore.prepend: live line prepends newest-first; a dup-by-id and a wrong-host frame are both ignored (the audit-append precedent)");
 
   root.unmount();
 } finally {
