@@ -414,6 +414,8 @@ function HistoricalMetrics({ server, range }) {
   const memSeries = data.series.memBytes || [];
   const ioReadSeries = data.series.ioReadBps || [];
   const ioWriteSeries = data.series.ioWriteBps || [];
+  const netRxSeries = data.series.rxBps || [];
+  const netTxSeries = data.series.txBps || [];
 
   const cpuVals = cpuSeries.map(p => p.value);
   const cpuMin = isRollup ? cpuSeries.map(p => p.min ?? p.value) : null;
@@ -437,6 +439,22 @@ function HistoricalMetrics({ server, range }) {
   const ioUnit = ioUseMiB ? "MiB/s" : "KiB/s";
   const ioRead = ioReadSeries.map(p => (p.value || 0) / ioDiv);
   const ioWrite = ioWriteSeries.map(p => (p.value || 0) / ioDiv);
+
+  // Network rx/tx — same shape as Disk I/O. Absent when the server has no
+  // per-instance meter (container / un-metered host) or history hasn't accrued;
+  // the card still renders an honest empty state (never vanishes → no empty cell).
+  const netAvail = netRxSeries.length > 0 || netTxSeries.length > 0;
+  const netPeak = netAvail
+    ? Math.max(1, ...netRxSeries.map(p => p.value || 0), ...netTxSeries.map(p => p.value || 0))
+    : 1;
+  const netUseMiB = netPeak >= MiB;
+  const netDiv = netUseMiB ? MiB : KiB;
+  const netUnit = netUseMiB ? "MiB/s" : "KiB/s";
+  const netRx = netRxSeries.map(p => (p.value || 0) / netDiv);
+  const netTx = netTxSeries.map(p => (p.value || 0) / netDiv);
+  const netTimes = (netRxSeries.length ? netRxSeries : netTxSeries).map(p => p.ts);
+  const netRxStats = netRxSeries.length ? seriesStats(netRxSeries.map(p => p.value)) : null;
+  const netTxStats = netTxSeries.length ? seriesStats(netTxSeries.map(p => p.value)) : null;
 
   const cpuAnoms = detectAnomalies(cpuVals);
   const memAnoms = detectAnomalies(mem);
@@ -539,6 +557,38 @@ function HistoricalMetrics({ server, range }) {
             </div>
           </BriefCard>
         )}
+
+        <BriefCard className="chart-brief" icon="arrow-down-up" title="Network"
+          action={netAvail
+            ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>rx</small>{fmtBps(netRxSeries.length ? netRxSeries[netRxSeries.length - 1].value : null)}<small> / </small><small style={{ marginRight: 6 }}>tx</small>{fmtBps(netTxSeries.length ? netTxSeries[netTxSeries.length - 1].value : null)}</span>
+            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}>
+          <div className="chart-brief__body">
+            {netAvail ? (
+              <>
+                <StatStrip items={[
+                  ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
+                  ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
+                ]} />
+                <TimeSeriesChart range={range} times={netTimes} domain={domain} events={events} stepSec={step}
+                  series={[
+                    { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
+                    { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
+                  ]}
+                  yMin={0} height={120} />
+                <div className="chart-card__legend">
+                  <span><span className="swatch" style={{ background: "var(--info)" }}></span>Receive</span>
+                  <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Transmit</span>
+                  <span style={{ marginLeft: "auto" }}>{netUnit}</span>
+                </div>
+              </>
+            ) : (
+              <div className="perf-nochart">
+                <Icon name="info" size={16} strokeWidth={1.8} />
+                <span>No network history for this range — recorded only while the server runs with a per-instance meter (native eBPF); a container or un-metered host has none, and data accrues over time.</span>
+              </div>
+            )}
+          </div>
+        </BriefCard>
       </div>
       </ChartHoverProvider>
     </>
