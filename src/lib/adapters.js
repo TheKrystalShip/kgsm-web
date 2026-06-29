@@ -306,6 +306,36 @@ export function adaptLogPage(page) {
   return { rows: rows.map(adaptLogLine), nextCursor: (page && page.nextCursor) || null };
 }
 
+// ---- Services board (host leaf control center) --------------------------
+// GET /hosts/{id}/services → { data:[LeafService] }. One KGSM leaf per row, joining its live systemd
+// liveness with the api's deep-health probe where it has one. HONEST passthrough: a field the backend
+// omits (it doesn't measure it) stays null — NEVER a fabricated 0/false/"running". `state` is systemd's
+// own word (active|inactive|failed|…|not-installed|unknown); `health` is null when the api has no probe
+// for that leaf (firewall/bot), distinct from a probed down/unknown. `onDemand` flags a socket-activated
+// leaf (the firewall) so an `inactive` state renders as idle, not a fault.
+export function adaptService(s) {
+  if (!s) return null;
+  const h = s.health ? { status: s.health.status || "unknown", message: s.health.message || null } : null;
+  return {
+    id: s.id,
+    displayName: s.displayName || s.id,
+    role: s.role || "",
+    unit: s.unit || "",
+    state: s.state || "unknown",
+    onDemand: !!s.onDemand,
+    subState: s.subState || null,
+    enabled: s.enabled == null ? null : !!s.enabled,
+    since: s.since || null,
+    mainPid: s.mainPid == null ? null : s.mainPid,
+    memoryBytes: s.memoryBytes == null ? null : s.memoryBytes,
+    health: h,
+  };
+}
+export function adaptServices(page) {
+  const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
+  return rows.map(adaptService).filter(Boolean);
+}
+
 // ---- Alerts -------------------------------------------------------------
 // api returns { data:[Alert] }; the FE alerts store consumes an array. The
 // honest backend shape carries no `icon` — an icon is PRESENTATION, not a

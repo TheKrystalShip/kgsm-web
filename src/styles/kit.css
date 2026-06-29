@@ -2464,6 +2464,62 @@ body { overflow: hidden; }
 }
 .proc-unavailable--inline { padding: 26px 18px; background: none; border: none; }
 
+/* ---------- Services board (host leaf control center) ---------- */
+/* The KGSM leaf status dot — one shared visual across the Services tab cards and the Overview summary.
+   Tones map a folded systemd+health state to a colour; `idle` (socket-activated, resting) is deliberately
+   neutral (not a fault), `off`/unknown are muted (no signal), never green-by-default. */
+.svc-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--fg-3); }
+.svc-dot--up   { background: var(--success-fg); box-shadow: 0 0 0 3px var(--success-bg); }
+.svc-dot--warn { background: var(--warning-fg); box-shadow: 0 0 0 3px var(--warning-bg); }
+.svc-dot--down { background: var(--danger-fg);  box-shadow: 0 0 0 3px var(--danger-bg); }
+.svc-dot--idle { background: var(--krystal-teal); box-shadow: 0 0 0 3px var(--krystal-teal-dim); }
+.svc-dot--off  { background: var(--fg-3); opacity: 0.55; }
+
+.svc-summary { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-2); }
+.svc-summary__stat b { color: var(--fg-1); }
+.svc-summary__sep { color: var(--fg-3); }
+
+.svc-grid {
+  display: grid; gap: 12px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.svc-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-subtle); border-radius: var(--r-md);
+}
+.svc-card--up   { border-left-color: var(--success-fg); }
+.svc-card--warn { border-left-color: var(--warning-fg); }
+.svc-card--down { border-left-color: var(--danger-fg); }
+.svc-card--idle { border-left-color: var(--krystal-teal); }
+.svc-card__head { display: flex; align-items: center; gap: 9px; }
+.svc-card__name { font-size: 14px; font-weight: 650; color: var(--fg-1); }
+.svc-card__status { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg-2); }
+.svc-card__note { color: var(--fg-3); font-weight: 500; }
+.svc-card--warn .svc-card__status { color: var(--warning-fg); }
+.svc-card--down .svc-card__status { color: var(--danger-fg); }
+.svc-card__role { font-size: 12.5px; line-height: 1.45; color: var(--fg-3); }
+.svc-card__facts { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 2px; }
+.svc-fact {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--fg-3);
+}
+.svc-fact code { font-size: 11.5px; color: var(--fg-2); }
+.svc-fact svg { flex: 0 0 auto; opacity: 0.85; }
+.svc-fact--unit { color: var(--fg-2); }
+.svc-fact--boot.is-on { color: var(--success-fg); }
+
+/* Overview compact summary — a dot-list of leaves, each a button drilling into the Services tab. */
+.svc-mini-list { display: flex; flex-direction: column; gap: 2px; padding: 6px 4px 2px; }
+.svc-mini {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 10px; border: none; background: none; cursor: pointer;
+  border-radius: var(--r-md); text-align: left; color: inherit;
+}
+.svc-mini:hover { background: var(--surface-2); }
+.svc-mini__name { font-size: 13px; font-weight: 550; color: var(--fg-1); }
+.svc-mini__status { margin-left: auto; font-size: 12px; color: var(--fg-3); }
+
 /* Inline note under the server hero action chips when actions are locked. */
 .hero__watchdog-note {
   display: inline-flex; align-items: center; gap: 7px; margin-top: 4px;

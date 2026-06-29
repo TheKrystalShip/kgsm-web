@@ -279,12 +279,12 @@ try {
     }
     if (!ok) fail++;
   }
-  // Diagnostics honesty: the host process LIST has no source (§9 C-gap), so the deep-dive must render
-  // the honest "no process source" state — NOT a populated-looking Processes card reading "0" (which
-  // would be a fabricated "this host has zero processes" claim, the same class as the hidden temp KPI).
+  // Diagnostics: the htop-style Processes tab (which never had an honest source) was replaced by the
+  // Services leaf control center. The deep-dive must now surface the "Services" tab/summary and NO LONGER
+  // the old fabricated-zeros guard text ("expose a process list") — proving the swap landed cleanly.
   const deepHtml = await nav("#/fleet/hotrod");
-  assert(deepHtml.includes("expose a process list"),
-    "host deep-dive: Processes shows honest 'no process source' (not a fabricated 0-row table)");
+  assert(deepHtml.includes("Services") && !deepHtml.includes("expose a process list"),
+    "host deep-dive: the Overview surfaces the new Services tab/summary (the old htop process card is gone)");
 
   // alerts must NOT carry the demo fixtures in live mode (they'd read as real).
   const alertsHtml = await nav("#/alerts");
@@ -1199,6 +1199,40 @@ try {
   const afterPrepend = st.logsStore.getState();
   assert(afterPrepend.list.length === 1 && afterPrepend.list[0].id === "s=live-1" && afterPrepend.list[0].text === "live",
     "logsStore.prepend: live line prepends newest-first; a dup-by-id and a wrong-host frame are both ignored (the audit-append precedent)");
+
+  // ---- Host services (the leaf control center — GET /hosts/{id}/services + servicesStore) -------
+  // The Services tab (which replaced the htop-style Processes tab) shows one card per KGSM leaf, joining
+  // its systemd liveness with the api's deep-health probe. Prove the adapter envelope + honest nulls, the
+  // real OPERATOR-gated endpoint, and the store hydrate.
+  const KNOWN_STATES = new Set(["active", "inactive", "failed", "activating", "deactivating", "reloading", "maintenance", "masked", "not-installed", "unknown"]);
+  const sv = adapt.adaptServices({ data: [
+    { id: "api", displayName: "Control Panel API", role: "x", unit: "kgsm-api.service", state: "active", onDemand: false, enabled: true, mainPid: 5, memoryBytes: 123, health: { status: "operational" } },
+    { id: "bot", displayName: "Discord bot", role: "y", unit: "kgsm-bot.service", state: "inactive", onDemand: false },
+  ] });
+  assert(sv.length === 2 && sv[0].health.status === "operational" && sv[0].memoryBytes === 123
+    && sv[1].health === null && sv[1].memoryBytes === null && sv[1].enabled === null,
+    "adaptServices: { data:[LeafService] } → array; a probe-less leaf keeps health/memory/enabled null (honest, never fabricated)");
+  assert(adapt.adaptServices(null).length === 0,
+    "adaptServices: null → [] (degrades, never throws)");
+
+  // The real OPERATOR-gated endpoint, through the REAL adapter (same direct-fetch reasoning as logs — the
+  // SPA host registry may still point at a not-yet-redeployed host; this endpoint is new).
+  const svc = adapt.adaptServices(await fetch(API + "/api/v1/hosts/" + hmId + "/services").then(r => r.json()));
+  const apiLeaf = svc.find(s => s.id === "api");
+  const fwLeaf = svc.find(s => s.id === "firewall");
+  assert(svc.length >= 6 && svc.every(s => s.id && s.displayName && s.unit && KNOWN_STATES.has(s.state)),
+    `host services (live): GET /hosts/${hmId}/services → ${svc.length} leaf row(s), each id/displayName/unit + a known systemd state`);
+  assert(apiLeaf && apiLeaf.state === "active" && apiLeaf.health && apiLeaf.health.status === "operational" && apiLeaf.mainPid != null,
+    "host services (live): the api leaf is active + self-reports operational health + a real pid (it IS the service answering this request)");
+  assert(fwLeaf && fwLeaf.onDemand === true,
+    "host services (live): the firewall leaf carries onDemand:true (socket-activated → an inactive state renders as idle, not a fault)");
+
+  // The store hydrate is host-scoped (mirror of logsStore): the tab reads `hostId === host.id` as its
+  // ready-guard. Exercise it purely (refresh() is a thin api.host→adaptServices wrapper, proven above).
+  st.servicesStore.setState(s => ({ ...s, list: svc, hostId: hmId, status: "ready", everLoaded: true }));
+  const svcState = st.servicesStore.getState();
+  assert(svcState.hostId === hmId && svcState.list.length === svc.length,
+    "servicesStore: host-scoped snapshot holds the current host's leaf list (the ready-guard the Services tab reads)");
 
   root.unmount();
 } finally {

@@ -792,6 +792,35 @@ function subscribeHostLogs(hostId) {
   });
 }
 
+// ---- Host services (the leaf control center) ----------------------------
+// GET /hosts/{id}/services → one row per KGSM leaf (watchdog/monitor/assistant/firewall/api/bot) joining
+// its systemd liveness with the api's deep-health probe. A plain snapshot (no live stream in this slice):
+// the Services tab hydrates on mount and on a host switch; systemd state changes are infrequent, so a
+// manual/periodic re-fetch is enough (mirror of logsStore.refresh, minus the tail). Host-scoped + gen-guarded
+// so a slow in-flight fetch can't land its rows on the newly-selected host.
+const servicesStore = createStore({
+  list: [],
+  status: "loading",   // ready | loading | error
+  error: null,
+  everLoaded: false,
+  hostId: null,        // which host the current list belongs to (guards a stale fetch after a switch)
+});
+let _servicesGen = 0;
+servicesStore.refresh = (hostId) => {
+  if (!hostId) return Promise.resolve([]);
+  const gen = ++_servicesGen;
+  servicesStore.setState(s => ({ ...s, status: "loading", error: null, hostId }));
+  return api.host(hostId).get("/hosts/" + hostId + "/services").then(rows => {
+    if (gen !== _servicesGen) return [];
+    const list = Array.isArray(rows) ? rows : [];
+    servicesStore.setState(s => ({ ...s, list, status: "ready", error: null, everLoaded: true, hostId }));
+    return list;
+  }, err => {
+    if (gen === _servicesGen) servicesStore.setState(s => ({ ...s, status: "error", error: err, hostId }));
+    throw err;
+  });
+};
+
 // ---- Game library (installable catalog) ---------------------------------
 // Mostly static; hydrate from api.get("/library"). Every page reads this store.
 const libraryStore = createStore({
@@ -950,4 +979,4 @@ try {
   startPingLoop();
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

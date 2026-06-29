@@ -1,5 +1,4 @@
 import React from "react";
-import { CardTable } from "../components/CardTable.jsx";
 import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
 import { HostConnection } from "../components/ErrorBoundary.jsx";
 import { HostMeters, hostHealth, hostMetricsFreshness } from "../components/HostCardBody.jsx";
@@ -12,11 +11,10 @@ import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { api } from "../lib/apiClient.js";
-import { capUsable } from "../lib/capabilities.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, logsStore, selectedHostStore, serversStore, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, logsStore, selectedHostStore, serversStore, servicesStore, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 import { RecentActivity } from "./DashboardPage.jsx";
 import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
@@ -24,10 +22,10 @@ import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 //
 // Multi-host from the start: a host picker appears only when more than
 // one host is configured. The page has four sub-tabs:
-//   1. Overview   — green-light traffic-light board + hot processes + events
+//   1. Overview   — traffic-light board + leaf-service health summary + events
 //   2. Resources  — per-core CPU grid, RAM breakdown, disk I/O, network
-//   3. Processes  — sortable process table with kill actions
-//   4. Logs       — Krystal panel / auth / dmesg log streams
+//   3. Services   — KGSM leaf control center (systemd liveness ⋈ deep health)
+//   4. Logs       — aggregated leaf-service journals
 //
 // Backed by hostsStore (hydrated from GET /hosts + live metric ticks).
 
@@ -42,11 +40,6 @@ function uptimeFrom(bootTime) {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${mins}m`;
   return `${mins}m`;
-}
-
-function fmtMb(mb) {
-  if (mb >= 1024) return (mb / 1024).toFixed(1) + " GB";
-  return mb + " MB";
 }
 
 function fmtTimeFull(ts) {
@@ -195,7 +188,7 @@ function StatusLed({ live, label }) {
 
 // ---------- Overview ----------
 
-function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewProcesses }) {
+function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewServices }) {
   const frozen = !!(fresh && fresh.frozen);
   // Power-on transition: when the feed returns (frozen → live), run the
   // instrument warm-up flicker on the gauges. Detect the edge across renders.
@@ -234,26 +227,16 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
   const netTotal = host.network.interfaces.reduce((sum, i) => sum + (i.rx_kbps || 0) + (i.tx_kbps || 0), 0);
   const ifaceCount = host.network.interfaces.length;
 
-  // Top processes by CPU — the overview's at-a-glance "what's hot" list. The
-  // full sortable table lives on the Processes sub-tab ("View all").
-  // Process list is a watchdog capability; its CPU/RAM columns are metrics.
-  const watchdogUsable = capUsable ? capUsable(host, "watchdog") : true;
-  // Column spec for the reusable CardTable. Fixed tracks keep CPU/RAM aligned;
-  // name + server flex to fill. `sort` makes a column orderable from its header.
-  const procColumns = [
-    { key: "name", label: "Process", width: "minmax(0, 1.6fr)", sort: p => p.name,
-      render: p => (
-        <span className="proc-cell-name"><code>{p.name}</code></span>
-      ) },
-    { key: "pid", label: "PID", width: "60px", sort: p => p.pid,
-      render: p => <span className="proc-cell-pid">{p.pid}</span> },
-    { key: "cpu", label: "CPU", align: "right", width: "52px", sort: p => p.cpu_pct,
-      render: p => <span className={"proc-cell-cpu" + (frozen ? " proc-num--off" : "")}>{p.cpu_pct}%</span> },
-    { key: "ram", label: "RAM", align: "right", width: "76px", sort: p => p.ram_mb,
-      render: p => <span className={"proc-cell-ram" + (frozen ? " proc-num--off" : "")}>{fmtMb(p.ram_mb)}</span> },
-    { key: "server", label: "Server", width: "minmax(72px, 1fr)", sort: p => p.server || "",
-      render: p => p.server || <span className="proc-cell-system">system</span> },
-  ];
+  // The host's KGSM leaf services — a compact status summary here, the full board on the Services sub-tab
+  // ("View all"). Hydrated on mount + on a host switch; systemd state changes rarely, so fetch-on-open is
+  // enough (no live stream in this slice). The store is host-scoped + gen-guarded against a stale switch.
+  const svcList = useStore(servicesStore, s => s.list);
+  const svcStatus = useStore(servicesStore, s => s.status);
+  const svcForHost = useStore(servicesStore, s => s.hostId);
+  React.useEffect(() => {
+    if (host && host.id) servicesStore.refresh(host.id).catch(() => {});
+  }, [host && host.id]);
+  const svcReady = svcForHost === host.id;
 
   return (
     <>
@@ -294,39 +277,9 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewPro
       )}
 
       <div className="diag-grid">
-        {/* Reusable CardTable in the same card chrome as Recent activity:
-           header + count + "View all" (→ the full Processes sub-tab). */}
-        {/* The host process LIST has no source today (the monitor reports resource totals, not a
-            per-process table; §9 C-gap), so an empty list is "no source", not a real "0 processes" —
-            render the honest-unavailable state rather than a populated-looking table showing zero. */}
-        {CardTable && ((watchdogUsable && host.processes.length) ? (
-          <CardTable
-            icon="cpu"
-            title="Processes"
-            count={host.processes.length}
-            onViewAll={onViewProcesses}
-            columns={procColumns}
-            rows={host.processes}
-            max={7}
-            defaultSort={{ key: "cpu", dir: "desc" }}
-            getKey={p => p.pid}
-          />
-        ) : (
-          <div className="chat-brief">
-            <div className="chat-brief__head">
-              <span className="chat-brief__title"><Icon name="cpu" size={13} /> Processes</span>
-              {!watchdogUsable
-                ? <span className="led-group"><span className="led-group__age">watchdog down</span><span className="status-led status-led--down"></span></span>
-                : <span className="led-group"><span className="led-group__age">no source</span></span>}
-            </div>
-            <div className="proc-unavailable proc-unavailable--inline">
-              <span className="proc-unavailable__icon"><Icon name={!watchdogUsable ? "power-off" : "list"} size={20} strokeWidth={1.9} /></span>
-              <div className="proc-unavailable__sub">{!watchdogUsable
-                ? "Watchdog isn’t responding — the process list is unavailable on this host."
-                : "This host doesn’t expose a process list — the monitor reports resource totals, not a per-process table."}</div>
-            </div>
-          </div>
-        ))}
+        {/* The host's KGSM leaf services — a compact status summary that drills into the Services
+           sub-tab. Same card chrome as Recent activity (header + count + "View all"). */}
+        <ServicesSummaryCard services={svcList} status={svcStatus} ready={svcReady} onViewAll={onViewServices} />
 
         {/* Same Recent activity card the dashboard renders, scoped to this host
            (its server events plus panel-wide ones) via window.auditInScope. */}
@@ -534,103 +487,176 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
   );
 }
 
-// ---------- Processes ----------
+// ---------- Services (the KGSM leaf control center) ----------
+//
+// Replaces the original htop-style process table (the host has no honest per-process source — the monitor
+// reports resource totals, not a process list). This tab is the host's leaf-service control center: one
+// card per KGSM leaf (watchdog / monitor / assistant / firewall / api / bot), joining its live SYSTEMD
+// liveness with the api's DEEP-HEALTH probe where it has one. Honest throughout — an unmeasured field is
+// "—" (never a fabricated 0), a not-installed leaf says so, and a leaf the api can't probe shows liveness
+// only. Read-only for now; start / stop / restart controls are a planned follow-up (need a host polkit grant).
 
-function DiagProcesses({ host }) {
-  const [showZombies, setShowZombies] = React.useState(false);
+// Fold a leaf's systemd state + (optional) health into one tone + label. systemd is the spine; health
+// refines a RUNNING leaf — active + health:down is the "up but unwell" case the at-a-glance dot can't show.
+const SVC_STATE = {
+  active:          { tone: "up",   label: "Running" },
+  activating:      { tone: "warn", label: "Starting" },
+  deactivating:    { tone: "warn", label: "Stopping" },
+  reloading:       { tone: "warn", label: "Reloading" },
+  maintenance:     { tone: "warn", label: "Maintenance" },
+  failed:          { tone: "down", label: "Failed" },
+  inactive:        { tone: "off",  label: "Stopped" },
+  "not-installed": { tone: "off",  label: "Not installed" },
+  masked:          { tone: "off",  label: "Masked" },
+  unknown:         { tone: "off",  label: "Unknown" },
+};
+function leafStatus(svc) {
+  // A socket-activated leaf (the firewall) resting inactive is idle-by-design, not stopped — render neutral.
+  if (svc.state === "inactive" && svc.onDemand) return { tone: "idle", label: "Idle", note: "on-demand" };
+  if (svc.state === "active" && svc.health && svc.health.status === "down")
+    return { tone: "warn", label: "Running", note: "health check failing" };
+  if (svc.state === "active" && svc.health && svc.health.status === "unknown")
+    return { tone: "up", label: "Running", note: "health unknown" };
+  return SVC_STATE[svc.state] || SVC_STATE.unknown;
+}
 
-  // Filter only — ORDERING is owned by the shared CardTable (sortable headers,
-  // asc/desc, keyboard-activated), the same primitive the overview's top-process
-  // card and the Players roster use. This used to carry its own one-direction
-  // sort engine + clickable <span> headers; CardTable replaces both.
-  const rows = React.useMemo(
-    () => showZombies ? host.processes.filter(p => p.state !== "running") : host.processes,
-    [host.processes, showZombies]
-  );
+// Bytes → a compact human size. Null (unmeasured / idle) → null so the caller can omit it, never show "0".
+function fmtBytes(n) {
+  if (n == null) return null;
+  if (n >= 1024 * 1024 * 1024) return (n / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+  if (n >= 1024 * 1024) return Math.round(n / (1024 * 1024)) + " MB";
+  if (n >= 1024) return Math.round(n / 1024) + " KB";
+  return n + " B";
+}
 
-  // Process visibility is a WATCHDOG capability; the per-process CPU/RAM columns
-  // are METRICS. Separate verticals: watchdog down hides the whole table;
-  // metrics down only dims the CPU/RAM columns (kept honest, not blanked).
-  const watchdogUsable = capUsable ? capUsable(host, "watchdog") : true;
-  const metricsFrozen = hostMetricsFreshness ? hostMetricsFreshness(host).frozen : false;
-  if (!watchdogUsable) {
-    return (
-      <div className="proc-unavailable">
-        <span className="proc-unavailable__icon"><Icon name="power-off" size={26} strokeWidth={1.9} /></span>
-        <div className="proc-unavailable__title">Process monitoring unavailable</div>
-        <div className="proc-unavailable__sub">The watchdog on this host isn’t responding, so the live process table can’t be read — and start / stop / restart are paused until it returns.</div>
-        <span className="proc-unavailable__tag"><span className="status-led status-led--down"></span> watchdog down</span>
-      </div>
-    );
-  }
-
-  // No process-list source (the common live case — the monitor exposes totals, not a per-process
-  // table; §9 C-gap). An empty table reading "No processes reported" under an up watchdog would be a
-  // fabricated "zero processes" claim, so render the honest-unavailable state instead.
-  if (!Array.isArray(host.processes) || host.processes.length === 0) {
-    return (
-      <div className="proc-unavailable">
-        <span className="proc-unavailable__icon"><Icon name="list" size={26} strokeWidth={1.9} /></span>
-        <div className="proc-unavailable__title">Process list unavailable</div>
-        <div className="proc-unavailable__sub">This host doesn’t expose a process list — the monitor reports per-server and host resource totals, not a per-process table. Per-server CPU / RAM still appear on each server.</div>
-        <span className="proc-unavailable__tag"><Icon name="activity" size={12} /> no process source</span>
-      </div>
-    );
-  }
-
-  // Full column spec for the shared CardTable. Numbers right-align + default
-  // desc; name/server/state default asc. CPU/RAM dim when metrics are frozen.
-  const procColumns = [
-    { key: "name", label: "Process", width: "minmax(0, 1.6fr)", sort: p => p.name, defaultDir: "asc",
-      render: p => <span className="proc-cell-name"><code>{p.name}</code></span> },
-    { key: "pid", label: "PID", width: "64px", sort: p => p.pid,
-      render: p => <span className="proc-cell-pid">{p.pid}</span> },
-    { key: "cpu", label: "CPU", align: "right", width: "56px", sort: p => p.cpu_pct,
-      render: p => <span className={"proc-cell-cpu" + (metricsFrozen ? " proc-num--off" : "")}>{p.cpu_pct}%</span> },
-    { key: "ram", label: "RAM", align: "right", width: "80px", sort: p => p.ram_mb,
-      render: p => <span className={"proc-cell-ram" + (metricsFrozen ? " proc-num--off" : "")}>{fmtMb(p.ram_mb)}</span> },
-    { key: "threads", label: "Threads", align: "right", width: "70px", sort: p => p.threads,
-      render: p => <span className="proc-mono">{p.threads}</span> },
-    { key: "fds", label: "FDs", align: "right", width: "58px", sort: p => p.fds,
-      render: p => <span className="proc-mono">{p.fds}</span> },
-    { key: "server", label: "Server", width: "minmax(72px, 1fr)", sort: p => p.server || "", defaultDir: "asc",
-      render: p => p.server || <span className="proc-cell-system">system</span> },
-    { key: "state", label: "State", width: "minmax(82px, 0.8fr)", sort: p => p.state, defaultDir: "asc",
-      render: p => <span className={"proc-state proc-state--" + (p.state === "running" ? "running" : "stuck")}>{p.state}</span> },
-    { key: "actions", label: "", width: "98px",
-      render: p => (
-        <span className="proc-actions">
-          <button className="icon-btn" title="Investigate"><Icon name="search" size={13} /></button>
-          <button className="icon-btn" title="Send SIGTERM (kill)"><Icon name="x" size={13} /></button>
-          <button className="icon-btn icon-btn--danger" title="Send SIGKILL (force kill)"><Icon name="zap-off" size={13} /></button>
-        </span>
-      ) },
-  ];
-
+function LeafCard({ svc }) {
+  const s = leafStatus(svc);
+  const mem = fmtBytes(svc.memoryBytes);
+  const up = svc.since ? uptimeShort(svc.since) : null;
+  const running = svc.state === "active";
   return (
-    <>
-      <div className="players-toolbar">
-        <div className="range-tabs">
-          <button className={!showZombies ? "on" : ""} onClick={() => setShowZombies(false)}>All · {host.processes.length}</button>
-          <button className={showZombies ? "on" : ""}  onClick={() => setShowZombies(true)}>Stuck · {host.processes.filter(p => p.state !== "running").length}</button>
-        </div>
-        <span style={{ flex: 1 }}></span>
-        <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>Click a column header to sort.</span>
+    <div className={"svc-card svc-card--" + s.tone}>
+      <div className="svc-card__head">
+        <span className={"svc-dot svc-dot--" + s.tone}></span>
+        <span className="svc-card__name">{svc.displayName}</span>
+        <span className="svc-card__status">
+          {s.label}{s.note ? <span className="svc-card__note"> · {s.note}</span> : null}
+        </span>
       </div>
+      <div className="svc-card__role">{svc.role}</div>
+      <div className="svc-card__facts">
+        <span className="svc-fact svc-fact--unit" title="systemd unit"><Icon name="box" size={12} /><code>{svc.unit}</code></span>
+        {running && up && <span className="svc-fact" title="uptime"><Icon name="clock" size={12} />up {up}</span>}
+        {running && mem && <span className="svc-fact" title="memory (systemd cgroup accounting)"><Icon name="memory-stick" size={12} />{mem}</span>}
+        {running && svc.mainPid && <span className="svc-fact" title="main pid"><Icon name="hash" size={12} />{svc.mainPid}</span>}
+        {svc.enabled != null && (
+          <span className={"svc-fact svc-fact--boot" + (svc.enabled ? " is-on" : "")} title="starts on boot">
+            <Icon name={svc.enabled ? "power" : "power-off"} size={12} />{svc.enabled ? "on boot" : "manual"}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Dense 9-column table → let it scroll horizontally rather than overflow
-          the page on narrow viewports (CardTable's grid template is fixed). */}
-      <div className="proc-table-scroll">
-        <CardTable
-          columns={procColumns}
-          rows={rows}
-          getKey={p => p.pid}
-          defaultSort={{ key: "cpu", dir: "desc" }}
-          rowClass={p => p.state !== "running" ? "card-table__row--stuck" : ""}
-          empty={showZombies ? "No stuck processes — everything's running." : "No processes reported."}
-        />
+function DiagServices({ host }) {
+  const hostId = host && host.id;
+  const list = useStore(servicesStore, s => s.list);
+  const status = useStore(servicesStore, s => s.status);
+  const forHost = useStore(servicesStore, s => s.hostId);
+
+  // Hydrate on mount + on a host switch (a plain snapshot — no live stream in this slice).
+  React.useEffect(() => {
+    if (!hostId) return;
+    servicesStore.refresh(hostId).catch(() => {});
+  }, [hostId]);
+
+  // Only trust the list once it belongs to THIS host (a switch re-hydrates; guard the gap).
+  const ready = forHost === hostId;
+  const rows = ready && Array.isArray(list) ? list : [];
+
+  if (rows.length > 0) {
+    const installed = rows.filter(r => r.state !== "not-installed");
+    const running = rows.filter(r => r.state === "active").length;
+    return (
+      <>
+        <div className="players-toolbar">
+          <div className="svc-summary">
+            <span className="svc-summary__stat"><b>{running}</b> running</span>
+            <span className="svc-summary__sep">·</span>
+            <span className="svc-summary__stat">{installed.length} of {rows.length} installed</span>
+          </div>
+          <span style={{ flex: 1 }}></span>
+          <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>The KGSM services that make up this host.</span>
+        </div>
+        <div className="svc-grid">
+          {rows.map(svc => <LeafCard key={svc.id} svc={svc} />)}
+        </div>
+      </>
+    );
+  }
+
+  // Nothing yet: loading (first fetch / host switch), an error, or a host that reports no leaves — render
+  // the honest state for each rather than a fabricated empty board.
+  const phase = (status === "loading" || !ready) ? "loading" : status === "error" ? "error" : "quiet";
+  return (
+    <div className="proc-unavailable">
+      <span className="proc-unavailable__icon"><Icon name="server-cog" size={26} strokeWidth={1.9} /></span>
+      <div className="proc-unavailable__title">
+        {phase === "loading" ? "Reading host services…" : phase === "error" ? "Host services unavailable" : "No services reported"}
       </div>
-    </>
+      <div className="proc-unavailable__sub">
+        {phase === "loading"
+          ? "Reading the state of this host’s KGSM leaf services (watchdog · monitor · assistant · firewall · api · bot)."
+          : phase === "error"
+            ? "Couldn’t read the host’s service state — the backend didn’t respond."
+            : "This host reports no KGSM leaf services."}
+      </div>
+      <span className="proc-unavailable__tag">
+        <Icon name="activity" size={12} /> {phase === "loading" ? "loading" : phase === "error" ? "unavailable" : "none"}
+      </span>
+    </div>
+  );
+}
+
+// Compact leaf-status summary for the Overview tab — the same data as the Services board, condensed to a
+// dot-list with a "View all" drill-down. Reads the shared servicesStore (the Overview hydrates it on mount).
+function ServicesSummaryCard({ services, status, ready, onViewAll }) {
+  const rows = ready && Array.isArray(services) ? services : [];
+  const running = rows.filter(r => r.state === "active").length;
+  const unwell = rows.filter(r => { const t = leafStatus(r).tone; return t === "down" || t === "warn"; }).length;
+  return (
+    <div className="chat-brief">
+      <div className="chat-brief__head">
+        <span className="chat-brief__title"><Icon name="server-cog" size={13} /> Services</span>
+        {rows.length > 0 && (
+          <span className={"chat-brief__count" + (unwell ? "" : " chat-brief__count--neutral")}>{running}/{rows.length}</span>
+        )}
+        <span style={{ flex: 1 }}></span>
+        {onViewAll && rows.length > 0 && (
+          <button className="dash-section__more" onClick={onViewAll}>View all <Icon name="arrow-right" size={12} strokeWidth={2.2} /></button>
+        )}
+      </div>
+      {rows.length > 0 ? (
+        <div className="svc-mini-list">
+          {rows.map(svc => {
+            const s = leafStatus(svc);
+            return (
+              <button key={svc.id} className="svc-mini" onClick={onViewAll} title={svc.role}>
+                <span className={"svc-dot svc-dot--" + s.tone}></span>
+                <span className="svc-mini__name">{svc.displayName}</span>
+                <span className="svc-mini__status">{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="proc-unavailable proc-unavailable--inline">
+          <span className="proc-unavailable__icon"><Icon name="server-cog" size={20} strokeWidth={1.9} /></span>
+          <div className="proc-unavailable__sub">{status === "error" ? "Couldn’t read the host’s service state." : "Reading host services…"}</div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1227,12 +1253,12 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   // Live-metrics freshness — drives the "frozen" treatment across every sub-tab.
   const fresh = hostMetricsFreshness ? hostMetricsFreshness(host) : null;
   const resourceAlerts = hostAlerts.filter(a => a.anchor.tab === "resources");
-  const processAlerts  = hostAlerts.filter(a => a.anchor.tab === "processes");
+  const serviceAlerts  = hostAlerts.filter(a => a.anchor.tab === "services");
   const badge = (items) => items.length ? { badge: items.length, badgeTone: alertsTone(items) } : {};
   const tabs = [
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
     { id: "resources", label: "Resources", icon: "activity", ...badge(resourceAlerts) },
-    { id: "processes", label: "Processes", icon: "list", ...badge(processAlerts) },
+    { id: "services",  label: "Services",  icon: "server-cog", ...badge(serviceAlerts) },
     { id: "logs",      label: "Logs",      icon: "scroll-text" },
   ];
 
@@ -1240,9 +1266,9 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
     <>
       {headerChrome}
       <SubTabs tabs={tabs} active={tab} onChange={setTab} />
-      {tab === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewProcesses={() => setTab("processes")} />}
+      {tab === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewServices={() => setTab("services")} />}
       {tab === "resources" && <DiagResources host={host} fresh={fresh} servers={servers} onOpenServerSettings={onOpenServerSettings} />}
-      {tab === "processes" && <DiagProcesses host={host} />}
+      {tab === "services"  && <DiagServices host={host} />}
       {tab === "logs"      && <DiagLogs host={host} />}
       {modals}
     </>

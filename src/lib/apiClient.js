@@ -166,6 +166,7 @@ import("./stores.js").then((m) => {
     if (base === "/library") return adapt.adaptLibrary(json);
     if (base === "/audit") return adapt.adaptAudit(json);
     if (/^\/hosts\/[^/]+\/logs$/.test(base)) return adapt.adaptLogPage(json); // before /hosts/{id} → adaptHost
+    if (/^\/hosts\/[^/]+\/services$/.test(base)) return adapt.adaptServices(json); // before /hosts/{id} → adaptHost
     if (base === "/alerts") return adapt.adaptAlerts(json);
     if (base === "/me") return adapt.adaptMe(json);
     if (/^\/servers\/[^/]+$/.test(base)) return adapt.adaptServer(json);
