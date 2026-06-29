@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
 import { api } from "../lib/apiClient.js";
 import { sendConsoleInput } from "../lib/stores.js";
@@ -83,6 +84,19 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   const [draft, setDraft] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [err, setErr] = React.useState(null);
+
+  // Full-screen pop-out for the whole console card — the inline card is capped
+  // (max-height: 420px) so a long scrollback / a busy live feed is cramped.
+  // Transient view state, not persisted; reset when the server changes. Esc /
+  // scrim-click / the head toggle close it. Mirrors the Files tab pop-out.
+  const [expanded, setExpanded] = React.useState(false);
+  React.useEffect(() => { setExpanded(false); }, [server && server.id, server && server.hostId]);
+  React.useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
   const lines = React.useMemo(
     () => (live ? (liveLines || []) : [...((server && server.log) || []), ...extraLines]),
     [live, liveLines, server, extraLines]
@@ -134,7 +148,9 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
         : "Console input is unavailable while the server is offline — start it to send commands." }
     : null;
 
-  return (
+  // The console card, defined once so the SAME element renders either inline or
+  // inside the full-screen pop-out modal below — only one is live at a time.
+  const consoleBody = (
     <section className="console-card">
       <div className="console-card__head">
         <span className="console-card__title">
@@ -143,6 +159,11 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
         </span>
         <span className={"console-card__live" + (pill.live ? "" : " console-card__live--idle")}>{pill.label}</span>
         <span className="console-card__count">{loading ? "connecting…" : lines.length + " lines"}</span>
+        <button type="button" className="console-card__expand" onClick={() => setExpanded((v) => !v)}
+          title={expanded ? "Exit full screen (Esc)" : "Expand to full screen"}
+          aria-label={expanded ? "Exit full screen" : "Expand to full screen"}>
+          <Icon name={expanded ? "minimize-2" : "maximize-2"} size={14} />
+        </button>
       </div>
       <div className="console-card__body" ref={bodyRef}>
         {loading ? <div className="ln" style={{ color: "var(--fg-3)" }}>Loading console…</div> : lines.map(renderLine)}
@@ -171,6 +192,35 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
         </div>
       ) : null}
     </section>
+  );
+
+  // Expand lifts the whole console card into a full-screen pop-out so a long
+  // scrollback / busy live feed isn't capped. While popped, the inline slot
+  // keeps a quiet placeholder and the real card lives in the portal below
+  // (portaled to <body>, not promoted in place: .app__main is a container-type
+  // ancestor that would otherwise clip a fixed child — same as the Files tab).
+  return (
+    <>
+      {expanded ? (
+        <section className="console-card">
+          <div className="console-card__placeholder">
+            <Icon name="maximize-2" size={24} strokeWidth={1.6} />
+            <div style={{ fontSize: 13 }}>Console is in full screen.</div>
+            <button type="button" className="console-card__restore" onClick={() => setExpanded(false)}>
+              <Icon name="minimize-2" size={13} /> Restore
+            </button>
+          </div>
+        </section>
+      ) : consoleBody}
+      {expanded && createPortal(
+        <div className="console-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+          <div className="console-modal" role="dialog" aria-modal="true" aria-label="Console">
+            {consoleBody}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 

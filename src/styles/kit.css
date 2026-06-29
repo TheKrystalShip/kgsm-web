@@ -617,6 +617,59 @@ body { overflow: hidden; }
 .console-card__input input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
 .console-card__input button { background: var(--krystal-teal); color: var(--fg-inverse); border: none; border-radius: var(--r-md); padding: 0 14px; height: 34px; font-weight: 600; font-size: 13px; cursor: pointer; }
 
+/* Expand-to-full-screen toggle in the console head — a quiet ghost button at
+   the far right of the title row; flips maximize⇄minimize with the popped state.
+   Mirrors the Files tab's .fb-editor__expand. */
+.console-card__expand {
+  background: transparent; border: 1px solid transparent;
+  color: var(--fg-3); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--r-md); padding: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.console-card__expand:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-subtle); }
+
+/* Quiet stand-in left in the inline slot while the console is popped out — it
+   sits behind the scrim, keeps the layout from collapsing, and gives a Restore
+   path if the portal ever fails to paint. */
+.console-card__placeholder {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  color: var(--fg-3); text-align: center; padding: 24px;
+}
+.console-card__restore {
+  background: transparent; color: var(--fg-2);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  padding: 6px 12px; font-family: var(--font-ui); font-weight: 600; font-size: 12.5px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.console-card__restore:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-strong); }
+
+/* Full-screen pop-out: the whole console card lifted into an overlay so a long
+   scrollback / busy live feed isn't capped. Portaled to <body> (NOT promoted in
+   place) because .app__main is a container-type ancestor, which would otherwise
+   become the containing block for a position:fixed child and clip it. The scrim
+   + modal mirror the Files tab's .fb-modal. */
+.console-modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(7, 10, 14, 0.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; padding: 24px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.console-modal {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+/* Fill the modal + scroll the feed internally — drop the inline card's height
+   cap so the body claims all the height down to the input bar (which stays
+   pinned). */
+.console-modal .console-card { flex: 1 1 auto; min-height: 0; border: none; border-radius: 0; }
+.console-modal .console-card__body { max-height: none; }
+
 /* ============= Sub-tabs (inside server detail) ============= */
 .subtabs { display: flex; gap: 4px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 5px; width: fit-content; }
 .subtab { font-family: var(--font-ui); font-weight: 500; font-size: 13.5px; color: var(--fg-3); background: transparent; border: none; padding: 7px 14px; border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; gap: 7px; }
@@ -3238,6 +3291,11 @@ body { overflow: hidden; }
   .console-card { min-height: 220px; }
   .console-card__body { font-size: 11.5px; padding: 10px 12px; max-height: 300px; }
   .console-card__input { padding: 8px 10px; }
+  /* The pop-out goes edge-to-edge on a phone. (.console-modal .console-card__body
+     keeps its uncapped height from the desktop rule — more specific than the
+     mobile .console-card__body cap above — so the feed still fills the screen.) */
+  .console-modal-scrim { padding: 0; }
+  .console-modal { border: none; border-radius: 0; }
 
   /* Library */
   .library-head h1 { font-size: 22px; }
