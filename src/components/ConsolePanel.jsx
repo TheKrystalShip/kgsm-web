@@ -16,6 +16,17 @@ import { serverOperable } from "../lib/persona.js";
 // input is shown only to operators on native servers; otherwise an honest read-only
 // note explains why (container / no permission).
 
+// Non-"Live" pill copy, keyed by the FE run-state vocabulary (online maps to
+// "Live" directly; anything missing falls back to "Unknown").
+const PILL_LABEL = {
+  offline: "Offline",
+  crashed: "Crashed",
+  updating: "Updating",
+  installing: "Installing",
+  error: "Error",
+  unknown: "Unknown",
+};
+
 function renderLine(line, idx) {
   // §...§ wrapping = teal highlight (player names, world names). A stdout line is
   // a raw string with no ts/tag; a structured line carries { ts, tag, text }.
@@ -81,12 +92,23 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   }, [lines.length]);
   const loading = live && liveLines == null;
 
+  // The pill reflects the server's RUN-STATE, not a hardcoded "Live". The feed
+  // follows live stdout only while the process is actually running; offline /
+  // crashed / updating / unknown have nothing live to follow, so the pill drops
+  // its green pulse and names the real state instead of dishonestly claiming "Live".
+  const isRunning = live && server.status === "online";
+  const pill = isRunning
+    ? { label: "Live", live: true }
+    : { label: PILL_LABEL[live ? server.status : "unknown"] || "Unknown", live: false };
+
   // The command channel is native-only (the watchdog owns a native process's stdin;
-  // Docker owns a container's), needs operator permission ON THIS host, and is hidden
-  // in a forced read-only view (the player tab). The backend re-checks all of this —
-  // this only decides whether to show the input vs. an honest read-only note.
+  // Docker owns a container's), needs operator permission ON THIS host, requires the
+  // server to actually be running (you can't pipe stdin to a process that isn't
+  // there), and is hidden in a forced read-only view (the player tab). The backend
+  // re-checks all of this — this only decides whether to show the input vs. an
+  // honest note explaining why it's unavailable.
   const isNative = live && server.runtime === "native";
-  const canSend = live && !readOnly && isNative && serverOperable(server);
+  const canSend = live && !readOnly && isNative && isRunning && serverOperable(server);
 
   const submit = (e) => {
     e.preventDefault();
@@ -100,10 +122,17 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
     );
   };
 
-  // When the input is hidden, say why (only meaningful for a live server).
+  // When the input is hidden, say why (only meaningful for a live server). Order
+  // by precedence of the blocking reason: structural (container) → permission →
+  // run-state. The offline note only shows when the user could otherwise send
+  // (operator on a native server) but the process isn't running.
   const note = !live ? null
     : !isNative ? { icon: "terminal-square", text: "Console input isn’t available for container servers — Docker owns their console." }
-    : { icon: "lock", text: "Read-only — you don’t have permission to send console commands." };
+    : !serverOperable(server) ? { icon: "lock", text: "Read-only — you don’t have permission to send console commands." }
+    : !isRunning ? { icon: "power-off", text: server.status === "unknown"
+        ? "Console input is unavailable — the server’s state can’t be confirmed."
+        : "Console input is unavailable while the server is offline — start it to send commands." }
+    : null;
 
   return (
     <section className="console-card">
@@ -112,7 +141,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
           <Icon name="terminal-square" size={14} strokeWidth={2} />
           Console
         </span>
-        <span className="console-card__live">Live</span>
+        <span className={"console-card__live" + (pill.live ? "" : " console-card__live--idle")}>{pill.label}</span>
         <span className="console-card__count">{loading ? "connecting…" : lines.length + " lines"}</span>
       </div>
       <div className="console-card__body" ref={bodyRef}>
