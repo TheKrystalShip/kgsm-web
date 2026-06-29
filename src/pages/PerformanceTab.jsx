@@ -143,9 +143,21 @@ function LiveMetrics({ server }) {
   const ioRead = buffer.map(p => (p.ioReadBps || 0) / ioDiv);
   const ioWrite = buffer.map(p => (p.ioWriteBps || 0) / ioDiv);
 
+  // Network rx/tx — sourced for native instances (eBPF meter on kgsm.slice),
+  // null when unmetered (container / un-metered host). null across the whole
+  // window → honest "not available", NOT a flat-zero chart (mirrors Disk I/O).
+  const netAvail = buffer.some(p => p.rxBps != null || p.txBps != null);
+  const netPeak = Math.max(1, ...buffer.map(p => Math.max(p.rxBps || 0, p.txBps || 0)));
+  const netUseMiB = netPeak >= MiB;
+  const netDiv = netUseMiB ? MiB : KiB;
+  const netUnit = netUseMiB ? "MiB/s" : "KiB/s";
+  const netRx = buffer.map(p => (p.rxBps || 0) / netDiv);
+  const netTx = buffer.map(p => (p.txBps || 0) / netDiv);
+
   const cpuAnoms = detectAnomalies(cpu);
   const memAnoms = detectAnomalies(mem);
   const ioAnoms  = ioAvail ? detectAnomalies(ioWrite) : [];
+  const netAnoms = netAvail ? detectAnomalies(netTx) : [];
 
   const win = buffer.length;
   const streaming = !stale;
@@ -217,19 +229,32 @@ function LiveMetrics({ server }) {
           </div>
         </BriefCard>
 
-        <BriefCard className="chart-brief" icon="database" title="Processes &amp; footprint">
+        <BriefCard className="chart-brief" icon="arrow-down-up"
+          title={<>Network {netAnoms.length > 0 && <AnomalyBadge count={netAnoms.length} />}</>}
+          action={netAvail
+            ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>rx</small>{fmtBps(latest.rxBps)}<small> / </small><small style={{ marginRight: 6 }}>tx</small>{fmtBps(latest.txBps)}</span>
+            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}>
           <div className="chart-brief__body">
-            <div className="perf-stats">
-              <div className="perf-stat">
-                <span className="perf-stat__label">Processes</span>
-                <span className="perf-stat__val">{latest.pids != null ? latest.pids : "—"}</span>
+            {netAvail ? (
+              <>
+                <TimeSeriesChart range="live"
+                  series={[
+                    { key: "rx", color: "var(--info)", fill: false, values: netRx },
+                    { key: "tx", color: "var(--krystal-teal)", fill: false, values: netTx },
+                  ]}
+                  anomalies={netAnoms} yMin={0} height={120} />
+                <div className="chart-card__legend">
+                  <span><span className="swatch" style={{ background: "var(--info)" }}></span>Receive</span>
+                  <span><span className="swatch" style={{ background: "var(--krystal-teal)" }}></span>Transmit</span>
+                  <span style={{ marginLeft: "auto" }}>{netUnit}</span>
+                </div>
+              </>
+            ) : (
+              <div className="perf-nochart">
+                <Icon name="info" size={16} strokeWidth={1.8} />
+                <span>Network isn't measured for this server — no per-instance meter on its host (e.g. a container or an un-metered host).</span>
               </div>
-              <div className="perf-stat">
-                <span className="perf-stat__label">On-disk footprint</span>
-                <span className="perf-stat__val">{fmtBytes(latest.diskBytes)}</span>
-              </div>
-            </div>
-            <div className="chart-card__legend"><span>footprint sampled on a slow cadence (install + saves + backups + logs)</span></div>
+            )}
           </div>
         </BriefCard>
       </div>

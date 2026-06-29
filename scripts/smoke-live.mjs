@@ -513,22 +513,37 @@ try {
   // point chain (deterministic), and a REAL monitor tick growing the rendered window.
 
   // (i1) adapter: ServerMetricsDto → chart point. cpu is % of ONE core (UNCAPPED — a
-  // multithreaded server exceeds 100); mem/disk are raw bytes; null io/disk stay null.
-  const pAdapt = adapt.adaptServerMetrics({ cpuPctCore: 250.37, memBytes: 2147483648, ioReadBps: 1024, ioWriteBps: 2048, pids: 12, diskBytes: 5e8 });
+  // multithreaded server exceeds 100); mem/disk are raw bytes; null io/net/disk stay null.
+  const pAdapt = adapt.adaptServerMetrics({ cpuPctCore: 250.37, memBytes: 2147483648, ioReadBps: 1024, ioWriteBps: 2048, pids: 12, diskBytes: 5e8, rxBps: 65536, txBps: 131072 });
   assert(pAdapt.cpu === 250.4 && pAdapt.memBytes === 2147483648 && pAdapt.ioReadBps === 1024 && pAdapt.pids === 12,
     "adaptServerMetrics: cpu rounded + UNCAPPED (>100), mem/disk raw bytes, io passthrough");
-  assert(adapt.adaptServerMetrics({ cpuPctCore: 1, memBytes: 1, ioReadBps: null, ioWriteBps: null, pids: 1, diskBytes: null }).ioReadBps === null
+  assert(pAdapt.rxBps === 65536 && pAdapt.txBps === 131072,
+    "adaptServerMetrics: network rxBps/txBps surface (bytes/sec — native eBPF meter)");
+  // null io/net/disk stay null — the honest-unknown invariant: an unmetered server
+  // (container / un-metered host) must NOT be coerced to a fabricated 0 rate.
+  const pNull = adapt.adaptServerMetrics({ cpuPctCore: 1, memBytes: 1, ioReadBps: null, ioWriteBps: null, pids: 1, diskBytes: null, rxBps: null, txBps: null });
+  assert(pNull.ioReadBps === null && pNull.rxBps === null && pNull.txBps === null
       && adapt.adaptServerMetrics(null) === null,
-    "adaptServerMetrics: null io/disk stay null (never fabricated 0); null sample → null");
+    "adaptServerMetrics: null io/net/disk stay null (never fabricated 0); null sample → null");
 
   // (i2) WS chain: a raw metrics.tick frame → adaptStreamMessage → dispatch →
   // subscribeServerMetrics callback. The server id is in the TOPIC, not the payload.
   let pPoint = null;
   const disposeSM = st.subscribeServerMetrics("factorio-test", (p) => { pPoint = p; });
   api.__dispatch({ topic: "servers/factorio-test/metrics", type: "metrics.tick",
-    data: { cpuPctCore: 312.9, memBytes: 1073741824, ioReadBps: 4096, ioWriteBps: 8192, pids: 7, diskBytes: 9e8 } });
+    data: { cpuPctCore: 312.9, memBytes: 1073741824, ioReadBps: 4096, ioWriteBps: 8192, pids: 7, diskBytes: 9e8, rxBps: 262144, txBps: 524288 } });
   assert(pPoint && pPoint.cpu === 312.9 && pPoint.memBytes === 1073741824 && pPoint.ioWriteBps === 8192,
     "metrics.tick: WS frame → adaptServerMetrics → subscribeServerMetrics callback (full chain, cpu uncapped)");
+  assert(pPoint && pPoint.rxBps === 262144 && pPoint.txBps === 524288,
+    "metrics.tick: network rxBps/txBps ride the tick through adaptServerMetrics into the live window");
+  // a tick with null network (unmetered server) keeps rx/tx null — no fabricated 0 on the wire→window path.
+  let pNullNet = null;
+  const disposeSM2 = st.subscribeServerMetrics("factorio-test", (p) => { pNullNet = p; });
+  api.__dispatch({ topic: "servers/factorio-test/metrics", type: "metrics.tick",
+    data: { cpuPctCore: 10, memBytes: 1, ioReadBps: null, ioWriteBps: null, pids: 1, diskBytes: null, rxBps: null, txBps: null } });
+  assert(pNullNet && pNullNet.rxBps === null && pNullNet.txBps === null,
+    "metrics.tick: an unmetered tick keeps rxBps/txBps null through the window (not coerced to 0)");
+  disposeSM2();
   disposeSM();
 
   // (i3) REAL pipeline render: open a RUNNING server's Performance tab. It seeds from the

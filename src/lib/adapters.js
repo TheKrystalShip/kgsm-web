@@ -63,13 +63,17 @@ export const adaptServers = (arr) => (Array.isArray(arr) ? arr.map(adaptServer) 
 //   1. the WS metrics.tick frame (servers/{id}/metrics) — adaptStreamMessage,
 //   2. the REST seed (the `metrics` block already on the server DTO) — so the
 //      first point and every subsequent tick share one shape.
-// HONESTY: the monitor only measures cpu/mem/io/pids/diskBytes per server.
+// HONESTY: the monitor measures cpu/mem/io/pids/diskBytes and — native instances
+// only, via the eBPF cgroup/skb meter attached to kgsm.slice — network rx/tx.
 //   - cpu is % of ONE core (htop convention) and CAN exceed 100 — never cap it.
 //   - mem is ABSOLUTE bytes (no per-server limit exists → no honest %).
 //   - io read/write are bytes/sec, null when the cgroup io controller isn't
 //     accounted (never fabricate 0). diskBytes is a slow-cadence footprint.
-//   - per-server network / players / tick-rate have NO source and are absent —
-//     the tab must not invent them.
+//   - rxBps/txBps are bytes/sec and NOW SOURCED for native instances (the meter
+//     covers everything under kgsm.slice), but still null when unmeasured — a
+//     container (outside kgsm.slice) or an un-metered host. Honest null, never 0.
+//   - per-server players / tick-rate have NO source and are absent — the tab
+//     must not invent them.
 export function adaptServerMetrics(be) {
   if (!be) return null;
   return {
@@ -79,6 +83,8 @@ export function adaptServerMetrics(be) {
     ioWriteBps: be.ioWriteBps ?? null,       // bytes/sec, null when not accounted
     pids: be.pids ?? null,                   // live process/thread count
     diskBytes: be.diskBytes ?? null,         // on-disk footprint, bytes (slow cadence)
+    rxBps: be.rxBps ?? null,                 // network receive, bytes/sec; null when unmetered (container / un-metered host) — never 0
+    txBps: be.txBps ?? null,                 // network transmit, bytes/sec; null when unmetered — never 0
   };
 }
 
