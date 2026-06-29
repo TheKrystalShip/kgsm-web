@@ -1,4 +1,5 @@
 import React from "react";
+import { BriefCard } from "../components/BriefCard.jsx";
 import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
 import { HostConnection } from "../components/ErrorBoundary.jsx";
 import { HostMeters, hostHealth, hostMetricsFreshness } from "../components/HostCardBody.jsx";
@@ -620,43 +621,49 @@ function DiagServices({ host }) {
 }
 
 // Compact leaf-status summary for the Overview tab — the same data as the Services board, condensed to a
-// dot-list with a "View all" drill-down. Reads the shared servicesStore (the Overview hydrates it on mount).
+// row-list with a "View all" drill-down. Renders through the shared BriefCard shell (so its header matches
+// the Recent activity + Alerts cards exactly), and each row uses the dashboard fleet-row visual language
+// (status dot + bold name on the left, status on the right, chevron) so it reads as one family with the
+// Fleet strip. Reads the shared servicesStore (the Overview hydrates it on mount).
 function ServicesSummaryCard({ services, status, ready, onViewAll }) {
   const rows = ready && Array.isArray(services) ? services : [];
   const running = rows.filter(r => r.state === "active").length;
-  const unwell = rows.filter(r => { const t = leafStatus(r).tone; return t === "down" || t === "warn"; }).length;
+  const unwell = rows.some(r => { const t = leafStatus(r).tone; return t === "down" || t === "warn"; });
   return (
-    <div className="chat-brief">
-      <div className="chat-brief__head">
-        <span className="chat-brief__title"><Icon name="server-cog" size={13} /> Services</span>
-        {rows.length > 0 && (
-          <span className={"chat-brief__count" + (unwell ? "" : " chat-brief__count--neutral")}>{running}/{rows.length}</span>
-        )}
-        <span style={{ flex: 1 }}></span>
-        {onViewAll && rows.length > 0 && (
-          <button className="dash-section__more" onClick={onViewAll}>View all <Icon name="arrow-right" size={12} strokeWidth={2.2} /></button>
-        )}
-      </div>
+    <BriefCard
+      icon="server-cog"
+      title="Services"
+      count={rows.length ? running + "/" + rows.length : null}
+      countTone={unwell ? undefined : "neutral"}
+      onViewAll={rows.length ? onViewAll : undefined}
+    >
       {rows.length > 0 ? (
-        <div className="svc-mini-list">
+        <div className="svc-rows">
           {rows.map(svc => {
             const s = leafStatus(svc);
             return (
-              <button key={svc.id} className="svc-mini" onClick={onViewAll} title={svc.role}>
-                <span className={"svc-dot svc-dot--" + s.tone}></span>
-                <span className="svc-mini__name">{svc.displayName}</span>
-                <span className="svc-mini__status">{s.label}</span>
+              <button key={svc.id} className="svc-row" onClick={onViewAll} title={svc.role}>
+                <span className="svc-row__id">
+                  <span className={"svc-dot svc-dot--" + s.tone}></span>
+                  <span className="svc-row__name">{svc.displayName}</span>
+                </span>
+                <span className="svc-row__status">
+                  <span className={"svc-row__state svc-row__state--" + s.tone}>{s.label}</span>
+                  {s.note ? <span className="svc-row__note">{s.note}</span> : null}
+                </span>
+                <span className="svc-row__end"><Icon name="chevron-right" size={16} className="svc-row__go" /></span>
               </button>
             );
           })}
         </div>
       ) : (
-        <div className="proc-unavailable proc-unavailable--inline">
-          <span className="proc-unavailable__icon"><Icon name="server-cog" size={20} strokeWidth={1.9} /></span>
-          <div className="proc-unavailable__sub">{status === "error" ? "Couldn’t read the host’s service state." : "Reading host services…"}</div>
+        <div className="chat-brief__empty chat-brief__empty--neutral">
+          <Icon name="server-cog" size={20} />
+          <span className="chat-brief__empty-title">{status === "error" ? "Services unavailable" : "Reading host services…"}</span>
+          <span className="chat-brief__empty-sub">{status === "error" ? "Couldn’t read the host’s leaf-service state." : "This host’s KGSM leaf services will appear here."}</span>
         </div>
       )}
-    </div>
+    </BriefCard>
   );
 }
 
