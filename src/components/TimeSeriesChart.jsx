@@ -1,17 +1,70 @@
 import React from "react";
 
 // TimeSeriesChart — bare-SVG multi-series line chart with optional fill,
-// grid lines, anomaly bands, a comparison series (dashed), and a "current
-// value" dot at the rightmost point.
+// grid lines, anomaly bands, a comparison series (dashed), a "current value"
+// dot at the rightmost point, and a hover crosshair + tooltip.
 //
-// props.series    : [{ key, color, fill?, values: number[] }]
+// props.series    : [{ key, color, fill?, values: number[], label?, fmt? }]
+//                   label/fmt are used by the hover tooltip (fmt(scaledValue)
+//                   → display string); they default to key / a plain number.
+// props.times     : optional number[] (epoch ms | s | ISO) parallel to the
+//                   primary series — the tooltip's timestamp header.
 // props.compare   : optional { label, values: number[] }  — drawn as a
 //                   faded dashed line behind the main series.
 // props.anomalies : optional [{ start, end, peakIdx, peakValue, ... }]
 //                   — windows highlighted in a soft amber band on the chart.
 // props.height    : px
-// props.range     : "1h" | "24h" | "7d" | "30d"
+// props.range     : "live" | "1h" | "24h" | "7d" | "30d"
 // props.yMin / yMax : optional bounds; auto-computed if missing
+//
+// SYNCED HOVER: wrap a group of charts in <ChartHoverProvider> and hovering any
+// one broadcasts the cursor's data-fraction (0..1 across the time domain) to
+// every chart in the group, so a single crosshair tracks the SAME instant
+// across the whole grid — the way Grafana correlates a CPU spike with the I/O
+// spike at that timestamp. Outside a provider each chart keeps its own local
+// hover state, so it still gets a tooltip standalone.
+
+// Geometry — kept in module scope because the hover overlay maps pointer-x →
+// data index using the SAME insets the SVG draws with.
+const VB_W = 600;
+const PAD_L = 30, PAD_R = 12, PAD_T = 8, PAD_B = 22;
+
+const ChartHoverContext = React.createContext(null);
+
+// Shared hover bus for a group of charts (one crosshair instant across all).
+function ChartHoverProvider({ children }) {
+  const [frac, setFrac] = React.useState(null);
+  const value = React.useMemo(() => ({ frac, setFrac }), [frac]);
+  return <ChartHoverContext.Provider value={value}>{children}</ChartHoverContext.Provider>;
+}
+
+function toMs(ts) {
+  if (ts == null) return null;
+  if (typeof ts === "number") return ts < 1e12 ? ts * 1000 : ts;   // seconds vs ms
+  const p = Date.parse(ts);
+  return isNaN(p) ? null : p;
+}
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// Tooltip time header — clock for short ranges, +date for multi-day.
+function fmtTipTime(ts, range) {
+  const ms = toMs(ts);
+  if (ms == null) return null;
+  const d = new Date(ms);
+  if (range === "7d" || range === "30d") {
+    const mon = d.toLocaleString(undefined, { month: "short" });
+    return `${mon} ${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+const defaultFmt = (v) => (v == null || !isFinite(v) ? "—" : v >= 1000 ? Math.round(v) + "" : v.toFixed(1));
+
+// Lifecycle-event marker colour, by the same tone vocabulary the audit log uses.
+function toneColor(tone) {
+  return ({ success: "var(--success)", danger: "var(--danger)", update: "var(--update)", info: "var(--info)", warn: "var(--warning)" })[tone] || "var(--fg-3)";
+}
 
 // Live x-axis labels for a rolling window. The window holds N points at ~1 Hz, so
 // it spans ~(N-1) seconds — label the left edge with that span ("-90s" / "-2m"),
@@ -23,10 +76,11 @@ function liveXTicks(N, windowSec) {
   return [{ i: 0, l: fmt(spanS) }, { i: 0.5, l: fmt(spanS / 2) }, { i: 1, l: "now" }];
 }
 
-function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band }) {
-  const W = 600;
+function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLabel, anomalies, compare, windowSec, band, times, domain, events, stepSec }) {
+  const W = VB_W;
   const H = height;
-  const padL = 30, padR = 12, padT = 8, padB = 22;
+  const padL = PAD_L, padR = PAD_R, padT = PAD_T, padB = PAD_B;
+  const plotW = W - padL - padR;
 
   const allVals = series.flatMap(s => s.values).concat(compare?.values || []);
   const min = yMin != null ? yMin : Math.min(...allVals, 0);
@@ -34,8 +88,57 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   const span = (max - min) || 1;
 
   const N = series[0]?.values.length || 0;
-  const sx = (i) => padL + (i / Math.max(1, N - 1)) * (W - padL - padR);
+
+  // Time axis (historical only): position points by real timestamp within a shared
+  // domain, so downtime opens a proportional gap and lifecycle markers land at the
+  // right wall-clock x. Live stays index-based (uniform ~1 Hz, gap-free).
+  const tms = (times && times.length === N) ? times.map(toMs) : null;
+  const useTimeAxis = range !== "live" && tms && N >= 2;
+  const d0 = useTimeAxis ? (domain ? toMs(domain[0]) : tms[0]) : 0;
+  const d1 = useTimeAxis ? (domain ? toMs(domain[1]) : tms[N - 1]) : 1;
+  const dspan = (d1 - d0) || 1;
+  const sxT = (ms) => padL + ((ms - d0) / dspan) * plotW;
+  const sx = (i) => useTimeAxis ? sxT(tms[i]) : padL + (i / Math.max(1, N - 1)) * plotW;
   const sy = (v) => padT + (1 - (v - min) / span) * (H - padT - padB);
+
+  // Gap breaks — a sample delta beyond 2.5× the step is downtime: break the line
+  // there (never interpolate across a gap) and close the fill per-segment.
+  const gapThr = useTimeAxis && stepSec ? stepSec * 1000 * 2.5 : Infinity;
+  const breaks = new Set();
+  if (isFinite(gapThr)) for (let i = 1; i < N; i++) if (tms[i] - tms[i - 1] > gapThr) breaks.add(i);
+
+  // ---- Hover: shared bus if wrapped in a provider, else local state ----
+  const shared = React.useContext(ChartHoverContext);
+  const [localFrac, setLocalFrac] = React.useState(null);
+  const frac = shared ? shared.frac : localFrac;
+  const setFrac = shared ? shared.setFrac : setLocalFrac;
+  const interactive = N >= 2;
+
+  const leftInset = padL / W;
+  const plotFrac = plotW / W;
+
+  const onMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const px = (e.clientX - rect.left) / rect.width;
+    let df = (px - leftInset) / plotFrac;
+    df = df < 0 ? 0 : df > 1 ? 1 : df;
+    setFrac(df);
+  };
+  const onLeave = () => setFrac(null);
+
+  // Nearest sample to the cursor — by index on the uniform live axis, by x-distance
+  // on the time axis (so it honours gaps and uneven spacing).
+  let hoverIdx = null;
+  if (frac != null && N > 0) {
+    if (!useTimeAxis) hoverIdx = Math.min(N - 1, Math.max(0, Math.round(frac * (N - 1))));
+    else {
+      const targetX = padL + frac * plotW;
+      let bd = Infinity;
+      for (let i = 0; i < N; i++) { const dx = Math.abs(sx(i) - targetX); if (dx < bd) { bd = dx; hoverIdx = i; } }
+    }
+  }
+  const hoverXPct = hoverIdx == null ? null : (sx(hoverIdx) / W) * 100;
 
   const gridYs = [0, 0.5, 1].map(p => padT + p * (H - padT - padB));
 
@@ -53,88 +156,160 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
-      {/* Anomaly bands — drawn under everything else as soft amber rectangles
-          marking the time windows where the metric crossed the threshold. */}
-      {anomalies && anomalies.map((a, i) => {
-        const x1 = sx(a.start);
-        const x2 = sx(a.end);
-        return (
-          <rect key={"an" + i}
-            x={x1} y={padT}
-            width={Math.max(2, x2 - x1)}
-            height={H - padT - padB}
-            fill="var(--warning)" opacity="0.13" />
-        );
-      })}
+    <div className="tschart" style={{ height: H }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
+        {/* Anomaly bands — drawn under everything else as soft amber rectangles
+            marking the time windows where the metric crossed the threshold. */}
+        {anomalies && anomalies.map((a, i) => {
+          const x1 = sx(a.start);
+          const x2 = sx(a.end);
+          return (
+            <rect key={"an" + i}
+              x={x1} y={padT}
+              width={Math.max(2, x2 - x1)}
+              height={H - padT - padB}
+              fill="var(--warning)" opacity="0.13" />
+          );
+        })}
 
-      {/* Gridlines + Y labels */}
-      {gridYs.map((y, i) => (
-        <g key={i}>
-          <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--border-subtle)" strokeWidth="1" />
-          <text x={padL - 6} y={y + 3} fill="var(--fg-4)" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">
-            {fmtY(min + (1 - (y - padT) / (H - padT - padB)) * span)}
+        {/* Gridlines + Y labels */}
+        {gridYs.map((y, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--border-subtle)" strokeWidth="1" />
+            <text x={padL - 6} y={y + 3} fill="var(--fg-4)" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">
+              {fmtY(min + (1 - (y - padT) / (H - padT - padB)) * span)}
+            </text>
+          </g>
+        ))}
+
+        {/* X labels */}
+        {xTicks.map((t, i) => (
+          <text key={i}
+            x={padL + t.i * (W - padL - padR)}
+            y={H - 6}
+            fill="var(--fg-4)" fontSize="9" fontFamily="var(--font-mono)"
+            textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}>
+            {t.l}
           </text>
-        </g>
-      ))}
+        ))}
 
-      {/* X labels */}
-      {xTicks.map((t, i) => (
-        <text key={i}
-          x={padL + t.i * (W - padL - padR)}
-          y={H - 6}
-          fill="var(--fg-4)" fontSize="9" fontFamily="var(--font-mono)"
-          textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}>
-          {t.l}
-        </text>
-      ))}
+        {/* Comparison series — dashed, faded, sits below the main line. */}
+        {compare && compare.values && (() => {
+          const d = compare.values
+            .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`)
+            .join(" ");
+          return (
+            <path d={d}
+              fill="none"
+              stroke="var(--fg-3)"
+              strokeWidth="1.2"
+              strokeDasharray="3 4"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              opacity="0.6" />
+          );
+        })()}
 
-      {/* Comparison series — dashed, faded, sits below the main line. */}
-      {compare && compare.values && (() => {
-        const d = compare.values
-          .map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`)
-          .join(" ");
-        return (
-          <path d={d}
-            fill="none"
-            stroke="var(--fg-3)"
-            strokeWidth="1.2"
-            strokeDasharray="3 4"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            opacity="0.6" />
-        );
-      })()}
+        {/* Min/max band — drawn as a filled polygon between the min and max arrays
+            (rollup tier). Sits under the main series line for visual depth. */}
+        {band && band.min && band.max && band.min.length === N && (() => {
+          const upper = band.max.map((v, i) => `${sx(i)} ${sy(v)}`).join(" L ");
+          const lower = band.min.map((v, i) => `${sx(i)} ${sy(v)}`).reverse().join(" L ");
+          return <path d={`M ${upper} L ${lower} Z`} fill={band.color || "var(--krystal-teal)"} opacity="0.10" />;
+        })()}
 
-      {/* Min/max band — drawn as a filled polygon between the min and max arrays
-          (rollup tier). Sits under the main series line for visual depth. */}
-      {band && band.min && band.max && band.min.length === N && (() => {
-        const upper = band.max.map((v, i) => `${sx(i)} ${sy(v)}`).join(" L ");
-        const lower = band.min.map((v, i) => `${sx(i)} ${sy(v)}`).reverse().join(" L ");
-        return <path d={`M ${upper} L ${lower} Z`} fill={band.color || "var(--krystal-teal)"} opacity="0.10" />;
-      })()}
+        {/* Series — fills first so they sit under the lines. Both break at gaps
+            (downtime) instead of drawing a misleading line across the absent span. */}
+        {series.map((s, idx) => {
+          if (!s.fill) return null;
+          const segs = []; let cur = [];
+          for (let i = 0; i < N; i++) { if (breaks.has(i) && cur.length) { segs.push(cur); cur = []; } cur.push(i); }
+          if (cur.length) segs.push(cur);
+          const d = segs.map(seg =>
+            seg.map((i, k) => `${k === 0 ? "M" : "L"} ${sx(i)} ${sy(s.values[i])}`).join(" ")
+            + ` L ${sx(seg[seg.length - 1])} ${sy(min)} L ${sx(seg[0])} ${sy(min)} Z`
+          ).join(" ");
+          return <path key={"fill-" + idx} d={d} fill={s.color} opacity="0.12" />;
+        })}
+        {series.map((s, idx) => {
+          const d = s.values.map((v, i) => `${(i === 0 || breaks.has(i)) ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ");
+          return <path key={"ln-" + idx} d={d} fill="none" stroke={s.color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />;
+        })}
 
-      {/* Series — fills first so they sit under the lines */}
-      {series.map((s, idx) => {
-        if (!s.fill) return null;
-        const d = s.values.map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ")
-          + ` L ${sx(N - 1)} ${sy(min)} L ${sx(0)} ${sy(min)} Z`;
-        return <path key={"fill-" + idx} d={d} fill={s.color} opacity="0.12" />;
-      })}
-      {series.map((s, idx) => {
-        const d = s.values.map((v, i) => `${i === 0 ? "M" : "L"} ${sx(i)} ${sy(v)}`).join(" ");
-        return <path key={"ln-" + idx} d={d} fill="none" stroke={s.color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />;
-      })}
+        {/* Lifecycle event guides (#3) — dashed vertical lines at real wall-clock x. */}
+        {useTimeAxis && events && events.map((ev, i) => {
+          const x = sxT(toMs(ev.t));
+          if (x < padL - 0.5 || x > W - padR + 0.5) return null;
+          return <line key={"ev" + i} x1={x} x2={x} y1={padT} y2={H - padB}
+            stroke={toneColor(ev.tone)} strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />;
+        })}
 
-      {/* Current-value dot on the last point */}
-      {series.map((s, idx) => {
-        const v = s.values[s.values.length - 1];
-        return (
-          <circle key={"dot-" + idx} cx={sx(N - 1)} cy={sy(v)} r="3.5"
-            fill={s.color} stroke="var(--surface-1)" strokeWidth="2" />
-        );
-      })}
-    </svg>
+        {/* Current-value dot on the last point */}
+        {series.map((s, idx) => {
+          const v = s.values[s.values.length - 1];
+          return (
+            <circle key={"dot-" + idx} cx={sx(N - 1)} cy={sy(v)} r="3.5"
+              fill={s.color} stroke="var(--surface-1)" strokeWidth="2" />
+          );
+        })}
+      </svg>
+
+      {/* Hover overlay — captures the pointer, draws the synced crosshair, the
+          per-series markers, and the tooltip. HTML (not SVG) so it isn't
+          distorted by the chart's horizontal stretch and reads in card type. */}
+      {interactive && (
+        <div className="tschart__overlay" onMouseMove={onMove} onMouseLeave={onLeave}>
+          {hoverIdx != null && (
+            <>
+              <div className="tschart__crosshair" style={{ left: hoverXPct + "%", top: padT, height: H - padT - padB }} />
+              {series.map((s, i) => {
+                const v = s.values[hoverIdx];
+                if (v == null || !isFinite(v)) return null;
+                return (
+                  <div key={"hd" + i} className="tschart__dot"
+                    style={{ left: hoverXPct + "%", top: sy(v), background: s.color }} />
+                );
+              })}
+              <div className="tschart__tip"
+                style={{ left: hoverXPct + "%", transform: `translateX(${hoverXPct > 55 ? "calc(-100% - 10px)" : "10px"})` }}>
+                {times && fmtTipTime(times[hoverIdx], range) && (
+                  <div className="tschart__tip-time">{fmtTipTime(times[hoverIdx], range)}</div>
+                )}
+                {series.map((s, i) => {
+                  const v = s.values[hoverIdx];
+                  return (
+                    <div key={"tr" + i} className="tschart__tip-row">
+                      <span className="tschart__tip-sw" style={{ background: s.color }} />
+                      <span className="tschart__tip-lbl">{s.label || s.key}</span>
+                      <span className="tschart__tip-val">{s.fmt ? s.fmt(v) : defaultFmt(v)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Event flags (#3) — hoverable markers above the crosshair overlay. Only the
+          small flag is interactive, so the crosshair still tracks everywhere else. */}
+      {useTimeAxis && events && events.length > 0 && (
+        <div className="tschart__events">
+          {events.map((ev, i) => {
+            const xPct = (sxT(toMs(ev.t)) / W) * 100;
+            if (xPct < (padL / W) * 100 - 0.5 || xPct > ((W - padR) / W) * 100 + 0.5) return null;
+            return (
+              <div key={"ef" + i} className="tschart__evt" style={{ left: xPct + "%" }}>
+                <span className="tschart__evt-flag" style={{ background: toneColor(ev.tone) }}></span>
+                <span className="tschart__evt-tip" style={{ transform: `translateX(${xPct > 60 ? "calc(-100% + 7px)" : "-7px"})` }}>
+                  <b>{ev.label}</b>{fmtTipTime(toMs(ev.t), range)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -186,4 +361,4 @@ function Sparkline({ values, color = "var(--krystal-teal)", height = 28 }) {
   );
 }
 
-export { Sparkline, TimeSeriesChart, detectAnomalies };
+export { Sparkline, TimeSeriesChart, detectAnomalies, ChartHoverProvider, ChartHoverContext };

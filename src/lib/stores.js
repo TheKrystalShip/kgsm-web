@@ -281,6 +281,20 @@ async function fetchServerMetricsHistory(serverId, range, hostId) {
   return api.host(hostId).get("/servers/" + serverId + "/metrics/history?range=" + r);
 }
 
+// Lifecycle events for ONE server within [since, now] — the Performance tab's
+// timeline annotations (#3). Reuses the audit endpoint (server-scoped + a `since`
+// lower bound) through the host-scoped client so the per-host bearer/401-retry
+// runs. Returns the raw rows (newest-first); the caller maps them to markers.
+// Best-effort by contract: callers treat a rejection as "no events", never an error.
+async function fetchServerEvents(serverId, hostId, sinceIso) {
+  if (!serverId) return [];
+  const qs = new URLSearchParams({ serverId, limit: "200" });
+  if (sinceIso) qs.set("since", sinceIso);
+  const client = (hostId && api.host) ? api.host(hostId) : api;
+  const page = await client.get("/audit?" + qs.toString());
+  return (page && page.rows) || (page && Array.isArray(page.data) ? page.data : null) || (Array.isArray(page) ? page : []) || [];
+}
+
 // ---- File browser (per-server working-dir tree + editor cache) -----------
 // Keyed by host+server. Caches the lazily-loaded directory listings (flat, by
 // path — "" is the root), which folders are EXPANDED, and the last-opened
@@ -876,4 +890,4 @@ try {
   startPingLoop();
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, serversStore, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

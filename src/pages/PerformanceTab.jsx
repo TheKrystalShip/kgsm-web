@@ -1,8 +1,8 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { TimeSeriesChart, detectAnomalies } from "../components/TimeSeriesChart.jsx";
-import { adaptServerMetrics, subscribeServerMetrics, fetchServerMetricsHistory } from "../lib/stores.js";
+import { TimeSeriesChart, detectAnomalies, ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
+import { adaptServerMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents } from "../lib/stores.js";
 
 // PerformanceTab — per-server resource metrics with live + historical ranges.
 //
@@ -30,6 +30,26 @@ const RANGES = [
   { key: "30d",  label: "30d" },
 ];
 
+const RANGE_MS = { "1h": 3600e3, "24h": 86400e3, "7d": 7 * 86400e3, "30d": 30 * 86400e3 };
+
+// Lifecycle audit actions worth pinning to the metrics timeline (#3). Tone matches
+// the audit log's vocabulary; the label is terse for a chart flag.
+const EVENT_META = {
+  "server.start":   { label: "Started",   tone: "success" },
+  "server.stop":    { label: "Stopped",   tone: "danger"  },
+  "server.restart": { label: "Restarted", tone: "update"  },
+  "server.crash":   { label: "Crashed",   tone: "danger"  },
+  "server.update":  { label: "Updated",   tone: "info"    },
+  "server.install": { label: "Installed", tone: "success" },
+};
+function rowsToEvents(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter(r => r && EVENT_META[r.action])
+    .map(r => ({ t: Date.parse(r.ts), ...EVENT_META[r.action] }))
+    .filter(e => isFinite(e.t));
+}
+
 const KiB = 1024, MiB = 1024 * 1024, GiB = 1024 * 1024 * 1024;
 
 function fmtBytes(n) {
@@ -46,13 +66,35 @@ function fmtBps(n) {
   return Math.round(n) + " B/s";
 }
 
-function PerformanceTab({ server, onAsk }) {
-  const [range, setRange] = React.useState("live");
-
-  if (server.status === "offline") {
-    return <EmptyPerf icon="power-off" title="Server is offline"
-      sub="Per-server metrics are collected only while the server is running — start it to begin the live feed." />;
+// Summary stats over the visible window (#2). Nulls are skipped, never coerced
+// to 0 — an all-null window has no honest avg/peak, so the strip is omitted.
+function seriesStats(vals) {
+  let mn = Infinity, mx = -Infinity, sum = 0, n = 0;
+  for (const v of vals) {
+    if (v == null || !isFinite(v)) continue;
+    if (v < mn) mn = v; if (v > mx) mx = v; sum += v; n++;
   }
+  return n ? { min: mn, max: mx, avg: sum / n } : null;
+}
+
+function StatStrip({ items }) {
+  if (!items || !items.length) return null;
+  return (
+    <div className="chart-stats">
+      {items.map((it, i) => (
+        <span key={i} className="chart-stat"><b>{it.label}</b>{it.value}</span>
+      ))}
+    </div>
+  );
+}
+
+function PerformanceTab({ server, onAsk }) {
+  // A stopped server has no live feed and nothing to measure — default to the most
+  // recent history so its run-time data + lifecycle events stay visible. Live is
+  // still selectable; it just renders an honest "not running" state, never a
+  // fabricated flat-0 line (the monitor reports nothing for a stopped instance).
+  const stopped = server.status === "offline";
+  const [range, setRange] = React.useState(stopped ? "1h" : "live");
 
   return (
     <>
@@ -60,7 +102,7 @@ function PerformanceTab({ server, onAsk }) {
         <RangeSelector range={range} setRange={setRange} />
       </div>
       {range === "live"
-        ? <LiveMetrics server={server} />
+        ? <LiveMetrics server={server} stopped={stopped} />
         : <HistoricalMetrics server={server} range={range} />
       }
     </>
@@ -88,7 +130,7 @@ function RangeSelector({ range, setRange }) {
 
 // ---- Live rolling window (unchanged from before M9) ----
 
-function LiveMetrics({ server }) {
+function LiveMetrics({ server, stopped }) {
   const [buffer, setBuffer] = React.useState([]);
   const [lastTickAt, setLastTickAt] = React.useState(null);
   const [mountedAt, setMountedAt] = React.useState(() => Date.now());
@@ -96,13 +138,17 @@ function LiveMetrics({ server }) {
 
   React.useEffect(() => {
     const seed = adaptServerMetrics(server.metrics);
-    setBuffer(seed ? [seed] : []);
+    // Stamp each point with its receipt time — the live feed carries no
+    // per-sample timestamp, so the hover tooltip's wall-clock comes from here
+    // (honest: time-of-receipt at ~1 Hz, not a fabricated sample time).
+    setBuffer(seed ? [{ ...seed, t: Date.now() }] : []);
     setLastTickAt(seed ? Date.now() : null);
     setMountedAt(Date.now());
     return subscribeServerMetrics(server.id, (point) => {
-      setLastTickAt(Date.now());
+      const now = Date.now();
+      setLastTickAt(now);
       setBuffer(prev => {
-        const arr = prev.concat([point]);
+        const arr = prev.concat([{ ...point, t: now }]);
         return arr.length > BUFFER_CAP ? arr.slice(arr.length - BUFFER_CAP) : arr;
       });
     });
@@ -119,6 +165,11 @@ function LiveMetrics({ server }) {
   const stale = hasData && ageMs != null && ageMs > STALE_MS;
   const elapsed = Date.now() - mountedAt;
 
+  if (stopped && !hasData) {
+    return <EmptyPerf icon="power-off" title="Server isn’t running"
+      sub="No live feed while stopped — the monitor measures nothing for a stopped instance. Pick a history range above to see recorded metrics and the server’s start/stop events." />;
+  }
+
   if (!hasData) {
     return elapsed < NO_SOURCE_MS
       ? <EmptyPerf icon="line-chart" title="Connecting to live metrics…" spin
@@ -126,6 +177,8 @@ function LiveMetrics({ server }) {
       : <EmptyPerf icon="line-chart" title="No live per-server metrics"
           sub="The monitor isn't reporting this server on its host — its metrics capability may be down, or per-server sampling isn't available here." />;
   }
+
+  const times = buffer.map(p => p.t);
 
   const cpu = buffer.map(p => p.cpu ?? 0);
   const memVals = buffer.map(p => p.memBytes).filter(v => v != null);
@@ -159,6 +212,14 @@ function LiveMetrics({ server }) {
   const ioAnoms  = ioAvail ? detectAnomalies(ioWrite) : [];
   const netAnoms = netAvail ? detectAnomalies(netTx) : [];
 
+  // Per-window summary stats (#2) — computed over the raw values, formatted per metric.
+  const cpuStats = seriesStats(cpu);
+  const memStats = seriesStats(memVals);
+  const ioReadStats  = ioAvail ? seriesStats(buffer.map(p => p.ioReadBps)) : null;
+  const ioWriteStats = ioAvail ? seriesStats(buffer.map(p => p.ioWriteBps)) : null;
+  const netRxStats = netAvail ? seriesStats(buffer.map(p => p.rxBps)) : null;
+  const netTxStats = netAvail ? seriesStats(buffer.map(p => p.txBps)) : null;
+
   const win = buffer.length;
   const streaming = !stale;
 
@@ -182,12 +243,20 @@ function LiveMetrics({ server }) {
         </div>
       )}
 
+      <ChartHoverProvider>
       <div className="chart-grid" style={stale ? { opacity: 0.6 } : undefined}>
         <BriefCard className="chart-brief" icon="cpu"
           title={<>CPU {cpuAnoms.length > 0 && <AnomalyBadge count={cpuAnoms.length} />}</>}
           action={<span className="chart-card__val">{(latest.cpu ?? 0).toFixed(0)}<small>% core</small></span>}>
           <div className="chart-brief__body">
-            <TimeSeriesChart range="live" series={[{ key: "cpu", color: "var(--krystal-teal)", fill: true, values: cpu }]} anomalies={cpuAnoms} yMin={0} height={120} />
+            <StatStrip items={cpuStats && [
+              { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
+              { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
+              { label: "min", value: cpuStats.min.toFixed(0) + "%" },
+            ]} />
+            <TimeSeriesChart range="live" times={times}
+              series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpu, fmt: v => v.toFixed(0) + "% core" }]}
+              anomalies={cpuAnoms} yMin={0} height={120} />
           </div>
         </BriefCard>
 
@@ -195,7 +264,14 @@ function LiveMetrics({ server }) {
           title={<>Memory {memAnoms.length > 0 && <AnomalyBadge count={memAnoms.length} />}</>}
           action={<span className="chart-card__val">{fmtBytes(latest.memBytes)}</span>}>
           <div className="chart-brief__body">
-            <TimeSeriesChart range="live" series={[{ key: "mem", color: "#FBBF24", fill: true, values: mem }]} anomalies={memAnoms} yMin={0} height={120} />
+            <StatStrip items={memStats && [
+              { label: "avg", value: fmtBytes(memStats.avg) },
+              { label: "peak", value: fmtBytes(memStats.max) },
+              { label: "min", value: fmtBytes(memStats.min) },
+            ]} />
+            <TimeSeriesChart range="live" times={times}
+              series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
+              anomalies={memAnoms} yMin={0} height={120} />
             <div className="chart-card__legend"><span>{memUnit} used · no per-server cap to chart against</span></div>
           </div>
         </BriefCard>
@@ -208,10 +284,14 @@ function LiveMetrics({ server }) {
           <div className="chart-brief__body">
             {ioAvail ? (
               <>
-                <TimeSeriesChart range="live"
+                <StatStrip items={[
+                  ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
+                  ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
+                ]} />
+                <TimeSeriesChart range="live" times={times}
                   series={[
-                    { key: "r", color: "var(--info)", fill: false, values: ioRead },
-                    { key: "w", color: "var(--krystal-teal)", fill: false, values: ioWrite },
+                    { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
+                    { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
                   ]}
                   anomalies={ioAnoms} yMin={0} height={120} />
                 <div className="chart-card__legend">
@@ -237,10 +317,14 @@ function LiveMetrics({ server }) {
           <div className="chart-brief__body">
             {netAvail ? (
               <>
-                <TimeSeriesChart range="live"
+                <StatStrip items={[
+                  ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
+                  ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
+                ]} />
+                <TimeSeriesChart range="live" times={times}
                   series={[
-                    { key: "rx", color: "var(--info)", fill: false, values: netRx },
-                    { key: "tx", color: "var(--krystal-teal)", fill: false, values: netTx },
+                    { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
+                    { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
                   ]}
                   anomalies={netAnoms} yMin={0} height={120} />
                 <div className="chart-card__legend">
@@ -258,6 +342,7 @@ function LiveMetrics({ server }) {
           </div>
         </BriefCard>
       </div>
+      </ChartHoverProvider>
     </>
   );
 }
@@ -266,6 +351,8 @@ function LiveMetrics({ server }) {
 
 function HistoricalMetrics({ server, range }) {
   const [data, setData] = React.useState(null);
+  const [events, setEvents] = React.useState([]);
+  const [nowMs, setNowMs] = React.useState(() => Date.now());
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
@@ -274,11 +361,23 @@ function HistoricalMetrics({ server, range }) {
     setLoading(true);
     setError(null);
     setData(null);
+    setEvents([]);
+    const now = Date.now();
+    setNowMs(now);
+    const sinceIso = new Date(now - (RANGE_MS[range] || RANGE_MS["1h"])).toISOString();
     fetchServerMetricsHistory(server.id, range, server.hostId)
       .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch(e => { if (!cancelled) { setError(e); setLoading(false); } });
+    // Lifecycle markers are best-effort — a failure here must never break the charts.
+    fetchServerEvents(server.id, server.hostId, sinceIso)
+      .then(rows => { if (!cancelled) setEvents(rowsToEvents(rows)); })
+      .catch(() => { if (!cancelled) setEvents([]); });
     return () => { cancelled = true; };
   }, [server.id, server.hostId, range]);
+
+  // One shared time domain [now-range, now] for all charts → the synced crosshair
+  // and the event flags line up by wall-clock across CPU/Memory/Disk.
+  const domain = [nowMs - (RANGE_MS[range] || RANGE_MS["1h"]), nowMs];
 
   if (loading) {
     return <EmptyPerf icon="line-chart" title="Loading history…" spin
@@ -328,6 +427,16 @@ function HistoricalMetrics({ server, range }) {
   const cpuAnoms = detectAnomalies(cpuVals);
   const memAnoms = detectAnomalies(mem);
 
+  // Real per-bucket timestamps (kept from the backend `ts`) for the hover tooltip,
+  // and per-window stats (#2) over the raw values.
+  const cpuTimes = cpuSeries.map(p => p.ts);
+  const memTimes = memSeries.map(p => p.ts);
+  const ioTimes  = (ioReadSeries.length ? ioReadSeries : ioWriteSeries).map(p => p.ts);
+  const cpuStats = seriesStats(cpuVals);
+  const memStats = seriesStats(memVals);
+  const ioReadStats  = ioReadSeries.length ? seriesStats(ioReadSeries.map(p => p.value)) : null;
+  const ioWriteStats = ioWriteSeries.length ? seriesStats(ioWriteSeries.map(p => p.value)) : null;
+
   return (
     <>
       <div className="players-toolbar" style={{ marginTop: 4 }}>
@@ -341,14 +450,20 @@ function HistoricalMetrics({ server, range }) {
         </span>
       </div>
 
+      <ChartHoverProvider>
       <div className="chart-grid">
         {cpuVals.length > 0 && (
           <BriefCard className="chart-brief" icon="cpu"
             title={<>CPU {cpuAnoms.length > 0 && <AnomalyBadge count={cpuAnoms.length} />}</>}
             action={<span className="chart-card__val">{cpuVals[cpuVals.length - 1].toFixed(0)}<small>% core</small></span>}>
             <div className="chart-brief__body">
-              <TimeSeriesChart range={range}
-                series={[{ key: "cpu", color: "var(--krystal-teal)", fill: true, values: cpuVals }]}
+              <StatStrip items={cpuStats && [
+                { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
+                { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
+                { label: "min", value: cpuStats.min.toFixed(0) + "%" },
+              ]} />
+              <TimeSeriesChart range={range} times={cpuTimes} domain={domain} events={events} stepSec={step}
+                series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpuVals, fmt: v => v.toFixed(0) + "% core" }]}
                 anomalies={cpuAnoms} yMin={0} height={120}
                 band={cpuMin && cpuMax ? { min: cpuMin, max: cpuMax, color: "var(--krystal-teal)" } : undefined} />
               {isRollup && <div className="chart-card__legend"><span style={{ color: "var(--fg-4)", fontSize: 11 }}>shaded band = min/max per bucket</span></div>}
@@ -361,8 +476,13 @@ function HistoricalMetrics({ server, range }) {
             title={<>Memory {memAnoms.length > 0 && <AnomalyBadge count={memAnoms.length} />}</>}
             action={<span className="chart-card__val">{fmtBytes(memVals[memVals.length - 1])}</span>}>
             <div className="chart-brief__body">
-              <TimeSeriesChart range={range}
-                series={[{ key: "mem", color: "#FBBF24", fill: true, values: mem }]}
+              <StatStrip items={memStats && [
+                { label: "avg", value: fmtBytes(memStats.avg) },
+                { label: "peak", value: fmtBytes(memStats.max) },
+                { label: "min", value: fmtBytes(memStats.min) },
+              ]} />
+              <TimeSeriesChart range={range} times={memTimes} domain={domain} events={events} stepSec={step}
+                series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
                 anomalies={memAnoms} yMin={0} height={120}
                 band={memMinBand && memMaxBand ? { min: memMinBand, max: memMaxBand, color: "#FBBF24" } : undefined} />
               <div className="chart-card__legend"><span>{memUnit} used</span>
@@ -380,10 +500,14 @@ function HistoricalMetrics({ server, range }) {
               <small style={{ marginRight: 6 }}>w</small>{fmtBps(ioWriteSeries.length ? ioWriteSeries[ioWriteSeries.length - 1].value : null)}
             </span>}>
             <div className="chart-brief__body">
-              <TimeSeriesChart range={range}
+              <StatStrip items={[
+                ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
+                ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
+              ]} />
+              <TimeSeriesChart range={range} times={ioTimes} domain={domain} events={events} stepSec={step}
                 series={[
-                  { key: "r", color: "var(--info)", fill: false, values: ioRead },
-                  { key: "w", color: "var(--krystal-teal)", fill: false, values: ioWrite },
+                  { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
+                  { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
                 ]}
                 yMin={0} height={120} />
               <div className="chart-card__legend">
@@ -395,6 +519,7 @@ function HistoricalMetrics({ server, range }) {
           </BriefCard>
         )}
       </div>
+      </ChartHoverProvider>
     </>
   );
 }
