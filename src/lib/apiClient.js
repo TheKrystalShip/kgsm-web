@@ -10,7 +10,10 @@ import { createLiveStream } from "./liveStream.js";
 let alertsStore = null;
 import("./alertsApi.js").then((m) => { alertsStore = m.alertsStore; });
 let sessionStore = null;
-import("./sessionStore.js").then((m) => { sessionStore = m.sessionStore; });
+// Keep the import promise: the egress funnel (authorizedBearer) AWAITS it so the
+// FIRST WS dial — which runs synchronously during this module's eval, before this
+// lazy import can resolve — doesn't fall through to a tokenless connect and 401.
+const sessionReady = import("./sessionStore.js").then((m) => { sessionStore = m.sessionStore; });
 // Lazy: apiClient is the base layer; it touches the domain stores only in
 // deferred call-time paths (request handlers + the realtime wiring). A static
 // import would re-form the apiClient<->stores init cycle.
@@ -122,8 +125,17 @@ import("./stores.js").then((m) => {
   // thrown error is tagged `preflight` so the host gate doesn't pointlessly retry a refresh that just failed.
   async function authorizedBearer(hostId) {
     const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
-    // No session layer yet (early boot), no host scope, or the aggregate scope → fall back to the sync
-    // best-effort bearer (null when none). Auth-enabled hosts then answer 401 and the UI bounces to login.
+    // The FIRST WS (re)connect dials during apiClient's synchronous module eval — BEFORE the lazy
+    // import("./sessionStore.js") above can resolve — so without this await `sessionStore` is still null
+    // here and we'd fall through to a tokenless bearer → a guaranteed 401 on every fresh load, healed
+    // only by the 2.5s reconnect backoff. Awaiting the module-ready promise lets seed() restore the
+    // persisted (sessionStorage) session first, so the first dial already carries the token (no extra
+    // round-trip on a reload). Bounded: the module is in-bundle; a genuinely dead session still throws
+    // below and the socket dials tokenless → honest 401 → backoff.
+    if (!sessionStore) { try { await sessionReady; } catch (e) {} }
+    // No session layer (auth-disabled / still unavailable), no host scope, or the aggregate scope → fall
+    // back to the sync best-effort bearer (null when none). Auth-enabled hosts then answer 401 and the UI
+    // bounces to login.
     if (!sessionStore || !sessionStore.ensureFresh || !id || id === "all") return liveBearer(hostId);
     const st = await sessionStore.ensureFresh(id);
     if (st === "denied") { const e = authError(403, id); e.preflight = true; throw e; }
