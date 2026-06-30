@@ -15,7 +15,7 @@ import { api } from "../lib/apiClient.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, logsStore, selectedHostStore, serversStore, servicesStore, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { applyLeafConfig, fetchLeafConfig, hostsStore, logsStore, selectedHostStore, serversStore, servicesStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 import { RecentActivity } from "./DashboardPage.jsx";
 import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
@@ -530,11 +530,51 @@ function fmtBytes(n) {
   return n + " B";
 }
 
-function LeafCard({ svc }) {
+// The runtime connect/disconnect toggle for a provisionable leaf (admin-only). A leaf's `provisioned`
+// flag is the API↔leaf connection, flipped at runtime — distinct from its systemd liveness. Optimistic:
+// flip the board row immediately, POST, then reconcile from the 200 row (the capabilities.patch also
+// arrives over WS for the capability-gated leaves). A failure reverts to the pre-click row and surfaces
+// the reason inline — never a silent or fabricated success.
+function LeafProvisionControl({ svc, hostId }) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+  const connected = svc.provisioned === true;
+  const toggle = () => {
+    if (busy || !hostId) return;
+    const want = !connected;
+    setErr(null);
+    setBusy(true);
+    servicesStore.applyRow(hostId, { ...svc, provisioned: want });   // optimistic
+    setLeafProvisioned(hostId, svc.id, want)
+      .catch((e) => {
+        servicesStore.applyRow(hostId, svc);                          // revert to the pre-click row
+        setErr((e && (e.userMessage || e.message)) || "Couldn’t apply");
+      })
+      .finally(() => setBusy(false));
+  };
+  return (
+    <>
+      <button
+        className={"svc-prov-btn svc-prov-btn--" + (connected ? "off" : "on")}
+        onClick={toggle} disabled={busy}
+        title={connected ? "Disconnect this leaf from the API" : "Connect this leaf to the API"}>
+        {busy
+          ? <Icon name="loader" size={12} className="act-spin" />
+          : <Icon name={connected ? "unplug" : "plug"} size={12} strokeWidth={2.2} />}
+        {connected ? "Disconnect" : "Connect"}
+      </button>
+      {err && <span className="svc-prov-err" title={err}><Icon name="triangle-alert" size={11} /> {err}</span>}
+    </>
+  );
+}
+
+function LeafCard({ svc, hostId, canManage, onConfigure }) {
   const s = leafStatus(svc);
   const mem = fmtBytes(svc.memoryBytes);
   const up = svc.since ? uptimeShort(svc.since) : null;
   const running = svc.state === "active";
+  // `provisioned` is null for the leaves that aren't provisionable (api / bot) → no provisioning row at all.
+  const provisionable = svc.provisioned != null;
   return (
     <div className={"svc-card svc-card--" + s.tone}>
       <div className="svc-card__head">
@@ -556,6 +596,266 @@ function LeafCard({ svc }) {
           </span>
         )}
       </div>
+      {/* Provisioning row — the API↔leaf connection (distinct from systemd liveness above). The state chip
+          is honest read-only for everyone; the connect/disconnect toggle + Configure are admin-gated. */}
+      {provisionable && (
+        <div className="svc-card__prov">
+          <span className={"svc-prov-chip svc-prov-chip--" + (svc.provisioned ? "on" : "off")} title={svc.provisioned ? "Connected to the API" : "Not connected to the API"}>
+            <Icon name={svc.provisioned ? "plug" : "unplug"} size={11} strokeWidth={2.2} />
+            {svc.provisioned ? "Connected" : "Disconnected"}
+          </span>
+          {canManage && (
+            <span className="svc-card__prov-actions">
+              <LeafProvisionControl svc={svc} hostId={hostId} />
+              <button className="svc-cfg-btn" onClick={onConfigure} title={"Configure " + svc.displayName}>
+                <Icon name="sliders-horizontal" size={12} strokeWidth={2} /> Configure
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One typed field in the leaf config form. Renders the right control per `type`, the override-vs-floor
+// provenance, and a reset-to-default affordance for an overridden field. Secrets are WRITE-ONLY — the value
+// is never shown (masked `●●●● set` + optional last-4 fingerprint); a Replace button reveals an input, and
+// an untouched secret sends nothing.
+function ConfigFieldRow({ f, draft, secretDraft, revealed, willReset, onChange, onSecretChange, onReveal, onToggleReset }) {
+  const disabled = willReset;
+  const input = (() => {
+    if (f.type === "secret") {
+      if (!revealed) {
+        return (
+          <div className="leaf-cfg-secret">
+            <span className="leaf-cfg-secret__mask">
+              {f.set
+                ? <>{"●●●●"} set{f.fingerprint ? <span className="leaf-cfg-secret__fp"> ·{"…"}{f.fingerprint}</span> : null}</>
+                : <span className="leaf-cfg-secret__unset">not set</span>}
+            </span>
+            <button type="button" className="leaf-cfg-secret__replace" onClick={() => onReveal(f.key)} disabled={disabled}>
+              <Icon name="key" size={11} strokeWidth={2} /> {f.set ? "Replace" : "Set"}
+            </button>
+          </div>
+        );
+      }
+      return (
+        <input type="password" className="host-field__input host-field__input--mono" autoFocus disabled={disabled}
+          placeholder={f.set ? "Enter a new value to replace it" : "Enter a value"} value={secretDraft || ""}
+          onChange={(e) => onSecretChange(f.key, e.target.value)} spellCheck="false" autoComplete="new-password" />
+      );
+    }
+    if (f.type === "enum" && Array.isArray(f.enum)) {
+      return (
+        <select className="host-field__input leaf-cfg-select" value={draft == null ? "" : String(draft)} disabled={disabled}
+          onChange={(e) => onChange(f.key, e.target.value)}>
+          {f.enum.map((opt) => <option key={String(opt)} value={String(opt)}>{String(opt)}</option>)}
+        </select>
+      );
+    }
+    if (f.type === "bool") {
+      return (
+        <label className="leaf-cfg-toggle">
+          <input type="checkbox" checked={!!draft} disabled={disabled} onChange={(e) => onChange(f.key, e.target.checked)} />
+          <span className="leaf-cfg-toggle__txt">{draft ? "Enabled" : "Disabled"}</span>
+        </label>
+      );
+    }
+    if (f.type === "int") {
+      return (
+        <input type="number" className="host-field__input host-field__input--mono" value={draft == null ? "" : draft} disabled={disabled}
+          onChange={(e) => onChange(f.key, e.target.value)} spellCheck="false" />
+      );
+    }
+    return (
+      <input type="text" className="host-field__input host-field__input--mono" value={draft == null ? "" : draft} disabled={disabled}
+        onChange={(e) => onChange(f.key, e.target.value)} spellCheck="false" />
+    );
+  })();
+
+  return (
+    <div className={"leaf-cfg-field" + (willReset ? " is-reset" : "")}>
+      <div className="leaf-cfg-field__top">
+        <span className="leaf-cfg-field__label">{f.label}</span>
+        {f.overridden && (
+          <span className={"leaf-cfg-prov" + (willReset ? " leaf-cfg-prov--reset" : "")}
+            title={willReset ? "Will reset to the deploy default on save" : "Overrides the deploy-floor default"}>
+            <span className="leaf-cfg-prov__dot"></span>{willReset ? "reset pending" : "override"}
+          </span>
+        )}
+        {f.envName && <code className="leaf-cfg-field__env">{f.envName}</code>}
+        <span style={{ flex: 1 }}></span>
+        {f.overridden && (
+          <button type="button" className="leaf-cfg-reset" onClick={() => onToggleReset(f.key)}>
+            <Icon name="rotate-ccw" size={11} strokeWidth={2} />{willReset ? "Keep override" : "Reset to default"}
+          </button>
+        )}
+      </div>
+      {f.description && <div className="leaf-cfg-field__desc">{f.description}</div>}
+      <div className="leaf-cfg-field__input">{input}</div>
+      {/* Provenance: the deploy-floor default, when known. Secrets never expose a value/default. */}
+      {f.type !== "secret" && f.default != null && (
+        <div className="leaf-cfg-field__default">default <code>{String(f.default)}</code></div>
+      )}
+    </div>
+  );
+}
+
+// Per-leaf runtime configuration form (admin-only). Reads the typed manifest (GET .../{leaf}/config),
+// renders a control per field, and applies via PUT { values, reset }. The apply result is rendered
+// HONESTLY: `applied` = success, `rolled_back` = the value did NOT stick (the leaf was restored —
+// shown as a warning), `unchanged` = no-op. The form re-reads from result.config after every apply.
+function LeafConfigModal({ hostId, leaf, onClose }) {
+  const [config, setConfig] = React.useState(null);
+  const [loadState, setLoadState] = React.useState("loading"); // loading | ready | error
+  const [loadErr, setLoadErr] = React.useState(null);
+  const [drafts, setDrafts] = React.useState({});             // non-secret field key → draft value
+  const [secretDrafts, setSecretDrafts] = React.useState({}); // secret field key → typed replacement
+  const [revealed, setRevealed] = React.useState(() => new Set());
+  const [resetKeys, setResetKeys] = React.useState(() => new Set());
+  const [saving, setSaving] = React.useState(false);
+  const [result, setResult] = React.useState(null);           // adaptLeafConfigApply outcome (or {outcome:"error"})
+
+  // (Re)seed the form from a LeafConfig — used on open and after every apply (the result carries the
+  // fresh config). Non-secret fields seed their draft from the measured value; secrets stay masked.
+  const hydrate = React.useCallback((cfg) => {
+    setConfig(cfg);
+    const d = {};
+    (cfg && cfg.fields ? cfg.fields : []).forEach((f) => {
+      if (f.type === "secret") return;
+      d[f.key] = f.value == null ? (f.type === "bool" ? false : "") : f.value;
+    });
+    setDrafts(d);
+    setSecretDrafts({});
+    setRevealed(new Set());
+    setResetKeys(new Set());
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoadState("loading"); setLoadErr(null); setResult(null);
+    fetchLeafConfig(hostId, leaf.id).then(
+      (cfg) => { if (cancelled) return; if (cfg) { hydrate(cfg); setLoadState("ready"); } else { setLoadState("error"); } },
+      (e) => { if (!cancelled) { setLoadErr(e); setLoadState("error"); } }
+    );
+    return () => { cancelled = true; };
+  }, [hostId, leaf.id, hydrate]);
+
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const setField = (key, val) => setDrafts((d) => ({ ...d, [key]: val }));
+  const setSecret = (key, val) => setSecretDrafts((d) => ({ ...d, [key]: val }));
+  const reveal = (key) => setRevealed((s) => { const n = new Set(s); n.add(key); return n; });
+  const toggleReset = (key) => setResetKeys((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+
+  // Build the PUT body: only fields the user actually changed (honest diff vs the current value), plus the
+  // keys explicitly reset. A reset key wins over a value; an untouched secret sends nothing.
+  const buildPayload = () => {
+    const values = {}; const reset = [];
+    (config && config.fields ? config.fields : []).forEach((f) => {
+      if (resetKeys.has(f.key)) { reset.push(f.key); return; }
+      if (f.type === "secret") {
+        const v = secretDrafts[f.key];
+        if (revealed.has(f.key) && v != null && v !== "") values[f.key] = v;
+        return;
+      }
+      const draft = drafts[f.key];
+      const cur = f.value;
+      if (f.type === "bool") { if (!!draft !== !!cur) values[f.key] = !!draft; return; }
+      if (f.type === "int") {
+        const n = (draft === "" || draft == null) ? null : Number(draft);
+        if (n != null && Number.isFinite(n) && n !== cur) values[f.key] = n;
+        return;
+      }
+      const ds = draft == null ? "" : String(draft);
+      const cs = cur == null ? "" : String(cur);
+      if (ds !== cs) values[f.key] = ds;
+    });
+    return { values, reset };
+  };
+
+  const payload = (loadState === "ready" && config) ? buildPayload() : { values: {}, reset: [] };
+  const dirty = Object.keys(payload.values).length > 0 || payload.reset.length > 0;
+
+  const save = () => {
+    if (saving || !config || !dirty) return;
+    setSaving(true); setResult(null);
+    applyLeafConfig(hostId, leaf.id, payload).then(
+      (res) => { setResult(res); if (res && res.config) hydrate(res.config); },
+      (e) => setResult({ outcome: "error", health: null, message: (e && (e.userMessage || e.message)) || "Apply failed", config: null })
+    ).finally(() => setSaving(false));
+  };
+
+  const fields = (config && config.fields) || [];
+  const title = (config && config.displayName) || leaf.displayName || leaf.id;
+
+  return (
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="modal leaf-cfg" onClick={(e) => e.stopPropagation()}>
+        <div className="host-editor__head">
+          <div className="host-editor__head-icon"><Icon name="sliders-horizontal" size={18} /></div>
+          <div>
+            <h2 className="host-editor__title">Configure {title}</h2>
+            <p className="host-editor__sub">
+              Runtime overrides layered on top of the deploy-floor config. Applying restarts the leaf and
+              auto-rolls-back a value that fails its health check.{config && config.unit ? <> <code className="leaf-cfg__unit">{config.unit}</code></> : null}
+            </p>
+          </div>
+          <button className="host-editor__close" onClick={onClose} aria-label="Close"><Icon name="x" size={16} /></button>
+        </div>
+
+        <div className="host-editor__body leaf-cfg__body">
+          {loadState === "loading" && (
+            <div className="leaf-cfg__state"><Icon name="loader" size={20} className="act-spin" /><span>Reading {title} configuration…</span></div>
+          )}
+          {loadState === "error" && (
+            <div className="leaf-cfg__state leaf-cfg__state--error">
+              <Icon name="triangle-alert" size={20} />
+              <span>Couldn’t read the leaf configuration{loadErr && (loadErr.userMessage || loadErr.message) ? " — " + (loadErr.userMessage || loadErr.message) : "."}</span>
+            </div>
+          )}
+          {loadState === "ready" && fields.length === 0 && (
+            <div className="leaf-cfg__state"><Icon name="info" size={20} /><span>This leaf exposes no runtime-configurable settings.</span></div>
+          )}
+          {loadState === "ready" && fields.length > 0 && (
+            <>
+              {result && (
+                <div className={"leaf-cfg-result leaf-cfg-result--" + (result.outcome === "applied" ? "ok" : result.outcome === "unchanged" ? "neutral" : "warn")}>
+                  <Icon name={result.outcome === "applied" ? "circle-check" : result.outcome === "unchanged" ? "info" : "triangle-alert"} size={14} strokeWidth={2.2} />
+                  <span className="leaf-cfg-result__text">
+                    {result.outcome === "applied" && <>Applied — the leaf restarted and is healthy.</>}
+                    {result.outcome === "unchanged" && <>No changes to apply.</>}
+                    {result.outcome === "rolled_back" && <>Rolled back — the value didn’t stick. {result.message || "The leaf failed its health check and was restored to the previous configuration."}</>}
+                    {result.outcome === "error" && <>{result.message || "The change could not be applied."}</>}
+                    {result.health && result.health.message && (result.outcome === "applied") && <span className="leaf-cfg-result__sub"> {result.health.message}</span>}
+                  </span>
+                </div>
+              )}
+              <div className="leaf-cfg-fields">
+                {fields.map((f) => (
+                  <ConfigFieldRow key={f.key} f={f}
+                    draft={drafts[f.key]} secretDraft={secretDrafts[f.key]}
+                    revealed={revealed.has(f.key)} willReset={resetKeys.has(f.key)}
+                    onChange={setField} onSecretChange={setSecret} onReveal={reveal} onToggleReset={toggleReset} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="host-editor__foot">
+          <button className="host-btn host-btn--ghost" onClick={onClose}>Close</button>
+          <button className="host-btn host-btn--primary" onClick={save} disabled={saving || loadState !== "ready" || !dirty}>
+            {saving ? <Icon name="loader" size={14} className="act-spin" /> : <Icon name="check" size={14} strokeWidth={2.4} />}
+            {saving ? "Applying…" : "Apply & restart"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -565,6 +865,10 @@ function DiagServices({ host }) {
   const list = useStore(servicesStore, s => s.list);
   const status = useStore(servicesStore, s => s.status);
   const forHost = useStore(servicesStore, s => s.hostId);
+  // Per-host management is admin-scoped (architecture.html §3·f·1): connect/disconnect + configure a leaf
+  // takes admin on THIS host. The state chips stay visible to everyone; only the write controls gate.
+  const canManage = hostId ? (canOn ? canOn("host.manage", hostId) : false) : false;
+  const [configuring, setConfiguring] = React.useState(null);   // leaf id whose config modal is open
 
   // Hydrate on mount + on a host switch (a plain snapshot — no live stream in this slice).
   React.useEffect(() => {
@@ -579,6 +883,7 @@ function DiagServices({ host }) {
   if (rows.length > 0) {
     const installed = rows.filter(r => r.state !== "not-installed");
     const running = rows.filter(r => r.state === "active").length;
+    const configLeaf = configuring ? rows.find(r => r.id === configuring) : null;
     return (
       <>
         <div className="players-toolbar">
@@ -591,8 +896,14 @@ function DiagServices({ host }) {
           <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>The KGSM services that make up this host.</span>
         </div>
         <div className="svc-grid">
-          {rows.map(svc => <LeafCard key={svc.id} svc={svc} />)}
+          {rows.map(svc => (
+            <LeafCard key={svc.id} svc={svc} hostId={hostId} canManage={canManage}
+              onConfigure={() => setConfiguring(svc.id)} />
+          ))}
         </div>
+        {canManage && configLeaf && (
+          <LeafConfigModal hostId={hostId} leaf={configLeaf} onClose={() => setConfiguring(null)} />
+        )}
       </>
     );
   }

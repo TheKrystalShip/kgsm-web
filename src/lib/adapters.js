@@ -328,12 +328,83 @@ export function adaptService(s) {
     since: s.since || null,
     mainPid: s.mainPid == null ? null : s.mainPid,
     memoryBytes: s.memoryBytes == null ? null : s.memoryBytes,
+    // Runtime provisioning state (the API↔leaf connection, distinct from systemd liveness): true/false
+    // for the four provisionable leaves (monitor/watchdog/assistant/firewall), honest NULL for api/bot
+    // (not provisionable). A leaf can be `active` on the host yet disconnected from the API, or
+    // provisioned yet down — so this never collapses into `state`. null in → null out (never a false).
+    provisioned: s.provisioned == null ? null : !!s.provisioned,
     health: h,
   };
 }
 export function adaptServices(page) {
   const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
   return rows.map(adaptService).filter(Boolean);
+}
+
+// ---- Host capabilities (the live capability set) ------------------------
+// The hosts/{id}/capabilities → capabilities.patch frame carries the FULL HostCapabilities block
+// ({metrics,assistant,watchdog}, each {provisioned,status,since?,message?,info?}). It is already the
+// FE capability shape (adaptHost passes be.capabilities straight through), so this only HARDENS it:
+// keep every record the backend sent as a plain object, drop a non-object record, invent nothing.
+// `provisioned` is now RUNTIME-FLIPPABLE (a leaf connected/disconnected at runtime), so a patch can
+// flip a capability absent↔present — the store folds it per-key so the metrics freshness stamp survives.
+export function adaptCapabilities(block) {
+  if (!block || typeof block !== "object") return {};
+  const out = {};
+  for (const k of Object.keys(block)) {
+    const rec = block[k];
+    if (rec && typeof rec === "object") out[k] = { ...rec };
+  }
+  return out;
+}
+
+// ---- Leaf config (the per-leaf runtime configuration form) --------------
+// GET /hosts/{id}/services/{leaf}/config → LeafConfig { leaf, displayName, unit, fields:[LeafConfigField] }.
+// A typed manifest the API exposes for the four config-target leaves (monitor/watchdog/assistant/firewall).
+// HONESTY is load-bearing for SECRETS: a secret field's `value` is ALWAYS null on the wire — the form must
+// never echo it; `set` (is one stored?) + `fingerprint` (last-4 or null) are all the UI gets. A non-secret
+// field carries its current `value` + `default` + `overridden` (does an override sit on top of the floor?).
+export function adaptLeafConfigField(f) {
+  if (!f) return null;
+  const isSecret = f.type === "secret" || !!f.isSecret;
+  return {
+    key: f.key,
+    envName: f.envName || null,
+    label: f.label || f.key,
+    description: f.description || null,
+    type: f.type || "string",
+    enum: Array.isArray(f.enum) ? f.enum : null,
+    isSecret,
+    overridden: !!f.overridden,
+    // A secret's value is NEVER on the wire → force null even if the backend slipped one in (defence in
+    // depth). A non-secret passes its measured value/default through honestly (null = unset, never "").
+    value: isSecret ? null : (f.value == null ? null : f.value),
+    default: f.default == null ? null : f.default,
+    set: isSecret ? !!f.set : null,
+    fingerprint: isSecret ? (f.fingerprint || null) : null,
+  };
+}
+export function adaptLeafConfig(be) {
+  if (!be) return null;
+  return {
+    leaf: be.leaf || null,
+    displayName: be.displayName || be.leaf || null,
+    unit: be.unit || null,
+    fields: Array.isArray(be.fields) ? be.fields.map(adaptLeafConfigField).filter(Boolean) : [],
+  };
+}
+// PUT /hosts/{id}/services/{leaf}/config → LeafConfigApplyResult { outcome, health, message, config }.
+// outcome ∈ applied | rolled_back | unchanged — the UI renders each HONESTLY (a rollback is NOT a success:
+// the value did not stick, the leaf was restored). `config` is the fresh LeafConfig the form re-reads from.
+export function adaptLeafConfigApply(be) {
+  if (!be) return { outcome: "unchanged", health: null, message: null, config: null };
+  const h = be.health ? { status: be.health.status || "unknown", message: be.health.message || null } : null;
+  return {
+    outcome: be.outcome || "unchanged",
+    health: h,
+    message: be.message || null,
+    config: be.config ? adaptLeafConfig(be.config) : null,
+  };
 }
 
 // ---- Alerts -------------------------------------------------------------

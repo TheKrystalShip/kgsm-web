@@ -1,4 +1,4 @@
-import { adaptServerMetrics } from "./adapters.js";
+import { adaptServerMetrics, adaptService, adaptLeafConfigApply } from "./adapters.js";
 import { api, realtimeStore } from "./apiClient.js";
 import { CONNECTIONS, reconcileConnectionId } from "./config.js";
 import * as merge from "./merge.js";
@@ -248,6 +248,47 @@ function subscribeHostMetrics(hostId) {
   });
   return () => { dispose(); hostsStore.clearMetricsStamp(hostId); };
 }
+
+// ---- Host capabilities live patch (app-wide, always-on) -----------------
+// A capabilities.patch (hosts/{id}/capabilities) carries the FULL HostCapabilities block. Unlike a
+// host metrics/logs tick (which is deep-dive-scoped), the capability SET gates UI across the WHOLE app —
+// the assistant FAB/dock (assistant), the Resources/Performance surfaces (metrics), the watchdog-gated
+// server actions (watchdog) — so this subscription is always-on for every connected host, not gated to a
+// panel. Folded PER-KEY (not a wholesale replace) so a patch updates a capability's provisioned/status/
+// since/message/info WITHOUT wiping fields another path owns — notably the metrics tick's last_sample_at
+// freshness stamp. A capability the patch newly carries appears; one it drops to provisioned:false reads
+// as absent through the capability model → capability-gated UI grows/shrinks live, no reload.
+hostsStore.mergeCapabilities = (id, caps) => {
+  if (!caps || typeof caps !== "object") return;
+  hostsStore.setState(s => ({
+    ...s,
+    list: s.list.map(h => {
+      if (h.id !== id) return h;
+      const cur = h.capabilities || {};
+      const next = { ...cur };
+      for (const k of Object.keys(caps)) next[k] = { ...(cur[k] || {}), ...caps[k] };
+      return { ...h, capabilities: next };
+    }),
+  }));
+};
+// Keep one capabilities subscription per CONNECTED host, in sync with the host list. The patch carries the
+// host in its TOPIC, so each subscription keys off its closure id (the host.metrics precedent). A host added
+// at runtime gets subscribed; a removed one disposed. The subscription set is flushed on every (re)open by
+// liveStream, so subscribing before the socket is up is fine. Driven off hostsStore so it self-heals as the
+// fleet changes; runs once at boot for the hosts already hydrated.
+const _capSubs = new Map();   // hostId → dispose
+function _subscribeHostCapabilities(hostId) {
+  const topic = "hosts/" + hostId + "/capabilities";
+  return api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "capabilities.patch" && m.data) hostsStore.mergeCapabilities(hostId, m.data);
+  });
+}
+function syncCapabilitySubscriptions() {
+  const ids = new Set((hostsStore.getState().list || []).map(h => h && h.id).filter(Boolean));
+  for (const id of ids) if (!_capSubs.has(id)) _capSubs.set(id, _subscribeHostCapabilities(id));
+  for (const [id, dispose] of _capSubs) if (!ids.has(id)) { try { dispose(); } catch (e) {} _capSubs.delete(id); }
+}
+hostsStore.subscribe(syncCapabilitySubscriptions);
 
 // ---- Per-server metrics live tick (Performance deep-dive only) -----------
 // The per-server tick (`servers/{id}/metrics` → `metrics.tick`, already adapted
@@ -820,6 +861,50 @@ servicesStore.refresh = (hostId) => {
     throw err;
   });
 };
+// Fold ONE leaf row into the host-scoped board (a provisioning connect/disconnect result, or an optimistic
+// pre-flight flip) — so the board updates without a full refetch. Guarded on the current hostId: if a host
+// switch superseded this mid-flight, drop it and let the next refresh reconcile. Upserts by id (the row
+// should already exist, but adding is harmless).
+servicesStore.applyRow = (hostId, row) => {
+  if (!row || !row.id) return;
+  servicesStore.setState(s => {
+    if (s.hostId !== hostId) return s;   // a switch superseded this update
+    const seen = s.list.some(x => x.id === row.id);
+    const list = seen ? s.list.map(x => (x.id === row.id ? { ...x, ...row } : x)) : [...s.list, row];
+    return { ...s, list };
+  });
+};
+
+// ---- Leaf provisioning + config (admin-only; the Services control center) ----
+// Connect or disconnect a leaf at RUNTIME (admin-only): POST .../{leaf}/connect|disconnect → the updated
+// LeafService row. Routed through the host-scoped client (per-host bearer/401-retry). The POST returns a
+// raw row → adaptService it, then fold it into the board. The matching capabilities.patch ALSO arrives over
+// WS (for the capability-gated leaves), flipping the capability-gated UI live; this just keeps the board's
+// own provisioned chip in lock-step without waiting for a refetch. Returns the adapted row.
+function setLeafProvisioned(hostId, leaf, connected) {
+  const client = (hostId && api.host) ? api.host(hostId) : api;
+  const action = connected ? "connect" : "disconnect";
+  return client.post("/hosts/" + hostId + "/services/" + leaf + "/" + action).then(raw => {
+    const row = adaptService(raw);
+    if (row && row.id) servicesStore.applyRow(hostId, row);
+    return row;
+  });
+}
+// Read one leaf's typed config manifest (GET .../{leaf}/config → adaptLeafConfig via adaptResponse). Routed
+// host-scoped so the per-host bearer rides. Returns the adapted LeafConfig (or null).
+function fetchLeafConfig(hostId, leaf) {
+  if (!hostId || !leaf) return Promise.resolve(null);
+  const client = api.host ? api.host(hostId) : api;
+  return client.get("/hosts/" + hostId + "/services/" + leaf + "/config");
+}
+// Apply a config change (PUT .../{leaf}/config { values, reset }) → LeafConfigApplyResult. PUT returns a raw
+// body (no auto-adapt) → adaptLeafConfigApply it. The caller renders the outcome HONESTLY (a rolled_back is
+// not a success — the value didn't stick) and re-reads the form from result.config.
+function applyLeafConfig(hostId, leaf, body) {
+  if (!hostId || !leaf) return Promise.resolve(null);
+  const client = api.host ? api.host(hostId) : api;
+  return client.put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
+}
 
 // ---- Game library (installable catalog) ---------------------------------
 // Mostly static; hydrate from api.get("/library"). Every page reads this store.
@@ -977,6 +1062,7 @@ try {
   hostsStore.refresh().catch(swallow);
   auditStore.refresh().catch(swallow);
   startPingLoop();
+  syncCapabilitySubscriptions();   // subscribe capabilities for any host already hydrated (the rest ride the hostsStore subscriber)
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, applyLeafConfig, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchLeafConfig, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

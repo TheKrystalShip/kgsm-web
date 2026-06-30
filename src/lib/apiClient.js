@@ -166,6 +166,7 @@ import("./stores.js").then((m) => {
     if (base === "/library") return adapt.adaptLibrary(json);
     if (base === "/audit") return adapt.adaptAudit(json);
     if (/^\/hosts\/[^/]+\/logs$/.test(base)) return adapt.adaptLogPage(json); // before /hosts/{id} → adaptHost
+    if (/^\/hosts\/[^/]+\/services\/[^/]+\/config$/.test(base)) return adapt.adaptLeafConfig(json); // before /services → adaptServices
     if (/^\/hosts\/[^/]+\/services$/.test(base)) return adapt.adaptServices(json); // before /hosts/{id} → adaptHost
     if (base === "/alerts") return adapt.adaptAlerts(json);
     if (base === "/me") return adapt.adaptMe(json);
@@ -354,6 +355,11 @@ import("./stores.js").then((m) => {
     // host.metrics rides hosts/{id}/metrics — reshape the HostMetricsDto into the FE telemetry partial
     // (the WS parallel of adaptResponse for GET /hosts/{id}). The store merges it clobber-safe by id.
     if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptHostMetrics(data) };
+    // capabilities.patch rides hosts/{id}/capabilities — the FULL HostCapabilities block (metrics/assistant/
+    // watchdog). `provisioned` is now runtime-flippable, so this drives the capability SET live: connecting a
+    // leaf makes its capability appear, disconnecting makes it absent — the capability-gated UI (Performance,
+    // the assistant dock, watchdog controls) grows/shrinks with NO reload. The store folds it per-key.
+    if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return { topic, type, data: adapt.adaptCapabilities(data) };
     // metrics.tick rides servers/{id}/metrics — the per-server ServerMetricsDto, reshaped to a chart
     // point for the Performance deep-dive's live window. The server id is in the TOPIC (the payload
     // carries no id), so subscribeServerMetrics keys off its closure, not data.id.

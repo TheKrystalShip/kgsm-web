@@ -1215,6 +1215,33 @@ try {
   assert(adapt.adaptServices(null).length === 0,
     "adaptServices: null → [] (degrades, never throws)");
 
+  // `provisioned` is the runtime API↔leaf connection (distinct from systemd liveness): a bool for the four
+  // provisionable leaves (monitor/watchdog/assistant/firewall), honest NULL for api/bot — never a false.
+  const provSv = adapt.adaptServices({ data: [
+    { id: "monitor", displayName: "Monitor", unit: "kgsm-monitor.service", state: "active", provisioned: true },
+    { id: "firewall", displayName: "Firewall", unit: "kgsm-firewall.service", state: "inactive", onDemand: true, provisioned: false },
+    { id: "api", displayName: "API", unit: "kgsm-api.service", state: "active" },          // no provisioned field → null
+    { id: "bot", displayName: "Bot", unit: "kgsm-bot.service", state: "inactive", provisioned: null },
+  ] });
+  const pById = Object.fromEntries(provSv.map(s => [s.id, s]));
+  assert(pById.monitor.provisioned === true && pById.firewall.provisioned === false && pById.api.provisioned === null && pById.bot.provisioned === null,
+    "adaptService: provisioned bool for the four provisionable leaves; honest NULL for api/bot (never a fabricated false)");
+
+  // Leaf config manifest — the typed runtime-override form. A SECRET field's value is NEVER on the wire
+  // (write-only): the adapter forces value:null and surfaces `set` + last-4 `fingerprint` instead.
+  const lc = adapt.adaptLeafConfig({ leaf: "assistant", displayName: "Assistant", unit: "kgsm-assistant.service", fields: [
+    { key: "model", envName: "Assistant__Model", label: "Model", type: "string", value: "gemma4:12b", default: "gemma4:12b", overridden: false },
+    { key: "tavily", envName: "WebSearch__ApiKey", label: "Tavily key", type: "secret", value: "SHOULD_NOT_LEAK", set: true, fingerprint: "ab12", overridden: true },
+  ] });
+  const lcf = Object.fromEntries(lc.fields.map(x => [x.key, x]));
+  assert(lc.leaf === "assistant" && lc.fields.length === 2 && lcf.model.value === "gemma4:12b" && lcf.model.overridden === false,
+    "adaptLeafConfig: { leaf, fields } envelope; a non-secret field carries value/default/overridden honestly");
+  assert(lcf.tavily.isSecret === true && lcf.tavily.value === null && lcf.tavily.set === true && lcf.tavily.fingerprint === "ab12",
+    "adaptLeafConfigField: a secret is WRITE-ONLY — value forced null on the wire; set + fingerprint surfaced instead");
+  const lap = adapt.adaptLeafConfigApply({ outcome: "rolled_back", health: { status: "down", message: "unhealthy" }, message: "reverted", config: { leaf: "assistant", fields: [] } });
+  assert(lap.outcome === "rolled_back" && lap.config && lap.config.leaf === "assistant",
+    "adaptLeafConfigApply: outcome + nested fresh config (a rolled_back is surfaced honestly, not as a success)");
+
   // The real OPERATOR-gated endpoint, through the REAL adapter (same direct-fetch reasoning as logs — the
   // SPA host registry may still point at a not-yet-redeployed host; this endpoint is new).
   const svc = adapt.adaptServices(await fetch(API + "/api/v1/hosts/" + hmId + "/services").then(r => r.json()));
@@ -1229,10 +1256,43 @@ try {
 
   // The store hydrate is host-scoped (mirror of logsStore): the tab reads `hostId === host.id` as its
   // ready-guard. Exercise it purely (refresh() is a thin api.host→adaptServices wrapper, proven above).
-  st.servicesStore.setState(s => ({ ...s, list: svc, hostId: hmId, status: "ready", everLoaded: true }));
+  // Use the live rows when present; fall back to synthetic rows so these PURE store/reconcile checks stay
+  // deterministic (and never deref undefined) when the live fetch is empty — e.g. the backend under test
+  // has auth ON, so the operator-gated /services 401s (this harness sends no bearer). The live endpoint
+  // itself is validated separately with a real token; here we exercise the client store/WS logic.
+  const svcRows = svc.length ? svc : [
+    { id: "monitor", displayName: "Monitor", role: "", unit: "kgsm-monitor.service", state: "active", onDemand: false, provisioned: true, subState: "running", enabled: true, since: null, mainPid: 1, memoryBytes: null, health: { status: "operational", message: null } },
+    { id: "firewall", displayName: "Firewall", role: "", unit: "kgsm-firewall.service", state: "inactive", onDemand: true, provisioned: false, subState: null, enabled: null, since: null, mainPid: null, memoryBytes: null, health: null },
+  ];
+  st.servicesStore.setState(s => ({ ...s, list: svcRows, hostId: hmId, status: "ready", everLoaded: true }));
   const svcState = st.servicesStore.getState();
-  assert(svcState.hostId === hmId && svcState.list.length === svc.length,
+  assert(svcState.hostId === hmId && svcState.list.length === svcRows.length,
     "servicesStore: host-scoped snapshot holds the current host's leaf list (the ready-guard the Services tab reads)");
+
+  // servicesStore.applyRow — the connect/disconnect reconcile path: fold ONE updated leaf row into the
+  // host-scoped board (so a provisioning flip updates the board without a refetch); a wrong-host row drops.
+  const someLeaf = svcRows[0];
+  st.servicesStore.applyRow(hmId, { ...someLeaf, provisioned: someLeaf.provisioned === true ? false : true });
+  assert(st.servicesStore.getState().list.find(x => x.id === someLeaf.id).provisioned === (someLeaf.provisioned === true ? false : true),
+    "servicesStore.applyRow: folds an updated leaf row into the host-scoped board (provisioning reconcile)");
+  st.servicesStore.applyRow("some-other-host", { id: someLeaf.id, provisioned: someLeaf.provisioned });
+  assert(st.servicesStore.getState().list.find(x => x.id === someLeaf.id).provisioned === (someLeaf.provisioned === true ? false : true),
+    "servicesStore.applyRow: a wrong-host row is ignored (switch-guarded, like logsStore.prepend)");
+
+  // capabilities.patch over the FULL WS chain: a raw frame → adaptStreamMessage → dispatch → the always-on
+  // per-host capabilities subscription (wired when the host hydrated) → mergeCapabilities. Proves the
+  // capability SET flips live (the runtime leaf-provisioning gate — Performance/assistant/watchdog UI grows
+  // & shrinks with NO reload), folded PER-KEY so the metrics live-tick freshness stamp survives a patch.
+  st.hostsStore.mergeCapabilities(hmId, { metrics: { provisioned: false, status: "down" } });
+  const capCur = st.hostsStore.find(hmId).capabilities || {};
+  st.hostsStore.patch(hmId, { capabilities: { ...capCur, metrics: { ...(capCur.metrics || {}), last_sample_at: "2030-01-01T00:00:00Z" } } });
+  api.__dispatch({ topic: "hosts/" + hmId + "/capabilities", type: "capabilities.patch",
+    data: { metrics: { provisioned: true, status: "operational" }, assistant: { provisioned: true, status: "operational" } } });
+  const capHost = st.hostsStore.find(hmId);
+  assert(capHost.capabilities.metrics.provisioned === true && capHost.capabilities.metrics.status === "operational" && capHost.capabilities.assistant && capHost.capabilities.assistant.provisioned === true,
+    "capabilities.patch: WS frame → per-host subscription → mergeCapabilities (capability set lit live, no reload)");
+  assert(capHost.capabilities.metrics.last_sample_at === "2030-01-01T00:00:00Z",
+    "capabilities.patch: PER-KEY merge preserves the metrics freshness stamp (a capability patch never wipes the live-tick stamp)");
 
   root.unmount();
 } finally {
