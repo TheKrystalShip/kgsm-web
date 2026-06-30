@@ -39,6 +39,18 @@ data renders without crashing. It expects an **auth-disabled** backend
 change, run `npm run build` (the only mechanical check that no import dangles) and
 `npm run smoke` against a live api.
 
+**For VISUAL / layout testing (smoke is jsdom — it does NOT lay out CSS), use the
+permanent headless-browser harness at `/home/heisen/tks/scripts/visual-harness/`**
+(outside the repos on purpose, so it doesn't violate the no-test-runner rule).
+Playwright + Chromium (no sudo on this host) drive the real SPA against a real
+**auth-disabled** dev kgsm-api with real data — this is the only way to actually
+*see* a mobile/responsive/overflow bug rather than reason about the CSS. Flow:
+background `dev-api.sh` (auth-off api on :8096, state sandboxed) + `dev-web.sh`
+(Vite on :5190, seeded — leaves your `:5173` alone), then `node shoot.mjs
+'#/servers/factorio-test/files' --device both --click 'manage.sh'` → PNGs in
+`shots/` + overflow/footer-overlap diagnostics. See that dir's `README.md` for the
+full recipe and gotchas (port waits, teardown, the `pkill -f` self-match trap).
+
 ## The connection model (`src/lib/config.js`)
 
 There is exactly ONE data path: the app always talks to real `kgsm-api`(s). There
