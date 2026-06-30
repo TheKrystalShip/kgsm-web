@@ -1,0 +1,381 @@
+/* ============================================================================
+   kit/catalog.css — library, blueprint card, grouped view, game detail, file browser, backups
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============= Library page ============= */
+.library-head { display: flex; flex-direction: column; gap: 12px; }
+.library-head h1 { font-size: 26px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; margin: 0; }
+.library-head__sub { color: var(--fg-3); font-size: 14px; }
+.library-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.library-search { background: var(--surface-3); border: 1px solid var(--border-subtle); border-radius: var(--r-md); height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 8px; flex: 1; min-width: 240px; }
+.library-search input { background: transparent; border: none; outline: none; color: var(--fg-1); font-family: var(--font-ui); font-size: 14px; flex: 1; }
+.library-search input::placeholder { color: var(--fg-4); }
+.filter-chip { font-family: var(--font-ui); font-weight: 500; font-size: 13px; height: 32px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--fg-2); border: 1px solid var(--border-subtle); cursor: pointer; }
+.filter-chip:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.filter-chip--on { background: var(--krystal-teal-dim); color: var(--krystal-teal); border-color: var(--border-accent); }
+
+.game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.game-card {
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
+  transition: transform var(--d-base) var(--ease-out), border-color var(--d-base) var(--ease-out);
+  display: flex; flex-direction: column;
+}
+.game-card:hover { border-color: var(--border-strong); }
+.game-card__art {
+  /* 2:3 portrait — same cover treatment as the catalog page's .bp-card__art, so
+     the Steam library capsules (600x900) render uncropped on the dashboard rail. */
+  aspect-ratio: 2 / 3; background-size: cover; background-position: center;
+  position: relative;
+}
+.game-card__art::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to top, color-mix(in srgb, var(--canvas) 90%, transparent) 0%, transparent 50%);
+}
+.game-card__body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.game-card__title { font-size: 14.5px; font-weight: 600; color: var(--fg-1); }
+.game-card__meta { font-size: 12px; color: var(--fg-3); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.game-card__metarow { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.game-card__installed {
+  position: absolute; top: 10px; right: 10px;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--success-bg); color: var(--success-fg);
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+}
+
+/* ---- Blueprint card — the library grid tile ----
+   A catalog game is a deployable BLUEPRINT, not a thing you own. Art still
+   leads, but the deploy facts that matter (run-state, footprint, recency) are
+   made legible instead of hidden in a corner badge. */
+.bp-card {
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
+  display: flex; flex-direction: column;
+  transition: transform var(--d-base) var(--ease-out),
+              border-color var(--d-base) var(--ease-out),
+              box-shadow var(--d-base) var(--ease-out);
+}
+.bp-card:hover { border-color: var(--border-strong); transform: translateY(-3px); box-shadow: var(--shadow-2); }
+.bp-card:focus-visible { box-shadow: var(--ring-focus); border-color: var(--border-accent); }
+
+.bp-card__art {
+  position: relative; aspect-ratio: 2 / 3;
+  background-size: cover; background-position: center;
+}
+.bp-card__veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, color-mix(in srgb, var(--canvas) 94%, transparent) 4%, color-mix(in srgb, var(--canvas) 25%, transparent) 46%, transparent 78%);
+}
+.bp-card__name {
+  position: absolute; left: 14px; right: 14px; bottom: 11px; z-index: 1; margin: 0;
+  font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+  line-height: 1.15; text-shadow: 0 1px 10px rgba(0,0,0,0.55);
+}
+.bp-card__cat {
+  /* (Removed from the card — a single category misrepresents multi-genre games;
+     the detail page shows the full list. Kept for reference / reuse.) */
+  position: absolute; top: 10px; left: 10px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px;
+  border-radius: 999px; background: color-mix(in srgb, var(--canvas) 50%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.12); color: var(--fg-1);
+  font-size: 11px; font-weight: 600;
+}
+/* Host-availability chip — shown only when a blueprint is offered by a SUBSET
+   of hosts. A subtle amber tint reads as "limited", not alarming. */
+.bp-card__host {
+  position: absolute; top: 10px; left: 10px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px;
+  border-radius: 999px; background: color-mix(in srgb, var(--canvas) 55%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid rgba(245,158,11,0.34); color: var(--warning-fg);
+  font-size: 11px; font-weight: 600; max-width: calc(100% - 20px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bp-card__host svg { flex-shrink: 0; }
+.bp-card__run {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 9px;
+  border-radius: 999px; background: var(--krystal-teal); color: var(--fg-inverse);
+  font-size: 11px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+.bp-card__rundot { width: 6px; height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--canvas) 45%, transparent); }
+.bp-card__rundot.is-live { background: var(--success); box-shadow: 0 0 0 2px rgba(255,255,255,0.35); }
+.bp-card__new {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+  border-radius: 999px; background: var(--info-bg); color: var(--info-fg);
+  border: 1px solid rgba(56,189,248,0.32);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+.bp-card__specs { display: grid; grid-template-columns: repeat(3, 1fr); padding: 12px 4px; }
+.bp-spec {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; padding: 0 6px; text-align: center; min-width: 0;
+}
+.bp-spec + .bp-spec::before {
+  content: ""; position: absolute; left: 0; top: 2px; bottom: 2px;
+  width: 1px; background: var(--border-subtle);
+}
+.bp-spec__val {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--fg-1);
+  white-space: nowrap;
+}
+.bp-spec__val svg { color: var(--fg-3); flex-shrink: 0; }
+.bp-spec__lbl {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--fg-3);
+}
+
+.bp-card__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 11px 14px; border-top: 1px solid var(--border-subtle);
+}
+.bp-card__status {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  font-size: 12px; color: var(--fg-3); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bp-card__status--on { color: var(--fg-2); }
+.bp-card__livedot {
+  width: 7px; height: 7px; border-radius: 999px; background: var(--success);
+  flex-shrink: 0; animation: kr-pulse 1.8s ease-in-out infinite;
+}
+.bp-card__cta {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: 12.5px; font-weight: 600; color: var(--krystal-teal);
+  transition: gap var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.bp-card:hover .bp-card__cta { color: var(--krystal-teal-hover); gap: 8px; }
+/* The Deploy CTA is a real <button> (opens the install modal) — strip the native
+   chrome so it reads identically to the span variant, but keep it interactive.
+   Reset ONLY the chrome (matching the .dash-section__more convention); leave the
+   base .bp-card__cta font-size/weight intact — `font: inherit` would clobber it. */
+.bp-card__cta--act {
+  background: none; border: none; padding: 0; margin: 0;
+  font-family: inherit; cursor: pointer;
+}
+.bp-card__cta--act:hover { color: var(--krystal-teal-hover); gap: 8px; }
+.bp-card__cta--act:focus-visible {
+  outline: 2px solid var(--krystal-teal); outline-offset: 3px; border-radius: 4px;
+}
+
+/* ---- Grouped view — Windows-Explorer-style foldable sections ---- */
+.lib-groups { display: flex; flex-direction: column; gap: 26px; }
+.lib-group { display: flex; flex-direction: column; }
+.lib-group__head {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  background: transparent; border: none; cursor: pointer;
+  padding: 7px 2px 11px; margin-bottom: 16px; text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--fg-1); font-family: var(--font-ui);
+}
+.lib-group__head:hover { border-bottom-color: var(--border-strong); }
+.lib-group__head:focus-visible { box-shadow: var(--ring-focus); border-radius: var(--r-sm); }
+.lib-group__chev {
+  color: var(--fg-3); flex-shrink: 0;
+  transition: transform var(--d-base) var(--ease-out);
+}
+.lib-group__head[aria-expanded="false"] .lib-group__chev { transform: rotate(-90deg); }
+.lib-group__icon { display: inline-flex; flex-shrink: 0; }
+.lib-group__title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; color: var(--fg-1); }
+.lib-group__count {
+  font-size: 11px; font-weight: 700; color: var(--fg-3);
+  background: var(--surface-3); border-radius: 999px; padding: 2px 8px; line-height: 1.5;
+}
+.lib-group__sub {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--krystal-teal);
+}
+.lib-group__subdot { width: 6px; height: 6px; border-radius: 999px; background: var(--krystal-teal); }
+/* The grid inside a group reuses .game-grid; this keeps it from inheriting any
+   stray top spacing so cards sit flush under the header. */
+.lib-group__grid { margin: 0; }
+
+/* ---- Game blueprint detail page ---- */
+.game-tag {
+  display: inline-flex; align-items: center;
+  background: var(--surface-2); color: var(--fg-2);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 999px;
+}
+.game-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 34px 16px; text-align: center; color: var(--fg-3);
+}
+.game-empty__title { font-size: 14px; font-weight: 600; color: var(--fg-1); margin-top: 8px; }
+.game-empty__sub { font-size: 12.5px; color: var(--fg-3); max-width: 360px; }
+
+/* ============= File browser ============= */
+/* The editor column is minmax(0, 1fr) — NOT 1fr (= minmax(auto, 1fr)) — so it can
+   shrink below its content's intrinsic width when the tree is widened, instead of
+   overflowing and getting clipped by the card's overflow:hidden (which used to push
+   the Save/Reset bar off-screen). */
+.fb-card { display: grid; grid-template-columns: var(--fb-tree-w, 260px) minmax(0, 1fr); background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; min-height: 460px; position: relative; }
+/* Draggable splitter — an invisible hit strip sitting on the tree/editor seam
+   (positioned at left:var(--fb-tree-w) via an inline style). Out of grid flow
+   (position:absolute) so it never occupies a column; shows a teal line on
+   hover/drag. */
+.fb-resizer { position: absolute; top: 0; bottom: 0; width: 9px; margin-left: -4px; cursor: col-resize; z-index: 4; touch-action: none; }
+.fb-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--border-subtle); transition: background var(--d-fast) var(--ease-out), width var(--d-fast) var(--ease-out); }
+.fb-resizer:hover::after, .fb-resizer--active::after { background: var(--krystal-teal); width: 2px; left: 3.5px; }
+/* When wrapped in the shared BriefCard chrome, the card supplies the border +
+   radius, so the inner grid sits flush. */
+.chat-brief .fb-card { border: none; border-radius: 0; min-height: 420px; }
+
+/* Vertical fill (Files tab): with .content--fill on the ancestor, the flex chain
+   runs .app__main (column, 100vh) → .content--fill → the file-browser BriefCard →
+   .fb-card, so the editor claims all height down to the footer. The grid's single
+   row becomes minmax(0,1fr) so the tree + editor stretch to the card height and
+   scroll INTERNALLY (the save bar stays pinned, never pushed off-screen). */
+/* A generous floor (NOT 0) so the editor stays usable when the viewport is short:
+   without it the fill chain collapses the card to ~3–4 editor lines and you'd have
+   to zoom the page out to read. The floor lives HERE, at the TOP of the fill chain,
+   not on .fb-card — flooring the card directly would let it spill past its shrunk
+   flex parents; flooring the container instead makes .app__main (overflow-y:auto @
+   100vh) scroll cleanly. On a tall viewport flex-grow still expands past the floor,
+   so the existing fill + internal-scroll is unchanged. (A planned pop-out full-screen
+   modal will add the upper escape hatch.) */
+.content--fill { flex: 1 1 auto; min-height: 640px; }
+/* Only the file-browser card flexes. The hero / sub-tabs / breadcrumb keep their
+   natural height (flex-shrink:0) — otherwise the height-constrained column would
+   shrink the hero below its content and its overflow:hidden would clip the
+   start/stop/connect controls. The card takes flex-basis:0 + min-height:0 so it
+   fills exactly the leftover space and scrolls internally, never starving siblings. */
+.content--fill > * { flex-shrink: 0; }
+.content--fill > .fb-briefcard { flex: 1 1 0; min-height: 0; }
+.fb-briefcard { display: flex; flex-direction: column; min-height: 0; }
+.fb-briefcard .fb-card { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.fb-briefcard .fb-tree { min-height: 0; }
+.fb-editor__btn--sm { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.fb-tree { border-right: 1px solid var(--border-subtle); padding: 10px; overflow-y: auto; background: var(--surface-0); }
+/* The tree's scrollbar styling now comes from the global rule at the top of this file. */
+.fb-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); cursor: pointer; color: var(--fg-2); font-size: 13px; font-family: var(--font-mono); }
+.fb-row:hover { background: var(--surface-2); color: var(--fg-1); }
+.fb-row--active { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
+.fb-row--folder { color: var(--fg-1); font-family: var(--font-ui); font-weight: 500; font-size: 13.5px; }
+.fb-editor { display: flex; flex-direction: column; min-height: 0; }
+.fb-editor__bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-1); }
+.fb-editor__path { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-3); }
+.fb-editor__path b { color: var(--fg-1); font-weight: 600; }
+.fb-editor__dirty {
+  margin-left: auto;
+  font-size: 11px; font-weight: 600;
+  color: var(--warning-fg);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  background: var(--warning-bg);
+  border-radius: 999px;
+}
+.fb-editor__dirty .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--warning); }
+.fb-editor__spacer { flex: 1; }
+
+.fb-editor__btn {
+  background: var(--krystal-teal); color: var(--fg-inverse);
+  border: 1px solid transparent;
+  border-radius: var(--r-md); padding: 0 14px; height: 36px;
+  font-family: var(--font-ui); font-weight: 600; font-size: 13px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex-shrink: 0; white-space: nowrap;   /* Save/Reset never shrink or wrap their label */
+}
+.fb-editor__btn:hover { background: var(--krystal-teal-hover); }
+.fb-editor__btn--secondary {
+  background: transparent; color: var(--fg-2);
+  border-color: var(--border-subtle);
+}
+.fb-editor__btn--secondary:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-strong); }
+
+/* Bottom save bar — always visible on both desktop and mobile so the Save
+   CTA is never out of reach. The bar is the only place we keep Save/Reset
+   now (we used to also mirror them in the top toolbar — that turned out to
+   be easy to miss on narrow viewports). */
+.fb-editor__foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  flex-wrap: wrap; row-gap: 8px;   /* last-resort: a long error wraps above the buttons rather than clipping them */
+}
+.fb-editor__body { font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: var(--fg-2); padding: 14px 20px; overflow-y: auto; flex: 1; background: var(--surface-0); display: flex; }
+.fb-editor__gutter { color: var(--fg-4); text-align: right; padding-right: 16px; user-select: none; white-space: pre; }
+.fb-editor__code { flex: 1; white-space: pre; }
+.fb-editor__code .k { color: var(--krystal-teal); }
+.fb-editor__code .s { color: var(--success-fg); }
+.fb-editor__code .n { color: var(--warning-fg); }
+.fb-editor__code .c { color: var(--fg-3); font-style: italic; }
+/* Monaco editor mount — fills the editor column between the bar and the foot.
+   Monaco measures its own (automaticLayout) container, so it needs an explicit
+   sized flex slot with min-height:0, else it collapses to 0 height. */
+.fb-editor__monaco-wrap { flex: 1; min-height: 0; position: relative; display: flex; background: var(--surface-0); }
+.fb-editor__monaco-wrap > section { flex: 1; min-width: 0; }
+.fb-editor__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-3); text-align: center; padding: 24px; background: var(--surface-0); }
+.fb-editor__err { color: var(--danger); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* Expand-to-full-screen toggle in the editor bar — a quiet ghost button at the
+   far right of the path row; flips maximize⇄minimize with the popped state. */
+.fb-editor__expand {
+  background: transparent; border: 1px solid transparent;
+  color: var(--fg-3); cursor: pointer; flex-shrink: 0;
+  border-radius: var(--r-md); padding: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.fb-editor__expand:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-subtle); }
+
+/* Full-screen pop-out: the whole tree+editor grid lifted into an overlay so a
+   short viewport isn't capped at a few editor lines. Portaled to <body> (NOT
+   promoted in place) because .app__main is a container-type ancestor, which
+   would otherwise become the containing block for a position:fixed child and
+   clip it. The scrim mirrors the app's other modals; the modal is a flex column
+   the .fb-card fills. */
+.fb-modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, var(--scrim-base) 70%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; padding: 24px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.fb-modal {
+  flex: 1 1 auto; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+/* Fill the modal + scroll internally — mirrors the .fb-briefcard fill rules
+   (the portaled modal isn't inside .fb-briefcard, so those don't reach it). */
+.fb-modal .fb-card { flex: 1 1 auto; min-height: 0; border: none; border-radius: 0; grid-template-rows: minmax(0, 1fr); }
+.fb-modal .fb-tree { min-height: 0; }
+
+/* Quiet stand-in left in the inline card while the editor is popped out — it
+   sits behind the scrim, but keeps the card from collapsing under it (and gives
+   a Restore path if the portal ever fails to paint). */
+.fb-popped-placeholder {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  color: var(--fg-3); text-align: center; padding: 24px;
+}
+
+/* ============= Backups ============= */
+.backup-list { display: flex; flex-direction: column; gap: 8px; }
+.backup-row {
+  display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 16px; align-items: center;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: 14px 18px;
+}
+.backup-row__ico { width: 32px; height: 32px; border-radius: var(--r-md); background: var(--krystal-teal-dim); color: var(--krystal-teal); display: flex; align-items: center; justify-content: center; }
+.backup-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.backup-row__name { color: var(--fg-1); font-weight: 600; font-size: 14px; font-family: var(--font-mono); }
+.backup-row__when { color: var(--fg-3); font-size: 12.5px; }
+.backup-row__size { font-family: var(--font-mono); color: var(--fg-2); font-size: 12.5px; }
+.backup-row__tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--veil-1); color: var(--fg-3); }
+.backup-row__tag--auto { background: var(--info-bg); color: var(--info-fg); }
+.backup-row__tag--manual { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
+.backup-row__actions { display: flex; gap: 6px; }
+.icon-btn { background: transparent; border: 1px solid var(--border-subtle); color: var(--fg-2); width: 32px; height: 32px; border-radius: var(--r-md); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.icon-btn:hover { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
+.icon-btn--danger:hover { color: var(--danger-fg); border-color: var(--danger); }
+

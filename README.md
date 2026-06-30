@@ -60,10 +60,11 @@ kgsm-web/
     App.jsx               the shell: auth gate, hash routing, sidebar, assistant dock
     components/           25 shared components (Sidebar, ServerCard, ConsolePanel, …)
     pages/                18 routed pages (Dashboard, Servers, Library, Alerts, …)
-    lib/                  client data layer (see below)
+    lib/                  client data layer (see below) · theme.js (client-only theme pref)
     styles/
-      tokens.css          design tokens + @font-face (the brand DS)
-      kit.css             component class library
+      tokens.css          design tokens + @font-face — :root structural + [data-theme] color scopes
+      kit.css             BARREL: @imports kit/*.css in cascade order (do not grow a monolith)
+      kit/                domain partials (shell, server, catalog, dashboard, chat, hosts, …)
       consumer.css        app-level overrides
   scripts/                smoke-live.mjs (live-wiring smoke) · deploy-prod.sh (frontend-only deploy)
   MIGRATION.md            prototype → production playbook (partly historical)

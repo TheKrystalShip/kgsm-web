@@ -1,0 +1,332 @@
+/* ============================================================================
+   kit/shell.css — sidebar, top bar, content, footer
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============= Sidebar ============= */
+.sidebar {
+  background: var(--surface-0);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 16px;
+  min-height: 0;
+}
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 6px;
+}
+.sidebar__brand-wordmark {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
+}
+/* Primary nav + quick-action groups */
+.sidebar__nav, .sidebar__actions { display: flex; flex-direction: column; gap: 2px; }
+.sidebar__actions { padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+
+/* Grouped primary nav: labelled sections separated by vertical rhythm */
+.sidebar__nav { gap: 18px; }
+.sidebar__group { display: flex; flex-direction: column; gap: 2px; }
+.sidebar__group-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  font-weight: 600;
+  padding: 0 10px;
+  margin-bottom: 4px;
+}
+
+/* Server search */
+.sidebar__search {
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 10px;
+  gap: 8px;
+  color: var(--fg-3);
+  font-size: 13px;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+.sidebar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-input); }
+.sidebar__search > svg { flex-shrink: 0; }
+.sidebar__search input {
+  flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+  color: var(--fg-1); font-family: var(--font-ui); font-size: 13px;
+}
+.sidebar__search input::placeholder { color: var(--fg-4); }
+.sidebar__search-clear {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: var(--r-sm);
+  background: transparent; border: none; color: var(--fg-3); cursor: pointer;
+}
+.sidebar__search-clear:hover { background: var(--surface-2); color: var(--fg-1); }
+
+/* Collapsible Game Servers section */
+.sidebar__servers { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sidebar__section-header {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 4px 10px; margin-bottom: 4px;
+  background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.sidebar__caret { color: var(--fg-4); flex-shrink: 0; transition: transform var(--d-fast) var(--ease-out); }
+.sidebar__caret--open { transform: rotate(90deg); }
+.sidebar__section-header:hover .sidebar__caret,
+.sidebar__section-header:hover .sidebar__section-label { color: var(--fg-2); }
+.sidebar__section-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 600;
+  transition: color var(--d-fast) var(--ease-out);
+}
+.sidebar__section-count {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+  color: var(--fg-3); background: var(--surface-3);
+  padding: 0 6px; border-radius: 999px; line-height: 16px;
+}
+.sidebar__servers-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.sidebar__list { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; min-height: 0; }
+.sidebar__list-empty { font-size: 12.5px; color: var(--fg-4); padding: 8px 10px; line-height: 1.45; }
+.sidebar__foot { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: auto; }
+
+/* Account row pinned in the sidebar foot (above Settings). Popover opens UP. */
+.sidebar__account-wrap { position: relative; }
+.sidebar__account {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 7px 8px; border-radius: var(--r-md);
+  background: transparent; border: 1px solid transparent; cursor: pointer; text-align: left;
+  transition: background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.sidebar__account:hover { background: var(--surface-2); }
+.sidebar__account--open { background: var(--surface-2); border-color: var(--border-subtle); }
+.sidebar__account__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sidebar__account__name { font-size: 13px; font-weight: 600; color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar__account__sub { font-size: 11px; color: var(--fg-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar__account__caret { color: var(--fg-4); flex-shrink: 0; }
+.sidebar__account-menu {
+  position: absolute; bottom: calc(100% + 6px); left: 0; right: 0;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-2);
+  padding: 6px; display: flex; flex-direction: column; gap: 2px; z-index: 30;
+  animation: k-fade var(--d-fast) var(--ease-out);
+}
+.sidebar__account-menu__head { padding: 8px 10px 10px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 4px; }
+.sidebar__account-menu__name { font-size: 13px; font-weight: 600; color: var(--fg-1); }
+.sidebar__account-menu__provider { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-3); margin-top: 3px; }
+.sidebar__account-menu__item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  background: transparent; border: none; cursor: pointer; text-align: left;
+  font-size: 13px; color: var(--fg-2); font-family: var(--font-ui);
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.sidebar__account-menu__item:hover { background: var(--surface-2); color: var(--fg-1); }
+.sidebar__account-menu__item--danger { color: var(--danger-fg); }
+.sidebar__account-menu__item--danger:hover { background: var(--danger-bg); color: var(--danger-fg); }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg-1); }
+.nav-item--active { background: var(--krystal-teal-dim); color: var(--krystal-teal); position: relative; }
+.nav-item--active::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; background: var(--krystal-teal); border-radius: 0 2px 2px 0; }
+.nav-item__badge { margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--veil-2); color: var(--fg-2); font-weight: 600; }
+
+/* Server list item */
+.server-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out);
+}
+.server-row:hover { background: var(--surface-2); }
+.server-row--active { background: var(--surface-3); }
+.server-row__icon {
+  width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+  background-size: cover; background-position: center;
+  background-color: var(--surface-3);
+}
+.server-row__name { font-size: 13.5px; font-weight: 500; color: var(--fg-1); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-row__dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+
+/* ============= Top bar ============= */
+.topbar {
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 28px;
+  flex-shrink: 0;
+  background: var(--canvas);
+}
+.topbar__link {
+  font-size: 13.5px;
+  color: var(--fg-3);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 18px 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.topbar__link--active { color: var(--fg-1); border-bottom-color: var(--krystal-teal); font-weight: 600; }
+.topbar__spacer { flex: 1; }
+.topbar__account {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--fg-1); font-size: 13.5px; font-weight: 500;
+  cursor: pointer; padding: 6px 10px; border-radius: var(--r-md);
+}
+.topbar__account:hover { background: var(--surface-2); }
+
+/* ============= Content ============= */
+.content { padding: 24px; max-width: var(--content-max); width: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; }
+.content__breadcrumb { color: var(--fg-3); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+
+/* ============= Footer ============= */
+.kfoot {
+  margin-top: auto;            /* pin to bottom of the scroll area when content is short */
+  width: 100%;
+  background: var(--surface-0);
+  border-top: 1px solid var(--border-subtle);
+}
+.kfoot__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 18px 24px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 48px;
+}
+
+/* Brand block */
+.kfoot__brand { max-width: 380px; }
+.kfoot__brand-row { display: flex; align-items: center; gap: 11px; }
+.kfoot__mark { object-fit: contain; }
+.kfoot__wordmark { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--fg-1); }
+.kfoot__tagline { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--fg-3); }
+.kfoot__powered {
+  margin-top: 10px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 500; color: var(--fg-3);
+}
+.kfoot__powered-dot {
+  width: 7px; height: 7px; border-radius: var(--r-pill);
+  background: var(--krystal-teal);
+  box-shadow: 0 0 0 3px var(--krystal-teal-dim);
+  animation: kr-pulse 1.8s ease-in-out infinite;
+}
+
+/* Repo links */
+.kfoot__links-label {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--fg-3); font-weight: 600; margin-bottom: 7px;
+}
+.kfoot__repos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; }
+.kfoot__repo {
+  display: flex; align-items: center; gap: 11px; min-width: 0;
+  padding: 5px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  color: var(--fg-2);
+  transition: background var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out);
+}
+.kfoot__repo:hover { background: var(--surface-2); border-color: var(--border-subtle); }
+.kfoot__repo-ico {
+  width: 28px; height: 28px; flex-shrink: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-3);
+  transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.kfoot__repo:hover .kfoot__repo-ico { color: var(--krystal-teal-hover); border-color: var(--border-strong); }
+.kfoot__repo--org .kfoot__repo-ico {
+  background: var(--krystal-teal-dim);
+  border-color: var(--krystal-teal-ring);
+  color: var(--krystal-teal);
+}
+.kfoot__repo-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.kfoot__repo-name {
+  font-family: var(--font-mono);
+  font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--fg-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kfoot__repo--org .kfoot__repo-name { font-size: 14px; }
+.kfoot__repo-scope { color: var(--fg-4); font-weight: 500; }
+.kfoot__repo-sub { font-size: 12px; color: var(--fg-3); }
+.kfoot__repo-arrow {
+  flex-shrink: 0; color: var(--fg-4);
+  opacity: 0; transform: translateX(-4px);
+  transition: opacity var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.kfoot__repo:hover .kfoot__repo-arrow { opacity: 1; transform: none; color: var(--krystal-teal-hover); }
+
+/* Bottom bar */
+.kfoot__bar {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 9px 24px 10px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.kfoot__copy { font-size: 12px; color: var(--fg-4); }
+.kfoot__bar-org {
+  font-family: var(--font-mono);
+  font-size: 12px; color: var(--fg-3);
+  display: inline-flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid transparent;
+}
+.kfoot__bar-org:hover { color: var(--krystal-teal-hover); border-bottom-color: transparent; }
+
+/* Collapse on the content column's OWN width, not the viewport's, so the footer
+   reflows when the pinned agent dock narrows the page (the viewport stays wide).
+   Ordered widest -> narrowest so the narrowest matching rule wins the cascade. */
+
+/* Step 1: stack brand over the links block, but keep repos two-up. */
+@container appmain (max-width: 980px) {
+  .kfoot__inner { grid-template-columns: 1fr; gap: 20px; }
+  .kfoot__brand { max-width: none; }
+}
+/* Step 2: single column throughout + tighter padding. */
+@container appmain (max-width: 760px) {
+  .kfoot__inner { gap: 18px; padding: 16px 16px 12px; }
+  .kfoot__repos { grid-template-columns: minmax(0, 1fr); }
+  .kfoot__bar { padding: 14px 16px max(16px, env(safe-area-inset-bottom, 0)); }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 760px) {
+    .kfoot__inner { grid-template-columns: 1fr; gap: 18px; padding: 16px 16px 12px; }
+    .kfoot__repos { grid-template-columns: 1fr; }
+    .kfoot__bar { padding: 14px 16px max(16px, env(safe-area-inset-bottom, 0)); }
+    .kfoot__brand { max-width: none; }
+  }
+}
+

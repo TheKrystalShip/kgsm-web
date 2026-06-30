@@ -3,6 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <!-- Theme: set <html data-theme> BEFORE the stylesheet applies, so a non-dark
+         preference never flashes dark on load. Mirrors src/lib/theme.js (keep in
+         sync): "auto" → OS prefers-color-scheme; missing/invalid → dark. -->
+    <script>
+      (function () {
+        try {
+          var p = localStorage.getItem("krystal:theme");
+          var t = (p === "light" || p === "dark") ? p
+                : (p === "auto" && window.matchMedia
+                    && matchMedia("(prefers-color-scheme: light)").matches) ? "light"
+                : "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
     <meta name="theme-color" content="#0B0F14" />
     <link rel="icon" href="/assets/tks-mark.png" />
 

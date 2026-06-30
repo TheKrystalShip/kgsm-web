@@ -11,6 +11,12 @@ import "./styles/tokens.css";
 import "./styles/kit.css";
 import "./styles/consumer.css";
 
+// Theme preference store (client-only). Importing it applies the saved theme to
+// <html data-theme>, wires the meta tag, and live-tracks the OS scheme for "auto".
+// The index.html boot script already set the attribute pre-paint; this keeps the
+// store + browser-chrome color in sync. See src/lib/theme.js.
+import "./lib/theme.js";
+
 // If we just landed from the OAuth callback (kgsm-api 302'd back with the session
 // in the URL fragment), capture + strip it BEFORE the hash router reads
 // location.hash, then resolve the app-shell identity from /me so the app mounts

@@ -1,0 +1,1182 @@
+/* ============================================================================
+   kit/observability.css — players, performance/charts, anomalies, diagnostics, services, log console, audit
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============= Players tab ============= */
+.players-toolbar { display: flex; align-items: center; gap: 10px; }
+.players-toolbar .summary { color: var(--fg-3); font-size: 13px; }
+.players-toolbar .summary b { color: var(--fg-1); font-weight: 600; }
+
+.player-table { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; }
+.player-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0,2fr) 80px 80px 100px 1fr auto;
+  gap: 14px;
+  padding: 12px 16px;
+  align-items: center;
+}
+.player-row + .player-row { border-top: 1px solid var(--border-subtle); }
+.player-row--head { background: var(--surface-2); color: var(--fg-3); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 16px; }
+.player-avatar { width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press)); color: var(--fg-inverse); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.player-name { display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.player-name__primary { color: var(--fg-1); font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-name__role { color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); }
+.player-ping { font-family: var(--font-mono); font-size: 12.5px; }
+.player-ping--good { color: var(--success-fg); }
+.player-ping--mid  { color: var(--warning-fg); }
+.player-ping--bad  { color: var(--danger-fg); }
+.player-meta-cell { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-2); }
+.player-status-pill {
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 999px;
+  display: inline-block;
+}
+.player-status-pill[data-tone="success"] { background: var(--success-bg); color: var(--success-fg); }
+.player-status-pill[data-tone="muted"]   { background: var(--veil-1); color: var(--fg-3); }
+.player-status-pill[data-tone="danger"]  { background: var(--danger-bg); color: var(--danger-fg); }
+.player-status-pill[data-tone="brand"]   { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
+
+/* Action buttons — desktop default is icon-only & revealed on hover. */
+.player-actions { display: flex; gap: 6px; opacity: 0; transition: opacity var(--d-fast); }
+.player-row:hover .player-actions { opacity: 1; }
+.player-act {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  width: 32px; height: 32px;
+  border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer;
+  font-family: var(--font-ui); font-weight: 600; font-size: 12.5px;
+  padding: 0;
+}
+.player-act:hover { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
+.player-act--danger:hover { color: var(--danger-fg); border-color: var(--danger); }
+.player-act__label { display: none; }
+.player-row--head .player-row__status,
+.player-row--head .player-meta-cell,
+.player-row--head .player-ping { display: none; }
+.player-row--head > span:nth-child(3) { display: inline; }    /* re-show header labels */
+
+/* ============= Performance tab (charts) ============= */
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.chart-card { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+.chart-card__head { display: flex; align-items: baseline; gap: 10px; }
+.chart-card__title { font-size: 12px; font-weight: 600; color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; }
+.chart-card__val { font-size: 22px; font-weight: 700; color: var(--fg-1); line-height: 1; letter-spacing: -0.01em; margin-left: auto; }
+.chart-card__val small { font-size: 12px; font-weight: 400; color: var(--fg-3); }
+.chart-card__legend { display: flex; gap: 12px; color: var(--fg-3); font-size: 11.5px; }
+.chart-card__legend .swatch { width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; display: inline-block; vertical-align: middle; }
+
+/* Per-window summary stats (avg / peak / min over the visible buffer) — a quiet
+   mono strip under the card header, so the lone "current value" has a baseline. */
+.chart-stats { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+.chart-stat {
+  font-family: var(--font-mono); font-size: 11px; color: var(--fg-2);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm); padding: 2px 7px; line-height: 1.5; white-space: nowrap;
+}
+.chart-stat b { color: var(--fg-4); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 9.5px; margin-right: 4px; }
+
+/* Hover crosshair + tooltip overlay (TimeSeriesChart). The overlay sits over the
+   stretched SVG and is positioned in % so it tracks the data points exactly. */
+.tschart { position: relative; width: 100%; }
+.tschart__overlay { position: absolute; inset: 0; cursor: crosshair; }
+.tschart__crosshair {
+  position: absolute; width: 1px; background: var(--border-strong);
+  transform: translateX(-0.5px); pointer-events: none;
+}
+.tschart__dot {
+  position: absolute; width: 7px; height: 7px; border-radius: 50%;
+  transform: translate(-50%, -50%); pointer-events: none;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+.tschart__tip {
+  position: absolute; top: 4px; z-index: 6; pointer-events: none;
+  background: var(--surface-3); border: 1px solid var(--border-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-2);
+  padding: 6px 9px; min-width: 96px; white-space: nowrap;
+}
+.tschart__tip-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); margin-bottom: 4px; }
+.tschart__tip-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 1.75; }
+.tschart__tip-sw { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.tschart__tip-lbl { color: var(--fg-3); }
+.tschart__tip-val { margin-left: auto; padding-left: 12px; font-family: var(--font-mono); font-weight: 600; color: var(--fg-1); }
+
+/* Lifecycle event flags (#3) — persistent markers (start/stop/restart/crash from
+   the audit log) at the event's real wall-clock x, each with a hover tooltip. The
+   layer is click-through except the flag itself, so the crosshair still tracks. */
+.tschart__events { position: absolute; inset: 0; pointer-events: none; z-index: 7; }
+.tschart__evt { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); }
+.tschart__evt-flag {
+  position: absolute; top: 1px; left: 50%; transform: translateX(-50%);
+  width: 8px; height: 8px; border-radius: 2px; pointer-events: auto; cursor: default;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+.tschart__evt-tip {
+  position: absolute; top: 13px; left: 0; display: none; white-space: nowrap;
+  background: var(--surface-3); border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm); box-shadow: var(--shadow-2);
+  padding: 4px 8px; font-size: 11px; color: var(--fg-2);
+}
+.tschart__evt-flag:hover + .tschart__evt-tip { display: block; }
+.tschart__evt-tip b { color: var(--fg-1); font-weight: 600; margin-right: 6px; }
+
+/* Drag-to-zoom (#4) — a crosshair cursor on the zoomable (time-axis) charts and a
+   teal selection band while dragging out a window. */
+.tschart__overlay--zoomable { cursor: crosshair; }
+.tschart__zoomsel {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: color-mix(in srgb, var(--krystal-teal) 16%, transparent);
+  border-left: 1px solid var(--krystal-teal-ring);
+  border-right: 1px solid var(--krystal-teal-ring);
+}
+/* Zoom-window pill in the history toolbar — shows the active window + clears it. */
+.perf-zoom-pill {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  color: var(--krystal-teal); cursor: pointer;
+  background: var(--krystal-teal-dim); border: 1px solid var(--border-accent);
+  border-radius: var(--r-pill); padding: 3px 9px; transition: background var(--d-fast) var(--ease-out);
+}
+.perf-zoom-pill:hover { background: color-mix(in srgb, var(--krystal-teal) 22%, transparent); }
+
+/* ===== Chart card controls (#5): log-scale + full-screen + legend toggles ===== */
+.chart-card__head-right { display: inline-flex; align-items: center; gap: 8px; }
+.chart-card__ctrls { display: inline-flex; align-items: center; gap: 3px; }
+.chart-ctrl {
+  display: inline-flex; align-items: center; gap: 4px; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  color: var(--fg-3); background: transparent;
+  border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
+  cursor: pointer; transition: color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.chart-ctrl:hover { color: var(--fg-1); background: var(--surface-2); border-color: var(--border-strong); }
+.chart-ctrl--text { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.chart-ctrl.on { color: var(--krystal-teal); background: var(--krystal-teal-dim); border-color: var(--border-accent); }
+
+/* Clickable legend entries — toggle a series; a muted one dims + strikes through. */
+.chart-legend-btn {
+  display: inline-flex; align-items: center; gap: 0;
+  font-size: 11.5px; color: var(--fg-3); background: transparent; border: none;
+  padding: 0; cursor: pointer; transition: color var(--d-fast) var(--ease-out), opacity var(--d-fast) var(--ease-out);
+}
+.chart-legend-btn:hover { color: var(--fg-1); }
+.chart-legend-btn .swatch { width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; display: inline-block; vertical-align: middle; transition: opacity var(--d-fast) var(--ease-out); }
+.chart-legend-btn.off { color: var(--fg-4); text-decoration: line-through; }
+.chart-legend-btn.off .swatch { opacity: 0.3; }
+
+/* Full-screen placeholder left in the grid while a chart is popped out. */
+.chart-brief--placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; min-height: 200px; color: var(--fg-3); font-size: 12.5px; text-align: center;
+}
+
+/* Single-chart full-screen pop-out — mirrors the console card pop-out. */
+.chart-modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, var(--scrim-base) 70%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; padding: 32px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.chart-modal {
+  margin: auto; width: min(1100px, 100%); max-height: 100%;
+  display: flex; flex-direction: column;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+.chart-modal .chart-brief { margin: 0; }
+@media (max-width: 640px) {
+  .chart-modal-scrim { padding: 0; }
+  .chart-modal { width: 100%; height: 100%; }
+}
+/* Performance charts now use the shared BriefCard shell (window.BriefCard): the
+   titled header holds the metric name + anomaly badge + live value, and the
+   graph + legend sit in a padded body. The grid is a simple 2-up that collapses
+   to one column on tablet/phone (see responsive blocks), so all four cards are
+   equal-size and fully fluid. */
+.chart-grid > .chart-brief { margin-top: 0; }
+.chart-brief__body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.chart-brief .chat-brief__head .chart-card__val { margin-left: 0; white-space: nowrap; }
+.range-tabs { display: flex; gap: 4px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-md); padding: 3px; }
+.range-tabs button {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  color: var(--fg-3); background: transparent; border: none;
+  padding: 4px 10px; border-radius: var(--r-sm); cursor: pointer;
+}
+.range-tabs button.on { background: var(--surface-3); color: var(--fg-1); }
+
+/* ============= Compare-period legend dash + chart anomaly badge ============= */
+.swatch--dashed {
+  display: inline-block;
+  width: 14px; height: 0;
+  vertical-align: middle;
+  margin-right: 5px;
+  border-bottom: 1.5px dashed var(--fg-3);
+}
+.chart-card__anomaly-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-family: var(--font-mono);
+}
+
+/* ============= Anomalies panel ============= */
+.anomaly-panel { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.anomaly-panel__title {
+  font-size: 17px; font-weight: 600; color: var(--fg-1);
+  display: flex; align-items: center; gap: 10px;
+  margin: 0;
+}
+.anomaly-panel__count {
+  background: var(--surface-2); color: var(--fg-2);
+  font-size: 11.5px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+}
+.anomaly-panel__sub { font-size: 13px; color: var(--fg-3); margin: 0 0 6px; }
+.anomaly-panel__empty {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 32px;
+  text-align: center;
+  color: var(--success-fg);
+}
+
+.anomaly-list { display: flex; flex-direction: column; gap: 10px; }
+
+.anomaly-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.anomaly-card--danger { border-left-color: var(--danger); }
+
+.anomaly-card__head { display: flex; align-items: flex-start; gap: 12px; }
+.anomaly-card__icon {
+  width: 30px; height: 30px;
+  border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.anomaly-card__icon--warn   { background: var(--warning-bg); color: var(--warning-fg); }
+.anomaly-card__icon--danger { background: var(--danger-bg);  color: var(--danger-fg);  }
+
+.anomaly-card__title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.anomaly-card__metric { color: var(--fg-1); font-weight: 600; font-size: 14px; }
+.anomaly-card__mag    { color: var(--fg-2); font-size: 12.5px; font-family: var(--font-mono); }
+
+.anomaly-card__when { display: flex; flex-direction: column; gap: 2px; text-align: right; flex-shrink: 0; }
+.anomaly-card__when > :first-child { color: var(--fg-2); font-size: 12.5px; font-family: var(--font-mono); }
+.anomaly-card__dur { color: var(--fg-4); font-size: 11px; font-family: var(--font-mono); }
+
+.anomaly-card__body { padding-top: 4px; border-top: 1px solid var(--border-subtle); }
+.anomaly-card__corr-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--fg-3); text-transform: uppercase;
+  display: flex; align-items: center; gap: 5px;
+  margin: 8px 0 6px;
+}
+.anomaly-card__corr-list { display: flex; flex-direction: column; gap: 6px; }
+.anomaly-card__corr-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px;
+}
+.anomaly-card__corr-text { color: var(--fg-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anomaly-card__corr-text b { color: var(--fg-1); font-weight: 600; }
+.anomaly-card__corr-ts { color: var(--fg-4); font-family: var(--font-mono); font-size: 11.5px; flex-shrink: 0; }
+.anomaly-card__corr-empty {
+  font-size: 12.5px; color: var(--fg-3);
+  font-style: italic;
+  padding: 8px 0 2px;
+}
+.anomaly-card__corr-more { font-size: 11.5px; color: var(--krystal-teal); padding-top: 2px; cursor: pointer; }
+
+/* ============= Live mode toggle (Performance toolbar) ============= */
+.live-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  font-family: var(--font-ui); font-weight: 600; font-size: 12.5px;
+  cursor: pointer;
+}
+.live-toggle:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.live-toggle__dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: var(--fg-4);
+}
+.live-toggle--on { color: var(--success-fg); background: var(--success-bg); border-color: transparent; }
+.live-toggle--on .live-toggle__dot { background: var(--success); animation: kr-pulse 1.4s ease-in-out infinite; }
+
+/* ============= Diagnostics ============= */
+/* Deep-dive header row: the title aligns with the rest of the page (breadcrumb,
+   cards); the icon-only back button is pulled OUT of flow into the left gutter
+   so it doesn't indent the title. The header pushes the "Live" pill far right. */
+.diag-head-row {
+  position: relative;
+}
+.diag-back-btn {
+  position: absolute; top: 6px; right: 100%; margin-right: 2px;
+  width: 22px; height: 26px; padding: 0; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--fg-3); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
+}
+.diag-back-btn:hover { color: var(--fg-1); background: var(--surface-2); }
+.diag-head {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap; justify-content: space-between;
+}
+.diag-head__title h1 { font-size: 28px; font-weight: 700; color: var(--fg-1); margin: 0; letter-spacing: -0.01em; }
+
+.host-picker {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 8px 14px;
+  cursor: pointer;
+  min-width: 240px;
+}
+.host-picker:hover { border-color: var(--border-strong); }
+.host-picker--solo { cursor: default; }
+.host-picker--solo:hover { border-color: var(--border-subtle); }
+.host-picker__dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+.host-picker__dot--online { background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
+.host-picker__main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.host-picker__name { color: var(--fg-1); font-weight: 600; font-size: 13.5px; }
+.host-picker__hostname { color: var(--fg-3); font-size: 11.5px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-picker select {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  width: 100%; height: 100%; font-size: 16px; border: none;
+}
+
+/* Traffic-light tiles */
+.diag-tiles {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+.diag-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+/* Inner thin colored top edge — subtle visual cue without a left-rule */
+.diag-tile::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.diag-tile--success::before { background: var(--success); }
+.diag-tile--warn::before    { background: var(--warning); }
+.diag-tile--danger::before  { background: var(--danger);  }
+.diag-tile__head { display: flex; align-items: center; gap: 8px; }
+.diag-tile__icon { color: var(--fg-3); }
+.diag-tile__label {
+  flex: 1;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--fg-3); text-transform: uppercase;
+}
+.diag-tile__dot { width: 8px; height: 8px; border-radius: 999px; }
+.diag-tile__dot--success { background: var(--success); }
+.diag-tile__dot--warn    { background: var(--warning); animation: kr-pulse 1.8s ease-in-out infinite; }
+.diag-tile__dot--danger  { background: var(--danger);  animation: kr-pulse 1.8s ease-in-out infinite; }
+.diag-tile__value {
+  font-size: 22px; font-weight: 700; color: var(--fg-1);
+  letter-spacing: -0.01em; line-height: 1;
+}
+.diag-tile__why { font-size: 11.5px; color: var(--fg-3); font-family: var(--font-mono); }
+
+/* Diagnostics overview KPIs reuse the dashboard's Kpi card (window.Kpi). Unlike
+   the dashboard — which stays calm when healthy and only flags warn/danger —
+   these keep the full traffic-light top hairline on every tone (green/amber/
+   red) as the at-a-glance health cue, and let the denser metric sub-text wrap
+   rather than truncate. */
+.diag-tiles .kpi { margin-top: 0; position: relative; }
+.diag-tiles .kpi--ok::before,
+.diag-tiles .kpi--warn::before,
+.diag-tiles .kpi--danger::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.diag-tiles .kpi--ok::before     { background: var(--success); }
+.diag-tiles .kpi--warn::before   { background: var(--warning); }
+.diag-tiles .kpi--danger::before { background: var(--danger); }
+.diag-tiles .kpi__sub { white-space: normal; line-height: 1.45; }
+
+/* ===== Metrics freshness — instrument "power" treatment =====
+   Live metrics are treated like a powered instrument readout. When the feed
+   drops we keep the last reading but the gauge goes DARK (faded, dropped tone,
+   red status LED); when it returns the gauge flickers back to life like a sign
+   warming up. A dark number must never read as healthy. */
+
+/* "No signal" indicator — an unlit LED + label that pins the dark state to a
+   card/tile after the banner scrolls away. Free-floating text, no pill chrome. */
+/* Per-card status LED — a control-panel signal light in the card header. Solid
+   green when this host's live metrics are flowing, solid red when the feed has
+   dropped; a soft glow makes it read as an illuminated indicator. */
+.status-led {
+  width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0;
+  display: inline-block;
+}
+.status-led--live {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 16%, transparent),
+              0 0 7px color-mix(in srgb, var(--success) 55%, transparent);
+}
+.status-led--down {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent),
+              0 0 7px color-mix(in srgb, var(--danger) 50%, transparent);
+}
+/* LED + its compact age, grouped tight ("2m ●") and right-aligned in the header. */
+.led-group { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.led-group__age { font-size: 11px; font-weight: 600; color: var(--fg-3); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+
+/* Chat: system status row — platform notice when the assistant capability
+   drops or returns mid-session. Distinct from assistant messages; soft fade-in
+   on recovery (no flicker, per the calm chat redesign). */
+.chat-system {
+  display: flex; gap: 9px; align-items: flex-start;
+  margin: 6px auto; max-width: 92%;
+  padding: 10px 14px; border-radius: var(--r-lg);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  animation: chatSystemIn 0.45s var(--ease-out) both;
+}
+.chat-system .status-led { margin-top: 4px; flex-shrink: 0; }
+.chat-system__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.chat-system__title { font-size: 12.5px; font-weight: 600; color: var(--fg-2); }
+.chat-system__detail { font-size: 12px; line-height: 1.5; color: var(--fg-3); }
+.chat-system--up { border-color: color-mix(in srgb, var(--success) 34%, var(--border-subtle)); }
+.chat-system--up .chat-system__title { color: var(--success-fg); }
+@keyframes chatSystemIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chat-system { animation: none; } }
+
+/* Composer hint shown when the assistant is unavailable (send is disabled). */
+.chat-composer__downhint {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; padding: 0 2px;
+  font-size: 12px; color: var(--fg-3);
+}
+
+/* Assistant unavailable affordances. Picker menu lists a down host disabled
+   with a red dot; Ask actions across alert surfaces lock when the alert's host
+   assistant is down. */
+.asst-host__dot--danger { background: var(--danger); }
+.asst-host__opt--down { opacity: 0.55; cursor: not-allowed; }
+.asst-host__opt--down:hover { background: none; }
+.asst-host__opt-state { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--danger-fg); }
+.alert-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.chat-brief__item--noask { cursor: default; }
+.chat-brief__item--noask:hover { background: none; }
+.chat-brief__ask--off { color: var(--fg-4); }
+
+/* Smooth power-down: when the feed drops (live → dark) the readout bleeds out
+   over ~0.55s instead of snapping off, so it reads as power lost over time, not
+   instantly cut. Power-UP keeps its flicker (the kpiPowerOn keyframes below). */
+.diag-tiles .kpi--metric .tile__val,
+.diag-tiles .kpi--metric .tile__val small,
+.diag-tiles .kpi--metric .chat-brief__title,
+.diag-tiles .kpi--metric .chat-brief__title svg,
+.diag-tiles .kpi--metric .kpi__sub {
+  transition: color 0.55s ease, opacity 0.55s ease, fill 0.55s ease;
+}
+.diag-tiles .kpi--metric .status-led {
+  transition: background-color 0.55s ease, box-shadow 0.55s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .diag-tiles .kpi--metric .tile__val,
+  .diag-tiles .kpi--metric .tile__val small,
+  .diag-tiles .kpi--metric .chat-brief__title,
+  .diag-tiles .kpi--metric .chat-brief__title svg,
+  .diag-tiles .kpi--metric .kpi__sub,
+  .diag-tiles .kpi--metric .status-led { transition: none; }
+}
+
+/* As-of tag for slow/monotonic data (disks, ports) — still trustworthy when
+   stale, so it stays full-colour and just declares its age. */
+.asof-tag {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; color: var(--fg-3);
+}
+
+/* Dark data viz on the Resources cards: desaturate + dim numbers and bars,
+   keep titles/labels legible so the card is still readable, just not-live. */
+.chat-brief.is-frozen .core-grid,
+.chat-brief.is-frozen .ram-bar,
+.chat-brief.is-frozen .iface-row__metric b { filter: grayscale(1); opacity: 0.5; }
+.chat-brief.is-frozen .ram-legend b,
+.chat-brief.is-frozen .core-cell__lbl,
+.chat-brief.is-frozen .diag-meta-line b { opacity: 0.55; }
+
+/* Overview gauge tiles — powered instrument readouts. OFF: the metric tiles go
+   dark, the number receding to a faint disabled-grey, and the header status LED
+   turns red. Uptime (boot-derived, still valid) is NOT a .kpi--metric, so it
+   stays lit (its LED stays green). */
+.diag-tiles.is-frozen .kpi--metric { border-style: dashed; }
+.diag-tiles.is-frozen .kpi--metric .chat-brief__title { color: var(--fg-4); }
+.diag-tiles.is-frozen .kpi--metric .chat-brief__title svg { opacity: 0.5; }
+.diag-tiles.is-frozen .kpi--metric .kpi__sub { color: var(--fg-4); opacity: 0.85; }
+
+/* Power-on warm-up: when the feed returns, the gauges flicker back to their
+   lit (tone-coloured) readout — a couple of stutters and a false start, then
+   they catch and hold. Staggered per tile so they don't light in unison. No
+   glow: this is pure opacity/brightness on the existing colours. */
+@keyframes kpiPowerOn {
+  0%   { opacity: 0.14; filter: brightness(0.6); }
+  6%   { opacity: 0.55; filter: brightness(1.1); }
+  9%   { opacity: 0.16; filter: brightness(0.6); }
+  16%  { opacity: 0.78; filter: brightness(1.15); }
+  20%  { opacity: 0.2;  filter: brightness(0.7); }
+  29%  { opacity: 0.92; filter: brightness(1.2); }
+  34%  { opacity: 0.38; filter: brightness(0.85); }
+  42%  { opacity: 1;    filter: brightness(1.25); }
+  48%  { opacity: 0.62; filter: brightness(0.95); }
+  56%  { opacity: 1;    filter: brightness(1.1); }
+  66%  { opacity: 0.84; filter: brightness(1); }
+  100% { opacity: 1;    filter: brightness(1); }
+}
+.diag-tiles.is-powering-on .kpi--metric { animation: kpiPowerOn 1.5s linear both; }
+.diag-tiles.is-powering-on .kpi--metric:nth-of-type(1) { animation-delay: 0.05s; }
+.diag-tiles.is-powering-on .kpi--metric:nth-of-type(2) { animation-delay: 0.30s; }
+.diag-tiles.is-powering-on .kpi--metric:nth-of-type(3) { animation-delay: 0.13s; }
+.diag-tiles.is-powering-on .kpi--metric:nth-of-type(4) { animation-delay: 0.44s; }
+.diag-tiles.is-powering-on .kpi--metric:nth-of-type(5) { animation-delay: 0.22s; }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes kpiPowerOn { from { opacity: 0.3; } to { opacity: 1; } }
+  .diag-tiles.is-powering-on .kpi--metric { animation: kpiPowerOn 0.5s ease both; animation-delay: 0s !important; }
+}
+
+/* Server-tile live CPU/RAM chips go dark when the host's metrics feed drops
+   (metrics is a per-host capability). A small red LED flags "no signal". */
+.server-tile__metric--off { color: var(--fg-4); opacity: 0.75; }
+.server-tile__metric-led { display: inline-flex; align-items: center; margin-left: auto; }
+.server-tile__meta .status-led { width: 7px; height: 7px; }
+
+/* Performance tab — host metrics feed down: no live charts to show. */
+.perf-feed-down {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 56px 24px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); color: var(--fg-3);
+}
+.perf-feed-down__icon { color: var(--fg-3); display: inline-flex; }
+.perf-feed-down__title { font-size: 14px; font-weight: 600; color: var(--fg-2); }
+.perf-feed-down__sub { font-size: 13px; line-height: 1.5; max-width: 420px; }
+.perf-feed-down__tag {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--fg-3);
+}
+
+/* Live per-server metrics (PerformanceTab) — banner when the feed pauses, an
+   honest "not measured" placeholder where a chart can't be drawn, and the
+   processes/footprint stat block. */
+.perf-stale-banner {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 12px;
+  padding: 9px 13px; font-size: 12.5px; color: var(--fg-2);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-1));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-subtle));
+  border-radius: var(--r-md);
+}
+.perf-stale-banner svg { color: var(--warning); flex: none; }
+.perf-nochart {
+  display: flex; align-items: center; gap: 9px; min-height: 120px;
+  padding: 0 4px; color: var(--fg-3); font-size: 12.5px; line-height: 1.5;
+}
+.perf-nochart svg { flex: none; color: var(--fg-4); }
+.perf-stats { display: flex; gap: 24px; padding: 8px 0 4px; }
+.perf-stat { display: flex; flex-direction: column; gap: 4px; }
+.perf-stat__label { font-size: 11.5px; color: var(--fg-3); }
+.perf-stat__val { font-size: 22px; font-weight: 700; color: var(--fg-1); line-height: 1; letter-spacing: -0.01em; }
+
+/* Watchdog-down treatments. Process visibility + lifecycle actions are the
+   watchdog vertical; when it's down the table is unavailable and actions lock. */
+.proc-num--off { filter: grayscale(1); opacity: 0.5; }
+.proc-unavailable {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: 52px 24px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); color: var(--fg-3);
+}
+.proc-unavailable__icon { color: var(--fg-3); display: inline-flex; }
+.proc-unavailable__title { font-size: 14px; font-weight: 600; color: var(--fg-2); }
+.proc-unavailable__sub { font-size: 13px; line-height: 1.5; max-width: 460px; }
+.proc-unavailable__tag {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--fg-3);
+}
+.proc-unavailable--inline { padding: 26px 18px; background: none; border: none; }
+
+/* ---------- Services board (host leaf control center) ---------- */
+/* The KGSM leaf status dot — one shared visual across the Services tab cards and the Overview summary.
+   Tones map a folded systemd+health state to a colour; `idle` (socket-activated, resting) is deliberately
+   neutral (not a fault), `off`/unknown are muted (no signal), never green-by-default. */
+/* Same dot as the dashboard fleet rows (base tone + a soft 20% ring) so the two surfaces match. */
+.svc-dot { width: 9px; height: 9px; border-radius: 999px; flex: 0 0 auto; background: var(--fg-4); }
+.svc-dot--up   { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent); }
+.svc-dot--warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 20%, transparent); }
+.svc-dot--down { background: var(--danger);  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+.svc-dot--idle { background: var(--krystal-teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--krystal-teal) 20%, transparent); }
+.svc-dot--off  { background: var(--fg-4); }
+
+.svc-summary { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-2); }
+.svc-summary__stat b { color: var(--fg-1); }
+.svc-summary__sep { color: var(--fg-3); }
+
+.svc-grid {
+  display: grid; gap: 12px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.svc-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-subtle); border-radius: var(--r-md);
+}
+.svc-card--up   { border-left-color: var(--success-fg); }
+.svc-card--warn { border-left-color: var(--warning-fg); }
+.svc-card--down { border-left-color: var(--danger-fg); }
+.svc-card--idle { border-left-color: var(--krystal-teal); }
+.svc-card__head { display: flex; align-items: center; gap: 9px; }
+.svc-card__name { font-size: 14px; font-weight: 650; color: var(--fg-1); }
+.svc-card__status { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--fg-2); }
+.svc-card__note { color: var(--fg-3); font-weight: 500; }
+.svc-card--warn .svc-card__status { color: var(--warning-fg); }
+.svc-card--down .svc-card__status { color: var(--danger-fg); }
+.svc-card__role { font-size: 12.5px; line-height: 1.45; color: var(--fg-3); }
+.svc-card__facts { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 2px; }
+.svc-fact {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--fg-3);
+}
+.svc-fact code { font-size: 11.5px; color: var(--fg-2); }
+.svc-fact svg { flex: 0 0 auto; opacity: 0.85; }
+.svc-fact--unit { color: var(--fg-2); }
+.svc-fact--boot.is-on { color: var(--success-fg); }
+
+/* Overview compact summary — one leaf per row, drilling into the Services tab. Mirrors the dashboard
+   fleet-row visual language (dot + bold name left, status right, chevron) so the Overview's Services card
+   reads as one family with the Fleet strip and the Recent activity / Alerts cards beside it. */
+.svc-rows { display: flex; flex-direction: column; }
+.svc-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; align-items: center; gap: 12px;
+  min-height: 48px; box-sizing: border-box; width: 100%;
+  padding: 11px 14px; text-align: left; cursor: pointer;
+  background: transparent; border: none; border-top: 1px solid var(--border-subtle);
+  transition: background var(--d-fast) var(--ease-out);
+}
+.svc-row:first-child { border-top: none; }
+.svc-row:hover { background: var(--surface-2); }
+.svc-row:hover .svc-row__go { color: var(--krystal-teal); }
+.svc-row__id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.svc-row__name {
+  font-size: 13.5px; font-weight: 650; color: var(--fg-1); letter-spacing: -0.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.svc-row__status { display: inline-flex; align-items: baseline; gap: 7px; justify-content: flex-end; min-width: 0; }
+.svc-row__state { font-size: 12.5px; font-weight: 600; color: var(--fg-2); white-space: nowrap; }
+.svc-row__state--up   { color: var(--success-fg); }
+.svc-row__state--warn { color: var(--warning-fg); }
+.svc-row__state--down { color: var(--danger-fg); }
+.svc-row__state--idle { color: var(--fg-2); }
+.svc-row__state--off  { color: var(--fg-3); }
+.svc-row__note { font-size: 11px; font-family: var(--font-mono); color: var(--fg-3); white-space: nowrap; }
+.svc-row__end { display: flex; align-items: center; justify-content: flex-end; }
+.svc-row__go { color: var(--fg-4); transition: color var(--d-fast) var(--ease-out); }
+
+/* Leaf provisioning row (Services board) — the API↔leaf connection, distinct from the systemd liveness
+   shown above. The state chip is honest read-only for everyone; the connect/disconnect + Configure
+   controls are admin-gated. Sits under the facts with a hairline separator. */
+.svc-card__prov {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--border-subtle);
+}
+.svc-prov-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+}
+.svc-prov-chip--on  { color: var(--success-fg); background: var(--success-bg); border-color: color-mix(in srgb, var(--success-fg) 28%, transparent); }
+.svc-prov-chip--off { color: var(--fg-3); background: var(--surface-2); }
+.svc-card__prov-actions { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.svc-prov-btn, .svc-cfg-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px; border-radius: var(--r-md); cursor: pointer;
+  font-size: 12px; font-weight: 600; font-family: var(--font-ui);
+  border: 1px solid var(--border-subtle); background: var(--surface-2); color: var(--fg-2);
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.svc-prov-btn:hover, .svc-cfg-btn:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.svc-prov-btn:disabled { opacity: 0.6; cursor: default; }
+.svc-prov-btn--on { color: var(--krystal-teal); border-color: color-mix(in srgb, var(--krystal-teal) 40%, transparent); }
+.svc-prov-btn--on:hover { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
+.svc-prov-btn--off { color: var(--fg-3); }
+.svc-prov-btn--off:hover { color: var(--danger-fg); border-color: color-mix(in srgb, var(--danger-fg) 40%, transparent); }
+.svc-prov-err { display: inline-flex; align-items: center; gap: 4px; flex-basis: 100%; font-size: 11.5px; color: var(--danger-fg); }
+
+/* Leaf config modal — typed runtime-override form. Reuses the host-editor modal shell + host-field input. */
+.leaf-cfg { max-width: 560px; display: flex; flex-direction: column; max-height: min(86vh, 760px); }
+.leaf-cfg__unit { font-size: 11px; font-family: var(--font-mono); color: var(--fg-3); }
+.leaf-cfg__body { overflow-y: auto; gap: 12px; }
+.leaf-cfg__state { display: flex; align-items: center; gap: 10px; padding: 22px 4px; color: var(--fg-3); font-size: 13px; }
+.leaf-cfg__state--error { color: var(--danger-fg); }
+.leaf-cfg-result {
+  display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: var(--r-md);
+  font-size: 12.5px; line-height: 1.45; border: 1px solid var(--border-subtle);
+}
+.leaf-cfg-result--ok      { color: var(--success-fg); background: var(--success-bg); border-color: color-mix(in srgb, var(--success-fg) 26%, transparent); }
+.leaf-cfg-result--neutral { color: var(--fg-2); background: var(--surface-2); }
+.leaf-cfg-result--warn    { color: var(--warning-fg); background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning-fg) 30%, transparent); }
+.leaf-cfg-result svg { flex: 0 0 auto; margin-top: 1px; }
+.leaf-cfg-result__sub { color: inherit; opacity: 0.85; }
+.leaf-cfg-fields { display: flex; flex-direction: column; gap: 14px; }
+.leaf-cfg-field { display: flex; flex-direction: column; gap: 6px; }
+.leaf-cfg-field.is-reset { opacity: 0.72; }
+.leaf-cfg-field__top { display: flex; align-items: center; gap: 8px; }
+.leaf-cfg-field__label { font-size: 12.5px; font-weight: 650; color: var(--fg-1); }
+.leaf-cfg-field__env { font-size: 10.5px; font-family: var(--font-mono); color: var(--fg-4); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.leaf-cfg-field__desc { font-size: 11.5px; color: var(--fg-3); line-height: 1.45; }
+.leaf-cfg-field__default { font-size: 11px; color: var(--fg-4); }
+.leaf-cfg-field__default code { font-size: 11px; color: var(--fg-3); }
+.leaf-cfg-prov {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 650;
+  color: var(--krystal-teal); text-transform: uppercase; letter-spacing: 0.03em;
+}
+.leaf-cfg-prov__dot { width: 6px; height: 6px; border-radius: 999px; background: var(--krystal-teal); }
+.leaf-cfg-prov--reset { color: var(--warning-fg); }
+.leaf-cfg-prov--reset .leaf-cfg-prov__dot { background: var(--warning-fg); }
+.leaf-cfg-reset {
+  display: inline-flex; align-items: center; gap: 4px; background: transparent; border: none; cursor: pointer;
+  font-size: 11px; font-weight: 600; color: var(--fg-3); padding: 2px 4px; border-radius: 5px;
+}
+.leaf-cfg-reset:hover { color: var(--fg-1); background: var(--surface-2); }
+.leaf-cfg-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; color: var(--fg-2); }
+.leaf-cfg-toggle input { width: 16px; height: 16px; accent-color: var(--krystal-teal); cursor: pointer; }
+.leaf-cfg-secret { display: flex; align-items: center; gap: 10px; }
+.leaf-cfg-secret__mask {
+  flex: 1; height: 38px; display: inline-flex; align-items: center; gap: 4px; padding: 0 12px;
+  background: var(--surface-3); border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-2); letter-spacing: 0.04em;
+}
+.leaf-cfg-secret__fp { color: var(--fg-4); letter-spacing: 0; }
+.leaf-cfg-secret__unset { color: var(--fg-4); font-style: italic; letter-spacing: 0; }
+.leaf-cfg-secret__replace {
+  display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 12px; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--fg-2); background: var(--surface-2);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+}
+.leaf-cfg-secret__replace:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.leaf-cfg-secret__replace:disabled { opacity: 0.5; cursor: default; }
+
+/* Inline note under the server hero action chips when actions are locked. */
+.hero__watchdog-note {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 4px;
+  font-size: 12px; font-weight: 500; color: var(--warning-fg);
+}
+.hero__watchdog-note svg { flex-shrink: 0; }
+
+.cap-gated { opacity: 0.5; pointer-events: none; filter: grayscale(0.4); }
+
+/* Disabled icon buttons (reused by watchdog-gated kill actions later). */
+.icon-btn:disabled { opacity: 0.32; cursor: not-allowed; }
+.icon-btn:disabled:hover { color: var(--fg-2); border-color: var(--border-subtle); background: transparent; }
+
+/* Overview two-column grid */
+.diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.diag-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.diag-subhead {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--fg-3); text-transform: uppercase;
+  margin: 14px 0 6px;
+}
+.diag-meta-line { font-size: 12.5px; color: var(--fg-3); }
+.diag-meta-line b { color: var(--fg-1); font-weight: 600; }
+/* Padded body for non-list cards (CPU / Memory visualisations, Open ports) so
+   their content gets the same inset as a card's header. --divided adds a top
+   hairline to separate a trailing block (e.g. Open ports under the iface list). */
+.chat-brief__pad { padding: 14px; }
+.chat-brief__pad--divided { border-top: 1px solid var(--border-subtle); }
+
+/* Hot processes table */
+.hotproc-table {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.hotproc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) auto auto minmax(80px, 1fr);
+  gap: 10px;
+  padding: 8px 12px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+.hotproc-row + .hotproc-row { border-top: 1px solid var(--border-subtle); }
+.hotproc-row--head { background: var(--surface-2); color: var(--fg-3); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; }
+.hotproc-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hotproc-name code { color: var(--fg-1); font-family: var(--font-mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hotproc-pid { color: var(--fg-4); font-family: var(--font-mono); font-size: 10.5px; }
+.hotproc-cpu { font-family: var(--font-mono); color: var(--krystal-teal); text-align: right; }
+.hotproc-ram { font-family: var(--font-mono); color: var(--warning-fg); text-align: right; }
+
+/* Card table — tabular data inside the shared briefing-card chrome (.chat-brief
+   supplies the frame + titled header). A column-header row and the body rows
+   share one fixed grid template (set inline per instance) so every cell aligns.
+   Generic + reusable; first used by the diagnostics "Processes" panel. */
+.card-table__head,
+.card-table__row {
+  display: grid; align-items: center; gap: 12px; padding: 8px 14px;
+}
+.card-table__head {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.card-table__th {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--fg-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card-table__th--right { text-align: right; }
+.card-table__th--center { text-align: center; }
+/* Sortable header — a reset button carrying the column label + a chevron that
+   reflects the active sort direction (teal when active, faint otherwise). */
+.card-table__th--sort {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+  font-family: inherit;
+}
+.card-table__th--right.card-table__th--sort { justify-content: flex-end; }
+.card-table__th--center.card-table__th--sort { justify-content: center; }
+.card-table__th-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-table__th--sort:hover { color: var(--fg-2); }
+.card-table__th--sort.is-active { color: var(--fg-1); }
+.card-table__sort-ico { flex-shrink: 0; opacity: 0.3; transition: opacity 0.12s ease, color 0.12s ease; }
+.card-table__th--sort:hover .card-table__sort-ico { opacity: 0.6; }
+.card-table__th--sort.is-active .card-table__sort-ico { opacity: 1; color: var(--krystal-teal); }
+.card-table__row + .card-table__row { border-top: 1px solid var(--border-subtle); }
+.card-table__row:hover { background: var(--surface-2); }
+.card-table__cell {
+  font-size: 12.5px; color: var(--fg-2);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card-table__cell--right { text-align: right; font-variant-numeric: tabular-nums; }
+.card-table__cell--center { text-align: center; font-variant-numeric: tabular-nums; }
+.card-table__empty { padding: 22px 14px; text-align: center; color: var(--fg-3); font-size: 12.5px; }
+
+/* Process-row cell content (used by the diagnostics Processes panel). */
+.proc-cell-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.proc-cell-name code { color: var(--fg-1); font-family: var(--font-mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-cell-pid { color: var(--fg-3); font-family: var(--font-mono); font-size: 12px; flex-shrink: 0; }
+.proc-cell-cpu { font-family: var(--font-mono); color: var(--krystal-teal); }
+.proc-cell-ram { font-family: var(--font-mono); color: var(--warning-fg); }
+.proc-cell-system { color: var(--fg-4); }
+
+/* Process rows inside the shared CardTable: stuck-row tint + hover-revealed
+   actions, mirroring the Players tab's .player-actions treatment. */
+.card-table__row--stuck { background: rgba(239, 68, 68, 0.04); }
+.card-table__row--stuck:hover { background: rgba(239, 68, 68, 0.08); }
+.card-table .proc-actions { justify-content: flex-end; }
+.card-table__row:hover .proc-actions { opacity: 1; }
+/* Processes is a dense 9-col table; scroll it horizontally on narrow widths
+   instead of letting the fixed grid template overflow the page. */
+.proc-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 720px) {
+  .proc-table-scroll .card-table { min-width: 660px; }
+}
+
+/* Player-row cell content inside the shared CardTable (the Players tab reuses
+   the diagnostics Processes table). Avatar + name sit in one cell; actions are
+   right-aligned and revealed on row hover, matching the old bespoke table. */
+.players-cell-player { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.card-table .player-actions { justify-content: flex-end; }
+.card-table__row:hover .player-actions { opacity: 1; }
+
+/* Per-core CPU grid. Column count = the host's core count (set inline as
+   --core-count), so every core sits in one row that expands to fill the width
+   evenly instead of wrapping into a sparse trailing row. Phones wrap to 8/row. */
+.core-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--core-count, 16), minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.core-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.core-cell__bar {
+  width: 100%; height: 60px;
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+  display: flex; flex-direction: column-reverse;
+  overflow: hidden;
+}
+.core-cell__bar > i {
+  display: block; width: 100%;
+  background: var(--krystal-teal);
+  transition: height var(--d-base) var(--ease-out);
+}
+.core-cell__lbl { font-size: 9.5px; color: var(--fg-4); font-family: var(--font-mono); }
+
+/* Stacked RAM bar */
+.ram-bar {
+  height: 14px; border-radius: 999px;
+  background: var(--surface-3);
+  display: flex;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.ram-bar__seg { height: 100%; }
+.ram-legend { display: flex; flex-wrap: wrap; gap: 14px 16px; margin-top: 10px; font-size: 12px; color: var(--fg-3); }
+.ram-legend b { color: var(--fg-1); font-weight: 600; font-family: var(--font-mono); }
+.ram-legend .swatch { width: 8px; height: 8px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 5px; }
+
+/* Disk list */
+.disk-list { display: flex; flex-direction: column; }
+/* Disk entries are inline rows inside the shared card chrome (.chat-brief),
+   divided by hairlines — matching Processes / Recent activity, not a stack of
+   separate mini-cards. */
+.disk-row {
+  padding: 13px 14px;
+}
+.disk-row + .disk-row { border-top: 1px solid var(--border-subtle); }
+.disk-row__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.disk-row__mount { color: var(--fg-1); font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+.disk-row__device, .disk-row__fs { color: var(--fg-3); font-family: var(--font-mono); font-size: 11.5px; }
+.disk-row__smart { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; font-family: var(--font-mono); }
+.disk-row__smart--success { background: var(--success-bg); color: var(--success-fg); }
+.disk-row__smart--warn    { background: var(--warning-bg); color: var(--warning-fg); }
+.disk-row__smart--danger  { background: var(--danger-bg);  color: var(--danger-fg);  }
+.disk-row__bar { height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.disk-row__fill { display: block; height: 100%; border-radius: 999px; transition: width var(--d-base); }
+.disk-row__fill--success { background: var(--success); }
+.disk-row__fill--warn    { background: var(--warning); }
+.disk-row__fill--danger  { background: var(--danger);  }
+.disk-row__usage { display: flex; margin-top: 6px; font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
+.disk-row__usage b { color: var(--fg-1); }
+
+/* Network interface list */
+.iface-list { display: flex; flex-direction: column; }
+.iface-row {
+  display: grid;
+  grid-template-columns: 80px 130px 180px 1fr 1fr auto;
+  gap: 14px;
+  padding: 10px 14px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.iface-row + .iface-row { border-top: 1px solid var(--border-subtle); }
+.iface-row__name { color: var(--fg-1); font-family: var(--font-mono); font-weight: 600; }
+.iface-row__ip, .iface-row__mac { color: var(--fg-3); font-family: var(--font-mono); font-size: 11.5px; }
+.iface-row__metric { color: var(--fg-2); font-family: var(--font-mono); }
+.iface-row__metric b { color: var(--fg-1); font-weight: 600; }
+.iface-row__errors { font-size: 11px; color: var(--success-fg); font-family: var(--font-mono); }
+.iface-row__errors--bad { color: var(--danger-fg); }
+
+/* Open ports grid */
+.ports-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.port-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 6px 10px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--fg-2);
+}
+.port-chip code { color: var(--krystal-teal); font-size: 11.5px; }
+.port-chip__server { margin-left: auto; color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); }
+
+/* Open-ports table — lives inside the Network card, reuses .card-table chrome.
+   Each game-server port links to that server's config; host services don't. */
+.ports-block { border-top: 1px solid var(--border-subtle); }
+.ports-block__head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); }
+.ports-block__count { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 999px; letter-spacing: 0; }
+.port-num { font-family: var(--font-mono); }
+.port-num b { color: var(--krystal-teal); font-weight: 600; }
+.port-proto { color: var(--fg-4); }
+.port-svc { font-family: var(--font-mono); color: var(--fg-3); }
+.port-owner { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; font-size: 12.5px; }
+.port-owner__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.port-owner--link { background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; color: var(--krystal-teal); font-weight: 600; }
+.port-owner--link:hover { text-decoration: underline; }
+.port-owner--host { color: var(--fg-3); font-weight: 600; }
+.port-exp { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.port-exp--public { color: var(--info-fg); background: var(--info-bg); }
+.port-exp--lan { color: var(--fg-3); background: var(--surface-3); }
+.port-chevron { color: var(--fg-4); }
+
+/* Processes table */
+.proc-table {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.proc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 60px 60px 80px 60px 60px 100px 80px auto;
+  gap: 12px;
+  padding: 10px 14px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.proc-row + .proc-row { border-top: 1px solid var(--border-subtle); }
+.proc-row--head { background: var(--surface-2); color: var(--fg-3); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 14px; }
+.proc-th { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+.proc-th:hover { color: var(--fg-1); }
+.proc-th--active { color: var(--krystal-teal); }
+.proc-th--right { justify-content: flex-end; }
+.proc-name code { color: var(--fg-1); font-family: var(--font-mono); font-size: 12px; }
+.proc-mono { font-family: var(--font-mono); color: var(--fg-2); }
+.proc-num { text-align: right; }
+.proc-state {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--font-mono);
+}
+.proc-state--running { background: var(--success-bg); color: var(--success-fg); }
+.proc-state--stuck   { background: var(--danger-bg);  color: var(--danger-fg);  }
+.proc-row--stuck { background: rgba(239, 68, 68, 0.04); }
+.proc-actions { display: flex; gap: 4px; opacity: 0; transition: opacity var(--d-fast); }
+.proc-row:hover .proc-actions { opacity: 1; }
+
+/* Log viewer */
+.log-view {
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-y: auto;
+  max-height: 600px;
+}
+.log-line { display: flex; gap: 12px; padding: 1px 0; }
+.log-line__ts { color: var(--fg-4); flex-shrink: 0; min-width: 80px; }
+.log-line__lvl { flex-shrink: 0; min-width: 50px; }
+.log-line__text { color: var(--fg-2); }
+.log-line--info  .log-line__lvl { color: var(--info-fg); }
+.log-line--warn  .log-line__lvl { color: var(--warning-fg); }
+.log-line--warn  .log-line__text { color: var(--fg-1); }
+.log-line--error .log-line__lvl { color: var(--danger-fg); }
+.log-line--error .log-line__text { color: var(--danger-fg); }
+
+/* --- LogConsole: reusable log viewer in card chrome --- */
+.log-console .chat-brief__title { flex: 0 0 auto; }
+.log-console__spacer { flex: 1; }
+.log-console__single { font-size: 11.5px; font-weight: 600; color: var(--fg-3); }
+/* source dropdown is the shared <Select variant="chip"> (.k-select--chip). */
+/* live pill on the right of the title */
+.log-console__live {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  background: var(--success-bg); color: var(--success-fg);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0; text-transform: none;
+}
+.log-console__live-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
+/* terminal body flush inside the card */
+.log-console__view { border: none; border-radius: 0; margin: 0; max-height: 440px; }
+.log-line2 { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 1.5px 0; align-items: baseline; }
+.log-line2__ts { color: var(--fg-4); font-variant-numeric: tabular-nums; }
+.log-line2__text { color: var(--fg-2); min-width: 0; word-break: break-word; }
+.log-line2--warn  .log-line2__text { color: var(--fg-1); }
+.log-line2--error .log-line2__text { color: var(--danger-fg); }
+.log-empty { padding: 32px; text-align: center; color: var(--fg-3); font-family: var(--font-mono); }
+/* command input — only rendered when sending is enabled (game-server consoles) */
+.log-console__input { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border-subtle); background: var(--surface-1); }
+.log-console__prompt { color: var(--krystal-teal); font-family: var(--font-mono); font-weight: 700; font-size: 15px; line-height: 1; }
+.log-console__input input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: var(--fg-1); font-family: var(--font-mono); font-size: 12.5px; }
+.log-console__input input::placeholder { color: var(--fg-4); }
+.log-console__send {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border-radius: var(--r-sm);
+  background: var(--krystal-teal); color: var(--fg-inverse); border: none; font-weight: 600; font-size: 12px; cursor: pointer; font-family: var(--font-ui); flex-shrink: 0;
+}
+.log-console__send:disabled { opacity: 0.5; cursor: default; }
+.log-console__send:not(:disabled):hover { background: var(--krystal-teal-hover); }
+
+/* ============= Audit log ============= */
+.filter-bar {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 10px 12px;
+}
+.filter-bar .library-search { flex: 1; min-width: 220px; height: 38px; }
+.filter-bar__field { display: flex; align-items: center; gap: 6px; }
+.filter-bar__field label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--fg-3); text-transform: uppercase;
+}
+.filter-bar__field select {
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  height: 32px; padding: 0 26px 0 10px;
+  color: var(--fg-1);
+  font-family: var(--font-ui); font-size: 13px;
+  outline: none; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--fg-3) 50%),
+    linear-gradient(135deg, var(--fg-3) 50%, transparent 50%);
+  background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.filter-bar__field select:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
+.filter-bar__range { height: 32px; }
+.filter-bar__clear {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-3);
+  height: 32px; padding: 0 10px;
+  border-radius: var(--r-md);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+}
+.filter-bar__clear:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.filter-bar__chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--brand-bg, var(--surface-3)); color: var(--brand-fg, var(--fg-1));
+  border: 1px solid var(--border-accent, var(--border-strong));
+  height: 32px; padding: 0 10px;
+  border-radius: var(--r-md);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.filter-bar__chip:hover { filter: brightness(1.06); }
+.filter-bar__refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  height: 32px; padding: 0 12px;
+  border-radius: var(--r-md);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: color .12s ease, border-color .12s ease, background .12s ease;
+}
+.filter-bar__refresh:hover:not(:disabled) { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
+.filter-bar__refresh:disabled { cursor: default; color: var(--fg-3); }
+.filter-bar__refresh .is-spinning { animation: filter-bar-spin .7s linear infinite; }
+@keyframes filter-bar-spin { to { transform: rotate(360deg); } }
+.filter-bar__count { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.filter-bar__count b { color: var(--fg-1); font-weight: 600; }
+

@@ -282,7 +282,7 @@ function AccountAvatar({ user, size = 24 }) {
   return (
     <span style={{
       width: size, height: size, borderRadius: 999,
-      background: "linear-gradient(135deg, #5DB5D2, #2F89A8)",
+      background: "linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press))",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
       color: "var(--fg-inverse)", fontSize: size * 0.46, fontWeight: 700,
       flexShrink: 0,

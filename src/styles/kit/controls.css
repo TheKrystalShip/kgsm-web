@@ -1,0 +1,332 @@
+/* ============================================================================
+   kit/controls.css — toolbar, pagination
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ===================================================================
+   Toolbar — reusable filter / search / sort / action bar.
+   Quiet chrome: no card around the row, ghost controls, surface-2
+   hovers, teal reserved for active state. Mirrors the assistant header.
+   =================================================================== */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Search — calm anchor: reads as part of the page, lifts on focus. */
+.toolbar__search {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 220px; height: 36px; padding: 0 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  color: var(--fg-3);
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+.toolbar__search:focus-within { border-color: var(--border-accent); box-shadow: var(--ring-input); color: var(--fg-2); }
+.toolbar__search input {
+  flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+  color: var(--fg-1); font-family: var(--font-ui); font-size: 14px;
+}
+.toolbar__search input::placeholder { color: var(--fg-4); }
+.toolbar__search-clear {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: var(--r-sm);
+  background: transparent; border: none; color: var(--fg-3); cursor: pointer;
+}
+.toolbar__search-clear:hover { background: var(--surface-2); color: var(--fg-1); }
+.toolbar__search-pending {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--fg-4); animation: filter-bar-spin .7s linear infinite;
+}
+
+.toolbar__spacer { flex: 1 1 0; min-width: 8px; }
+.toolbar__count { font-size: 12.5px; color: var(--fg-3); white-space: nowrap; }
+.toolbar__count b { color: var(--fg-1); font-weight: 600; }
+
+/* Ghost action button — transparent until hover, like the chat head buttons. */
+.toolbar-btn {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  height: 36px; padding: 0 13px;
+  background: transparent; border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); color: var(--fg-2); cursor: pointer;
+  font-family: var(--font-ui); font-size: 13px; font-weight: 500; white-space: nowrap;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.toolbar-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-strong); }
+.toolbar-btn:disabled { opacity: 0.45; cursor: default; }
+.toolbar-btn--on { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-strong); }
+.toolbar-btn--icon { width: 36px; padding: 0; justify-content: center; }
+.toolbar-btn .is-spinning { animation: filter-bar-spin .7s linear infinite; }
+
+/* Filters: trigger + popover + inline active chips */
+.toolbar-filter { position: relative; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.toolbar-filter__trigger { position: relative; }
+.toolbar-filter__badge {
+  min-width: 18px; height: 18px; padding: 0 5px; margin-left: 1px; border-radius: 999px;
+  background: var(--krystal-teal); color: var(--fg-inverse);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Active-filter chip — clearing it resets that field. */
+.toolbar-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 30px; padding: 0 8px 0 10px;
+  background: var(--krystal-teal-dim); border: 1px solid var(--border-accent);
+  border-radius: var(--r-md); color: var(--fg-1); cursor: pointer;
+  font-family: var(--font-ui); font-size: 12.5px; white-space: nowrap;
+  transition: filter var(--d-fast) var(--ease-out);
+}
+.toolbar-chip:hover { filter: brightness(1.12); }
+.toolbar-chip__key { color: var(--krystal-teal); font-weight: 600; }
+.toolbar-chip__val { font-weight: 500; }
+.toolbar-chip > svg { color: var(--fg-3); }
+
+.toolbar-filter__menu {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 40;
+  width: 300px; max-width: 88vw;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-2);
+  display: flex; flex-direction: column; max-height: 70vh; overflow: hidden;
+  animation: k-fade var(--d-fast) var(--ease-out);
+}
+.toolbar-filter__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 11px 14px; border-bottom: 1px solid var(--border-subtle);
+}
+.toolbar-filter__head-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); }
+.toolbar-filter__reset {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; border: none; color: var(--fg-3); cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+}
+.toolbar-filter__reset:hover { color: var(--krystal-teal); }
+.toolbar-filter__body { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+.toolbar-filter__group { padding: 8px 8px 10px; }
+.toolbar-filter__group + .toolbar-filter__group { border-top: 1px solid var(--border-subtle); }
+.toolbar-filter__group-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); padding: 0 4px 6px; }
+.toolbar-filter__opts { display: flex; flex-direction: column; gap: 1px; }
+.toolbar-filter__opt {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 8px; border-radius: var(--r-md);
+  background: transparent; border: none; cursor: pointer; width: 100%; text-align: left;
+  color: var(--fg-2); font-family: var(--font-ui); font-size: 13px;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.toolbar-filter__opt:hover { background: var(--surface-2); color: var(--fg-1); }
+.toolbar-filter__opt--on { color: var(--fg-1); }
+.toolbar-filter__radio {
+  flex-shrink: 0; width: 14px; height: 14px; border-radius: 999px;
+  border: 1.5px solid var(--border-strong); position: relative;
+  transition: border-color var(--d-fast) var(--ease-out);
+}
+.toolbar-filter__opt--on .toolbar-filter__radio { border-color: var(--krystal-teal); }
+.toolbar-filter__opt--on .toolbar-filter__radio::after {
+  content: ""; position: absolute; inset: 2.5px; border-radius: 999px; background: var(--krystal-teal);
+}
+.toolbar-filter__opt-label { flex: 1; min-width: 0; }
+.toolbar-filter__opt-count { font-family: var(--font-mono); font-size: 11.5px; color: var(--fg-4); }
+.toolbar-filter__opt--on .toolbar-filter__opt-count { color: var(--krystal-teal); }
+.toolbar-filter__opt-dir { flex-shrink: 0; color: var(--krystal-teal); }
+
+/* Sort: reuses the filter trigger + popover; adds a direction toggle. */
+.toolbar-sort__dir-ico { color: var(--fg-3); margin-left: -1px; }
+.toolbar-btn--on .toolbar-sort__dir-ico { color: var(--krystal-teal); }
+.toolbar-sort__dir { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border-subtle); }
+.toolbar-sort__dir-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 9px; border: none; border-radius: var(--r-sm);
+  background: transparent; color: var(--fg-3); cursor: pointer;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.toolbar-sort__dir-btn:hover { color: var(--fg-1); }
+.toolbar-sort__dir-btn.is-on { background: var(--surface-1); color: var(--krystal-teal); box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+
+/* Page header row — title left, primary action right, centered with the title. */
+.dash-head__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+/* Timeline */
+.audit-timeline { display: flex; flex-direction: column; gap: 14px; }
+.audit-group { display: flex; flex-direction: column; gap: 4px; }
+.audit-group__title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--fg-3); text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 4px 6px;
+  padding: 0;
+}
+.audit-group__count {
+  background: var(--surface-2); color: var(--fg-3);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+  padding: 1px 7px; border-radius: 999px;
+  text-transform: none;
+}
+.audit-group__events {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.audit-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  padding: 12px 14px;
+  align-items: start;
+}
+.audit-row + .audit-row { border-top: 1px solid var(--border-subtle); }
+.audit-row__main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.audit-row__line { color: var(--fg-2); font-size: 13.5px; line-height: 1.4; }
+.audit-row__actor { color: var(--fg-1); font-weight: 600; }
+.audit-row__summary { color: var(--fg-2); }
+.audit-row__meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+
+.audit-row__chip {
+  font-size: 11.5px; color: var(--fg-3);
+  font-family: var(--font-mono);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.audit-row__chip b { color: var(--fg-2); font-weight: 500; }
+
+.audit-row__when {
+  text-align: right;
+  display: flex; flex-direction: column; gap: 2px;
+  flex-shrink: 0;
+}
+.audit-row__time { color: var(--fg-2); font-size: 12.5px; font-family: var(--font-mono); }
+.audit-row__rel  { color: var(--fg-4); font-size: 11px; font-family: var(--font-mono); }
+
+/* Action pill — coloured by severity tone. */
+.audit-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+}
+.audit-pill__icon { width: 11px; height: 11px; }
+.audit-pill--success { background: var(--success-bg); color: var(--success-fg); }
+.audit-pill--info    { background: var(--info-bg);    color: var(--info-fg);    }
+.audit-pill--warn    { background: var(--warning-bg); color: var(--warning-fg); }
+.audit-pill--danger  { background: var(--danger-bg);  color: var(--danger-fg);  }
+.audit-pill--update  { background: var(--update-bg);  color: var(--update-fg);  }
+
+/* Host provenance chip on each audit row */
+.audit-row__host {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--fg-2);
+  background: var(--surface-3); border: 1px solid var(--border-subtle);
+  padding: 2px 8px 2px 6px; border-radius: 999px;
+}
+.audit-row__host > svg { color: var(--fg-3); }
+.audit-row__host--panel { color: var(--fg-3); font-weight: 500; }
+
+/* "Load older events" — only when a live keyset cursor has more (older) rows than
+   the loaded window. Discloses incompleteness so client search/filters never look
+   exhaustive when they aren't. Never rendered in mock or once the log is complete. */
+.audit-loadmore {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 18px 0 4px; text-align: center;
+}
+.audit-loadmore__note {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+  font-size: 12.5px; color: var(--fg-3); max-width: 560px;
+}
+.audit-loadmore__note > svg { color: var(--fg-4); flex-shrink: 0; }
+
+/* ============= Pagination ============= */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px 18px; flex-wrap: wrap;
+  margin-top: 16px; padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+}
+.pagination__summary { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.pagination__summary b { color: var(--fg-1); font-weight: 600; font-family: var(--font-mono); }
+.pagination__controls { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.pagination__btn {
+  min-width: 32px; height: 32px; padding: 0 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: var(--fg-2); background: transparent;
+  border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out),
+              background var(--d-fast) var(--ease-out);
+}
+.pagination__btn:hover:not(:disabled):not(.is-current) {
+  color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2);
+}
+.pagination__btn.is-current {
+  background: var(--krystal-teal); border-color: var(--krystal-teal);
+  color: var(--fg-inverse); cursor: default;
+}
+.pagination__btn:disabled { opacity: 0.35; cursor: default; }
+.pagination__btn--nav { color: var(--fg-3); padding: 0; }
+.pagination__gap {
+  min-width: 22px; text-align: center;
+  color: var(--fg-4); font-family: var(--font-mono); font-size: 13px;
+  user-select: none;
+}
+@media (max-width: 560px) {
+  .pagination { flex-direction: column; align-items: stretch; gap: 10px; }
+  .pagination__summary { text-align: center; }
+  .pagination__controls { margin-left: 0; justify-content: center; flex-wrap: wrap; }
+}
+
+/* Dashboard "view all" link */
+.dash-section__more {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 500;
+  color: var(--krystal-teal);
+  cursor: pointer;
+  background: none; border: none; padding: 0; font-family: inherit;
+}
+.dash-section__more:hover { color: var(--krystal-teal-hover); }
+
+/* Recently added — a single, non-collapsing row of library entries on the
+   dashboard. Shows only as many cards as fit the width (overflow dropped by
+   JS); cards stretch evenly to fill the row. */
+.dash-recent {
+  display: grid; gap: 12px; padding: 14px;
+}
+.dash-recent__card {
+  min-width: 0;
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); overflow: hidden; cursor: pointer; padding: 0;
+  display: flex; flex-direction: column; text-align: left;
+  font-family: inherit;
+  transition: border-color .12s ease, transform .12s ease;
+}
+.dash-recent__card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.dash-recent__art {
+  position: relative; display: block; height: 92px;
+  background-size: cover; background-position: center;
+}
+.dash-recent__art::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to top, color-mix(in srgb, var(--canvas) 85%, transparent) 0%, transparent 55%);
+}
+.dash-recent__when {
+  position: absolute; left: 8px; bottom: 8px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: color-mix(in srgb, var(--canvas) 72%, transparent); color: var(--fg-1);
+  font-size: 10.5px; font-weight: 600;
+  padding: 2px 7px 2px 6px; border-radius: 999px;
+}
+.dash-recent__installed {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  background: var(--success-bg); color: var(--success-fg);
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+}
+.dash-recent__meta { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px 11px; }
+.dash-recent__name { font-size: 13px; font-weight: 600; color: var(--fg-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-recent__sub { font-size: 11px; color: var(--fg-3); }
+
+/* "Added …" stamp on library cards in the Recently-added view. */
+.game-card__added { display: inline-flex; align-items: center; gap: 4px; color: var(--krystal-teal); }
+
+

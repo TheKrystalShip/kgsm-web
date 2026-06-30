@@ -1,6 +1,7 @@
 import React from "react";
 import Editor from "@monaco-editor/react";
 import { loader } from "@monaco-editor/react";
+import { useResolvedTheme } from "../lib/theme.js";
 
 // Monaco code editor for the FileBrowser — replaces the bare <textarea> with
 // line numbers + syntax highlighting, while keeping the SAME contract the file
@@ -80,55 +81,85 @@ function languageForPath(path) {
   return EXT_LANG[ext] || "plaintext";
 }
 
-// --- our palette as a Monaco theme (mirrors src/styles/tokens.css) ------------
-// Monaco can't read CSS custom properties, so the design tokens are restated
-// here. If tokens.css changes, mirror the few colors below.
-const T = {
-  bg: "#0E141C", surface2: "#161C25",
-  fg1: "#F2F5F9", fg3: "#7C8899", fg4: "#515E70",
-  teal: "#40A0C0", tealHover: "#5DB5D2",
-  green: "#4ADE80", amber: "#FBBF24", rose: "#FB7185", sky: "#7DD3FC",
-};
-monaco.editor.defineTheme("kgsm-dark", {
-  base: "vs-dark",
-  inherit: true,
-  rules: [
-    { token: "comment", foreground: T.fg3.slice(1), fontStyle: "italic" },
-    { token: "string", foreground: T.green.slice(1) },
-    { token: "number", foreground: T.amber.slice(1) },
-    { token: "keyword", foreground: T.teal.slice(1) },
-    { token: "type", foreground: T.sky.slice(1) },
-    { token: "key", foreground: T.tealHover.slice(1) },        // ini / yaml keys
-    { token: "delimiter", foreground: T.fg3.slice(1) },
-    { token: "tag", foreground: T.teal.slice(1) },             // xml tags
-    { token: "attribute.name", foreground: T.sky.slice(1) },
-    { token: "attribute.value", foreground: T.green.slice(1) },
-    { token: "metatag", foreground: T.fg3.slice(1) },
-    { token: "log-time", foreground: T.fg3.slice(1) },
-    { token: "log-error", foreground: T.rose.slice(1), fontStyle: "bold" },
-    { token: "log-warn", foreground: T.amber.slice(1), fontStyle: "bold" },
-    { token: "log-info", foreground: T.teal.slice(1) },
-    { token: "log-debug", foreground: T.fg4.slice(1) },
-  ],
-  colors: {
-    "editor.background": T.bg,
-    "editor.foreground": T.fg1,
-    "editorLineNumber.foreground": T.fg4,
-    "editorLineNumber.activeForeground": T.fg3,
-    "editorCursor.foreground": T.teal,
-    "editor.selectionBackground": "#40A0C033",
-    "editor.lineHighlightBackground": "#FFFFFF08",
-    "editor.inactiveSelectionBackground": "#40A0C01F",
-    "editorIndentGuide.background1": "#FFFFFF0A",
-    "editorIndentGuide.activeBackground1": "#FFFFFF1F",
-    "editorWhitespace.foreground": "#FFFFFF14",
-    "editorWidget.background": T.surface2,
-    "editorWidget.border": "#FFFFFF1F",
-    "input.background": T.bg,
-    "scrollbarSlider.background": "#FFFFFF14",
-    "scrollbarSlider.hoverBackground": "#FFFFFF24",
-  },
-});
+// --- our palette as a Monaco theme, SAMPLED FROM the CSS tokens ----------------
+// Monaco can't read CSS custom properties, so we sample the resolved design
+// tokens off <html> at theme-apply time and (re)define the editor theme. This is
+// called once up-front (boot theme) and again whenever the theme store flips
+// (light/dark) — see the component below — so the editor follows the rest of the
+// app instead of restating a hardcoded palette that drifts.
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch (e) { return fallback; }
+}
+const noHash = (c) => String(c).replace("#", "");
+
+function defineKgsmTheme(resolved) {
+  const light = resolved === "light";
+  const T = {
+    bg:        cssVar("--surface-0", light ? "#ECEFF4" : "#0E141C"),
+    surface2:  cssVar("--surface-2", light ? "#F1F4F8" : "#161C25"),
+    fg1:       cssVar("--fg-1", light ? "#101826" : "#F2F5F9"),
+    fg3:       cssVar("--fg-3", light ? "#5F6B7A" : "#7C8899"),
+    fg4:       cssVar("--fg-4", light ? "#97A2B0" : "#515E70"),
+    teal:      cssVar("--krystal-teal", light ? "#1E7E9C" : "#40A0C0"),
+    tealHover: cssVar("--krystal-teal-hover", light ? "#2A93B3" : "#5DB5D2"),
+    green:     cssVar("--success-fg", light ? "#15803D" : "#4ADE80"),
+    amber:     cssVar("--warning-fg", light ? "#B45309" : "#FBBF24"),
+    rose:      cssVar("--danger-fg", light ? "#B91C1C" : "#FB7185"),
+    sky:       cssVar("--info-fg", light ? "#0369A1" : "#7DD3FC"),
+  };
+  // Low-alpha overlays (selection, line highlight, indent guides, scrollbar) must
+  // match the theme's polarity — white-alpha on dark, black-alpha on light — or
+  // they vanish / smear. Derive them from the resolved theme rather than hardcode.
+  const veil = (aa) => (light ? "#000000" : "#FFFFFF") + aa;
+
+  monaco.editor.defineTheme("kgsm", {
+    base: light ? "vs" : "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "comment", foreground: noHash(T.fg3), fontStyle: "italic" },
+      { token: "string", foreground: noHash(T.green) },
+      { token: "number", foreground: noHash(T.amber) },
+      { token: "keyword", foreground: noHash(T.teal) },
+      { token: "type", foreground: noHash(T.sky) },
+      { token: "key", foreground: noHash(T.tealHover) },        // ini / yaml keys
+      { token: "delimiter", foreground: noHash(T.fg3) },
+      { token: "tag", foreground: noHash(T.teal) },             // xml tags
+      { token: "attribute.name", foreground: noHash(T.sky) },
+      { token: "attribute.value", foreground: noHash(T.green) },
+      { token: "metatag", foreground: noHash(T.fg3) },
+      { token: "log-time", foreground: noHash(T.fg3) },
+      { token: "log-error", foreground: noHash(T.rose), fontStyle: "bold" },
+      { token: "log-warn", foreground: noHash(T.amber), fontStyle: "bold" },
+      { token: "log-info", foreground: noHash(T.teal) },
+      { token: "log-debug", foreground: noHash(T.fg4) },
+    ],
+    colors: {
+      "editor.background": T.bg,
+      "editor.foreground": T.fg1,
+      "editorLineNumber.foreground": T.fg4,
+      "editorLineNumber.activeForeground": T.fg3,
+      "editorCursor.foreground": T.teal,
+      "editor.selectionBackground": T.teal + "33",
+      "editor.lineHighlightBackground": veil("08"),
+      "editor.inactiveSelectionBackground": T.teal + "1F",
+      "editorIndentGuide.background1": veil("0A"),
+      "editorIndentGuide.activeBackground1": veil("1F"),
+      "editorWhitespace.foreground": veil("14"),
+      "editorWidget.background": T.surface2,
+      "editorWidget.border": veil("1F"),
+      "input.background": T.bg,
+      "scrollbarSlider.background": veil("14"),
+      "scrollbarSlider.hoverBackground": veil("24"),
+    },
+  });
+}
+
+// Define once up-front from the boot theme so the first mount paints correctly
+// even before the component's effect runs.
+defineKgsmTheme(typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
 
 const OPTIONS = {
   minimap: { enabled: false },
@@ -151,11 +182,18 @@ const OPTIONS = {
 // the dirty/etag/save flow upstream is untouched. `path` gives Monaco a stable
 // per-file model (separate undo history + scroll position per file).
 export default function CodeEditor({ value, onChange, path, readOnly = false }) {
+  // Follow the app theme: redefine "kgsm" from the now-resolved CSS tokens and
+  // re-apply it to every live editor whenever the theme flips (light/dark/auto).
+  const resolved = useResolvedTheme();
+  React.useEffect(() => {
+    defineKgsmTheme(resolved);
+    monaco.editor.setTheme("kgsm");
+  }, [resolved]);
   return (
     <Editor
       className="fb-editor__monaco"
       height="100%"
-      theme="kgsm-dark"
+      theme="kgsm"
       path={path || undefined}
       language={languageForPath(path)}
       value={value}

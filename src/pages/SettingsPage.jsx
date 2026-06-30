@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
+import { themeStore, useThemePref } from "../lib/theme.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
@@ -32,8 +33,15 @@ function HostAccessSettings() {
   );
 }
 
+const THEME_OPTS = [
+  { id: "auto",  label: "Auto",  icon: "monitor" },
+  { id: "dark",  label: "Dark",  icon: "moon" },
+  { id: "light", label: "Light", icon: "sun" },
+];
+
 function SettingsPage({ user, onLogout }) {
   const [section, setSection] = React.useState("account");
+  const themePref = useThemePref();
 
   // Profile fields come from the authenticated user (sourced from the OAuth
   // provider at login); the fallbacks are empty rather than a hardcoded name.
@@ -90,7 +98,7 @@ function SettingsPage({ user, onLogout }) {
           {section === "account" && (
             <SettingsSection title="Profile">
               <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}>
-                <span style={{ width: 52, height: 52, borderRadius: 999, background: "linear-gradient(135deg, #5DB5D2, #2F89A8)", color: "var(--fg-inverse)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700 }}>
+                <span style={{ width: 52, height: 52, borderRadius: 999, background: "linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press))", color: "var(--fg-inverse)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700 }}>
                   {(profile.display || "?")[0].toUpperCase()}
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -108,6 +116,18 @@ function SettingsPage({ user, onLogout }) {
               </SettingsRow>
               <SettingsRow icon="languages" title="Density" sub="Compact trims padding across tables and lists.">
                 <Toggle on={prefs.compactDensity} onChange={v => setP("compactDensity", v)} />
+              </SettingsRow>
+              <SettingsRow icon="palette" title="Theme" sub="Auto follows your system. Saved on this device.">
+                <div className="theme-seg" role="group" aria-label="Theme">
+                  {THEME_OPTS.map(o => (
+                    <button key={o.id} type="button"
+                      className={"theme-seg__opt" + (themePref === o.id ? " is-on" : "")}
+                      aria-pressed={themePref === o.id}
+                      onClick={() => themeStore.set(o.id)}>
+                      <Icon name={o.icon} size={14} /> {o.label}
+                    </button>
+                  ))}
+                </div>
               </SettingsRow>
               <div className="settings-foot">
                 <button className="fb-editor__btn">Save changes</button>

@@ -1,0 +1,582 @@
+/* ============================================================================
+   kit/responsive.css — tablet/phone/small-phone/landscape media queries
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ===============================================================
+   RESPONSIVE / MOBILE
+   ---------------------------------------------------------------
+   Strategy:
+   - Desktop is the baseline (everything above already targets it).
+   - At ≤ 1024px (tablet) we shrink the sidebar and gutters.
+   - At ≤ 768px (phone) the sidebar becomes a slide-in drawer
+     triggered by a hamburger button in the topbar, every multi-
+     column grid stacks, the player table becomes vertical cards,
+     and the file browser stacks tree-above-editor.
+   - At ≤ 480px (small phone) we compact further.
+   - Safe-area insets (`env(safe-area-inset-*)`) keep content out
+     of iOS notch / home-indicator areas when used standalone.
+   =============================================================== */
+
+/* ---------- Hamburger button — hidden on desktop, shown on mobile ---------- */
+.topbar__menu-btn {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-1);
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.topbar__menu-btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+
+/* Inline brand in the topbar — only visible when the sidebar is off-canvas */
+.topbar__brand-inline { display: none; }
+
+/* ---------- Sidebar scrim (visible only when drawer is open) ---------- */
+.sidebar-scrim {
+  display: none;
+  position: fixed; inset: 0;
+  background: color-mix(in srgb, var(--scrim-base) 60%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 39;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+
+/* ---------- iOS standalone: pad for status bar + home indicator ---------- */
+@supports (padding: max(0px)) {
+  .topbar {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-left: max(24px, env(safe-area-inset-left, 0));
+    padding-right: max(24px, env(safe-area-inset-right, 0));
+    box-sizing: content-box;
+  }
+  .sidebar {
+    padding-top: max(16px, env(safe-area-inset-top, 0));
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0));
+  }
+  .content { padding-bottom: max(24px, env(safe-area-inset-bottom, 0)); }
+  .login-shell {
+    padding-top: max(32px, env(safe-area-inset-top, 0));
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 0));
+  }
+}
+
+/* ============================================================
+   TABLET — 1024px and down
+   ============================================================ */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-w: 220px;
+    --gutter: 20px;
+  }
+  .content { padding: 20px; }
+  .dash-summary { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .diag-tiles { grid-template-columns: repeat(3, 1fr); }
+  .diag-grid { grid-template-columns: 1fr; }
+  .diag-2col { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   PHONE — 768px and down
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* App shell turns into single-column. Sidebar becomes a drawer. */
+  .app {
+    display: block;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .app__main {
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Sidebar: off-canvas drawer */
+  .sidebar {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: 280px;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform var(--d-base) var(--ease-out);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-2);
+  }
+  .sidebar--open { transform: translateX(0); }
+  .sidebar-scrim--open { display: block; }
+
+  /* Topbar: hamburger + brand on left, account on right.
+     Secondary tab links collapse — they live in the sidebar instead. */
+  .topbar {
+    height: 56px;
+    padding: 0 16px;
+    gap: 12px;
+    position: sticky; top: 0; z-index: 30;
+  }
+  .topbar__menu-btn { display: inline-flex; }
+  .topbar__link { display: none; }
+  .topbar__spacer { flex: 1; }
+  .topbar__account {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  /* Hide the username text on phones — avatar + chevron is plenty. */
+  .topbar__account__label { display: none; }
+  .topbar__account-menu { right: 0; min-width: 220px; }
+
+  /* Inline brand in the topbar so users still know where they are. */
+  .topbar__brand-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fg-1);
+    letter-spacing: -0.01em;
+  }
+  .topbar__brand-inline img { width: 22px; height: 22px; object-fit: contain; }
+
+  /* Content: tighter gutters, bigger taps */
+  .content { padding: 16px; gap: 12px; }
+  .content__breadcrumb { font-size: 12.5px; }
+
+  /* No top bar and no top-anchored button any more — the mobile nav toggle is a
+     left-edge handle (vertically centred), so no top padding is needed to clear
+     it. The .mnav styles + their ≤768px reveal live in the .mnav section. */
+
+  .assistant-fab { right: 16px; bottom: 16px; width: 48px; height: 48px; }
+
+  /* Dashboard */
+  .dash-head h1 { font-size: 22px; }
+  .dash-head__sub { font-size: 13px; }
+  .dash-summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dash-summary .tile { padding: 14px 16px; }
+  .dash-summary .tile__val { font-size: 22px; }
+  .cap-strip__meters { grid-template-columns: 1fr; }
+  .cap-strip__head { flex-wrap: wrap; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-feed { grid-template-columns: 1fr; }
+  .server-grid { grid-template-columns: 1fr; }
+  .server-tile__art { height: 96px; }
+  .alert-card { flex-wrap: wrap; }
+  .alert-card__actions { width: 100%; justify-content: flex-start; padding-left: 42px; }
+
+  /* Server hero */
+  .hero { padding: 18px 18px; min-height: 0; }
+  .hero > .hero__content { max-width: 100%; }
+  .hero__name { font-size: 22px; }
+  .action-row { gap: 6px; }
+  .chip {
+    height: 44px;
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    gap: 5px;
+  }
+  /* Hide the icon on mobile so the label has room. The Icon component sets
+     an inline `display: inline-flex` style on its wrapper span, which beats
+     class CSS — so the !important here is intentional. */
+  .chip__icon { display: none !important; }
+  /* Long form hides, short form shows. Both spans exist in the DOM so
+     desktop-vs-mobile is a pure visibility swap (no React re-renders). */
+  .chip__label--full  { display: none; }
+  .chip__label--short { display: inline; }
+  .hero__ip { font-size: 12px; padding: 6px 10px; }
+
+  /* Sub-tabs: swap horizontal scroll for a native dropdown. The button row
+     is hidden, a styled <select> takes its place so iOS / Android show their
+     native picker. */
+  .subtabs { display: none; }
+  /* In the new subtabs-row flex container the dropdown is a flex item; let it
+     fill the row so the Customize controls wrap neatly to the next line. */
+  .subtabs-row .subtabs-mobile { flex: 1 1 100%; }
+  .subtabs-mobile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    padding: 0 12px;
+    height: 44px;
+    position: relative;
+    cursor: pointer;
+    color: var(--fg-1);
+  }
+  .subtabs-mobile__label {
+    flex: 1; min-width: 0;
+    font-family: var(--font-ui); font-weight: 600; font-size: 14px;
+    color: var(--fg-1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .subtabs-mobile select {
+    position: absolute; inset: 0;
+    opacity: 0;
+    appearance: none; -webkit-appearance: none;
+    width: 100%; height: 100%;
+    cursor: pointer;
+    border: none; outline: none;
+    font-size: 16px;          /* avoid iOS zoom-on-focus */
+  }
+
+  /* Stat tiles */
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tile { padding: 12px 14px; }
+  .tile__val { font-size: 22px; }
+
+  /* Console */
+  .console-card { min-height: 220px; }
+  .console-card__body { font-size: 11.5px; padding: 10px 12px; max-height: 300px; }
+  .console-card__input { padding: 8px 10px; }
+  /* The pop-out goes edge-to-edge on a phone. (.console-modal .console-card__body
+     keeps its uncapped height from the desktop rule — more specific than the
+     mobile .console-card__body cap above — so the feed still fills the screen.) */
+  .console-modal-scrim { padding: 0; }
+  .console-modal { border: none; border-radius: 0; }
+
+  /* Library */
+  .library-head h1 { font-size: 22px; }
+  .library-toolbar { flex-wrap: wrap; gap: 8px; }
+  .library-search { width: 100%; flex: none; }
+  .game-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .game-card__body { padding: 10px 12px; }
+  .game-card__title { font-size: 13.5px; }
+
+  /* Player table → stack rows as cards */
+  .player-row {
+    grid-template-columns: 44px 1fr auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "avatar  name    status"
+      "avatar  meta    meta"
+      "actions actions actions";
+    gap: 4px 12px;
+    padding: 14px 14px;
+    align-items: start;
+  }
+  .player-row--head { display: none; }
+  .player-row > .player-avatar {
+    grid-area: avatar;
+    width: 44px; height: 44px;
+    font-size: 16px;
+  }
+  .player-row > .player-name { grid-area: name; align-self: center; }
+  .player-row > .player-name__primary { font-size: 15px; }
+
+  /* All three meta cells flow into a single meta strip with • separators
+     between them.  Hidden cells (empty playtime / joined) cleanly skip. */
+  .player-row > .player-ping,
+  .player-row > .player-meta-cell {
+    grid-area: meta;
+    display: inline-flex;
+    align-self: center;
+    font-size: 12px;
+  }
+  .player-row > .player-ping       { order: 1; }
+  .player-row > .player-meta-cell[data-cell="playtime"] { order: 2; }
+  .player-row > .player-meta-cell[data-cell="joined"]   { order: 3; }
+  .player-row > .player-ping::after,
+  .player-row > .player-meta-cell[data-cell="playtime"]::after {
+    content: "·";
+    margin: 0 8px;
+    color: var(--fg-4);
+  }
+  .player-row > .player-row__status {
+    grid-area: status;
+    justify-self: end;
+    align-self: start;
+  }
+
+  /* Action row: full-width labeled buttons, equal-sized grid. */
+  .player-row > .player-actions {
+    grid-area: actions;
+    opacity: 1;                              /* always visible on touch */
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .player-act {
+    width: auto;
+    height: 44px;
+    padding: 0 12px;
+    gap: 8px;
+    background: var(--surface-2);
+    border-color: var(--border-subtle);
+  }
+  .player-act__label { display: inline; }
+  .player-act:hover  { background: var(--surface-3); }
+
+  /* File browser: stack tree above editor */
+  .fb-card {
+    /* minmax(0, 1fr), not a bare 1fr — mirror the desktop editor column's
+       min-width:0 guard so an unbreakable long name/path can never grow this
+       column past the viewport. Defensive consistency, not the fix for the
+       reported breakage (that was the vertical collapse below). */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;   /* stack tree over editor; no draggable split */
+    min-height: 0;
+  }
+  /* The drag splitter is meaningless once the columns stack — hide it. */
+  .fb-resizer { display: none; }
+  .fb-tree {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    max-height: 220px;
+  }
+  /* Inline stacked layout: the card sizes to its CONTENT and the page scrolls,
+     instead of trying to fill a short viewport — that collapse is what gave the
+     editor no height and hid it behind the card's overflow:hidden. The editor
+     gets an explicit floor so Monaco always has real height; the tree keeps its
+     capped scroll height. Scoped to .fb-briefcard so the full-screen pop-out
+     (which has a definite viewport-sized height) still fills as before. */
+  /* flex:0 0 auto (NOT the desktop flex:1 1 auto) is the crux: keep .content--fill
+     from flex-SHRINKING to the short viewport leftover. Left at 1 1 auto it shrinks
+     below the 560px file browser, the card overflows it, and the footer — the next
+     flex child of .app__main — rides up to sit right after the collapsed box (almost
+     to the hero). Sizing to content instead lets .app__main (overflow-y:auto) scroll. */
+  .content--fill { flex: 0 0 auto; min-height: 0; }
+  .content--fill > .fb-briefcard { flex: 0 0 auto; }
+  .fb-briefcard .fb-card { flex: 0 0 auto; grid-template-rows: auto auto; }
+  .fb-briefcard .fb-editor { min-height: 560px; }
+  /* The pop-out goes edge-to-edge on a phone and stacks like the inline card —
+     tree capped over a filling editor. */
+  .fb-modal-scrim { padding: 0; }
+  .fb-modal { border: none; border-radius: 0; }
+  .fb-modal .fb-card { grid-template-rows: auto minmax(0, 1fr); }
+  /* File-editor toolbar: keep path + unsaved indicator on one row, with the
+     path truncating via ellipsis. Save / Reset live in fb-editor__foot — see
+     desktop styles — and remain visible regardless of viewport. */
+  .fb-editor__bar {
+    padding: 10px 14px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .fb-editor__path {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .fb-editor__dirty {
+    font-size: 10.5px;
+    padding: 3px 7px;
+    flex-shrink: 0;
+  }
+  .fb-editor__foot {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .fb-editor__foot .fb-editor__btn { height: 44px; padding: 0 18px; font-size: 14px; flex: 1; }
+  .fb-editor__foot .fb-editor__btn--secondary { flex: 0 1 auto; padding: 0 16px; }
+  .fb-editor__body { padding: 12px 14px; }
+
+  /* Backups: collapse the 5-column row to a stacked card */
+  .backup-row {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "ico main"
+      "tags tags"
+      "actions actions";
+    gap: 8px 12px;
+    padding: 12px 14px;
+  }
+  .backup-row__ico { grid-area: ico; }
+  .backup-row__main { grid-area: main; min-width: 0; }
+  .backup-row__size,
+  .backup-row__tag { grid-area: tags; justify-self: start; }
+  .backup-row__tag { justify-self: end; align-self: center; }
+  .backup-row__actions {
+    grid-area: actions;
+    justify-content: flex-end;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 4px;
+  }
+
+  /* Charts */
+  .chart-grid { grid-template-columns: 1fr; }
+  .chart-card { padding: 14px; }
+  .chart-card__val { font-size: 18px; }
+  .chart-card__head { flex-wrap: wrap; }
+  /* BriefCard-based chart cards: let the header wrap the value under the title
+     on narrow screens, and tighten the body padding. */
+  .chart-brief .chat-brief__head { flex-wrap: wrap; row-gap: 2px; }
+  .chart-brief__body { padding: 12px 14px 14px; }
+
+  /* Anomaly cards: wrap the right-side time chunk under the title */
+  .anomaly-card { padding: 14px; }
+  .anomaly-card__head { flex-wrap: wrap; }
+  .anomaly-card__when { flex-direction: row; text-align: left; flex-basis: 100%; gap: 10px; align-items: baseline; padding-left: 42px; margin-top: -4px; }
+  .anomaly-card__corr-row { flex-wrap: wrap; }
+  .anomaly-card__corr-text { font-size: 12px; }
+
+  /* Diagnostics — collapse multi-col layouts */
+  .diag-head { flex-direction: column; align-items: stretch; }
+  .host-picker { min-width: 0; }
+  .diag-tiles { grid-template-columns: repeat(2, 1fr); }
+  .diag-grid { grid-template-columns: 1fr; }
+  .diag-2col { grid-template-columns: 1fr; }
+  .core-grid { grid-template-columns: repeat(8, 1fr); }   /* still fits 8-16 cores at 390px */
+  .iface-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "name name"
+      "ip   mac"
+      "rx   tx"
+      "err  err";
+    gap: 6px 12px;
+  }
+  .iface-row__name { grid-area: name; font-size: 14px; }
+  .iface-row__ip { grid-area: ip; }
+  .iface-row__mac { grid-area: mac; text-align: right; }
+  .iface-row__metric:nth-of-type(1) { grid-area: rx; }
+  .iface-row__metric:nth-of-type(2) { grid-area: tx; }
+  .iface-row__errors { grid-area: err; }
+  /* Process table — drop secondary cols on phone, keep core info */
+  .proc-row {
+    grid-template-columns: minmax(0, 1.5fr) auto auto auto;
+    grid-template-areas:
+      "name pid cpu ram"
+      "name state state state"
+      "actions actions actions actions";
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 12px;
+  }
+  .proc-row--head { display: none; }
+  .proc-name { grid-area: name; }
+  .proc-row > :nth-child(2) { grid-area: pid; font-size: 11px; color: var(--fg-3); }
+  .proc-row > :nth-child(3) { grid-area: cpu; color: var(--krystal-teal); }
+  .proc-row > :nth-child(4) { grid-area: ram; color: var(--warning-fg); }
+  .proc-row > :nth-child(5),
+  .proc-row > :nth-child(6),
+  .proc-row > :nth-child(7) { display: none; }
+  .proc-row > :nth-child(8) { grid-area: state; justify-self: start; }
+  .proc-actions {
+    grid-area: actions;
+    opacity: 1;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 8px;
+    margin-top: 4px;
+    justify-content: flex-end;
+  }
+  .hotproc-row {
+    grid-template-columns: minmax(0, 1.5fr) auto auto;
+    grid-template-areas:
+      "name cpu ram"
+      "name srv srv";
+    gap: 4px 10px;
+  }
+  .hotproc-row--head { display: none; }
+  .hotproc-name { grid-area: name; }
+  .hotproc-row > :nth-child(2) { grid-area: cpu; }
+  .hotproc-row > :nth-child(3) { grid-area: ram; }
+  .hotproc-row > :nth-child(4) { grid-area: srv; font-size: 11px; color: var(--fg-3); }
+  .log-view { font-size: 11px; padding: 10px 12px; max-height: 480px; }
+  .log-line { flex-wrap: wrap; }
+  .log-line__ts { min-width: 0; }
+  .log-line__lvl { min-width: 0; }
+
+  /* Audit log
+     2×2 grid: avatar spans both rows on the left; time sits top-right; main
+     content (summary + meta pills) sits under the time.  Each named area is
+     rectangular — an earlier 3-row template made `main` L-shaped, which the
+     browser silently drops. */
+  .filter-bar { padding: 10px; gap: 8px; }
+  .filter-bar .library-search { width: 100%; min-width: 0; flex: 1 1 100%; }
+  .filter-bar__field { flex: 1 1 calc(50% - 4px); }
+  .filter-bar__field select { width: 100%; }
+  .filter-bar__range { flex: 1 1 100%; }
+  .filter-bar__range button { flex: 1; }
+  .filter-bar__count { flex: 1 1 100%; text-align: right; }
+  .audit-row {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "avatar when"
+      "avatar main";
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 14px;
+    align-items: start;
+  }
+  .audit-row > :first-child { grid-area: avatar; }
+  .audit-row__main { grid-area: main; }
+  .audit-row__when {
+    grid-area: when;
+    text-align: right;
+    flex-direction: row;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .audit-row__rel { display: none; }
+
+  /* Settings */
+  .k-modal { max-height: 100dvh; border-radius: var(--r-lg); }
+  .k-backdrop { padding: 0; }
+  .k-modal__art { height: 88px; }
+  .k-modal__head, .k-modal__sub, .k-modal__body, .k-modal__foot { padding-left: 18px; padding-right: 18px; }
+  .k-field__row { grid-template-columns: 1fr; }
+
+  /* Login + Welcome */
+  .login-shell { padding: 20px; }
+  .login-card { padding: 22px; }
+  .welcome-card { padding: 24px; }
+  .welcome-card__title { font-size: 22px; }
+
+  /* Discord page */
+  .topbar__account-menu { right: 0; }
+
+  /* Forms: bump touch target heights */
+  .field, .fb-editor__btn, .filter-chip, .oauth-btn, .btn { min-height: 40px; }
+  .icon-btn { width: 40px; height: 40px; }
+}
+
+/* ============================================================
+   SMALL PHONE — 480px and down
+   ============================================================ */
+@media (max-width: 480px) {
+  :root { --gutter: 14px; }
+  .content { padding: 12px; gap: 10px; }
+  .dash-head h1 { font-size: 20px; }
+  .dash-summary { grid-template-columns: 1fr 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .game-grid { grid-template-columns: 1fr; }
+  .game-card__art { aspect-ratio: 2 / 3; }
+  .hero__name { font-size: 19px; }
+  .chip { height: 42px; font-size: 11px; padding: 0 8px; }
+  .login-shell { padding: 16px; }
+  .login-card { padding: 18px; gap: 14px; }
+  .welcome-card { padding: 20px; gap: 14px; }
+  .welcome-card__title { font-size: 20px; }
+  .topbar__brand-inline span { display: none; }   /* icon-only brand on tiny screens */
+}
+
+/* ============================================================
+   LANDSCAPE PHONE — small heights
+   ============================================================ */
+@media (max-height: 480px) and (max-width: 900px) {
+  .hero { min-height: 0; padding: 14px 18px; }
+  .console-card { min-height: 200px; }
+  .login-shell { padding: 16px; }
+  .login-shell__brand { gap: 4px; }
+  .login-shell__brand img { width: 48px; height: 48px; }
+}
+
+

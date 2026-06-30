@@ -39,58 +39,15 @@
   src: url("/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf") format("truetype-variations");
 }
 
+/* ============================================================
+   STRUCTURAL TOKENS — theme-invariant.
+   Type, spacing, radius, shadow, motion, layout. These never change
+   between themes, so they live in a plain :root. Shadow/ring tokens
+   may reference color vars (e.g. --border-strong, --krystal-teal-ring);
+   var() is late-bound, so they pick up the ACTIVE theme's color at use.
+   All COLOR tokens live in the theme scopes that follow this block.
+   ============================================================ */
 :root {
-  /* ---------- COLOR — Canvas & surfaces (dark only) -------- */
-  --canvas:          #0B0F14;   /* page background */
-  --surface-0:       #0E141C;   /* sidebar, very subtle lift */
-  --surface-1:       #11161D;   /* primary card */
-  --surface-2:       #161C25;   /* nested card / hovered surface */
-  --surface-3:       #1C242F;   /* input fill, pressed surface */
-
-  /* ---------- COLOR — Borders ------------------------------ */
-  --border-subtle:   rgba(255, 255, 255, 0.06);
-  --border-strong:   rgba(255, 255, 255, 0.12);
-  --border-accent:   rgba(64, 160, 192, 0.50);     /* focus / active */
-
-  /* ---------- COLOR — Foreground --------------------------- */
-  --fg-1:            #F2F5F9;   /* primary text */
-  --fg-2:            #B8C2D0;   /* secondary text */
-  --fg-3:            #7C8899;   /* muted / labels */
-  --fg-4:            #515E70;   /* placeholder / disabled */
-  --fg-inverse:      #0B0F14;   /* text on light or teal surfaces */
-
-  /* ---------- COLOR — Brand & accent -----------------------
-     Sampled from The Krystal Ship logo cloud (#40A0C0). */
-  --krystal-teal:        #40A0C0;
-  --krystal-teal-hover:  #5DB5D2;
-  --krystal-teal-press:  #2F89A8;
-  --krystal-teal-dim:    rgba(64, 160, 192, 0.14);
-  --krystal-teal-ring:   rgba(64, 160, 192, 0.35);
-
-  /* Brand ink — the black stencil of the wordmark. Use for emphasis on light. */
-  --krystal-ink:         #0F1115;
-
-  /* ---------- COLOR — Semantic ----------------------------- */
-  --success:        #22C55E;
-  --success-bg:     rgba(34, 197, 94, 0.14);
-  --success-fg:     #4ADE80;
-
-  --danger:         #EF4444;
-  --danger-bg:      rgba(239, 68, 68, 0.14);
-  --danger-fg:      #FB7185;
-
-  --warning:        #F59E0B;
-  --warning-bg:     rgba(245, 158, 11, 0.14);
-  --warning-fg:     #FBBF24;
-
-  --update:         #F97316;   /* restart / update orange */
-  --update-bg:      rgba(249, 115, 22, 0.14);
-  --update-fg:      #FB923C;
-
-  --info:           #38BDF8;
-  --info-bg:        rgba(56, 189, 248, 0.14);
-  --info-fg:        #7DD3FC;
-
   /* ---------- TYPE — Families ------------------------------ */
   --font-ui:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -160,6 +117,156 @@
   --topbar-h:  56px;      /* @kind spacing */
   --content-max: 1280px;  /* @kind spacing */
   --gutter:    32px;      /* @kind spacing */
+}
+
+/* ============================================================
+   THEME — DARK  (the default / original palette)
+   ------------------------------------------------------------
+   Applies both with NO [data-theme] attribute (so a no-JS or
+   pre-hydration document is dark, unchanged) AND with an explicit
+   [data-theme="dark"]. The CONTRACT for any theme: define this
+   FULL color set — canvas, surfaces, borders, fg, the teal brand
+   family, the semantic families, and the overlay/veil/scrim tokens.
+   "auto" is resolved to dark|light in JS (theme.js), so CSS never
+   sees it — only ever [data-theme="dark"] or [data-theme="light"].
+   ============================================================ */
+:root,
+[data-theme="dark"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #0B0F14;   /* page background */
+  --surface-0:       #0E141C;   /* sidebar, very subtle lift */
+  --surface-1:       #11161D;   /* primary card */
+  --surface-2:       #161C25;   /* nested card / hovered surface */
+  --surface-3:       #1C242F;   /* input fill, pressed surface */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(255, 255, 255, 0.06);
+  --border-strong:   rgba(255, 255, 255, 0.12);
+  --border-accent:   rgba(64, 160, 192, 0.50);     /* focus / active */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #F2F5F9;   /* primary text */
+  --fg-2:            #B8C2D0;   /* secondary text */
+  --fg-3:            #7C8899;   /* muted / labels */
+  --fg-4:            #515E70;   /* placeholder / disabled */
+  --fg-inverse:      #0B0F14;   /* text on teal / colored accent surfaces */
+
+  /* ---------- Brand & accent -----------------------------
+     Sampled from The Krystal Ship logo cloud (#40A0C0). */
+  --krystal-teal:        #40A0C0;
+  --krystal-teal-hover:  #5DB5D2;
+  --krystal-teal-press:  #2F89A8;
+  --krystal-teal-dim:    rgba(64, 160, 192, 0.14);
+  --krystal-teal-ring:   rgba(64, 160, 192, 0.35);
+  --krystal-ink:         #0F1115;   /* wordmark stencil ink */
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #22C55E;
+  --success-bg:     rgba(34, 197, 94, 0.14);
+  --success-fg:     #4ADE80;
+
+  --danger:         #EF4444;
+  --danger-bg:      rgba(239, 68, 68, 0.14);
+  --danger-fg:      #FB7185;
+
+  --warning:        #F59E0B;
+  --warning-bg:     rgba(245, 158, 11, 0.14);
+  --warning-fg:     #FBBF24;
+
+  --update:         #F97316;   /* restart / update orange */
+  --update-bg:      rgba(249, 115, 22, 0.14);
+  --update-fg:      #FB923C;
+
+  --info:           #38BDF8;
+  --info-bg:        rgba(56, 189, 248, 0.14);
+  --info-fg:        #7DD3FC;
+
+  /* ---------- Overlays, veils & scrims -------------------
+     Surface tints (veils), the modal/drawer backdrop base, and the
+     scrollbar thumb. These bypassed the tokens before — pills, bars
+     and badges hardcoded white-alpha, which is invisible on a light
+     surface, so they're now theme-scoped. The scrim base is consumed
+     via color-mix() at the call site so each backdrop keeps its own
+     alpha. Fade-to-canvas gradients use color-mix on --canvas directly
+     and need no token here. */
+  --veil-1:          rgba(255, 255, 255, 0.06);  /* subtle fill: status pills, meter tracks */
+  --veil-2:          rgba(255, 255, 255, 0.08);  /* hover / badge fill */
+  --veil-3:          rgba(255, 255, 255, 0.10);  /* stronger badge fill */
+  --scrim-base:      #070A0E;                     /* modal / drawer / pop-out backdrop (via color-mix) */
+  --scrollbar-thumb:       rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.24);
+}
+
+/* ============================================================
+   THEME — LIGHT
+   ------------------------------------------------------------
+   Mirrors the dark token set. Surfaces invert (light page, white
+   cards); borders & veils flip to black-alpha (white-alpha is
+   invisible on light); the teal and semantic *-fg colors darken so
+   text/links keep AA contrast on light surfaces; the scrim base
+   lightens. Groundwork-grade — fine visual polish is expected to
+   iterate (visual harness, dark + light).
+   ============================================================ */
+[data-theme="light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #F5F7FA;   /* page background */
+  --surface-0:       #ECEFF4;   /* sidebar panel — recedes from the page */
+  --surface-1:       #FFFFFF;   /* primary card — the lift */
+  --surface-2:       #F1F4F8;   /* nested / hovered surface (darkens slightly) */
+  --surface-3:       #E7EBF1;   /* input fill, pressed surface (inset) */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(0, 0, 0, 0.08);
+  --border-strong:   rgba(0, 0, 0, 0.15);
+  --border-accent:   rgba(30, 126, 156, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #101826;   /* primary text */
+  --fg-2:            #3C4858;   /* secondary text */
+  --fg-3:            #5F6B7A;   /* muted / labels */
+  --fg-4:            #97A2B0;   /* placeholder / disabled */
+  --fg-inverse:      #0B1018;   /* dark text on teal / colored accent surfaces */
+
+  /* ---------- Brand & accent -----------------------------
+     Brand teal darkened for AA-large contrast as link/active text
+     on white; still reads as the same teal on accent buttons. */
+  --krystal-teal:        #1E7E9C;
+  --krystal-teal-hover:  #2A93B3;
+  --krystal-teal-press:  #17647D;
+  --krystal-teal-dim:    rgba(30, 126, 156, 0.12);
+  --krystal-teal-ring:   rgba(30, 126, 156, 0.32);
+  --krystal-ink:         #0F1115;
+
+  /* ---------- Semantic -----------------------------------
+     Base hue kept saturated (works as button bg); the *-fg darkened
+     to the ~700 shade so colored text is legible on light. */
+  --success:        #16A34A;
+  --success-bg:     rgba(22, 163, 74, 0.12);
+  --success-fg:     #15803D;
+
+  --danger:         #DC2626;
+  --danger-bg:      rgba(220, 38, 38, 0.10);
+  --danger-fg:      #B91C1C;
+
+  --warning:        #D97706;
+  --warning-bg:     rgba(217, 119, 6, 0.13);
+  --warning-fg:     #B45309;
+
+  --update:         #EA580C;
+  --update-bg:      rgba(234, 88, 12, 0.12);
+  --update-fg:      #C2410C;
+
+  --info:           #0EA5E9;
+  --info-bg:        rgba(2, 132, 199, 0.12);
+  --info-fg:        #0369A1;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1:          rgba(0, 0, 0, 0.05);
+  --veil-2:          rgba(0, 0, 0, 0.07);
+  --veil-3:          rgba(0, 0, 0, 0.09);
+  --scrim-base:      #0F1722;
+  --scrollbar-thumb:       rgba(0, 0, 0, 0.22);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
 }
 
 /* ============================================================

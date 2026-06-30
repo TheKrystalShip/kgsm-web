@@ -1,0 +1,175 @@
+/* ============================================================================
+   kit/extras.css — sidebar-collapse rail, server grouping
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============================================================
+   SIDEBAR COLLAPSE — desktop icon rail
+   The rail is a desktop-only affordance: at or below 768px the
+   sidebar is the off-canvas drawer, so all rail rules are gated
+   to wide viewports and the drawer always shows full labels.
+   ============================================================ */
+
+/* Brand-row collapse toggle — compact icon button at the trailing edge, mirroring
+   the assistant dock's close button so both sit on the same top band. */
+.sidebar__collapse {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  background: transparent; border: none; border-radius: var(--r-md);
+  color: var(--fg-4); cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
+}
+.sidebar__collapse:hover { background: var(--surface-2); color: var(--fg-2); }
+.sidebar__collapse > svg { flex-shrink: 0; }
+
+@media (min-width: 769px) {
+  .sidebar--rail { padding-left: 8px; padding-right: 8px; position: relative; z-index: 30; }
+
+  /* Brand → mark stacked above the (now centered) collapse toggle */
+  .sidebar--rail .sidebar__brand { flex-direction: column; gap: 6px; align-items: center; padding: 4px 0 6px; }
+  .sidebar--rail .sidebar__brand-wordmark { display: none; }
+  .sidebar--rail .sidebar__collapse { margin-left: 0; }
+
+  /* Host switcher → stacked dot/glyph + 2-letter code */
+  .sidebar--rail .host-switch { margin: 2px 0 8px; }
+  .sidebar--rail .host-switch__trigger { flex-direction: column; gap: 4px; padding: 8px 4px; }
+  .sidebar--rail .host-switch__code {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--fg-3); font-family: var(--font-mono); line-height: 1;
+  }
+  /* Popover can't inherit the 64px trigger width — give it room, anchored left */
+  .sidebar--rail .host-switch__menu { left: 0; right: auto; min-width: 252px; }
+
+  /* Nav groups → hide labels, separate sections with a hairline */
+  .sidebar--rail .sidebar__nav { gap: 10px; }
+  .sidebar--rail .sidebar__group-label { display: none; }
+  .sidebar--rail .sidebar__group + .sidebar__group {
+    border-top: 1px solid var(--border-subtle); padding-top: 10px;
+  }
+
+  /* Nav items → centered icon, label hidden, count badge becomes a corner pip */
+  .sidebar--rail .nav-item { justify-content: center; padding: 9px 0; position: relative; }
+  .sidebar--rail .nav-item__label { display: none; }
+  .sidebar--rail .nav-item--active::before { left: -8px; top: 6px; bottom: 6px; }
+  .sidebar--rail .nav-item__badge {
+    position: absolute; top: 1px; right: 2px; margin: 0;
+    width: 14px; min-width: 14px; height: 14px; padding: 0; line-height: 14px;
+    border-radius: 999px;
+    font-size: 9px; font-weight: 700; text-align: center;
+    border: 1.5px solid var(--surface-0);
+  }
+  /* Solid fills so the tiny pip stays legible (the 14%-alpha tone bgs don't) */
+  .sidebar--rail .nav-item__badge--danger { background: var(--danger); color: #fff; }
+  .sidebar--rail .nav-item__badge--warn   { background: var(--warning); color: var(--fg-inverse); }
+  .sidebar--rail .nav-item__badge--info   { background: var(--fg-3); color: var(--surface-0); }
+
+  /* Account → centered avatar; upward menu widened + anchored left */
+  .sidebar--rail .sidebar__account { justify-content: center; padding: 6px 0; }
+  .sidebar--rail .sidebar__account__text,
+  .sidebar--rail .sidebar__account__caret { display: none; }
+  .sidebar--rail .sidebar__account-menu { left: 0; right: auto; min-width: 232px; }
+
+  /* Collapse toggle stays a 32px icon button in the rail */
+
+  /* ---- Tooltip primitive (rail only) ---- */
+  .sidebar--rail [data-tip] { position: relative; }
+  .sidebar--rail [data-tip]:hover::after,
+  .sidebar--rail [data-tip]:focus-visible::after {
+    content: attr(data-tip);
+    position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%);
+    background: var(--surface-1); color: var(--fg-1);
+    border: 1px solid var(--border-strong); box-shadow: var(--shadow-2);
+    padding: 5px 9px; border-radius: var(--r-sm);
+    font-size: 12.5px; font-weight: 500; white-space: nowrap;
+    z-index: 70; pointer-events: none;
+    animation: k-fade var(--d-fast) var(--ease-out);
+  }
+}
+
+/* The collapse toggle is desktop-only — the mobile drawer is always expanded.
+   On mobile the brand row keeps just the mark + wordmark. */
+@media (max-width: 768px) {
+  .sidebar__collapse { display: none; }
+}
+
+/* ============================================================
+   Server grouping — blueprint / host sections
+   ============================================================ */
+
+/* Sections (ServersPage.jsx → ServerGroup). Vertical rhythm from the headers;
+   horizontal density preserved by keeping the card grid inside each section. */
+.server-groups { display: flex; flex-direction: column; gap: 30px; }
+.server-group { display: block; }
+
+.server-group__head { display: flex; align-items: center; gap: 11px; }
+.server-group__toggle {
+  display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0;
+  padding: 0; background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.server-group__caret {
+  color: var(--fg-4); display: inline-flex; flex-shrink: 0;
+  transform: rotate(90deg); transition: transform var(--d-fast) var(--ease-out);
+}
+.server-group.is-collapsed .server-group__caret { transform: rotate(0deg); }
+.server-group__chip {
+  width: 24px; height: 24px; border-radius: var(--r-md); flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.server-group__chip--host {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-3); color: var(--fg-3);
+}
+.server-group__name {
+  font-size: 15px; font-weight: 600; color: var(--fg-1);
+  letter-spacing: -0.005em; flex-shrink: 0;
+}
+.server-group__toggle:hover .server-group__name { color: var(--krystal-teal-hover); }
+.server-group__count {
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono); color: var(--fg-3);
+  background: var(--surface-2); padding: 1px 8px; border-radius: 999px;
+  line-height: 16px; flex-shrink: 0;
+}
+.server-group__agg {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--fg-3); margin-left: 2px; flex-shrink: 0;
+  white-space: nowrap;
+}
+.server-group__dot { width: 6px; height: 6px; border-radius: 999px; background: var(--fg-4); }
+.server-group__dot.is-on { background: var(--success); }
+
+.server-group__rule {
+  height: 0; border: none; border-top: 1px solid var(--border-subtle); margin: 12px 0 0;
+}
+.server-group__grid { margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .server-group__agg { display: none; }
+}
+
+/* Host sections read a touch heavier than blueprint: a larger name and a
+   stronger rule. */
+.server-group--host .server-group__name { font-size: 16px; }
+.server-group--host .server-group__rule { border-top-color: var(--border-strong); }
+
+/* Single section (e.g. a one-host fleet): drop the heavy banner for a thin
+   context strip. */
+.server-group--solo .server-group__strip {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  color: var(--fg-4); font-size: 12px;
+}
+.server-group--solo .server-group__strip-name { color: var(--fg-2); font-weight: 600; }
+.server-group--solo .server-group__strip-meta { color: var(--fg-4); }
+
+/* Favorites: the pinned shelf above every grouping mode. A gold star chip marks
+   it apart from host/blueprint sections; the bottom margin matches the 30px
+   inter-section rhythm so it reads as the first group, not a detached banner. */
+.server-groups--fav { margin-bottom: 30px; }
+.server-group__chip--fav {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(245, 158, 11, 0.12); color: var(--warning);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.32);
+}
+.server-group__chip--fav svg { fill: currentColor; }
+.server-group--fav .server-group__name { font-size: 16px; }
+.server-group--fav .server-group__rule { border-top-color: var(--border-strong); }

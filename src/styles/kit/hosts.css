@@ -1,0 +1,393 @@
+/* ============================================================================
+   kit/hosts.css — host switcher, fleet board, hosts management
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============================================================= */
+/* Host scope — sidebar switcher, fleet board, hosts management   */
+/* ============================================================= */
+
+/* ---- Sidebar host switcher (global scope selector) ---- */
+.host-switch { position: relative; margin: 2px 0 10px; }
+.host-switch__trigger {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  cursor: pointer; text-align: left;
+  transition: border-color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
+}
+.host-switch__trigger:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.host-switch__trigger--open { border-color: var(--border-accent); box-shadow: var(--ring-input); }
+.host-switch__lead { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--fg-3); width: 18px; }
+.host-switch__dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+.host-switch__dot--online { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
+.host-switch__dot--off { background: var(--fg-4); }
+.host-switch__main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.host-switch__name { color: var(--fg-1); font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-switch__sub { color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-switch__caret { color: var(--fg-4); flex-shrink: 0; }
+
+.host-switch__menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  animation: k-rise var(--d-fast) var(--ease-out);
+}
+.host-switch__menu-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--fg-4); padding: 8px 8px 4px;
+}
+.host-switch__opt {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: var(--r-sm);
+  background: transparent; border: none; cursor: pointer; text-align: left;
+  transition: background var(--d-fast) var(--ease-out);
+}
+.host-switch__opt:hover { background: var(--surface-2); }
+.host-switch__opt--active { background: var(--krystal-teal-dim); }
+.host-switch__opt-lead { width: 18px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--fg-3); }
+.host-switch__opt--active .host-switch__opt-lead { color: var(--krystal-teal); }
+.host-switch__opt-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.host-switch__opt-name { color: var(--fg-1); font-weight: 600; font-size: 13px; }
+.host-switch__opt--active .host-switch__opt-name { color: var(--krystal-teal); }
+.host-switch__opt-sub { color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-switch__opt-check { color: var(--krystal-teal); flex-shrink: 0; }
+.host-switch__opt-flag { font-size: 10px; font-weight: 600; color: var(--fg-4); text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
+.host-switch__foot { border-top: 1px solid var(--border-subtle); margin-top: 6px; padding-top: 6px; }
+.host-switch__manage {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: var(--r-sm);
+  background: transparent; border: none; cursor: pointer;
+  color: var(--fg-2); font-size: 12.5px; font-weight: 600;
+}
+.host-switch__manage:hover { background: var(--surface-2); color: var(--fg-1); }
+
+/* ---- Server tile top-right corner: host badge + favorite star ---- */
+/* Both live in one right-aligned flex row so they never collide; the host badge
+   only renders under "All hosts" (and is forced on inside Favorites). */
+.server-tile__corner {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  display: flex; align-items: center; gap: 6px;
+}
+.server-tile__host {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; color: var(--fg-2);
+  background: color-mix(in srgb, var(--scrim-base) 62%, transparent); backdrop-filter: blur(4px);
+  padding: 3px 8px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+}
+.server-tile__host > svg { color: var(--fg-3); }
+
+/* Favorite star — hover-revealed on desktop, always visible once pinned. */
+.server-tile__fav {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--scrim-base) 62%, transparent); backdrop-filter: blur(4px);
+  border: 1px solid var(--border-subtle); color: var(--fg-3);
+  opacity: 0;
+  transition: opacity var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
+}
+.server-tile:hover .server-tile__fav { opacity: 1; }
+.server-tile__fav:hover { color: var(--warning); border-color: rgba(245, 158, 11, 0.4); }
+.server-tile__fav:focus-visible { opacity: 1; outline: none; box-shadow: var(--ring-focus); }
+.server-tile__fav.is-on { opacity: 1; color: var(--warning); border-color: rgba(245, 158, 11, 0.4); }
+.server-tile__fav.is-on svg { fill: currentColor; }
+/* No hover to reveal it on: coarse pointers (real touch devices) AND the narrow
+   mobile layout (which also covers a desktop browser previewed at phone width).
+   Keep the star permanently visible there; wide desktop keeps the hover reveal. */
+@media (hover: none), (max-width: 768px) {
+  .server-tile__fav { opacity: 1; }
+}
+
+/* ---- Diagnostics: back-to-fleet pill ---- */
+.diag-fleet-back {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+  height: 32px; padding: 0 12px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--fg-2); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.diag-fleet-back:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+
+/* ---- Fleet board (Diagnostics under "All hosts") ---- */
+.fleet-summary {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: 16px 20px; margin-bottom: 16px;
+}
+.fleet-summary__item { display: flex; flex-direction: column; gap: 3px; }
+.fleet-summary__val { font-size: 24px; font-weight: 700; color: var(--fg-1); line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.fleet-summary__lbl { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-3); }
+.fleet-summary__hint {
+  flex: 1; min-width: 220px; margin-left: auto;
+  display: flex; align-items: center; gap: 8px;
+  color: var(--fg-3); font-size: 12.5px; line-height: 1.45;
+  padding-left: 20px; border-left: 1px solid var(--border-subtle);
+}
+.fleet-summary__hint > svg { color: var(--fg-4); flex-shrink: 0; }
+
+.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.fleet-card {
+  text-align: left; cursor: pointer;
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: border-color var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out);
+}
+.fleet-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.fleet-card:hover .fleet-card__open { color: var(--krystal-teal); }
+.fleet-card--warn   { border-color: color-mix(in srgb, var(--warning) 30%, var(--border-subtle)); }
+.fleet-card--danger { border-color: color-mix(in srgb, var(--danger) 38%, var(--border-subtle)); }
+.fleet-card__head { display: flex; align-items: center; gap: 9px; }
+.fleet-card__dot { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+.fleet-card__dot--success { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent); }
+.fleet-card__dot--warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 20%, transparent); }
+.fleet-card__dot--danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+.fleet-card__dot--off { background: var(--fg-4); }
+.fleet-card__name { font-size: 15px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; }
+.fleet-card__region { font-size: 11px; font-family: var(--font-mono); color: var(--fg-3); background: var(--surface-3); padding: 1px 7px; border-radius: 999px; }
+.fleet-card__alerts {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+}
+.fleet-card__alerts--warn { color: var(--warning-fg); background: var(--warning-bg); }
+.fleet-card__alerts--danger { color: var(--danger-fg); background: var(--danger-bg); }
+.fleet-card__go { color: var(--fg-4); }
+.fleet-card__hostname { font-size: 12px; font-family: var(--font-mono); color: var(--fg-3); margin-top: -4px; }
+.fleet-card__meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fleet-meter { display: flex; flex-direction: column; gap: 6px; }
+.fleet-meter__top { display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; color: var(--fg-3); font-weight: 600; }
+.fleet-meter__top b { font-size: 13px; color: var(--fg-1); font-variant-numeric: tabular-nums; }
+.fleet-meter__track { height: 5px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.fleet-meter__track i { display: block; height: 100%; border-radius: 999px; background: var(--krystal-teal); }
+.fleet-meter--warn .fleet-meter__track i { background: var(--warning); }
+.fleet-meter--warn .fleet-meter__top b { color: var(--warning-fg); }
+.fleet-meter--danger .fleet-meter__track i { background: var(--danger); }
+.fleet-meter--danger .fleet-meter__top b { color: var(--danger-fg); }
+.fleet-card__offline { display: flex; align-items: center; gap: 8px; color: var(--fg-3); font-size: 12.5px; padding: 6px 0; }
+.fleet-card__foot { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--fg-3); border-top: 1px solid var(--border-subtle); padding-top: 11px; }
+.fleet-card__foot > span { display: inline-flex; align-items: center; gap: 5px; }
+.fleet-card__foot > span > svg { color: var(--fg-4); }
+.fleet-card__open { margin-left: auto; font-weight: 600; color: var(--fg-2); transition: color var(--d-fast) var(--ease-out); }
+
+/* ---- Per-host ⋯ management menu + active tags ---- */
+.fleet-card__active {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--krystal-teal); background: var(--krystal-teal-dim);
+  padding: 2px 7px; border-radius: 999px;
+}
+.host-menu { position: relative; display: inline-flex; flex-shrink: 0; }
+.icon-btn--on { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
+.host-menu__pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; min-width: 190px;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: 6px;
+  animation: k-rise var(--d-fast) var(--ease-out);
+}
+.host-menu__item {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  padding: 8px 9px; border-radius: var(--r-sm);
+  background: transparent; border: none; cursor: pointer; text-align: left;
+  color: var(--fg-2); font-size: 13px; font-weight: 500;
+}
+.host-menu__item:hover { background: var(--surface-2); color: var(--fg-1); }
+.host-menu__item > svg { color: var(--fg-3); flex-shrink: 0; }
+.host-menu__item:disabled { color: var(--krystal-teal); cursor: default; }
+.host-menu__item:disabled > svg { color: var(--krystal-teal); }
+.host-menu__item:disabled:hover { background: transparent; }
+.host-menu__item--danger { color: var(--danger-fg); }
+.host-menu__item--danger > svg { color: var(--danger-fg); }
+.host-menu__item--danger:hover { background: var(--danger-bg); color: var(--danger-fg); }
+.host-menu__sep { height: 1px; background: var(--border-subtle); margin: 5px 0; }
+.host-picker__active-tag {
+  margin-left: 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--krystal-teal); background: var(--krystal-teal-dim);
+  padding: 1px 6px; border-radius: 999px; vertical-align: middle;
+}
+
+/* ---- Hosts management page ---- */
+.dash-head--row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+.host-card {
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 13px;
+}
+.host-card--selected { border-color: var(--border-accent); box-shadow: 0 0 0 1px var(--krystal-teal-dim); }
+.host-card__head { display: flex; align-items: center; gap: 8px; }
+.host-card__status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: capitalize; padding: 3px 9px 3px 7px; border-radius: 999px; }
+.host-card__status-dot { width: 7px; height: 7px; border-radius: 999px; }
+.host-card__status--online { background: var(--success-bg); color: var(--success-fg); }
+.host-card__status--online .host-card__status-dot { background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
+.host-card__status--off { background: var(--veil-1); color: var(--fg-3); }
+.host-card__status--off .host-card__status-dot { background: var(--fg-4); }
+.host-card__status--pending { background: var(--warning-bg); color: var(--warning-fg); }
+.host-card__status--pending .host-card__status-dot { background: var(--warning); animation: kr-pulse 1.2s ease-in-out infinite; }
+.host-card__scope { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--krystal-teal); }
+.host-card__menu { display: flex; gap: 5px; }
+.host-card__menu .icon-btn { width: 30px; height: 30px; }
+.host-card__id { display: flex; flex-direction: column; gap: 3px; }
+.host-card__name { font-size: 17px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; }
+.host-card__hostname code { font-size: 12px; font-family: var(--font-mono); color: var(--fg-3); }
+.host-card__facts { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.host-card__fact { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg-2); }
+.host-card__fact > svg { color: var(--fg-4); }
+.host-card__meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.host-mini { display: flex; flex-direction: column; gap: 6px; }
+.host-mini__top { display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--fg-3); }
+.host-mini__top b { font-size: 12.5px; color: var(--fg-1); font-variant-numeric: tabular-nums; }
+.host-mini__track { height: 5px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.host-mini__track i { display: block; height: 100%; border-radius: 999px; background: var(--krystal-teal); }
+.host-mini--warn .host-mini__track i { background: var(--warning); }
+.host-mini--warn .host-mini__top b { color: var(--warning-fg); }
+.host-mini--danger .host-mini__track i { background: var(--danger); }
+.host-mini--danger .host-mini__top b { color: var(--danger-fg); }
+.host-card__notelemetry {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px dashed var(--border-subtle);
+  border-radius: var(--r-md); padding: 11px 13px;
+  color: var(--fg-3); font-size: 12.5px;
+}
+.host-card__notelemetry > svg { color: var(--fg-4); flex-shrink: 0; }
+.host-card__foot { display: flex; gap: 8px; border-top: 1px solid var(--border-subtle); padding-top: 13px; margin-top: auto; }
+
+.host-card--add {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; text-align: center; cursor: pointer; min-height: 180px;
+  background: transparent; border: 1px dashed var(--border-strong);
+  color: var(--fg-3);
+  transition: border-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
+}
+.host-card--add:hover { border-color: var(--border-accent); color: var(--krystal-teal); background: var(--krystal-teal-dim); }
+.host-card__add-icon {
+  width: 44px; height: 44px; border-radius: 999px;
+  background: var(--surface-2); display: inline-flex; align-items: center; justify-content: center;
+}
+.host-card--add:hover .host-card__add-icon { background: var(--surface-1); }
+.host-card__add-title { font-size: 14px; font-weight: 600; color: var(--fg-2); }
+.host-card--add:hover .host-card__add-title { color: var(--krystal-teal); }
+.host-card__add-sub { font-size: 12px; color: var(--fg-4); max-width: 200px; }
+
+/* ---- Buttons shared by hosts surfaces ---- */
+.host-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 38px; padding: 0 16px; border-radius: var(--r-md);
+  font-family: var(--font-ui); font-weight: 600; font-size: 13px; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.host-btn--sm { height: 32px; padding: 0 12px; font-size: 12.5px; flex: 1; }
+.host-btn--primary { background: var(--krystal-teal); color: var(--fg-inverse); }
+.host-btn--primary:hover { background: var(--krystal-teal-hover); }
+.host-btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.host-btn--ghost { background: var(--surface-2); border-color: var(--border-subtle); color: var(--fg-2); }
+.host-btn--ghost:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.host-btn--ghost:disabled { opacity: 0.55; cursor: default; }
+.host-btn--ghost:disabled:hover { background: var(--surface-2); color: var(--fg-2); border-color: var(--border-subtle); }
+.host-btn--danger { background: var(--danger); color: #fff; }
+.host-btn--danger:hover { filter: brightness(1.08); }
+
+/* ---- Host editor / remove modals ---- */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, var(--scrim-base) 70%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; padding: 32px;
+  animation: k-fade var(--d-base) var(--ease-out);
+}
+.modal {
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl); box-shadow: var(--shadow-pop);
+  width: 100%; max-width: 480px;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+.host-editor__head { display: flex; align-items: flex-start; gap: 13px; padding: 20px 22px 14px; border-bottom: 1px solid var(--border-subtle); }
+.host-editor__head-icon {
+  width: 38px; height: 38px; border-radius: var(--r-md); flex-shrink: 0;
+  background: var(--krystal-teal-dim); color: var(--krystal-teal);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.host-editor__title { font-size: 17px; font-weight: 700; color: var(--fg-1); margin: 0; }
+.host-editor__sub { font-size: 12.5px; color: var(--fg-3); margin: 3px 0 0; line-height: 1.45; }
+.host-editor__close { margin-left: auto; background: transparent; border: none; color: var(--fg-3); cursor: pointer; padding: 6px; border-radius: var(--r-md); }
+.host-editor__close:hover { background: var(--surface-2); color: var(--fg-1); }
+.host-editor__body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.host-field { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.host-field__label { font-size: 12px; font-weight: 600; color: var(--fg-2); }
+.host-field__opt { font-weight: 500; color: var(--fg-4); font-size: 11px; }
+.host-field__input {
+  background: var(--surface-3); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); height: 38px; padding: 0 12px;
+  color: var(--fg-1); font-family: var(--font-ui); font-size: 13.5px; outline: none;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+.host-field__input--mono { font-family: var(--font-mono); }
+.host-field__input::placeholder { color: var(--fg-4); }
+.host-field__input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
+.host-field-row { display: flex; gap: 12px; }
+.host-editor__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px 20px; border-top: 1px solid var(--border-subtle); }
+
+.host-remove { max-width: 440px; padding: 26px 26px 22px; text-align: center; }
+.host-remove__icon { width: 48px; height: 48px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.host-remove__icon--danger { background: var(--danger-bg); color: var(--danger-fg); }
+.host-remove__icon--warn { background: var(--warning-bg); color: var(--warning-fg); }
+.host-remove__title { font-size: 18px; font-weight: 700; color: var(--fg-1); margin: 0 0 8px; }
+.host-remove__text { font-size: 13.5px; color: var(--fg-3); line-height: 1.55; margin: 0 0 20px; }
+.host-remove__foot { display: flex; justify-content: center; gap: 10px; }
+
+@media (max-width: 900px) {
+  .fleet-grid, .host-grid { grid-template-columns: 1fr; }
+  .fleet-summary__hint { margin-left: 0; border-left: none; padding-left: 0; flex-basis: 100%; }
+}
+
+/* ---- Dashboard fleet strip ("All hosts" home capacity card) ---- */
+.dash-fleet__rows { display: flex; flex-direction: column; }
+.dash-fleet-row {
+  display: grid; grid-template-columns: 200px minmax(0, 1fr) 52px; align-items: center; gap: 18px;
+  min-height: 53px; box-sizing: border-box;
+  padding: 13px 16px; text-align: left; cursor: pointer;
+  background: transparent; border: none; border-top: 1px solid var(--border-subtle);
+  transition: background var(--d-fast) var(--ease-out);
+}
+.dash-fleet-row:first-child { border-top: none; }
+.dash-fleet-row:hover { background: var(--surface-2); }
+.dash-fleet-row:hover .dash-fleet-row__go { color: var(--krystal-teal); }
+.dash-fleet-row__id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.dash-fleet-row__dot { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+.dash-fleet-row__dot--success { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent); }
+.dash-fleet-row__dot--warn { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 20%, transparent); }
+.dash-fleet-row__dot--danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+.dash-fleet-row__dot--off { background: var(--fg-4); }
+.dash-fleet-row__name { font-size: 14px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-fleet-row__region { font-size: 11px; font-family: var(--font-mono); color: var(--fg-3); background: var(--surface-3); padding: 1px 7px; border-radius: 999px; flex-shrink: 0; }
+.dash-fleet-row__meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.dash-fleet-row__end { display: flex; align-items: center; justify-content: flex-end; }
+.dash-fleet-row__offline { display: inline-flex; align-items: center; gap: 7px; color: var(--fg-3); font-size: 12.5px; }
+.dash-fleet-row__go { color: var(--fg-4); transition: color var(--d-fast) var(--ease-out); }
+
+@media (max-width: 760px) {
+  /* Keep each host on a SINGLE row — name, meters and chevron squish to fit
+     instead of wrapping onto three lines. Switch from the fixed desktop grid to
+     a flex row: the name (least essential — it ellipsizes) gives up space first,
+     the meters compress, the chevron stays fixed. */
+  .dash-fleet-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  /* Name + region keep their natural width (shrink only if truly cramped, never
+     grow), the meters expand into all remaining space, the chevron stays pinned
+     to the right. */
+  .dash-fleet-row__id { flex: 0 1 auto; min-width: 0; }
+  .dash-fleet-row__meters {
+    flex: 1 1 auto; min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  }
+  .dash-fleet-row__offline { flex: 1 1 auto; min-width: 0; }
+  .dash-fleet-row__end { flex: 0 0 auto; }
+}
+

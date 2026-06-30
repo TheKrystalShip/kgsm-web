@@ -1,0 +1,39 @@
+/* ============================================================================
+   kit/base.css — global glue, scrollbar
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+
+html, body, #root { height: 100%; margin: 0; }
+body { overflow: hidden; }
+
+/* Global scrollbar — matches Monaco's slider (the theme's scrollbarSlider tokens):
+   a thin, track-less, subtly-inset thumb instead of the chunky OS default that
+   clashed with the dark theme. Applies to every scrollable surface site-wide.
+   scrollbar-width/color cover Firefox. */
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; border: 3px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); border: 3px solid transparent; background-clip: padding-box; }
+
+/* App shell */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100vh;
+  background: var(--canvas);
+  box-sizing: border-box;
+  padding-right: var(--dock-push, 0px);
+  transition: grid-template-columns var(--d-base) var(--ease-out), padding-right var(--d-base) var(--ease-out);
+}
+.app__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  /* Size container: descendants (the footer) collapse on THIS column's width,
+     not the viewport's — so they respond to the pinned dock narrowing the page. */
+  container-type: inline-size;
+  container-name: appmain;
+}
+

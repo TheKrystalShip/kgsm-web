@@ -139,6 +139,54 @@ but render an honest "Work in progress — not available yet" state behind a
 `…_WIRED = false` flag — never fabricated data; flip the flag + hydrate when the
 endpoint lands.
 
+## Styling & themes (`src/styles/`)
+
+Plain CSS, no Tailwind/CSS-modules. Three files load in order (`main.jsx`):
+`tokens.css` → `kit.css` → `consumer.css`. Everything is driven by ~40 CSS custom
+properties — **a component must never hardcode a color; add or extend a token.**
+
+- **`tokens.css` — the design-token source of truth, split by concern:**
+  - A plain `:root` holds **structural** tokens (type, spacing, radius, shadow,
+    motion, layout) — theme-invariant. Shadow/ring tokens may reference color vars;
+    `var()` is late-bound, so they pick up the active theme automatically.
+  - **Color** tokens live in theme scopes: `:root, [data-theme="dark"]` (the
+    default — applies with no attribute too) and `[data-theme="light"]`. Plus the
+    overlay tokens that used to be hardcoded everywhere: `--veil-1/2/3` (white-alpha
+    surface fills that flip to black-alpha on light), `--scrim-base` (modal/drawer
+    backdrop, consumed via `color-mix` so each site keeps its own alpha), and
+    `--scrollbar-*`. **The contract: a theme = the FULL color set re-valued.**
+    Canvas-fade gradients use `color-mix(in srgb, var(--canvas) X%, transparent)`
+    so they track the theme with no extra token.
+- **`kit.css` is a BARREL, not a file to edit.** The old ~6,300-line monolith is
+  split into **focused partials under `src/styles/kit/`** (`base`, `shell`,
+  `server`, `catalog`, `modal`, `onboarding`, `dashboard`, `observability`,
+  `controls`, `responsive`, `chat`, `settings`, `dock`, `hosts`, `states`,
+  `extras`). `kit.css` only `@import`s them. **Add a rule to the partial that owns
+  the domain — do NOT grow a monolith again.** Import **order is load-bearing**
+  (later wins on equal specificity): keep the `@import` sequence; a new domain gets
+  a new partial appended to the barrel. `@import` must precede other rules, which
+  the imports-only barrel satisfies.
+- **`consumer.css`** — a few consumer surfaces (connect/MOTD/login persona).
+
+**Themes (`src/lib/theme.js`).** A client-only preference (`localStorage
+krystal:theme` = `auto｜dark｜light`, default `dark`) that NEVER round-trips to a
+host — same model as favorites. `auto` resolves via `matchMedia` and live-updates
+on OS change. Switching is **LIVE — no page reload** (swaps `<html data-theme>`,
+which re-cascades instantly; the picker is in Settings → Account). Landmines:
+- **No-flash:** an inline boot script in `index.html` sets `data-theme` *before*
+  the stylesheet applies. It mirrors `theme.js` — keep the two in sync.
+- **Monaco can't read CSS vars** → `CodeEditor.jsx` samples the resolved tokens at
+  runtime and re-themes (`vs`/`vs-dark`) whenever the theme store flips.
+- **Always-dark media surfaces** (e.g. the cinematic server hero over key-art) pin
+  the dark `--fg-*`/`--border-*`/`--*-fg` tokens **locally** so they stay
+  light-on-dark in every theme — see `.hero--cinematic` in `kit/server.css`. Do
+  that instead of per-theme special-casing.
+- **Adding a theme:** add a `[data-theme="x"]` block (full color set) to
+  `tokens.css`, then list `x` in `theme.js`'s `VALID`, the `index.html` boot
+  script, and `THEME_OPTS` in `SettingsPage.jsx`.
+- **Test themes with the visual harness's `--theme dark|light` flag** (jsdom smoke
+  does NOT lay out CSS, so it can't catch a theme regression).
+
 ## Where truth lives, and stale-doc warnings
 
 - **`WIRING.md` is the authoritative front↔back contract** — endpoint/realtime/

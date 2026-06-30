@@ -1,0 +1,451 @@
+/* ============================================================================
+   kit/dashboard.css — dashboard, layout customization, contextual alerts
+   Split out of the monolithic kit.css; imported by it in cascade order.
+   ============================================================================ */
+/* ============= Dashboard ============= */
+.dash-head { display: flex; flex-direction: column; gap: 6px; }
+.dash-head h1 { font-size: 28px; font-weight: 700; color: var(--fg-1); letter-spacing: -0.01em; margin: 0; line-height: 1.1; }
+.dash-head__sub { color: var(--fg-3); font-size: 14px; }
+
+/* --- Dashboard layout customization (drag-to-reorder bands) --------------- */
+/* Header becomes a row so the Customize controls sit opposite the greeting. */
+.dash-head--actions { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.dash-head__titles { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.dash-customize { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 3px; }
+.dash-customize__hint {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--fg-3); font-size: 12px; white-space: nowrap;
+}
+.dash-customize__hint > span { color: var(--krystal-teal); }
+.dash-customize__btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 12px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--fg-2); font-family: var(--font-ui); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms, border-color 120ms;
+}
+.dash-customize__btn:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.dash-customize__btn:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.dash-customize--on .dash-customize__btn { background: var(--surface-3); }
+.dash-customize__btn--done {
+  background: var(--krystal-teal); color: var(--fg-inverse); border-color: transparent;
+}
+.dash-customize--on .dash-customize__btn--done,
+.dash-customize__btn--done:hover { background: var(--krystal-teal-hover); color: var(--fg-inverse); }
+
+/* Server-detail overview reuses the same Customize controls; this row keeps
+   them on the sub-tabs line, pushed to the right edge (the dashboard hangs them
+   off its header). Wraps below the tabs on very narrow viewports. */
+.subtabs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* The reorderable stack. Re-supplies .content's 16px column gap, since the
+   bands now live inside one wrapper rather than as direct .content children. */
+.dash-bands { display: flex; flex-direction: column; gap: 16px; }
+.dash-band { position: relative; }
+/* While a drag is active, displaced bands slide to their new slot. The dragged
+   band itself is given an inline `transition: none` so it tracks the cursor. */
+.dash-bands--reordering { user-select: none; }
+.dash-bands--reordering .dash-band { transition: transform 200ms cubic-bezier(0.2,0.8,0.2,1); }
+/* Edit mode: a full-height grip rail per band. Like the host page's back
+   button (.diag-back-btn), it's pulled OUT of flow into the content's left
+   gutter via right:100%, so it never indents or reflows the band content. */
+.dash-band__grip {
+  position: absolute; top: 0; bottom: 0; right: 100%; margin-right: 4px; width: 20px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; cursor: grab; color: var(--fg-3); touch-action: none;
+  background: var(--surface-2); border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.dash-band__grip:hover { background: var(--surface-3); color: var(--krystal-teal); border-color: var(--border-accent); }
+.dash-band__grip:active { cursor: grabbing; }
+.dash-band__grip:focus-visible { outline: none; box-shadow: var(--ring-focus); border-style: solid; border-color: var(--border-accent); color: var(--krystal-teal); }
+/* In edit mode the cards are inert — you're arranging, not operating — so a
+   stray click can't navigate away and drop you out of Customize. The grip sits
+   outside .dash-band__inner, so it stays live. */
+.dash-bands--edit .dash-band__inner { pointer-events: none; user-select: none; }
+/* The band being dragged lifts above its siblings and follows the cursor. */
+.dash-band--dragging { z-index: 6; opacity: 0.97; box-shadow: var(--shadow-2); border-radius: var(--r-lg); }
+.dash-band--dragging .dash-band__grip { cursor: grabbing; background: var(--surface-3); color: var(--krystal-teal); border-color: var(--border-accent); border-style: solid; }
+
+/* Narrow viewports have no usable left gutter, so the rail moves back inside
+   the band and the band gives it room. (Only affects small screens; desktop
+   keeps the gutter placement above so content stays put.) */
+@media (max-width: 700px) {
+  .dash-customize { padding-top: 0; }
+  .dash-bands--edit .dash-band { padding-left: 34px; }
+  .dash-band__grip { right: auto; left: 0; margin-right: 0; width: 26px; }
+}
+
+.dash-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+/* KPI cards borrow the briefing-card chrome (titled header + divider + body)
+   so the whole dashboard reads as one cohesive family of cards. */
+.dash-summary .kpi { margin-top: 0; }
+.kpi__body { padding: 14px 16px; }
+.dash-summary .kpi .tile__val { margin-top: 0; }
+.dash-summary .tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 16px 18px; }
+.dash-summary .tile__lbl { font-size: 11px; font-weight: 600; color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+.dash-summary .tile__val { font-size: 28px; font-weight: 700; color: var(--fg-1); line-height: 1; margin-top: 10px; letter-spacing: -0.01em; }
+.dash-summary .tile__val small { font-size: 14px; font-weight: 400; color: var(--fg-3); }
+
+/* KPI sub-label under the big value — quiet context (server name, region…). */
+.kpi__sub {
+  margin-top: 7px; font-size: 11.5px; color: var(--fg-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Optional KPI progress meter (server-overview stats: players / CPU / RAM). */
+.kpi__bar { height: 4px; margin-top: 11px; background: var(--veil-1); border-radius: 999px; overflow: hidden; }
+.kpi__bar > i { display: block; height: 100%; border-radius: 999px; transition: width 600ms var(--ease-out); }
+/* Stateful accent — non-calm cards draw a colored top hairline so a healthy
+   dashboard reads quiet and a problem one stands out. */
+.dash-summary .kpi { position: relative; }
+.dash-summary .kpi--warn::before,
+.dash-summary .kpi--danger::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.dash-summary .kpi--warn::before   { background: var(--warning-fg); }
+.dash-summary .kpi--danger::before { background: var(--danger-fg); }
+
+/* Host capacity strip — shares the briefing card chrome (header bar + body) */
+.cap-strip {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.cap-strip__head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
+}
+.cap-strip__title {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--fg-2);
+}
+.cap-strip__title > svg { color: var(--fg-3); flex-shrink: 0; }
+.cap-strip__host {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; color: var(--fg-3);
+  background: var(--surface-3); padding: 1px 8px; border-radius: 999px;
+}
+.cap-strip__alert {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+}
+.cap-strip__alert--warn   { color: var(--warning-fg); background: var(--warning-bg); }
+.cap-strip__alert--danger { color: var(--danger-fg);  background: var(--danger-bg); }
+.cap-strip__link {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 30px; padding: 0 12px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--fg-2); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.cap-strip__link:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.cap-strip__meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px; }
+
+.cap-meter {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.cap-meter__top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cap-meter__icon { color: var(--fg-3); display: inline-flex; flex-shrink: 0; }
+.cap-meter__label { font-size: 12.5px; font-weight: 600; color: var(--fg-2); }
+.cap-meter__value {
+  margin-left: auto; font-size: 17px; font-weight: 700; color: var(--fg-1);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1;
+}
+.cap-meter__track { height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.cap-meter__fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--krystal-teal);
+  transition: width var(--d-slow) var(--ease-out);
+}
+.cap-meter__detail {
+  display: flex; align-items: center; gap: 8px; margin-top: 9px;
+  font-size: 11.5px; color: var(--fg-3); min-width: 0;
+}
+.cap-meter__detail-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-meter__flag {
+  margin-left: auto; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--warning-fg); font-weight: 600;
+}
+.cap-meter--warn   .cap-meter__fill  { background: var(--warning); }
+.cap-meter--danger .cap-meter__fill  { background: var(--danger); }
+.cap-meter--warn   .cap-meter__value { color: var(--warning-fg); }
+.cap-meter--danger .cap-meter__value { color: var(--danger-fg); }
+.cap-meter--danger .cap-meter__flag  { color: var(--danger-fg); }
+.cap-meter--danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border-subtle)); }
+
+.dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
+.dash-section h2 { font-size: 17px; font-weight: 600; color: var(--fg-1); letter-spacing: -0.005em; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+.dash-section h2 .count { font-size: 11.5px; font-weight: 600; color: var(--fg-3); background: var(--surface-2); padding: 2px 8px; border-radius: 999px; }
+
+.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.server-tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--d-fast) var(--ease-out); }
+.server-tile:hover { border-color: var(--border-strong); }
+/* Only the art, title and notice open the server — not the whole tile — so the
+   quick-action / Join controls below stay independently clickable. */
+.server-tile__art, .server-tile__name, .server-tile__notice { cursor: pointer; }
+.server-tile__art { position: relative; height: 88px; background-size: cover; background-position: center; }
+.server-tile__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, var(--surface-1) 0%, transparent 60%); }
+/* The pill now sits inline in the body header (right of the name), on the solid
+   card surface — so the original faint translucent tints read fine again. */
+.server-tile__pill { flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px 3px 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; }
+.server-tile__pill .dot { width: 6px; height: 6px; border-radius: 999px; }
+.server-tile__pill--online { background: var(--success-bg); color: var(--success-fg); }
+.server-tile__pill--online .dot { background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
+.server-tile__pill--updating { background: var(--warning-bg); color: var(--warning-fg); }
+.server-tile__pill--updating .dot { background: var(--warning); animation: kr-pulse 1.8s ease-in-out infinite; }
+.server-tile__pill--offline { background: var(--veil-1); color: var(--fg-3); }
+.server-tile__pill--offline .dot { background: var(--fg-4); }
+.server-tile__pill--crashed { background: var(--danger-bg); color: var(--danger-fg); }
+.server-tile__pill--crashed .dot { background: var(--danger); }
+.server-tile__pill--unknown { background: var(--veil-1); color: var(--fg-3); }
+.server-tile__pill--unknown .dot { background: var(--danger); animation: none; }
+.server-tile__game { position: absolute; bottom: 8px; left: 12px; z-index: 2; color: var(--fg-3); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.server-tile__body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+.server-tile__head { display: flex; align-items: center; gap: 8px; }
+.server-tile__name { flex: 1; min-width: 0; color: var(--fg-1); font-weight: 600; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-tile__meta { display: flex; gap: 12px; color: var(--fg-3); font-size: 11.5px; font-family: var(--font-mono); }
+.server-tile__spark { height: 28px; margin-top: 2px; }
+.server-tile__quick { display: flex; gap: 6px; }
+.server-tile__quick button {
+  flex: 1; height: 28px; padding: 0 8px;
+  background: var(--surface-3); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md); color: var(--fg-2);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
+.server-tile__quick button:hover { color: var(--fg-1); border-color: var(--border-strong); }
+.server-tile__quick button:disabled { opacity: 0.4; cursor: not-allowed; }
+.server-tile__quick button:disabled:hover { color: var(--fg-2); border-color: var(--border-subtle); }
+
+/* Servers page — toolbar, clearable search, empty states */
+.servers-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.servers-toolbar__search { flex: 1; min-width: 220px; height: 38px; }
+.library-search__clear {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: var(--r-sm);
+  background: transparent; border: none; color: var(--fg-3); cursor: pointer;
+}
+.library-search__clear:hover { background: var(--surface-2); color: var(--fg-1); }
+.library-search__pending {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--fg-4);
+  animation: filter-bar-spin .7s linear infinite;
+}
+.servers-toolbar__new { flex-shrink: 0; height: 38px; }
+.server-grid--page { margin-top: 4px; }
+.servers-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 6px; padding: 60px 24px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  color: var(--fg-3);
+}
+.servers-empty > svg { color: var(--fg-4); margin-bottom: 6px; }
+.servers-empty__title { font-size: 14.5px; font-weight: 600; color: var(--fg-1); }
+.servers-empty__sub { font-size: 13px; color: var(--fg-3); }
+
+/* Dashboard: empty online-servers state */
+.dash-servers-empty {
+  display: flex; align-items: center; gap: 10px;
+  padding: 22px 18px;
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  color: var(--fg-3); font-size: 13.5px;
+}
+.dash-servers-empty > svg { color: var(--fg-4); flex-shrink: 0; }
+.dash-servers-empty__link {
+  margin-left: auto; flex-shrink: 0;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--krystal-teal); font-size: 13px; font-weight: 600;
+}
+.dash-servers-empty__link:hover { color: var(--krystal-teal-hover); text-decoration: underline; }
+
+/* Needs attention page */
+.alerts-sections { display: flex; flex-direction: column; gap: 14px; }
+.alerts-section {
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+.alerts-section__head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px 16px; background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.alerts-section__caret { color: var(--fg-4); flex-shrink: 0; }
+.alerts-section__icon { color: var(--fg-3); display: inline-flex; flex-shrink: 0; }
+.alerts-section__title { font-size: 13px; font-weight: 600; color: var(--fg-1); letter-spacing: 0.01em; }
+.alerts-section__subtitle { font-size: 11px; color: var(--fg-4); font-family: var(--font-mono); }
+.alerts-section__count {
+  margin-left: auto; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--fg-3);
+  background: var(--surface-3); padding: 1px 8px; border-radius: 999px;
+}
+.alerts-section__list { display: flex; flex-direction: column; border-top: 1px solid var(--border-subtle); }
+.alerts-section__empty { padding: 16px; font-size: 13px; color: var(--fg-4); border-top: 1px solid var(--border-subtle); }
+.alerts-section__footer {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 11px 16px; border: none; border-top: 1px solid var(--border-subtle);
+  background: transparent; cursor: pointer; text-align: left;
+  font-size: 12px; font-weight: 500; color: var(--fg-3);
+}
+.alerts-section__footer:hover { color: var(--fg-1); background: var(--surface-2); }
+
+.alert-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-left: 2px solid transparent; }
+.alert-card + .alert-card { border-top: 1px solid var(--border-subtle); }
+.alert-card--danger { border-left-color: var(--danger); }
+.alert-card--warn   { border-left-color: var(--warning); }
+.alert-card--info   { border-left-color: var(--info); }
+.alert-card--muted { opacity: 0.68; }
+.alert-card__icon {
+  width: 30px; height: 30px; border-radius: var(--r-md); flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-3); color: var(--fg-2);
+}
+.alert-card--danger .alert-card__icon { background: var(--danger-bg); color: var(--danger-fg); }
+.alert-card--warn   .alert-card__icon { background: var(--warning-bg); color: var(--warning-fg); }
+.alert-card--info   .alert-card__icon { background: var(--info-bg); color: var(--info-fg); }
+.alert-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.alert-card__titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.alert-card__title { font-size: 13.5px; font-weight: 600; color: var(--fg-1); }
+.alert-card__detail { font-size: 12.5px; color: var(--fg-3); line-height: 1.45; }
+.alert-card__meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11px; color: var(--fg-4); font-family: var(--font-mono); }
+.alert-card__source { text-transform: uppercase; letter-spacing: 0.04em; }
+.alert-sev { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; }
+.alert-sev--danger { background: var(--danger-bg); color: var(--danger-fg); }
+.alert-sev--warn   { background: var(--warning-bg); color: var(--warning-fg); }
+.alert-sev--info   { background: var(--info-bg); color: var(--info-fg); }
+.alert-card__state { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+.alert-card__state--completed { color: var(--success-fg); }
+.alert-card__state--auto { color: var(--info-fg); }
+.alert-card__state--dismissed { color: var(--fg-4); }
+.alert-card__resolution {
+  display: flex; align-items: flex-start; gap: 6px; margin-top: 5px;
+  font-size: 11.5px; line-height: 1.4; color: var(--info-fg); font-family: var(--font-mono);
+}
+.alert-card__resolution span { color: var(--fg-3); }
+.alert-card__resolution > span:first-of-type { display: inline-flex; }
+.alert-card__action-link {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: 2px;
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--info-fg);
+}
+.alert-card__action-link:hover { text-decoration: underline; }
+
+/* Escalated — auto-recovery gave up; the loudest thing on the board. */
+.alert-card--escalated { border-left-width: 3px; border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, transparent); }
+.alert-card__state--escalated {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--danger); color: var(--fg-inverse);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px;
+}
+.alert-card__escalation {
+  display: flex; align-items: center; gap: 6px; margin-top: 5px;
+  font-size: 11.5px; line-height: 1.4; color: var(--danger-fg); font-family: var(--font-mono);
+}
+
+/* Resolved — first-class rear-view: calm, but the resolution line stays legible. */
+.alert-card--resolved { border-left-color: var(--border-subtle); }
+.alert-card--resolved .alert-card__icon { background: var(--success-bg); color: var(--success-fg); }
+.alert-card--resolved .alert-card__title { color: var(--fg-2); }
+.alert-card--resolved .alert-card__detail { color: var(--fg-4); }
+@media (prefers-reduced-motion: no-preference) {
+  .alert-card--just-resolved { animation: kr-resolve-flash 2.6s ease-out; }
+}
+@keyframes kr-resolve-flash {
+  0%   { background: color-mix(in srgb, var(--info) 24%, transparent); }
+  60%  { background: color-mix(in srgb, var(--info) 12%, transparent); }
+  100% { background: transparent; }
+}
+.filter-bar__demo {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px;
+  border-radius: var(--r-md); background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--info) 50%, var(--border-subtle));
+  color: var(--info-fg); font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: var(--font-ui); white-space: nowrap;
+}
+.filter-bar__demo:hover:not(:disabled) { background: var(--info-bg); }
+.filter-bar__demo:disabled { opacity: 0.4; cursor: default; color: var(--fg-4); border-color: var(--border-subtle); }
+.alert-card__pending { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--fg-3); }
+.alert-card__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.alert-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
+  border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--fg-2); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.alert-btn > svg { flex-shrink: 0; }
+.alert-btn:hover { background: var(--surface-3); color: var(--fg-1); border-color: var(--border-strong); }
+.alert-btn--primary { background: var(--krystal-teal); color: var(--fg-inverse); border-color: transparent; }
+.alert-btn--primary:hover { background: var(--krystal-teal-hover); color: var(--fg-inverse); border-color: transparent; }
+.alert-btn--good:hover { color: var(--success-fg); border-color: color-mix(in srgb, var(--success) 40%, var(--border-subtle)); }
+.alert-btn--ghost { width: 30px; padding: 0; justify-content: center; color: var(--fg-3); }
+
+/* nav badge severity tones */
+.nav-item__badge--danger { background: var(--danger-bg); color: var(--danger-fg); }
+.nav-item__badge--warn   { background: var(--warning-bg); color: var(--warning-fg); }
+.nav-item__badge--info   { background: var(--veil-2); color: var(--fg-2); }
+.dash-head__src { color: var(--fg-4); }
+
+/* ===================================================================
+   Contextual alerts — the same server alert, shown at its origin.
+   Wrapper around the shared .alert-card so it reads as a self-contained
+   card wherever it's dropped (between table rows, in a list, page top).
+   =================================================================== */
+.ctx-alert {
+  position: relative;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.ctx-alert--danger { border-color: color-mix(in srgb, var(--danger) 48%, var(--border-subtle));
+  background: linear-gradient(180deg, var(--danger-bg), transparent 64%), var(--surface-1); }
+.ctx-alert--warn   { border-color: color-mix(in srgb, var(--warning) 48%, var(--border-subtle));
+  background: linear-gradient(180deg, var(--warning-bg), transparent 64%), var(--surface-1); }
+.ctx-alert--info   { border-color: color-mix(in srgb, var(--info) 48%, var(--border-subtle));
+  background: linear-gradient(180deg, var(--info-bg), transparent 64%), var(--surface-1); }
+
+/* Section-top strip: header band + a list of the shared cards. */
+.ctx-strip { border: 1px solid var(--border-strong); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 16px; }
+.ctx-strip--danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--border-subtle)); }
+.ctx-strip--warn   { border-color: color-mix(in srgb, var(--warning) 40%, var(--border-subtle)); }
+.ctx-strip--info   { border-color: color-mix(in srgb, var(--info) 40%, var(--border-subtle)); }
+.ctx-strip__head { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; }
+.ctx-strip--danger .ctx-strip__head { background: var(--danger-bg); color: var(--danger-fg); }
+.ctx-strip--warn   .ctx-strip__head { background: var(--warning-bg); color: var(--warning-fg); }
+.ctx-strip--info   .ctx-strip__head { background: var(--info-bg); color: var(--info-fg); }
+.ctx-strip__icon { display: inline-flex; }
+.ctx-strip__count { background: rgba(0,0,0,0.28); border-radius: 999px; padding: 0 8px; line-height: 18px; font-size: 11px; }
+.ctx-strip__hint { margin-left: auto; font-weight: 500; font-size: 11px; opacity: 0.82; }
+.ctx-strip__list { background: var(--surface-1); display: flex; flex-direction: column; }
+/* Inside the strip the cards drop their own chrome and read like a list. */
+.ctx-strip__list .ctx-alert { border: none; border-radius: 0; box-shadow: none; background: var(--surface-1); }
+.ctx-strip__list .ctx-alert + .ctx-alert { border-top: 1px solid var(--border-subtle); }
+
+/* Sub-tab alert count badge. */
+.subtab__badge { margin-left: 6px; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; }
+.subtab__badge--danger { background: var(--danger-bg); color: var(--danger-fg); }
+.subtab__badge--warn   { background: var(--warning-bg); color: var(--warning-fg); }
+.subtab__badge--info   { background: var(--veil-3); color: var(--fg-2); }
+
+
+.activity-feed { display: flex; flex-direction: column; gap: 1px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; }
+.activity-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 10px 14px; align-items: center; cursor: pointer; }
+.activity-row:hover { background: var(--surface-2); }
+.activity-row + .activity-row { border-top: 1px solid var(--border-subtle); }
+.activity-row__ico { width: 26px; height: 26px; border-radius: var(--r-md); background: var(--surface-3); color: var(--fg-3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.activity-row__ico--success { background: var(--success-bg); color: var(--success-fg); }
+.activity-row__ico--info    { background: var(--info-bg);    color: var(--info-fg);    }
+.activity-row__ico--warn    { background: var(--warning-bg); color: var(--warning-fg); }
+.activity-row__ico--danger  { background: var(--danger-bg);  color: var(--danger-fg);  }
+.activity-row__ico--update  { background: var(--update-bg);  color: var(--update-fg);  }
+.activity-row__text { color: var(--fg-2); font-size: 13px; line-height: 1.4; }
+.activity-row__ts { color: var(--fg-4); font-size: 11.5px; font-family: var(--font-mono); }
+
