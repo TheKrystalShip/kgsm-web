@@ -561,11 +561,27 @@ body { overflow: hidden; }
 @media (max-width: 680px) {
   .hero.hero--cinematic { min-height: 0; }
   .hero--cinematic .hero__name { font-size: 21px; }
-  .hero__body { padding: 16px; gap: 14px; }
+  /* The status pill is absolutely positioned (top:16) over the banner; on mobile
+     the hero is content-height, so the title would otherwise rise right under it
+     ("f●online o-test"). Pad the body's top so the title always sits clear of the
+     floating pill — which keeps its cinematic spot over the banner strip. */
+  .hero__body { padding: 52px 16px 16px; gap: 14px; }
+  /* Stack the control bar: the lifecycle group above the connect group. */
   .hero__bar { flex-direction: column; align-items: stretch; gap: 10px; }
   .hero__bardiv { display: none; }
   .hero__group--right { margin-left: 0; }
-  .hero__group { justify-content: flex-start; }
+  /* Lifecycle actions: a tidy 2×2 grid of full-width touch targets instead of the
+     cramped 3-then-1 wrap. Scoped OFF the connect group (which stays flex). */
+  .hero__bar > .hero__group:not(.hero__group--connect) {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .hero__bar .gbtn { height: 42px; justify-content: center; }
+  /* Connect: the address gets its own full-width row, then Copy + Join share the
+     next row (Join grows). Robust for long host:port addresses (the prod
+     "kgsm.thekrystalship.com:34197") that squish on a single line. */
+  .connect--bar .connect__addr--glass { flex: 1 1 100%; text-align: center; }
+  .connect--bar .connect__copy--icon { height: 42px; width: 48px; }
+  .connect--bar .connect__join--sm { flex: 1 1 auto; height: 42px; justify-content: center; }
 }
 
 /* ============= Stat tiles (server overview) ============= */
