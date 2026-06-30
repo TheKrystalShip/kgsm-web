@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
+import { Select } from "./Select.jsx";
 import { can } from "../lib/persona.js";
 import { fmtFootprintMb, offeringHosts } from "../pages/LibraryPage.jsx";
 import { Toggle } from "../pages/ServerSettings.jsx";
@@ -106,9 +107,9 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
           {offered.length > 0 && (
             <div className="k-field">
               <label>Host</label>
-              <select value={form.hostId || ""} onChange={e => set("hostId", e.target.value)} disabled={offered.length <= 1}>
+              <Select value={form.hostId || ""} onChange={e => set("hostId", e.target.value)} disabled={offered.length <= 1}>
                 {offered.map(h => <option key={h.id} value={h.id}>{h.name} — {h.hostname}{h.online ? "" : " (offline)"}</option>)}
-              </select>
+              </Select>
               <span className="k-field__help">
                 {restricted
                   ? <><Icon name="server" size={11} />&nbsp; Only {offered.map(h => h.name).join(", ")} {offered.length === 1 ? "offers" : "offer"} {game.name.split(":")[0]}.</>
@@ -125,9 +126,9 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
 
           <div className="k-field">
             <label>Version</label>
-            <select value={form.version} disabled>
+            <Select value={form.version} disabled>
               {VERSION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </Select>
             <span className="k-field__help">Version selection isn't available yet — the latest build is installed.</span>
           </div>
 

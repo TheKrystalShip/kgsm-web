@@ -8,6 +8,7 @@ import { KPI } from "../components/KPI.jsx";
 import { ConsoleView } from "../components/ConsoleView.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
+import { Select } from "../components/Select.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
@@ -648,10 +649,10 @@ function ConfigFieldRow({ f, draft, secretDraft, revealed, willReset, onChange, 
     }
     if (f.type === "enum" && Array.isArray(f.enum)) {
       return (
-        <select className="host-field__input leaf-cfg-select" value={draft == null ? "" : String(draft)} disabled={disabled}
+        <Select value={draft == null ? "" : String(draft)} disabled={disabled}
           onChange={(e) => onChange(f.key, e.target.value)}>
           {f.enum.map((opt) => <option key={String(opt)} value={String(opt)}>{String(opt)}</option>)}
-        </select>
+        </Select>
       );
     }
     if (f.type === "bool") {

@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
+import { Select } from "./Select.jsx";
 
 // fmtClock — a wall-clock HH:MM:SS from an ISO string or epoch ms; "" for absent/garbage
 // (never a fabricated time). Game stdout lines carry no time, so the live feed stamps each
@@ -84,12 +85,9 @@ function ConsoleView({
       <div className="console-card__head">
         <span className="console-card__title"><Icon name={icon} size={13} /> {title}</span>
         {sources && sources.length > 1 ? (
-          <label className="console-card__source">
-            <select value={sourceId} onChange={e => setSourceId(e.target.value)}>
-              {sources.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            <Icon name="chevron-down" size={13} className="console-card__chev" />
-          </label>
+          <Select variant="chip" value={sourceId} onChange={e => setSourceId(e.target.value)}>
+            {sources.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </Select>
         ) : (sources && sources[0] && sources[0].label ? <span className="console-card__single">{sources[0].label}</span> : null)}
         {pill ? <span className={"console-card__live" + (pill.live ? "" : " console-card__live--idle")}>{pill.label}</span> : null}
         <span className="console-card__count">{loading ? "connecting…" : shownCount + " lines"}</span>

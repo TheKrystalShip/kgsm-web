@@ -1,6 +1,7 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { Select as KSelect } from "../components/Select.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 
 // Settings panel — for things that don't belong in raw config files.
@@ -50,16 +51,13 @@ function Toggle({ on, onChange }) {
   );
 }
 
+// Thin adapter over the shared <Select> so these settings rows keep their
+// options-array / onChange(value) shape while adopting the app-wide styling.
 function Select({ value, options, onChange }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{
-      background: "var(--surface-3)", border: "1px solid var(--border-subtle)",
-      borderRadius: "var(--r-md)", height: 32, padding: "0 10px",
-      color: "var(--fg-1)", fontFamily: "var(--font-ui)", fontSize: 13,
-      outline: "none", cursor: "pointer",
-    }}>
+    <KSelect value={value} onChange={e => onChange(e.target.value)}>
       {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
-    </select>
+    </KSelect>
   );
 }
 

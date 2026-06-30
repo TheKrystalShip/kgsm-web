@@ -610,15 +610,7 @@ body { overflow: hidden; }
 /* Source dropdown in the head (host logs switch leaf source here; the game console has none). A
    single source shows a quiet label instead. Mirrors the old LogConsole source chip. */
 .console-card__single { font-size: 11.5px; font-weight: 600; color: var(--fg-3); }
-.console-card__source { position: relative; display: inline-flex; align-items: center; }
-.console-card__source select {
-  appearance: none; -webkit-appearance: none;
-  background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
-  color: var(--fg-1); font-family: var(--font-ui); font-size: 11.5px; font-weight: 600;
-  padding: 3px 26px 3px 10px; cursor: pointer; line-height: 1.5;
-}
-.console-card__source select:hover { border-color: var(--border-strong); }
-.console-card__chev { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--fg-3); }
+/* The source dropdown is the shared <Select variant="chip"> (.k-select--chip). */
 .console-card__body { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--fg-2); padding: 12px 16px; overflow-y: auto; flex: 1; max-height: 420px; }
 .console-card__body .ln { display: flex; gap: 16px; }
 /* Timestamp gutter: once any line in view is timed (the live feed / host logs) switch to a fixed
@@ -1148,7 +1140,7 @@ body { overflow: hidden; }
   display: flex; align-items: center; gap: 6px;
 }
 .k-field label small { color: var(--fg-4); font-weight: 400; }
-.k-field input, .k-field select {
+.k-field input {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-md);
@@ -1159,15 +1151,51 @@ body { overflow: hidden; }
   transition: border-color var(--d-fast), box-shadow var(--d-fast);
 }
 .k-field input.mono, .k-field input[type="number"] { font-family: var(--font-mono); }
-.k-field input:focus, .k-field select:focus {
+.k-field input:focus {
   border-color: var(--border-accent);
   box-shadow: var(--ring-input);
 }
 .k-field__help { font-size: 11.5px; color: var(--fg-3); }
-/* Read-only (host-config-sourced) inputs and disabled selects read as non-editable. */
+/* Read-only (host-config-sourced) inputs read as non-editable. (Selects are the
+   shared <Select> component now — .k-select owns their disabled state.) */
 .k-field input[readonly] { color: var(--fg-2); cursor: default; }
 .k-field input[readonly]:focus { border-color: var(--border-subtle); box-shadow: none; }
-.k-field input:disabled, .k-field select:disabled { opacity: 0.55; cursor: not-allowed; }
+.k-field input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ============================================================================
+   Select — the one styled dropdown (src/components/Select.jsx). appearance:none
+   + a custom chevron so it reads identically everywhere; the native OS arrow is
+   what made the ad-hoc selects diverge. Two sizes: --field (full form field) and
+   --chip (compact source picker in card headers).
+   ========================================================================== */
+.k-select { position: relative; display: inline-flex; align-items: center; }
+.k-select--field { display: flex; width: 100%; }
+.k-select__el {
+  appearance: none; -webkit-appearance: none;
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  outline: none; cursor: pointer;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+.k-select__el option { background: var(--surface-2); color: var(--fg-1); }
+.k-select__el:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
+.k-select__el:disabled { opacity: 0.55; cursor: not-allowed; }
+.k-select__chev { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--fg-3); }
+
+/* field — full form-field size (install modal, settings, host & leaf config) */
+.k-select--field .k-select__el { height: 38px; padding: 0 34px 0 12px; font-size: 13.5px; }
+
+/* chip — compact inline source picker in card heads (game console / host logs) */
+.k-select--chip .k-select__el {
+  background: var(--surface-2); border-radius: var(--r-sm);
+  padding: 3px 24px 3px 10px; font-size: 11.5px; font-weight: 600; line-height: 1.5;
+}
+.k-select--chip .k-select__el:hover { border-color: var(--border-strong); }
+.k-select--chip .k-select__chev { right: 7px; }
 /* Input with a trailing affix button (e.g. the password reveal eye). */
 .k-input-affix { position: relative; display: flex; }
 .k-input-affix > input { flex: 1 1 auto; width: 100%; padding-right: 40px; }
@@ -2606,7 +2634,6 @@ body { overflow: hidden; }
   font-size: 11px; font-weight: 600; color: var(--fg-3); padding: 2px 4px; border-radius: 5px;
 }
 .leaf-cfg-reset:hover { color: var(--fg-1); background: var(--surface-2); }
-.leaf-cfg-select { height: 36px; cursor: pointer; }
 .leaf-cfg-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; color: var(--fg-2); }
 .leaf-cfg-toggle input { width: 16px; height: 16px; accent-color: var(--krystal-teal); cursor: pointer; }
 .leaf-cfg-secret { display: flex; align-items: center; gap: 10px; }
@@ -2922,16 +2949,7 @@ body { overflow: hidden; }
 .log-console .chat-brief__title { flex: 0 0 auto; }
 .log-console__spacer { flex: 1; }
 .log-console__single { font-size: 11.5px; font-weight: 600; color: var(--fg-3); }
-/* source dropdown */
-.log-console__source { position: relative; display: inline-flex; align-items: center; }
-.log-console__source select {
-  appearance: none; -webkit-appearance: none;
-  background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
-  color: var(--fg-1); font-family: var(--font-ui); font-size: 11.5px; font-weight: 600;
-  padding: 3px 26px 3px 10px; cursor: pointer; line-height: 1.5;
-}
-.log-console__source select:hover { border-color: var(--border-strong); }
-.log-console__chev { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--fg-3); }
+/* source dropdown is the shared <Select variant="chip"> (.k-select--chip). */
 /* live pill on the right of the title */
 .log-console__live {
   display: inline-flex; align-items: center; gap: 6px;

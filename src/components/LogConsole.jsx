@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
+import { Select } from "./Select.jsx";
 
 // LogConsole — a reusable log viewer dressed in the standard card chrome
 // (.chat-brief). ONE source is shown at a time, chosen from a dropdown — we do
@@ -59,12 +60,9 @@ function LogConsole({
       <div className="chat-brief__head">
         <span className="chat-brief__title"><Icon name={icon} size={13} /> {title}</span>
         {sources.length > 1 ? (
-          <label className="log-console__source">
-            <select value={sourceId} onChange={e => setSourceId(e.target.value)}>
-              {sources.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            <Icon name="chevron-down" size={13} className="log-console__chev" />
-          </label>
+          <Select variant="chip" value={sourceId} onChange={e => setSourceId(e.target.value)}>
+            {sources.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </Select>
         ) : (current.label ? <span className="log-console__single">{current.label}</span> : null)}
         <span className="log-console__spacer"></span>
         {live && <span className="log-console__live"><span className="log-console__live-dot"></span> Live</span>}
