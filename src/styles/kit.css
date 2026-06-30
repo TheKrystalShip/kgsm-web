@@ -3699,7 +3699,11 @@ body { overflow: hidden; }
 
   /* File browser: stack tree above editor */
   .fb-card {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr), not a bare 1fr — mirror the desktop editor column's
+       min-width:0 guard so an unbreakable long name/path can never grow this
+       column past the viewport. Defensive consistency, not the fix for the
+       reported breakage (that was the vertical collapse below). */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;   /* stack tree over editor; no draggable split */
     min-height: 0;
   }
@@ -3716,7 +3720,12 @@ body { overflow: hidden; }
      gets an explicit floor so Monaco always has real height; the tree keeps its
      capped scroll height. Scoped to .fb-briefcard so the full-screen pop-out
      (which has a definite viewport-sized height) still fills as before. */
-  .content--fill { min-height: 0; }
+  /* flex:0 0 auto (NOT the desktop flex:1 1 auto) is the crux: keep .content--fill
+     from flex-SHRINKING to the short viewport leftover. Left at 1 1 auto it shrinks
+     below the 560px file browser, the card overflows it, and the footer — the next
+     flex child of .app__main — rides up to sit right after the collapsed box (almost
+     to the hero). Sizing to content instead lets .app__main (overflow-y:auto) scroll. */
+  .content--fill { flex: 0 0 auto; min-height: 0; }
   .content--fill > .fb-briefcard { flex: 0 0 auto; }
   .fb-briefcard .fb-card { flex: 0 0 auto; grid-template-rows: auto auto; }
   .fb-briefcard .fb-editor { min-height: 560px; }
