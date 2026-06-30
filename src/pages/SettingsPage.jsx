@@ -8,6 +8,7 @@ import { hostsStore } from "../lib/stores.js";
 import { DiscordPage } from "./DiscordPage.jsx";
 import { HostAuthBadge } from "./HostAccess.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
+import { Select } from "../components/Select.jsx";
 
 // SettingsPage — account- and website-level settings (distinct from the
 // per-server Settings sub-tab). Left sub-nav + panels. Reuses the shared
@@ -34,9 +35,11 @@ function HostAccessSettings() {
 }
 
 const THEME_OPTS = [
-  { id: "auto",  label: "Auto",  icon: "monitor" },
-  { id: "dark",  label: "Dark",  icon: "moon" },
-  { id: "light", label: "Light", icon: "sun" },
+  { id: "auto",             label: "Auto (system)"     },
+  { id: "dark",             label: "Krystal Blue Dark" },
+  { id: "light",            label: "Krystal Blue Light" },
+  { id: "nord",             label: "Nord"              },
+  { id: "catppuccin-mocha", label: "Catppuccin Mocha"  },
 ];
 
 function SettingsPage({ user, onLogout }) {
@@ -118,16 +121,9 @@ function SettingsPage({ user, onLogout }) {
                 <Toggle on={prefs.compactDensity} onChange={v => setP("compactDensity", v)} />
               </SettingsRow>
               <SettingsRow icon="palette" title="Theme" sub="Auto follows your system. Saved on this device.">
-                <div className="theme-seg" role="group" aria-label="Theme">
-                  {THEME_OPTS.map(o => (
-                    <button key={o.id} type="button"
-                      className={"theme-seg__opt" + (themePref === o.id ? " is-on" : "")}
-                      aria-pressed={themePref === o.id}
-                      onClick={() => themeStore.set(o.id)}>
-                      <Icon name={o.icon} size={14} /> {o.label}
-                    </button>
-                  ))}
-                </div>
+                <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
+                  {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </Select>
               </SettingsRow>
               <div className="settings-foot">
                 <button className="fb-editor__btn">Save changes</button>

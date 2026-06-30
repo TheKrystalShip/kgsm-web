@@ -53,7 +53,7 @@
   color: var(--krystal-teal); cursor: pointer;
   transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
 }
-.assistant-rail__btn:hover { background: var(--krystal-teal); color: var(--fg-inverse); }
+.assistant-rail__btn:hover { background: var(--krystal-teal); color: var(--btn-accent-fg); }
 .assistant-rail__label {
   writing-mode: vertical-rl; transform: rotate(180deg);
   font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
@@ -71,7 +71,7 @@
   position: fixed; right: 24px; bottom: 24px; z-index: 55;
   width: 52px; height: 52px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--krystal-teal); color: var(--fg-inverse);
+  background: var(--krystal-teal); color: var(--btn-accent-fg);
   border: none; cursor: pointer;
   box-shadow: 0 8px 22px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.06);
   transition: transform var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
@@ -201,7 +201,7 @@
 .assistant-dock .chat-page--docked .chat-railbar__new {
   flex-shrink: 0; width: 38px; height: 38px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--krystal-teal); color: var(--fg-inverse);
+  background: var(--krystal-teal); color: var(--btn-accent-fg);
   border: none; border-radius: var(--r-md); cursor: pointer;
 }
 .assistant-dock .chat-page--docked .chat-railbar__new:hover { background: var(--krystal-teal-hover); }
@@ -255,7 +255,7 @@
   padding: 7px 13px;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
-.chat-navchip:hover { background: var(--krystal-teal); color: var(--fg-inverse); border-color: transparent; }
+.chat-navchip:hover { background: var(--krystal-teal); color: var(--btn-accent-fg); border-color: transparent; }
 
 /* On phones the dock is full-width with a dimming scrim behind it. */
 @media (max-width: 768px) {

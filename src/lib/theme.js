@@ -20,7 +20,7 @@ import { createStore, useStore } from "./store.js";
 // Base-layer module: imports only store.js, so it introduces no import cycle.
 
 const THEME_KEY = "krystal:theme";
-const VALID = ["auto", "dark", "light"];
+const VALID = ["auto", "dark", "light", "nord", "catppuccin-mocha"];
 const DEFAULT = "dark";
 
 function readPref() {
@@ -34,9 +34,10 @@ const prefersLight = () =>
   typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: light)").matches;
 
 // A preference → the concrete theme actually painted.
+// Concrete themes (anything except "auto") pass through unchanged.
 function resolveTheme(pref) {
-  if (pref === "light" || pref === "dark") return pref;
-  return prefersLight() ? "light" : "dark";   // "auto"
+  if (pref !== "auto") return pref;
+  return prefersLight() ? "light" : "dark";
 }
 
 // Push the resolved theme onto <html> and keep the browser-chrome color honest.

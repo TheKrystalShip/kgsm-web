@@ -11,7 +11,8 @@
       (function () {
         try {
           var p = localStorage.getItem("krystal:theme");
-          var t = (p === "light" || p === "dark") ? p
+          var concrete = ["dark", "light", "nord", "catppuccin-mocha"];
+          var t = concrete.includes(p) ? p
                 : (p === "auto" && window.matchMedia
                     && matchMedia("(prefers-color-scheme: light)").matches) ? "light"
                 : "dark";

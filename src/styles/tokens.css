@@ -150,6 +150,8 @@
   --fg-3:            #7C8899;   /* muted / labels */
   --fg-4:            #515E70;   /* placeholder / disabled */
   --fg-inverse:      #0B0F14;   /* text on teal / colored accent surfaces */
+  --btn-accent-fg:   #0B0F14;   /* text/icon on teal-background buttons */
+  --btn-success-fg:  #0B0F14;   /* text/icon on success/green buttons */
 
   /* ---------- Brand & accent -----------------------------
      Sampled from The Krystal Ship logo cloud (#40A0C0). */
@@ -226,6 +228,8 @@
   --fg-3:            #5F6B7A;   /* muted / labels */
   --fg-4:            #97A2B0;   /* placeholder / disabled */
   --fg-inverse:      #0B1018;   /* dark text on teal / colored accent surfaces */
+  --btn-accent-fg:   #fff;      /* text/icon on teal-background buttons */
+  --btn-success-fg:  #fff;      /* text/icon on success/green buttons */
 
   /* ---------- Brand & accent -----------------------------
      Brand teal darkened for AA-large contrast as link/active text
@@ -238,11 +242,11 @@
   --krystal-ink:         #0F1115;
 
   /* ---------- Semantic -----------------------------------
-     Base hue kept saturated (works as button bg); the *-fg darkened
-     to the ~700 shade so colored text is legible on light. */
+     Base hue kept saturated (works as button bg); the *-fg at ~600
+     shade — legible on light but less heavy than 700. */
   --success:        #16A34A;
   --success-bg:     rgba(22, 163, 74, 0.12);
-  --success-fg:     #15803D;
+  --success-fg:     #16A34A;
 
   --danger:         #DC2626;
   --danger-bg:      rgba(220, 38, 38, 0.10);
@@ -267,6 +271,142 @@
   --scrim-base:      #0F1722;
   --scrollbar-thumb:       rgba(0, 0, 0, 0.22);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
+}
+
+/* ============================================================
+   THEME — NORD
+   ------------------------------------------------------------
+   Nord: arctic, cool-blue dark palette.
+   Polar Night (surfaces) · Snow Storm (fg) · Frost as accent.
+   Accent = #88c0d0 (nord8). Aurora supplies the semantic colors.
+   Palette source: https://www.nordtheme.com/docs/colors-and-palettes
+   ============================================================ */
+[data-theme="nord"] {
+  /* ---------- Canvas & surfaces (Polar Night) ------------- */
+  --canvas:          #2e3440;   /* nord0 */
+  --surface-0:       #272c37;   /* slightly darker than nord0 — sidebar recedes */
+  --surface-1:       #3b4252;   /* nord1 — primary card lift */
+  --surface-2:       #434c5e;   /* nord2 — nested / hovered */
+  --surface-3:       #4c566a;   /* nord3 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(216, 222, 233, 0.08);
+  --border-strong:   rgba(216, 222, 233, 0.16);
+  --border-accent:   rgba(136, 192, 208, 0.50);   /* nord8 */
+
+  /* ---------- Foreground (Snow Storm) -------------------- */
+  --fg-1:            #eceff4;   /* nord6 */
+  --fg-2:            #d8dee9;   /* nord4 */
+  --fg-3:            #9aa0ad;   /* derived mid — labels */
+  --fg-4:            #616e87;   /* derived dim — disabled */
+  --fg-inverse:      #2e3440;   /* dark ink on accent surfaces */
+  --btn-accent-fg:   #2e3440;   /* dark ink on Frost buttons (5.5:1 on #88c0d0) */
+  --btn-success-fg:  #2e3440;   /* dark ink on Aurora Green (6.2:1 on #a3be8c) */
+
+  /* ---------- Brand & accent — Frost --------------------- */
+  --krystal-teal:        #88c0d0;   /* nord8 */
+  --krystal-teal-hover:  #9ecfdd;
+  --krystal-teal-press:  #72adbf;
+  --krystal-teal-dim:    rgba(136, 192, 208, 0.14);
+  --krystal-teal-ring:   rgba(136, 192, 208, 0.35);
+  --krystal-ink:         #2e3440;
+
+  /* ---------- Semantic (Aurora) -------------------------- */
+  --success:        #a3be8c;   /* Aurora green */
+  --success-bg:     rgba(163, 190, 140, 0.14);
+  --success-fg:     #a3be8c;
+
+  --danger:         #bf616a;   /* Aurora red */
+  --danger-bg:      rgba(191, 97, 106, 0.14);
+  --danger-fg:      #bf616a;
+
+  --warning:        #ebcb8b;   /* Aurora yellow */
+  --warning-bg:     rgba(235, 203, 139, 0.14);
+  --warning-fg:     #ebcb8b;
+
+  --update:         #d08770;   /* Aurora orange */
+  --update-bg:      rgba(208, 135, 112, 0.14);
+  --update-fg:      #d08770;
+
+  --info:           #81a1c1;   /* nord9 — deeper Frost */
+  --info-bg:        rgba(129, 161, 193, 0.14);
+  --info-fg:        #81a1c1;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1:          rgba(216, 222, 233, 0.06);
+  --veil-2:          rgba(216, 222, 233, 0.08);
+  --veil-3:          rgba(216, 222, 233, 0.10);
+  --scrim-base:      #1e222a;
+  --scrollbar-thumb:       rgba(216, 222, 233, 0.14);
+  --scrollbar-thumb-hover: rgba(216, 222, 233, 0.24);
+}
+
+/* ============================================================
+   THEME — CATPPUCCIN MOCHA
+   ------------------------------------------------------------
+   Catppuccin Mocha: warm dark palette with pastel accents.
+   Accent = Mauve (#cba6f7). Because Mocha's pastels are light,
+   --btn-accent-fg and --btn-success-fg use dark ink.
+   Palette source: https://catppuccin.com/palette
+   ============================================================ */
+[data-theme="catppuccin-mocha"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #1e1e2e;   /* Base */
+  --surface-0:       #181825;   /* Mantle — recedes (sidebar) */
+  --surface-1:       #313244;   /* Surface 0 — primary card lift */
+  --surface-2:       #45475a;   /* Surface 1 — nested / hovered */
+  --surface-3:       #585b70;   /* Surface 2 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(205, 214, 244, 0.08);
+  --border-strong:   rgba(205, 214, 244, 0.16);
+  --border-accent:   rgba(203, 166, 247, 0.50);   /* Mauve */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #cdd6f4;   /* Text */
+  --fg-2:            #bac2de;   /* Subtext 1 */
+  --fg-3:            #a6adc8;   /* Subtext 0 */
+  --fg-4:            #6c7086;   /* Overlay 0 */
+  --fg-inverse:      #1e1e2e;   /* dark ink on accent surfaces */
+  --btn-accent-fg:   #1e1e2e;   /* dark ink on Mauve buttons (pastel = light) */
+  --btn-success-fg:  #1e1e2e;   /* dark ink on Green buttons */
+
+  /* ---------- Brand & accent — Mauve --------------------- */
+  --krystal-teal:        #cba6f7;
+  --krystal-teal-hover:  #d5b8f8;
+  --krystal-teal-press:  #b892f4;
+  --krystal-teal-dim:    rgba(203, 166, 247, 0.14);
+  --krystal-teal-ring:   rgba(203, 166, 247, 0.35);
+  --krystal-ink:         #1e1e2e;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #a6e3a1;   /* Green */
+  --success-bg:     rgba(166, 227, 161, 0.14);
+  --success-fg:     #a6e3a1;
+
+  --danger:         #f38ba8;   /* Red */
+  --danger-bg:      rgba(243, 139, 168, 0.14);
+  --danger-fg:      #f38ba8;
+
+  --warning:        #f9e2af;   /* Yellow */
+  --warning-bg:     rgba(249, 226, 175, 0.14);
+  --warning-fg:     #f9e2af;
+
+  --update:         #fab387;   /* Peach */
+  --update-bg:      rgba(250, 179, 135, 0.14);
+  --update-fg:      #fab387;
+
+  --info:           #89b4fa;   /* Blue */
+  --info-bg:        rgba(137, 180, 250, 0.14);
+  --info-fg:        #89b4fa;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1:          rgba(205, 214, 244, 0.06);
+  --veil-2:          rgba(205, 214, 244, 0.08);
+  --veil-3:          rgba(205, 214, 244, 0.10);
+  --scrim-base:      #11111b;   /* Crust */
+  --scrollbar-thumb:       rgba(205, 214, 244, 0.14);
+  --scrollbar-thumb-hover: rgba(205, 214, 244, 0.24);
 }
 
 /* ============================================================

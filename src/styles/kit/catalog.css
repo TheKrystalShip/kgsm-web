@@ -30,7 +30,10 @@
 }
 .game-card__art::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to top, color-mix(in srgb, var(--canvas) 90%, transparent) 0%, transparent 50%);
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--canvas) 92%, transparent) 0%,
+    color-mix(in srgb, var(--canvas) 70%, transparent) 6%,
+    transparent 15%);
 }
 .game-card__body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .game-card__title { font-size: 14.5px; font-weight: 600; color: var(--fg-1); }
@@ -272,7 +275,7 @@
 .fb-editor__spacer { flex: 1; }
 
 .fb-editor__btn {
-  background: var(--krystal-teal); color: var(--fg-inverse);
+  background: var(--krystal-teal); color: var(--btn-accent-fg);
   border: 1px solid transparent;
   border-radius: var(--r-md); padding: 0 14px; height: 36px;
   font-family: var(--font-ui); font-weight: 600; font-size: 13px;

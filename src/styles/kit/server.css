@@ -61,7 +61,7 @@
   letter-spacing: 0.06em; text-transform: uppercase;
   border-radius: var(--r-md); padding: 0 16px; height: 36px;
   display: inline-flex; align-items: center; gap: 7px;
-  border: none; cursor: pointer; color: var(--fg-inverse);
+  border: none; cursor: pointer; color: var(--btn-accent-fg);
   transition: filter var(--d-fast) var(--ease-out);
 }
 .chip:hover:not(:disabled) { filter: brightness(1.1); }

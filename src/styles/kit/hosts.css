@@ -81,7 +81,9 @@
   padding: 3px 8px 3px 6px; border-radius: 999px;
   border: 1px solid var(--border-subtle);
 }
-.server-tile__host > svg { color: var(--fg-3); }
+/* Always white — this pill overlays cover art, not the page canvas. */
+.server-tile__host > svg { color: rgba(255, 255, 255, 0.75); }
+.server-tile__host { color: #fff; }
 
 /* Favorite star — hover-revealed on desktop, always visible once pinned. */
 .server-tile__fav {
