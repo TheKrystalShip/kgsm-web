@@ -36,10 +36,15 @@ function HostAccessSettings() {
 
 const THEME_OPTS = [
   { id: "auto",             label: "Auto (system)"     },
-  { id: "dark",             label: "Krystal Blue Dark" },
-  { id: "light",            label: "Krystal Blue Light" },
+  { id: "dark",             label: "Krystal Blue Dark"         },
+  { id: "amoled",           label: "Krystal Blue Dark (AMOLED)" },
+  { id: "light",            label: "Krystal Blue Light"         },
   { id: "nord",             label: "Nord"              },
   { id: "catppuccin-mocha", label: "Catppuccin Mocha"  },
+  { id: "dracula",          label: "Dracula"           },
+  { id: "tokyo-night",      label: "Tokyo Night"       },
+  { id: "synthwave",        label: "Synthwave '84"     },
+  { id: "gruvbox",          label: "Gruvbox Dark"      },
 ];
 
 function SettingsPage({ user, onLogout }) {

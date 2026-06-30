@@ -200,6 +200,77 @@
 }
 
 /* ============================================================
+   THEME — KRYSTAL BLUE DARK (AMOLED)
+   ------------------------------------------------------------
+   A Krystal Blue Dark sibling optimised for AMOLED/OLED panels.
+   True black canvas = pixel-off = zero power + infinite contrast.
+   Surfaces keep a faint cool-blue tint so cards have shape;
+   borders are slightly more visible (no black-depth to rely on);
+   scrollbar thumb is bumped up; scrim is pure black.
+   Everything else inherits the standard dark palette directly.
+   ============================================================ */
+[data-theme="amoled"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #000000;   /* true black — pixel off on OLED */
+  --surface-0:       #08090d;   /* sidebar — barely lifted from black */
+  --surface-1:       #0d1018;   /* primary card */
+  --surface-2:       #131720;   /* nested / hovered */
+  --surface-3:       #191e28;   /* input fill / pressed */
+
+  /* ---------- Borders ------------------------------------ */
+  /* Bumped vs dark — black canvas can't provide depth, borders do the job. */
+  --border-subtle:   rgba(255, 255, 255, 0.09);
+  --border-strong:   rgba(255, 255, 255, 0.16);
+  --border-accent:   rgba(64, 160, 192, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #F2F5F9;
+  --fg-2:            #B8C2D0;
+  --fg-3:            #7C8899;
+  --fg-4:            #515E70;
+  --fg-inverse:      #000000;
+  --btn-accent-fg:   #000000;
+  --btn-success-fg:  #000000;
+
+  /* ---------- Brand & accent — same teal ----------------- */
+  --krystal-teal:        #40A0C0;
+  --krystal-teal-hover:  #5DB5D2;
+  --krystal-teal-press:  #2F89A8;
+  --krystal-teal-dim:    rgba(64, 160, 192, 0.14);
+  --krystal-teal-ring:   rgba(64, 160, 192, 0.35);
+  --krystal-ink:         #000000;
+
+  /* ---------- Semantic — identical to dark --------------- */
+  --success:        #22C55E;
+  --success-bg:     rgba(34, 197, 94, 0.14);
+  --success-fg:     #4ADE80;
+
+  --danger:         #EF4444;
+  --danger-bg:      rgba(239, 68, 68, 0.14);
+  --danger-fg:      #FB7185;
+
+  --warning:        #F59E0B;
+  --warning-bg:     rgba(245, 158, 11, 0.14);
+  --warning-fg:     #FBBF24;
+
+  --update:         #F97316;
+  --update-bg:      rgba(249, 115, 22, 0.14);
+  --update-fg:      #FB923C;
+
+  --info:           #38BDF8;
+  --info-bg:        rgba(56, 189, 248, 0.14);
+  --info-fg:        #7DD3FC;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1:          rgba(255, 255, 255, 0.05);
+  --veil-2:          rgba(255, 255, 255, 0.08);
+  --veil-3:          rgba(255, 255, 255, 0.10);
+  --scrim-base:      #000000;
+  --scrollbar-thumb:       rgba(255, 255, 255, 0.18);   /* more visible on black */
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
+}
+
+/* ============================================================
    THEME — LIGHT
    ------------------------------------------------------------
    Mirrors the dark token set. Surfaces invert (light page, white
@@ -407,6 +478,274 @@
   --scrim-base:      #11111b;   /* Crust */
   --scrollbar-thumb:       rgba(205, 214, 244, 0.14);
   --scrollbar-thumb-hover: rgba(205, 214, 244, 0.24);
+}
+
+/* ============================================================
+   THEME — DRACULA
+   ------------------------------------------------------------
+   Dracula: deep charcoal with purple/pink/cyan neon accents.
+   Accent = Purple (#bd93f9). Bright pastels → dark button ink.
+   Palette source: https://draculatheme.com/contribute
+   ============================================================ */
+[data-theme="dracula"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #282a36;   /* Background */
+  --surface-0:       #21222c;   /* slightly darker — sidebar */
+  --surface-1:       #343746;   /* between bg and Current Line */
+  --surface-2:       #44475a;   /* Current Line */
+  --surface-3:       #565970;   /* slightly lighter */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(248, 248, 242, 0.07);
+  --border-strong:   rgba(248, 248, 242, 0.14);
+  --border-accent:   rgba(189, 147, 249, 0.50);   /* Purple */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #f8f8f2;   /* Foreground */
+  --fg-2:            #c5c8d3;   /* between fg and comment */
+  --fg-3:            #6272a4;   /* Comment */
+  --fg-4:            #495064;   /* dim */
+  --fg-inverse:      #282a36;
+  --btn-accent-fg:   #282a36;   /* dark ink on Purple (4.5:1) */
+  --btn-success-fg:  #282a36;   /* dark ink on Green (#50fa7b, 12:1) */
+
+  /* ---------- Brand & accent — Purple -------------------- */
+  --krystal-teal:        #bd93f9;
+  --krystal-teal-hover:  #caa8fb;
+  --krystal-teal-press:  #a87ef5;
+  --krystal-teal-dim:    rgba(189, 147, 249, 0.14);
+  --krystal-teal-ring:   rgba(189, 147, 249, 0.35);
+  --krystal-ink:         #282a36;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #50fa7b;   /* Green */
+  --success-bg:     rgba(80, 250, 123, 0.12);
+  --success-fg:     #50fa7b;
+
+  --danger:         #ff5555;   /* Red */
+  --danger-bg:      rgba(255, 85, 85, 0.14);
+  --danger-fg:      #ff5555;
+
+  --warning:        #f1fa8c;   /* Yellow */
+  --warning-bg:     rgba(241, 250, 140, 0.12);
+  --warning-fg:     #f1fa8c;
+
+  --update:         #ffb86c;   /* Orange */
+  --update-bg:      rgba(255, 184, 108, 0.14);
+  --update-fg:      #ffb86c;
+
+  --info:           #8be9fd;   /* Cyan */
+  --info-bg:        rgba(139, 233, 253, 0.12);
+  --info-fg:        #8be9fd;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1:          rgba(248, 248, 242, 0.05);
+  --veil-2:          rgba(248, 248, 242, 0.08);
+  --veil-3:          rgba(248, 248, 242, 0.10);
+  --scrim-base:      #191a21;
+  --scrollbar-thumb:       rgba(248, 248, 242, 0.14);
+  --scrollbar-thumb-hover: rgba(248, 248, 242, 0.24);
+}
+
+/* ============================================================
+   THEME — TOKYO NIGHT
+   ------------------------------------------------------------
+   Tokyo Night Storm: deep navy-blue with blue/purple accents.
+   Accent = Blue (#7aa2f7). Vivid neon palette on dark indigo.
+   Palette source: https://github.com/enkia/tokyo-night-vscode-theme
+   ============================================================ */
+[data-theme="tokyo-night"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #1a1b26;   /* bg */
+  --surface-0:       #16161e;   /* bg_dark — sidebar */
+  --surface-1:       #1f2335;   /* lifted card */
+  --surface-2:       #292e42;   /* bg_highlight */
+  --surface-3:       #343b58;   /* slightly lighter */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(192, 202, 245, 0.07);
+  --border-strong:   rgba(192, 202, 245, 0.14);
+  --border-accent:   rgba(122, 162, 247, 0.50);   /* Blue */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #c0caf5;   /* fg */
+  --fg-2:            #a9b1d6;   /* fg_dark */
+  --fg-3:            #565f89;   /* comment */
+  --fg-4:            #414868;   /* terminal_black */
+  --fg-inverse:      #1a1b26;
+  --btn-accent-fg:   #1a1b26;   /* dark ink on Blue (5.5:1 on #7aa2f7) */
+  --btn-success-fg:  #1a1b26;   /* dark ink on Green (5.7:1 on #9ece6a) */
+
+  /* ---------- Brand & accent — Blue ---------------------- */
+  --krystal-teal:        #7aa2f7;
+  --krystal-teal-hover:  #9ab4f9;
+  --krystal-teal-press:  #5a88f4;
+  --krystal-teal-dim:    rgba(122, 162, 247, 0.14);
+  --krystal-teal-ring:   rgba(122, 162, 247, 0.35);
+  --krystal-ink:         #1a1b26;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #9ece6a;   /* green */
+  --success-bg:     rgba(158, 206, 106, 0.12);
+  --success-fg:     #9ece6a;
+
+  --danger:         #f7768e;   /* red */
+  --danger-bg:      rgba(247, 118, 142, 0.14);
+  --danger-fg:      #f7768e;
+
+  --warning:        #e0af68;   /* yellow */
+  --warning-bg:     rgba(224, 175, 104, 0.12);
+  --warning-fg:     #e0af68;
+
+  --update:         #ff9e64;   /* orange */
+  --update-bg:      rgba(255, 158, 100, 0.14);
+  --update-fg:      #ff9e64;
+
+  --info:           #7dcfff;   /* cyan */
+  --info-bg:        rgba(125, 207, 255, 0.12);
+  --info-fg:        #7dcfff;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1:          rgba(192, 202, 245, 0.05);
+  --veil-2:          rgba(192, 202, 245, 0.08);
+  --veil-3:          rgba(192, 202, 245, 0.10);
+  --scrim-base:      #0d0e17;
+  --scrollbar-thumb:       rgba(192, 202, 245, 0.14);
+  --scrollbar-thumb-hover: rgba(192, 202, 245, 0.24);
+}
+
+/* ============================================================
+   THEME — SYNTHWAVE '84
+   ------------------------------------------------------------
+   Retrowave: deep purple-black with neon pink + cyan accents.
+   Accent = Neon Pink (#f92aad). Pastels are bright → dark ink.
+   Palette source: https://github.com/robb0wen/synthwave-vscode
+   ============================================================ */
+[data-theme="synthwave"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas:          #262335;   /* deep purple-black */
+  --surface-0:       #1a1626;   /* darker — sidebar */
+  --surface-1:       #2d2245;   /* card lift */
+  --surface-2:       #34294f;   /* nested / hovered */
+  --surface-3:       #3d3060;   /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(249, 42, 173, 0.14);   /* faint pink tint */
+  --border-strong:   rgba(249, 42, 173, 0.28);
+  --border-accent:   rgba(249, 42, 173, 0.60);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #e2d9f3;   /* soft white with purple tint */
+  --fg-2:            #b4a9d4;
+  --fg-3:            #848bbd;   /* comment */
+  --fg-4:            #574c7c;   /* dim */
+  --fg-inverse:      #262335;
+  --btn-accent-fg:   #262335;   /* dark ink on Pink (5.8:1 on #f92aad) */
+  --btn-success-fg:  #262335;   /* dark ink on Cyan-Green (#72f1b8, very bright) */
+
+  /* ---------- Brand & accent — Neon Pink ----------------- */
+  --krystal-teal:        #f92aad;
+  --krystal-teal-hover:  #fb5bc0;
+  --krystal-teal-press:  #e0178d;
+  --krystal-teal-dim:    rgba(249, 42, 173, 0.14);
+  --krystal-teal-ring:   rgba(249, 42, 173, 0.40);
+  --krystal-ink:         #262335;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #72f1b8;   /* neon cyan-green */
+  --success-bg:     rgba(114, 241, 184, 0.12);
+  --success-fg:     #72f1b8;
+
+  --danger:         #fe4450;   /* neon red */
+  --danger-bg:      rgba(254, 68, 80, 0.14);
+  --danger-fg:      #fe4450;
+
+  --warning:        #fede5d;   /* neon yellow */
+  --warning-bg:     rgba(254, 222, 93, 0.12);
+  --warning-fg:     #fede5d;
+
+  --update:         #fd971f;   /* neon orange */
+  --update-bg:      rgba(253, 151, 31, 0.14);
+  --update-fg:      #fd971f;
+
+  --info:           #36f9f6;   /* neon cyan */
+  --info-bg:        rgba(54, 249, 246, 0.12);
+  --info-fg:        #36f9f6;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1:          rgba(226, 217, 243, 0.05);
+  --veil-2:          rgba(226, 217, 243, 0.08);
+  --veil-3:          rgba(226, 217, 243, 0.10);
+  --scrim-base:      #110e1f;
+  --scrollbar-thumb:       rgba(249, 42, 173, 0.30);   /* neon pink scrollbar */
+  --scrollbar-thumb-hover: rgba(249, 42, 173, 0.50);
+}
+
+/* ============================================================
+   THEME — GRUVBOX DARK
+   ------------------------------------------------------------
+   Gruvbox Hard: warm retro browns/tans with orange as accent.
+   Accent = Orange (#fe8019). All Gruvbox brights → dark ink.
+   Palette source: https://github.com/morhetz/gruvbox
+   ============================================================ */
+[data-theme="gruvbox"] {
+  /* ---------- Canvas & surfaces (Hard contrast) ----------- */
+  --canvas:          #1d2021;   /* bg0_h */
+  --surface-0:       #161819;   /* even darker — sidebar */
+  --surface-1:       #282828;   /* bg0 — card lift */
+  --surface-2:       #3c3836;   /* bg1 — nested / hovered */
+  --surface-3:       #504945;   /* bg2 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle:   rgba(251, 241, 199, 0.07);
+  --border-strong:   rgba(251, 241, 199, 0.13);
+  --border-accent:   rgba(254, 128, 25, 0.50);   /* Orange */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1:            #ebdbb2;   /* fg1 */
+  --fg-2:            #d5c4a1;   /* fg2 */
+  --fg-3:            #a89984;   /* fg4 / gray */
+  --fg-4:            #665c54;   /* bg3 — dim */
+  --fg-inverse:      #1d2021;
+  --btn-accent-fg:   #1d2021;   /* dark ink on Orange (6.6:1 on #fe8019) */
+  --btn-success-fg:  #1d2021;   /* dark ink on bright Green (8:1 on #b8bb26) */
+
+  /* ---------- Brand & accent — Orange -------------------- */
+  --krystal-teal:        #fe8019;
+  --krystal-teal-hover:  #ff9c46;
+  --krystal-teal-press:  #e56b0c;
+  --krystal-teal-dim:    rgba(254, 128, 25, 0.14);
+  --krystal-teal-ring:   rgba(254, 128, 25, 0.35);
+  --krystal-ink:         #1d2021;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success:        #b8bb26;   /* bright green */
+  --success-bg:     rgba(184, 187, 38, 0.12);
+  --success-fg:     #b8bb26;
+
+  --danger:         #fb4934;   /* bright red */
+  --danger-bg:      rgba(251, 73, 52, 0.14);
+  --danger-fg:      #fb4934;
+
+  --warning:        #fabd2f;   /* bright yellow */
+  --warning-bg:     rgba(250, 189, 47, 0.12);
+  --warning-fg:     #fabd2f;
+
+  --update:         #fe8019;   /* orange — same as accent */
+  --update-bg:      rgba(254, 128, 25, 0.14);
+  --update-fg:      #fe8019;
+
+  --info:           #83a598;   /* bright blue/aqua */
+  --info-bg:        rgba(131, 165, 152, 0.12);
+  --info-fg:        #83a598;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1:          rgba(251, 241, 199, 0.05);
+  --veil-2:          rgba(251, 241, 199, 0.08);
+  --veil-3:          rgba(251, 241, 199, 0.10);
+  --scrim-base:      #161819;
+  --scrollbar-thumb:       rgba(251, 241, 199, 0.14);
+  --scrollbar-thumb-hover: rgba(251, 241, 199, 0.24);
 }
 
 /* ============================================================
