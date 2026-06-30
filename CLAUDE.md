@@ -206,3 +206,10 @@ which re-cascades instantly; the picker is in Settings → Account). Landmines:
 - **`MIGRATION.md` is a historical playbook and partly stale** — it references
   `src/lib/api.js` / `api-contract.js`, which no longer exist (the seam is
   `apiClient.js` + `adapters.js` + `config.js`).
+
+## Version tracking
+
+- **Version source:** `"version"` field in `package.json`
+- Bump the version whenever you make a user-facing change (new feature, bug fix, behaviour change). Patch for fixes, minor for new features, major for breaking changes.
+- Update `CHANGELOG.md` under `## [Unreleased]` with a brief entry for every meaningful change.
+- A git tag matching the new version should be created on release: `git tag v<version>`.
