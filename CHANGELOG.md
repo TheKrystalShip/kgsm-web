@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-01
+
 ### Added
 - **Unified permanent player roster view**: `GET /servers/{id}/players` now returns the
   full history roster (every player who has ever connected, with status, first seen, last seen).
