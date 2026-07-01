@@ -3,6 +3,7 @@ import { Icon } from "./Icon.jsx";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
+import { coverArtBg } from "../lib/art.js";
 import { HostAuthBadge } from "../pages/HostAccess.jsx";
 import { OAuthIcon } from "../pages/LoginPage.jsx";
 
@@ -137,7 +138,7 @@ function ServerListItem({ server, active, onClick }) {
   }[server.status] || "var(--fg-4)";
   return (
     <div className={"server-row" + (active ? " server-row--active" : "")} onClick={onClick}>
-      <div className="server-row__icon" style={{ backgroundImage: server.cover ? `url("${server.cover}")` : server.art, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+      <div className="server-row__icon" style={{ backgroundImage: coverArtBg(server.cover), backgroundSize: "cover", backgroundPosition: "center" }}></div>
       <span className="server-row__name">{server.name}</span>
       <span className="server-row__dot" style={{
         background: dotColor,

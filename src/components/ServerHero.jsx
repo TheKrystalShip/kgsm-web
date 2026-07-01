@@ -4,6 +4,7 @@ import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
+import { artBg } from "../lib/art.js";
 
 // Server hero card — top status, name, action chips, IP.
 
@@ -51,20 +52,13 @@ function ServerHero({ server, onAction }) {
   // against the backend, disable it with a reason.
   const updateUnavailable = true;
   const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
-  // The cinematic background is the dedicated LANDSCAPE banner (`hero` = RAWG
-  // background_image_additional, self-hosted by kgsm-api), NOT the 2:3 portrait
-  // `cover` — a portrait stretched to a wide banner looks wrong. `hero` is merged
-  // onto the row by serversStore.fetchDetail; null (uncached / no source) falls
-  // straight through to the gradient — we never substitute the cover here.
-  const banner = server.hero || null;
-  // The bottom-up scrim (.hero__scrim) handles text legibility now, so the art
-  // is shown clean and vivid rather than baking a gradient into the image layer.
-  const artBg = banner
-    ? `url("${banner}")`
-    : server.art;
+  // The cinematic background prefers the LANDSCAPE banner (`hero` = RAWG
+  // background_image_additional), then falls back to the 2:3 portrait `cover`,
+  // then to a themed gradient placeholder when neither is available.
+  const bg = artBg(server.hero, server.cover);
   return (
     <section className="hero hero--cinematic">
-      <div className="hero__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+      <div className="hero__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
       <div className="hero__scrim"></div>
       <div className="hero__statuspos">
         <StatusPill status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />

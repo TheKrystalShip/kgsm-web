@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "./Icon.jsx";
 import { Select } from "./Select.jsx";
 import { can } from "../lib/persona.js";
+import { artBg } from "../lib/art.js";
 import { fmtFootprintMb, offeringHosts } from "../pages/LibraryPage.jsx";
 import { Toggle } from "../pages/ServerSettings.jsx";
 
@@ -82,16 +83,13 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   };
 
   // Cover art comes from the backend on the catalog entry (game.cover); falls
-  // back to the themed gradient. See architecture.html §3·i.
-  const cover = game.cover || null;
-  const artBg = cover
-    ? `linear-gradient(to bottom, rgba(11,15,20,0.2) 0%, var(--surface-1) 100%), url("${cover}")`
-    : game.art;
+  // back to the themed gradient placeholder.
+  const art = artBg(game.hero, game.cover);
 
   return (
     <div className="k-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form className="k-modal" onSubmit={submit}>
-        <div className="k-modal__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+        <div className="k-modal__art" style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}></div>
         <div className="k-modal__head">
           <Icon name="download" size={18} style={{ color: "var(--krystal-teal)" }} />
           <span className="k-modal__title">Install {game.name}</span>

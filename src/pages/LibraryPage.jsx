@@ -8,6 +8,7 @@ import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
+import { artBg } from "../lib/art.js";
 import { instancesOfBlueprint } from "./GamePage.jsx";
 
 // Library — Steam-like game catalog with search + category filter.
@@ -127,7 +128,7 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
   const onlineCount = instances.filter(s => s.status === "online").length;
   const bg = game.cover
     ? `linear-gradient(180deg, transparent 0%, rgba(11,15,20,0.55) 100%), url("${game.cover}")`
-    : game.art;
+    : artBg(game.hero, null);
 
   // --- Compact variant — the dashboard's "Recently added" rail. Kept lean so
   // that surface is unchanged by the richer library card below. ---

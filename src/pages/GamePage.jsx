@@ -6,6 +6,7 @@ import { ServerTile } from "../components/ServerCard.jsx";
 import { canOn } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
+import { artBg } from "../lib/art.js";
 import { fmtFootprintMb, offeringHosts } from "./LibraryPage.jsx";
 
 // GamePage — the "blueprint" detail page for a single catalog game. A game in
@@ -78,11 +79,8 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
 
   // kgsm-api serves cover/hero as absolute, directly-renderable URLs — the detail
   // page prefers the hero (a screenshot/detail image) then the cover, then the
-  // themed `art` gradient when neither is present.
-  const heroImg = game.hero || game.cover || null;
-  const artBg = heroImg
-    ? `linear-gradient(135deg, rgba(11,15,20,0.45) 0%, transparent 60%), url("${heroImg}")`
-    : game.art;
+  // themed gradient placeholder when neither is present.
+  const bg = artBg(game.hero, game.cover);
   // Description precedence (decision 6): API `description` → nothing. Never
   // fabricate copy the backend didn't serve.
   const description = game.description ?? null;
@@ -109,7 +107,7 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
       {/* Hero — blueprint identity. Reuses the server-hero chrome so a game
           and a server read as the same kind of object header. */}
       <section className="hero">
-        <div className="hero__art" style={{ backgroundImage: artBg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
+        <div className="hero__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
         <div className="hero__veil"></div>
         <div className="hero__content">
           <h1 className="hero__name">{game.name}</h1>

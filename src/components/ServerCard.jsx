@@ -6,6 +6,7 @@ import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
 import { favoritesStore, hostsStore, useIsFavorite } from "../lib/stores.js";
+import { artBg } from "../lib/art.js";
 
 // ServerCard — the reusable game-server tile (art header, live metrics,
 // quick start/restart/stop). Shared by the Dashboard (online
@@ -13,10 +14,9 @@ import { favoritesStore, hostsStore, useIsFavorite } from "../lib/stores.js";
 // a card looks and behaves identically wherever it appears.
 
 function ServerTile({ server, onOpen, onAction, showHost }) {
-  // kgsm-api serves cover directly (the old client-side RAWG hook is gone).
-  // Servers carry no RAWG metadata yet → this falls through to `art` today.
-  const coverImg = server.cover || null;
-  const art = coverImg ? `url("${coverImg}")` : server.art;
+  // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone).
+  // Prefers landscape hero, then portrait cover, then themed gradient placeholder.
+  const art = artBg(server.hero, server.cover);
   const host = showHost && hostsStore ? hostsStore.find(server.hostId) : null;
   // Pin state (client-local). The star both reads and writes the favorites
   // store; toggling it mirrors the card into the pinned Favorites section on the
