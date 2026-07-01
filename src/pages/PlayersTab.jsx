@@ -198,16 +198,16 @@ function PlayersTab({ server, readOnly }) {
           </span>
         </span>
       ) },
-    { key: "status", label: "Status", width: "auto",
+    { key: "status", label: "Status", width: "minmax(110px, auto)",
       sort: (p) => { const order = { online: 0, unknown: 1, offline: 2, banned: 3 }; return order[p.status] ?? 4; },
       render: (p) => <StatusDot status={p.status} /> },
-    { key: "firstSeen", label: "First seen", width: "auto", align: "right", defaultDir: "desc",
+    { key: "firstSeen", label: "First seen", width: "minmax(120px, auto)", align: "right", defaultDir: "desc",
       sort: (p) => p.firstSeen || "",
       render: (p) => {
         const { rel, abs } = fmtTime(p.firstSeen);
         return <span className="player-meta-cell" title={abs}>{rel}</span>;
       } },
-    { key: "lastSeen", label: "Last seen", width: "auto", align: "right", defaultDir: "desc",
+    { key: "lastSeen", label: "Last seen", width: "minmax(120px, auto)", align: "right", defaultDir: "desc",
       sort: (p) => p.lastSeen || "",
       render: (p) => {
         const { rel, abs } = fmtTime(p.lastSeen);

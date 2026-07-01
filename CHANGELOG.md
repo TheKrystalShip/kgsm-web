@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-01
+
+### Fixed
+- **Player roster desktop layout**: Status, First seen, and Last seen columns no longer
+  shrink excessively on wider screens. Added minimum column widths (`110px`/`120px`) to
+  prevent squishing while preserving the mobile layout.
+
 ## [0.5.0] - 2026-07-01
 
 ### Added
