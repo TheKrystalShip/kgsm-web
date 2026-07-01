@@ -869,6 +869,21 @@
    identifier sit in one cell — player-presence-contract.md §5 has no
    moderation actions, so there's no action column to align here). */
 .players-cell-player { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.players-cell-player .player-name { flex: 1; min-width: 0; }
+.players-cell-player .player-name__primary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Player roster responsive: on mobile, hide the First seen / Last seen columns
+   and let the player name take the space it needs. */
+@media (max-width: 600px) {
+  .players-tab .card-table__head,
+  .players-tab .card-table__row {
+    grid-template-columns: 1fr auto !important;
+  }
+  .players-tab .card-table__head .card-table__th:nth-child(n+3),
+  .players-tab .card-table__row .card-table__cell:nth-child(n+3) {
+    display: none;
+  }
+}
 
 /* Per-core CPU grid. Column count = the host's core count (set inline as
    --core-count), so every core sits in one row that expands to fill the width
