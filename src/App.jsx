@@ -1054,7 +1054,8 @@ function App() {
           {route.kind === "attention" && <AlertsPage
             key={route.serverId || "all"}
             initialServerId={route.serverId}
-            onOpenServer={(id) => setRoute({ kind: "server", id })}
+            onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
+            onOpenHost={(hostId) => setRoute({ kind: "fleet", hostId })}
             onOpenAudit={() => setRoute({ kind: "audit" })}
             onAsk={askAboutAlert}
           />}

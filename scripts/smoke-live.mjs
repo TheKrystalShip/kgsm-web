@@ -314,13 +314,29 @@ try {
   ] })[0];
   aApi.KrystalAlerts.ingest({ kind: "raise", alert: synth("crash:smoke", "watchdog") });
   aApi.KrystalAlerts.ingest({ kind: "raise", alert: synth("hm:smoke", "host-monitor") });
+  // Metrics-threshold sources (M6·a increment 1): a per-server 'metrics' alert (→ gauge) and a
+  // HOST-SCOPE alert with NO serverId (anchor.surface "host") — proves the null-serverId host alert
+  // renders and offers "Open host" (not "Open server").
+  const synthHost = (id, source) => adapt.adaptAlerts({ data: [
+    { id, severity: "warn", source, title: `SMOKE ${source} host alert`, detail: "synthetic",
+      serverId: null, hostId: "hotrod", anchor: { surface: "host", hostId: "hotrod", tab: "resources" },
+      status: "firing", raisedAt: "2026-06-20T00:00:00Z", escalated: false, attempts: 0 },
+  ] })[0];
+  aApi.KrystalAlerts.ingest({ kind: "raise", alert: synth("metric:srv-pids:factorio-test", "metrics") });
+  aApi.KrystalAlerts.ingest({ kind: "raise", alert: synthHost("metric:host-mem", "host-monitor") });
   const renderHtml = await nav("#/alerts");
   assert(renderHtml.includes("SMOKE watchdog alert") && renderHtml.includes("SMOKE host-monitor alert"),
     "alerts render-with-data: adaptAlerts→AlertCard shows the titles");
   assert(renderHtml.includes("lucide-triangle-alert") && renderHtml.includes("lucide-server"),
     "alerts render-with-data: derived icons resolve to real lucide glyphs (source→icon)");
+  assert(renderHtml.includes("lucide-gauge"),
+    "alerts render-with-data: metrics source → gauge icon (metrics-threshold source)");
+  assert(renderHtml.includes("Open host"),
+    "alerts render-with-data: host-scope alert (null serverId) offers Open host, not Open server");
   aApi.KrystalAlerts.ingest({ kind: "retract", id: "crash:smoke" });
   aApi.KrystalAlerts.ingest({ kind: "retract", id: "hm:smoke" });
+  aApi.KrystalAlerts.ingest({ kind: "retract", id: "metric:srv-pids:factorio-test" });
+  aApi.KrystalAlerts.ingest({ kind: "retract", id: "metric:host-mem" });
 
   // GamePage instances are scoped by blueprint, not the null===null match-all:
   // the factorio blueprint detail must list factorio-test and NOT terraria-hardmode.
