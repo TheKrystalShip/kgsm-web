@@ -1022,7 +1022,7 @@ const useIsFavorite = (id) => useStore(favoritesStore, s => s.ids.includes(id));
 
 // ---- Link latency (the dashboard Ping KPI) ------------------------------
 // Per-host round-trip latency to each connected kgsm-api, measured CLIENT-side
-// (api.pingHost → GET /api/v1/ping, clocked there). Keyed by BACKEND host id so the
+// (api.pingHost → WebSocket ping/pong, clocked there). Keyed by BACKEND host id so the
 // dashboard reads the scoped host's value (and the worst across hosts under "all").
 // A reading is { ms, at }; ms is null when the last probe failed → the KPI shows
 // "no reading" (honest unknown — never a stale or fabricated number).
@@ -1030,7 +1030,7 @@ const pingStore = createStore({ byHost: {} });
 pingStore.record = (hostId, ms) =>
   pingStore.setState(s => ({ byHost: { ...s.byHost, [hostId]: { ms, at: Date.now() } } }));
 
-const PING_INTERVAL_MS = 5000;
+const PING_INTERVAL_MS = 1000;
 let _pingTimer = null;
 function pingTick() {
   // Skip while the tab is hidden — a background panel needs no live ping, and the

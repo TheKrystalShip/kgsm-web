@@ -292,26 +292,33 @@ import("./stores.js").then((m) => {
   }
 
   // ---- latency probe (the dashboard Ping KPI) -----------------------------
-  // Measure the CLIENT-side round trip to a host's /api/v1/ping — a deliberately
-  // tiny, AUTH-FREE target (kgsm-api PingController). The server can't observe the
-  // round trip, so WE clock it: t0 → response received. Sent as a BARE GET with no
-  // Authorization header (an auth header would trip a CORS preflight and inflate the
-  // first reading) and cache:"no-store" (so a cached 200 can't fake a ~0ms result).
+  // Measure the CLIENT-side round trip via a WebSocket ping/pong on the existing
+  // liveStream. The server echoes the client's timestamp verbatim — WE clock it:
+  // t0 (performance.now at send) → pong received → RTT = now - t0.
   // Returns the RTT in ms, or null on any failure → the KPI honestly reads "no
   // reading" (never a fabricated latency, never 0). Deliberately ISOLATED from
   // markSuccess/markFailure: ping is a side channel, not the cold-start signal.
+  const _pendingPings = new Map(); // hostId → { resolve, timer }
+  const PING_TIMEOUT_MS = 3000;
   async function pingHost(hostId) {
-    const base = apiV1Of(hostId);
-    if (!base) return null;
-    const clock = (typeof performance !== "undefined" && performance.now) ? () => performance.now() : () => Date.now();
-    const t0 = clock();
-    let res;
-    try { res = await fetch(base + "/ping", { method: "GET", cache: "no-store" }); }
-    catch (e) { return null; }                 // unreachable → no honest reading
-    const rtt = clock() - t0;                   // response received → that's the round trip
-    if (!res.ok) return null;
-    try { await res.text(); } catch (e) {}      // drain the tiny body (frees the connection)
-    return Math.round(rtt);
+    const idx = CONNECTIONS.findIndex((c) => c.id === hostId);
+    const s = idx >= 0 ? liveStreams[idx] : null;
+    if (!s || s.mode() !== "live") return null;
+    return new Promise((resolve) => {
+      const clock = (typeof performance !== "undefined" && performance.now) ? () => performance.now() : () => Date.now();
+      const t0 = clock();
+      const timer = setTimeout(() => { _pendingPings.delete(hostId); resolve(null); }, PING_TIMEOUT_MS);
+      _pendingPings.set(hostId, { resolve, timer, t0 });
+      if (!s.ping()) { clearTimeout(timer); _pendingPings.delete(hostId); resolve(null); }
+    });
+  }
+  function _handlePong(hostId, ts) {
+    const entry = _pendingPings.get(hostId);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    _pendingPings.delete(hostId);
+    const rtt = (typeof performance !== "undefined" && performance.now) ? performance.now() - entry.t0 : Date.now() - entry.t0;
+    entry.resolve(Math.round(rtt));
   }
 
   async function get(path, hostId) {
@@ -426,6 +433,7 @@ import("./stores.js").then((m) => {
       bearer: () => wsBearer(conn.id),       // WS funnel: rotates a JWT-expired token BEFORE dialing (the socket can't heal on a 401)
       onOpen: () => rehydrateAll(),
       onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+      onPong: (ts) => _handlePong(conn.id, ts),
       onMode: (mode) => setLiveRealtime(conn.id, mode),
     }));
   }

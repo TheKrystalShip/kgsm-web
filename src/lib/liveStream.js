@@ -23,16 +23,17 @@ const WS = (typeof WebSocket !== "undefined") ? WebSocket : null;
 const RECONNECT_BASE = 2500, RECONNECT_CAP = 12000;
 const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
 
-// createLiveStream({ url, bearer, onOpen, onMessage, onMode })
+// createLiveStream({ url, bearer, onOpen, onMessage, onPong, onMode })
 //   url      — ws(s):// …/api/v1/stream (no query; the bearer is appended here)
 //   bearer   — () => Promise<token|null>|token|null, AWAITED at each connect (the apiClient auth
 //              funnel: it proactively freshens the token; may REJECT when the session is truly dead)
 //   onOpen   — () => void, fired after the socket opens + subs are flushed
 //              (the owner re-hydrates the REST stores here to catch missed deltas)
 //   onMessage— (msg:{topic,type,data}) => void, one parsed server frame
+//   onPong   — (ts:number) => void, a pong response to a client ping (connection-scoped, not topic-dispatched)
 //   onMode   — (mode:"live"|"reconnecting"|"offline") => void, for realtimeStore
-// Returns { subscribe(topics), unsubscribe(topics), reconnect(), close(), mode() }.
-export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
+// Returns { subscribe(topics), unsubscribe(topics), reconnect(), close(), mode(), ping() }.
+export function createLiveStream({ url, bearer, onOpen, onMessage, onPong, onMode }) {
   const topics = new Set();
   let socket = null;
   let attempts = 0;
@@ -89,7 +90,10 @@ export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
       if (socket !== s) return;
       let msg = null;
       try { msg = JSON.parse(typeof ev.data === "string" ? ev.data : ev.data.toString()); } catch (e) { return; }
-      if (msg && msg.topic && msg.type) { try { onMessage && onMessage(msg); } catch (e) {} }
+      if (!msg) return;
+      // Pong is connection-scoped (latency probe), not a topic-dispatched frame.
+      if (msg.type === "pong" && onPong) { try { onPong(msg.ts); } catch (e) {} return; }
+      if (msg.topic && msg.type) { try { onMessage && onMessage(msg); } catch (e) {} }
     });
     const onDrop = () => { if (socket === s) { socket = null; scheduleReconnect(); } };
     s.addEventListener("close", onDrop);
@@ -121,6 +125,7 @@ export function createLiveStream({ url, bearer, onOpen, onMessage, onMode }) {
     setMode("offline");
   }
 
+  function ping() { return send({ type: "ping", ts: (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now() }); }
   connect();
-  return { subscribe, unsubscribe, reconnect, close, mode: () => mode };
+  return { subscribe, unsubscribe, reconnect, close, mode: () => mode, ping };
 }

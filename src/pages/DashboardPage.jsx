@@ -251,7 +251,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
     return rh ? `${d}d ${rh}h` : `${d}d`;
   };
   // 1) Ping — operator's live link to the host(s). Lower is better; non-interactive.
-  // Client-measured round trip to /api/v1/ping (pingStore, keyed by host id). For a
+  // Client-measured round trip via WebSocket ping/pong (pingStore, keyed by host id). For a
   // single scoped host it's that host's reading; under "all" it's the WORST (max)
   // across hosts that have a reading — the slowest link, matching the other summary
   // tiles' worst-case framing. No reading (probe failed / not yet measured) → null
