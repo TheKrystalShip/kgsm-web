@@ -2,61 +2,21 @@
    kit/observability.css — players, performance/charts, anomalies, diagnostics, services, log console, audit
    Split out of the monolithic kit.css; imported by it in cascade order.
    ============================================================================ */
-/* ============= Players tab ============= */
+/* ============= Players tab =============
+   v1 is a read-only roster (name/addr/id/since — player-presence-contract.md §5,
+   no moderation actions), rendered through the shared CardTable — so only the
+   cell-content classes below are needed. (Ping/status-pill/kick-ban-actions were
+   the prototype's imagined richer domain; dropped when the tab was wired to the
+   real, thinner contract — the backend has no ping/playtime/ban/allowlist source.) */
 .players-toolbar { display: flex; align-items: center; gap: 10px; }
 .players-toolbar .summary { color: var(--fg-3); font-size: 13px; }
 .players-toolbar .summary b { color: var(--fg-1); font-weight: 600; }
 
-.player-table { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; }
-.player-row {
-  display: grid;
-  grid-template-columns: 32px minmax(0,2fr) 80px 80px 100px 1fr auto;
-  gap: 14px;
-  padding: 12px 16px;
-  align-items: center;
-}
-.player-row + .player-row { border-top: 1px solid var(--border-subtle); }
-.player-row--head { background: var(--surface-2); color: var(--fg-3); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 16px; }
 .player-avatar { width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press)); color: var(--fg-inverse); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
 .player-name { display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
 .player-name__primary { color: var(--fg-1); font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-name__role { color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); }
-.player-ping { font-family: var(--font-mono); font-size: 12.5px; }
-.player-ping--good { color: var(--success-fg); }
-.player-ping--mid  { color: var(--warning-fg); }
-.player-ping--bad  { color: var(--danger-fg); }
 .player-meta-cell { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-2); }
-.player-status-pill {
-  font-size: 11px; font-weight: 600;
-  padding: 3px 8px; border-radius: 999px;
-  display: inline-block;
-}
-.player-status-pill[data-tone="success"] { background: var(--success-bg); color: var(--success-fg); }
-.player-status-pill[data-tone="muted"]   { background: var(--veil-1); color: var(--fg-3); }
-.player-status-pill[data-tone="danger"]  { background: var(--danger-bg); color: var(--danger-fg); }
-.player-status-pill[data-tone="brand"]   { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
-
-/* Action buttons — desktop default is icon-only & revealed on hover. */
-.player-actions { display: flex; gap: 6px; opacity: 0; transition: opacity var(--d-fast); }
-.player-row:hover .player-actions { opacity: 1; }
-.player-act {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  color: var(--fg-2);
-  width: 32px; height: 32px;
-  border-radius: var(--r-md);
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  cursor: pointer;
-  font-family: var(--font-ui); font-weight: 600; font-size: 12.5px;
-  padding: 0;
-}
-.player-act:hover { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
-.player-act--danger:hover { color: var(--danger-fg); border-color: var(--danger); }
-.player-act__label { display: none; }
-.player-row--head .player-row__status,
-.player-row--head .player-meta-cell,
-.player-row--head .player-ping { display: none; }
-.player-row--head > span:nth-child(3) { display: inline; }    /* re-show header labels */
 
 /* ============= Performance tab (charts) ============= */
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -888,7 +848,7 @@
 .proc-cell-system { color: var(--fg-4); }
 
 /* Process rows inside the shared CardTable: stuck-row tint + hover-revealed
-   actions, mirroring the Players tab's .player-actions treatment. */
+   actions. */
 .card-table__row--stuck { background: rgba(239, 68, 68, 0.04); }
 .card-table__row--stuck:hover { background: rgba(239, 68, 68, 0.08); }
 .card-table .proc-actions { justify-content: flex-end; }
@@ -900,12 +860,10 @@
   .proc-table-scroll .card-table { min-width: 660px; }
 }
 
-/* Player-row cell content inside the shared CardTable (the Players tab reuses
-   the diagnostics Processes table). Avatar + name sit in one cell; actions are
-   right-aligned and revealed on row hover, matching the old bespoke table. */
+/* Player cell content inside the shared CardTable (avatar + name/secondary
+   identifier sit in one cell — player-presence-contract.md §5 has no
+   moderation actions, so there's no action column to align here). */
 .players-cell-player { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.card-table .player-actions { justify-content: flex-end; }
-.card-table__row:hover .player-actions { opacity: 1; }
 
 /* Per-core CPU grid. Column count = the host's core count (set inline as
    --core-count), so every core sits in one row that expands to fill the width

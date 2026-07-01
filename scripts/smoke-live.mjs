@@ -519,10 +519,16 @@ try {
     assert(followHtml.includes("console-card__body--ts") && /<span class="ts">\d{1,2}:\d{2}:\d{2}<\/span>/.test(followHtml),
       "console: the live line shows a HH:MM:SS timestamp gutter (the shared ConsoleView)");
 
-    // (h2) Players still has no LIVE source → honest work-in-progress state, never a fixture roster.
+    // (h2) Players is now wired to player-presence-contract.md §5, but kgsm-api on
+    // THIS backend hasn't shipped GET /servers/{id}/players yet (the parallel
+    // kgsm/kgsm-watchdog/kgsm-lib/kgsm-api build is still landing the wire) — so
+    // it 404s and the tab renders the honest "couldn't load" error, never the old
+    // fixture-style roster and never a fabricated "0 players online". The full
+    // contract matrix (unknown / configured+empty / configured+populated / live
+    // join+leave) is proven deterministically further down via intercepted REST.
     const ovHtml = w.document.getElementById("root").innerHTML;
-    assert(ovHtml.includes("no roster source on this host yet"),
-      "players: LIVE shows the honest work-in-progress empty-state (not fixture players)");
+    assert(ovHtml.includes("Couldn't load the roster"),
+      "players: LIVE (endpoint not deployed here yet) shows an honest error, never a fixture roster or a fabricated count");
     await nav("#/fleet");
   }
 
@@ -1309,6 +1315,128 @@ try {
     "capabilities.patch: WS frame → per-host subscription → mergeCapabilities (capability set lit live, no reload)");
   assert(capHost.capabilities.metrics.last_sample_at === "2030-01-01T00:00:00Z",
     "capabilities.patch: PER-KEY merge preserves the metrics freshness stamp (a capability patch never wipes the live-tick stamp)");
+
+  // ---- Player presence roster (player-presence-contract.md §5) ------------
+  // GET /servers/{id}/players + the "players" WS topic (players.join/players.leave,
+  // keyed by sessionKey, carrying the owning serverId in the frame). kgsm-api
+  // hasn't shipped the endpoint yet as of this session — kgsm/kgsm-watchdog/
+  // kgsm-lib/kgsm-api build the wire in parallel against the same frozen contract
+  // — so the REST calls below are intercepted with canned responses (the same
+  // non-destructive technique as Phase 5/6) rather than depending on a live
+  // roster. This proves the FE's rendering + reducer logic against the contract;
+  // the real REST/WS round-trip is owed once kgsm-api ships the endpoint.
+  const pt = await vite.ssrLoadModule("/src/pages/PlayersTab.jsx");
+
+  // Pure helpers — the honesty-critical label fallback, asserted with no network.
+  assert(pt.playerLabel({ name: "Alice", id: "76561198000000001", addr: null, sessionKey: "sk-1" }) === "Alice",
+    "playerLabel: prefers name");
+  assert(pt.playerLabel({ name: null, id: null, addr: "203.0.113.10:2456", sessionKey: "sk-2" }) === "203.0.113.10:2456",
+    "playerLabel: falls back to addr when name is null");
+  assert(pt.playerLabel({ name: null, id: null, addr: null, sessionKey: "sk-3" }) === "sk-3",
+    "playerLabel: falls back to sessionKey when name+addr are both null (never blank)");
+  assert(pt.playerSecondary({ name: "Alice", id: "76561198000000001", addr: "203.0.113.10:2456", sessionKey: "sk-1" }) === "203.0.113.10:2456 · 76561198000000001",
+    "playerSecondary: surfaces addr + id alongside a real name (never duplicates the label)");
+  assert(pt.playerSecondary({ name: null, id: null, addr: "203.0.113.10:2456", sessionKey: "sk-2" }) === "",
+    "playerSecondary: empty once addr already IS the label (no redundant repeat)");
+
+  // Pure join/leave reducer (keyed by sessionKey) — the roster's core semantics.
+  let roster = new Map();
+  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
+  assert(roster.size === 1 && roster.get("sk-1").name === "Alice", "applyPlayerFrame: join upserts by sessionKey");
+  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
+  assert(roster.size === 1, "applyPlayerFrame: a repeated join for the same sessionKey doesn't duplicate the row");
+  roster = pt.applyPlayerFrame(roster, "players.leave", { sessionKey: "sk-1" });
+  assert(roster.size === 0, "applyPlayerFrame: leave evicts by sessionKey");
+  roster = pt.applyPlayerFrame(roster, "players.leave", { sessionKey: "missing" });
+  assert(roster.size === 0, "applyPlayerFrame: a leave for an unknown sessionKey is a no-op (never throws)");
+
+  // players.reset — the api clearing its roster on instance stop/start/restart
+  // (a killed process emits no "left" lines, so this is how an already-open tab
+  // learns to drop its stale rows, per the contract's §5 clarification).
+  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
+  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-2", name: "Bob", since: "2026-07-01T00:00:00Z" });
+  assert(roster.size === 2, "applyPlayerFrame: (setup) two joins populate the roster");
+  roster = pt.applyPlayerFrame(roster, "players.reset");
+  assert(roster.size === 0, "applyPlayerFrame: players.reset clears the ENTIRE roster, no matter how many were on it");
+  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:20:00Z" });
+  assert(roster.size === 1 && roster.get("sk-1").name === "Alice",
+    "applyPlayerFrame: a rejoin after reset flows back in as an ordinary join (no special-casing needed)");
+
+  // The rendered panel, against the contract's real matrix — each REST shape
+  // intercepted non-destructively so no host needs the endpoint deployed yet.
+  const pSv = st.serversStore.getState().list.find((s) => s.id === "factorio-test") || st.serversStore.getState().list[0];
+  if (pSv) {
+    const mockPlayers = (body) => {
+      globalThis.fetch = async (url, opts) => {
+        const u = typeof url === "string" ? url : (url && url.url) || "";
+        if (/\/api\/v1\/servers\/[^/]+\/players$/.test(u) && (!opts || !opts.method || opts.method === "GET")) {
+          return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+        }
+        return realFetch(url, opts);
+      };
+    };
+
+    mockPlayers({ detection: "unknown", players: [] });
+    const unknownHtml = await nav("#/servers/" + pSv.id);
+    assert(unknownHtml.includes("Presence not available for this game"),
+      "players: detection:'unknown' renders the honest not-measurable state, never '0 players online'");
+    assert(!unknownHtml.includes("No players online"),
+      "players: 'unknown' is never conflated with a real configured-and-empty roster");
+
+    await nav("#/fleet");   // force a remount so the next canned response actually re-fetches
+
+    mockPlayers({ detection: "configured", players: [
+      { sessionKey: "sk-1", name: "Alice",    id: "76561198000000001", addr: null,               since: "2026-07-01T00:00:00Z" },
+      { sessionKey: "sk-2", name: "Builder42", id: null,               addr: "203.0.113.10:2456", since: "2026-07-01T00:05:00Z" },
+      { sessionKey: "sk-3", name: "Ranger",    id: null,               addr: null,                since: "2026-07-01T00:10:00Z" },
+    ] });
+    const configuredHtml = await nav("#/servers/" + pSv.id);
+    globalThis.fetch = realFetch;   // done intercepting — the WS proof below needs no fetch at all
+    assert(["Alice", "76561198000000001", "Builder42", "203.0.113.10:2456", "Ranger"].every((s) => configuredHtml.includes(s)),
+      "players: a configured roster renders every row's real name/id/addr (id+name, name+addr, name-only mixes)");
+    assert(/\d+[smhd] ago/.test(configuredHtml),
+      "players: 'Connected' shows a relative connected-since time");
+    assert(!configuredHtml.includes("Presence not available") && !configuredHtml.includes("No players online"),
+      "players: a populated, configured roster shows neither the unknown nor the empty state");
+
+    // Live follow: a WS players.join/players.leave frame for THIS server updates the
+    // mounted panel — the same subscribe → append → render proof as the console tail.
+    api.__dispatch({ topic: "players", type: "players.join",
+      data: { serverId: pSv.id, player: { sessionKey: "sk-4", name: "SMOKE_JOIN_PLAYER", id: null, addr: null, since: new Date().toISOString() } } });
+    await sleep(140);
+    assert(w.document.getElementById("root").innerHTML.includes("SMOKE_JOIN_PLAYER"),
+      "players: a live players.join frame for this server appends a row (subscribe → append → render)");
+
+    api.__dispatch({ topic: "players", type: "players.leave", data: { serverId: pSv.id, player: { sessionKey: "sk-1" } } });
+    await sleep(140);
+    const leftHtml = w.document.getElementById("root").innerHTML;
+    assert(!leftHtml.includes(">Alice<"), "players: a live players.leave frame evicts the row (Alice is gone)");
+    assert(leftHtml.includes("SMOKE_JOIN_PLAYER"), "players: the earlier live join survives an unrelated leave");
+
+    // A frame for a DIFFERENT server must never leak into this one's roster.
+    api.__dispatch({ topic: "players", type: "players.join",
+      data: { serverId: "some-other-server", player: { sessionKey: "sk-9", name: "WRONG_SERVER_PLAYER", since: new Date().toISOString() } } });
+    await sleep(140);
+    assert(!w.document.getElementById("root").innerHTML.includes("WRONG_SERVER_PLAYER"),
+      "players: a WS frame for a different serverId is ignored (no cross-server leak)");
+
+    // players.reset (instance stop/start/restart): the mounted panel drops every
+    // row with no REST refetch, then a fresh join flows back in normally.
+    api.__dispatch({ topic: "players", type: "players.reset", data: { serverId: pSv.id } });
+    await sleep(140);
+    const resetHtml = w.document.getElementById("root").innerHTML;
+    assert(resetHtml.includes("No players online") && !resetHtml.includes("SMOKE_JOIN_PLAYER") && !resetHtml.includes("Builder42"),
+      "players: a live players.reset frame clears every row on the mounted panel (restart-safe, no phantom rows)");
+    api.__dispatch({ topic: "players", type: "players.join",
+      data: { serverId: pSv.id, player: { sessionKey: "sk-10", name: "SMOKE_POST_RESET_PLAYER", since: new Date().toISOString() } } });
+    await sleep(140);
+    assert(w.document.getElementById("root").innerHTML.includes("SMOKE_POST_RESET_PLAYER"),
+      "players: a rejoin after reset renders normally (reset doesn't wedge the roster)");
+
+    await nav("#/fleet");
+  } else {
+    console.log("  ⚠ skip players roster (no server on this backend)");
+  }
 
   root.unmount();
 } finally {
