@@ -18,6 +18,11 @@
 .player-name__role { color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); }
 .player-meta-cell { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg-2); }
 
+/* Player status indicator — colored dot + label for the permanent roster. */
+.player-status { display: inline-flex; align-items: center; gap: 6px; }
+.player-status__dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+.player-status__label { font-size: 12.5px; color: var(--fg-2); }
+
 /* ============= Performance tab (charts) ============= */
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .chart-card { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
