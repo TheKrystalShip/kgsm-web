@@ -833,6 +833,33 @@ function subscribeHostLogs(hostId) {
   });
 }
 
+// ---- Host log sources (the configured source dropdown) --------------------
+// GET /hosts/{id}/logs/sources → the ordered set of configured log sources derived from the canonical
+// LeafCatalog. The frontend uses this to populate the source dropdown regardless of whether a source has
+// recent journal entries — quiet services remain selectable (they show "No recent log lines" when chosen).
+// Host-scoped + gen-guarded like the other stores.
+const logSourcesStore = createStore({
+  sources: [],
+  status: "loading",   // ready | loading | error
+  error: null,
+  hostId: null,
+});
+let _logSourcesGen = 0;
+logSourcesStore.refresh = (hostId) => {
+  if (!hostId) return Promise.resolve([]);
+  const gen = ++_logSourcesGen;
+  logSourcesStore.setState(s => ({ ...s, status: "loading", error: null, hostId }));
+  return api.host(hostId).get("/hosts/" + hostId + "/logs/sources").then(sources => {
+    if (gen !== _logSourcesGen) return [];
+    const list = Array.isArray(sources) ? sources : [];
+    logSourcesStore.setState(s => ({ ...s, sources: list, status: "ready", error: null, hostId }));
+    return list;
+  }, err => {
+    if (gen === _logSourcesGen) logSourcesStore.setState(s => ({ ...s, status: "error", error: err, hostId }));
+    throw err;
+  });
+};
+
 // ---- Host services (the leaf control center) ----------------------------
 // GET /hosts/{id}/services → one row per KGSM leaf (watchdog/monitor/assistant/firewall/api/bot) joining
 // its systemd liveness with the api's deep-health probe. A plain snapshot (no live stream in this slice):
@@ -1065,4 +1092,4 @@ try {
   syncCapabilitySubscriptions();   // subscribe capabilities for any host already hydrated (the rest ride the hostsStore subscriber)
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, applyLeafConfig, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchLeafConfig, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+export { __setJobTiming, adaptServerMetrics, applyLeafConfig, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchLeafConfig, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logSourcesStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

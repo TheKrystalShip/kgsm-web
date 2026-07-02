@@ -16,7 +16,7 @@ import { api } from "../lib/apiClient.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { applyLeafConfig, fetchLeafConfig, hostsStore, logsStore, selectedHostStore, serversStore, servicesStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { applyLeafConfig, fetchLeafConfig, hostsStore, logSourcesStore, logsStore, selectedHostStore, serversStore, servicesStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 import { RecentActivity } from "./DashboardPage.jsx";
 import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
@@ -1000,20 +1000,24 @@ const LOG_SOURCE_META = {
 function DiagLogs({ host }) {
   // The host's aggregated leaf logs (assistant/monitor/watchdog/firewall/api/bot), merged from the
   // systemd journal by kgsm-api (GET /hosts/{id}/logs) and kept live by the hosts/{id}/logs WS topic.
-  // We show ONE source at a time — the LogConsole's dropdown switches between them; sources are derived
-  // from the data so a quiet/extra producer just (dis)appears. The host deep-dive is admin-gated
-  // (NAV_FLEET) and the endpoint is operator-gated, so reaching here already clears the read gate.
-  // Read-only: no onSend (system logs aren't a command channel).
+  // Sources are fetched from GET /hosts/{id}/logs/sources (the canonical LeafCatalog), so all configured
+  // sources appear in the dropdown regardless of recent journal activity. Quiet services show "No recent
+  // log lines" when selected. The host deep-dive is admin-gated (NAV_FLEET) and the endpoint is
+  // operator-gated, so reaching here already clears the read gate. Read-only: no onSend.
   const hostId = host && host.id;
   const list = useStore(logsStore, s => s.list);
   const status = useStore(logsStore, s => s.status);
   const forHost = useStore(logsStore, s => s.hostId);
+  const logSources = useStore(logSourcesStore, s => s.sources);
+  const logSourcesStatus = useStore(logSourcesStore, s => s.status);
 
   // Hydrate the recent window + open the live tail WHILE this tab is mounted (subscriber-gated end to
   // end: the kgsm-api journalctl -f runs only while we're subscribed). Re-hydrate on a host switch.
+  // Also fetch the configured log sources for the dropdown.
   React.useEffect(() => {
     if (!hostId) return undefined;
     logsStore.refresh(hostId).catch(() => {});
+    logSourcesStore.refresh(hostId).catch(() => {});
     return subscribeHostLogs(hostId);
   }, [hostId]);
 
@@ -1022,14 +1026,17 @@ function DiagLogs({ host }) {
   // Only trust the list once it belongs to THIS host (a switch re-hydrates; guard the gap).
   const ready = forHost === hostId;
   const entries = ready && Array.isArray(list) ? list : [];
-  const order = ["api", "assistant", "watchdog", "monitor", "firewall", "bot", "kernel", "auth"];
-  const present = [...new Set(entries.map(e => e.source))];
-  const ids = [...order.filter(id => present.includes(id)), ...present.filter(id => !order.includes(id))];
-  // The console card tails oldest-first (newest at the bottom); the store is newest-first, so reverse.
-  // Each line already carries { at, level, text } — the ConsoleView gutter renders the journald time.
-  const sources = ids.map(id => {
-    const m = LOG_SOURCE_META[id] || {};
-    return { id, label: m.label || id, lines: entries.filter(e => e.source === id).slice().reverse() };
+  const sourcesReady = logSourcesStatus === "ready";
+
+  // Build the sources list from the configured sources (fetched from /logs/sources).
+  // For each configured source, collect the matching log entries (if any).
+  const sources = logSources.map(s => {
+    const m = LOG_SOURCE_META[s.id] || {};
+    return {
+      id: s.id,
+      label: s.label || m.label || s.id,
+      lines: entries.filter(e => e.source === s.id).slice().reverse(),
+    };
   });
 
   if (sources.length > 0)
@@ -1037,7 +1044,7 @@ function DiagLogs({ host }) {
 
   // Nothing to show yet: loading (first fetch / host switch), an error, or a genuinely quiet host —
   // render the honest state for each rather than a "Live" console sitting empty (never fabricate lines).
-  const phase = (status === "loading" || !ready) ? "loading" : status === "error" ? "error" : "quiet";
+  const phase = (status === "loading" || !ready || !sourcesReady) ? "loading" : status === "error" ? "error" : "quiet";
   return (
     <div className="proc-unavailable">
       <span className="proc-unavailable__icon"><Icon name="scroll-text" size={26} strokeWidth={1.9} /></span>
@@ -1046,10 +1053,10 @@ function DiagLogs({ host }) {
       </div>
       <div className="proc-unavailable__sub">
         {phase === "loading"
-          ? "Reading the host’s leaf-service journal (assistant · monitor · watchdog · firewall · api · bot)."
+          ? "Reading the host's leaf-service journal (assistant · monitor · watchdog · firewall · api · bot)."
           : phase === "error"
-            ? "Couldn’t read the host log stream — the backend journal source didn’t respond."
-            : "The host’s leaf services haven’t logged anything in the recent window."}
+            ? "Couldn't read the host log stream — the backend journal source didn't respond."
+            : "The host's leaf services haven't logged anything in the recent window."}
       </div>
       <span className="proc-unavailable__tag">
         <Icon name="activity" size={12} /> {phase === "loading" ? "loading" : phase === "error" ? "no log source" : "quiet"}
