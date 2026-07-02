@@ -6,19 +6,18 @@
 //   2. Give an offline-launchable app shell — without ever touching the live
 //      data path.
 //
-// HARD RULE: we only ever intercept *same-origin* GET requests. Every call to a
-// kgsm-api host is cross-origin (its own base URL + CORS), and WebSockets aren't
-// interceptable here anyway — those pass straight through to the network. This
-// SW must never cache, stall, or rewrite backend traffic. It is the app shell's
-// concern only, mirroring the "never fabricate / stay out of the data seam"
-// stance of the rest of the app.
+// HARD RULE: we only ever intercept same-origin, non-API GET requests for the app
+// shell (navigations + hashed static assets). The API (/api/*) and auth (/auth/*)
+// paths are same-origin in prod but must NEVER be cached or intercepted — a stale
+// authenticated 200 masks token expiry from the reactive auth layer. This is enforced
+// by an explicit pathname guard below, not by the origin check alone.
 //
 // This is NOT a Workbox precache. Vite's content-hashed assets are cached on
 // demand (cache-first, safe because their URL changes when content changes);
 // index.html is network-first so a deploy is picked up on the next online load.
 // A full precache (`vite-plugin-pwa`) remains a separate future enhancement.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `krystal-shell-${VERSION}`;
 
 // The bare shell we want available offline immediately after install. Hashed
@@ -64,9 +63,15 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Only same-origin GETs. Everything else — kgsm-api calls, POST/PATCH,
-  // cross-origin assets — is left entirely to the browser.
+  // Only same-origin GETs. Everything else — POST/PATCH, cross-origin assets —
+  // is left entirely to the browser.
   if (req.method !== "GET" || url.origin !== self.location.origin) return;
+
+  // The API is same-origin in prod (SPA served from kgsm-api wwwroot). NEVER
+  // cache or intercept it — a stale authenticated 200 masks token expiry from
+  // the reactive auth layer (the overnight WS-401 root cause, socket.har
+  // 2026-07-02). This must run BEFORE the navigation/asset branches.
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
 
   // App-shell navigations: network-first so deploys land on next load; fall
   // back to the cached shell when offline so the installed app still opens.
