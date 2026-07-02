@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-02
+
+### Changed
+- **Realtime transport migrated from WebSocket to fetch-based SSE.** `GET /api/v1/stream`
+  is now `text/event-stream` (topics chosen via `?topics=`, bearer sent as an `Authorization`
+  header instead of `?access_token=`). Fixes the class of WS-401 incidents caused by a
+  browser being unable to set headers on a WS handshake and an opaque `1006` close on
+  auth failure — SSE surfaces a readable `401` that heals through the same reactive
+  rotate-on-401 path as every REST call. One persistent **primary** stream per host
+  (global topics, drives `realtimeStore` mode + `rehydrateAll`) plus ref-counted
+  **dynamic** per-topic streams for resource-scoped views. Dropped all client-side token
+  expiry prediction (`tokenExpMs`/`tokenExpired`/`wsBearer`); the Dashboard Ping KPI is
+  now REST-timed (`GET /health` RTT) instead of a WS ping/pong.
+
 ## [0.5.1] - 2026-07-01
 
 ### Fixed

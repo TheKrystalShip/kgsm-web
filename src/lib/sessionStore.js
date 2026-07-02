@@ -13,13 +13,8 @@ import { hostsStore, selectedHostStore } from "./stores.js";
 //   • rotate()   — exchange the long-lived refresh token for a fresh access token
 //   • authorize()— ensure a live session exists (rotate, or bootstrap via /me)
 // REST heals reactively: a 401 RESPONSE (apiClient's withRetry) → rotate → replay.
-// The ONE exception is the WebSocket — a browser hides a WS-handshake 401 as an
-// opaque 1006 close, so the socket can't heal on rejection. For it, and only it,
-// we read the access token's OWN `exp` claim (tokenExpired) right before dialing
-// and rotate a lapsed token first. There is NO proactive timer, NO clock-skew
-// margin, and NO separately-tracked expiry field — those shadow mechanisms are
-// exactly what kept drifting out of sync with the real token and 401-looping the
-// socket. One token, one refresh credential, rotate on rejection.
+// SSE streams carry the bearer as an Authorization header; a 401 response is
+// readable and heals through the same reactive path as every REST call.
 //
 // The Discord LOGIN is GLOBAL — one live session at discord.com, the SSO anchor.
 // Each HOST then mints its OWN short-lived, host-scoped bearer after verifying
@@ -65,35 +60,6 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // actually hold one — auth-disabled hosts are "live" with no token.
   const tokenOf = (id) => { const r = getRec(id); return r && r.status === "live" ? (r.token || null) : null; };
 
-  // The access token IS a JWT and its `exp` claim is EXACTLY what the API
-  // validates (the 401 quotes it verbatim: `invalid_token, "token expired at ..."`),
-  // so the token is its own authority on expiry — we read it rather than track a
-  // shadow field that can drift. Used ONLY for the WebSocket pre-dial rotate and the
-  // persisted-session read-back; REST never checks it (it heals reactively on a 401).
-  // Returns null for a non-JWT / absent token (then the API stays the final judge).
-  function tokenExpMs(token) {
-    if (!token || typeof token !== "string") return null;
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    try {
-      let b = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      b += "=".repeat((4 - (b.length % 4)) % 4);
-      // base64url → UTF-8 (JWT claims may carry a unicode display name).
-      const json = decodeURIComponent(
-        Array.prototype.map.call(atob(b), c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")
-      );
-      const payload = JSON.parse(json);
-      return typeof payload.exp === "number" ? payload.exp * 1000 : null;
-    } catch (e) { return null; }
-  }
-  // Does this host hold a live access token whose OWN exp has passed? The WS
-  // pre-dial gate. A token we can't decode reads as NOT-expired — we dial and let
-  // the API be the final judge rather than refuse to connect.
-  function tokenExpired(id) {
-    const exp = tokenExpMs(tokenOf(id));
-    return !!(exp && Date.now() >= exp);
-  }
-
   function setRec(id, partial, persist) {
     store.setState(s => ({ byHost: { ...s.byHost, [id]: { ...(s.byHost[id] || {}), ...partial } } }));
     if (persist) writeSession(id);
@@ -117,12 +83,8 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       const raw = sessionStorage.getItem(TOKEN_PREFIX + id);
       if (!raw) return null;
       const r = JSON.parse(raw);
-      // A persisted-but-lapsed access token reads back as 'expired' — judged by the
-      // token's OWN exp — so the next use rotates instead of resuming a dead bearer.
-      if (r.status === "live" && r.token) {
-        const exp = tokenExpMs(r.token);
-        if (exp && Date.now() >= exp) r.status = "expired";
-      }
+      // A persisted live session reads back live and heals reactively on first 401.
+      // No lapsed-token expiry flip — the API is the authority.
       return r;
     } catch (e) { return null; }
   }
@@ -331,7 +293,6 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.isLive = isLive;
   store.tierOf = tierOf;
   store.tokenOf = tokenOf;
-  store.tokenExpired = tokenExpired;
   store.bootstrap = bootstrap;
   store.adoptSession = adoptSession;
   store.rotate = rotate;

@@ -4,6 +4,13 @@ Audit of the contract between the Control Panel SPA (`kgsm-web`) and the per-hos
 aggregator API (`kgsm-api`), and the plan to connect them. Neither side is
 authoritative today — this is the reconciliation record. Generated 2026-06-20.
 
+> **⚠ Realtime transport migrated WebSocket→SSE (2026-07-02, `sse-migration-plan.md`).**
+> `GET /api/v1/stream` is now fetch-based `text/event-stream` (topics via `?topics=` at
+> connect, bearer in the `Authorization` header, one primary stream per host + per-view
+> dynamic streams, reactive rotate-on-401). The dated slice logs below describe the
+> transport **as it was built over WebSocket at the time** — read them as history; the
+> current contract rows (Realtime URL, "Realtime (SSE)") are updated.
+
 > Source of truth for the backend shapes: the live `kgsm-api` controllers + DTOs
 > (camelCase JSON, ISO-8601 `Z` timestamps, error envelope `{error:{code,message,details?}}`).
 > Source for the frontend's expectations: `src/lib/apiClient.js` (the active mock
@@ -53,7 +60,7 @@ host). **Decision owed** (see §7).
 | Concern | Frontend today | Backend | Action |
 |---|---|---|---|
 | Base URL | `VITE_API_BASE` exists in `.env.example` but is **read nowhere in `src/`**; mock always serves fixtures | listens at `/api/v1` | Build a real transport that reads `VITE_API_BASE` (+ `/api/v1`); keep mock as the no-base fallback |
-| Realtime URL | ✅ `WS_URL` derived from `API_BASE` (or `VITE_WS_BASE`); real WS client (`liveStream.js`) behind `api.stream` (slice 5) | `GET /api/v1/stream` (RFC 6455 WS), bearer via `?access_token=` | DONE (single host; multi-host fan-out = slice 8) |
+| Realtime URL | ✅ `streamUrlOf(host, topics)` derived from the host base; fetch-based SSE client (`liveStream.js`) behind `api.stream` | `GET /api/v1/stream` (`text/event-stream`, topics via `?topics=`), bearer via `Authorization` header | DONE + **migrated WS→SSE 2026-07-02** (single host; multi-host fan-out = slice 8) |
 | JSON casing | fixtures mix **snake_case** (`update_available`, `last_backup`, `user_id`, `per_core`, `boot_time`, `sample_age_s`, `open_ports`, `usage_pct`…) | **camelCase** everywhere (`PropertyNamingPolicy=CamelCase`) | Adapter normalizes; do **not** rename fixtures piecemeal — map at the seam |
 | Errors | mock rejects with `{code:'ECONNREFUSED'}` ad-hoc | `{error:{code,message,details?}}`, stable `code` strings | Transport unwraps the envelope into the FE's error shape |
 | Auth transport | per-host bearer injected by `api.host(id)` | `Authorization: Bearer <jwt>`; secure-by-default (everything needs a bearer) | Inject real bearer; use `KGSM_API_AUTH_DISABLED` on the backend to prove the data path *before* wiring OAuth |
@@ -717,7 +724,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 Cheap-wins-first falls out of the buckets above:
 
 - **Servers list + Server detail** — read path + game-name resolve + runtime chip **DONE** (slice 2a) + **live updates DONE** (slice 5: `server.patch` upsert / `server.removed` / `job.patch` over the real WS) + **lifecycle commands + install DONE** (slice 6: `commandServer`/`installServer` with `origin:"ui"`; `update` disabled in LIVE). Remaining: server-ports card + `open_ports`/`network.patch` and uninstall — **deferred, no FE consumer yet** (the ports card isn't built; `network.required` is read only by the still-mock assistant; uninstall has no UI trigger).
-- **Realtime (WS)** — **DONE (slice 5, 2026-06-21).** Real `liveStream.js` socket on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. **`host.metrics` now live too** (slice 7 follow-on, 2026-06-21 — deep-dive-scoped subscribe + clobber-safe merge). Still deferred: `metrics.tick` (per-server, same shape, wire when per-server tiles need live numbers) + `capabilities.patch` (FE reads capability status from REST hydrate/rehydrate today); `network.patch` → slice 6; console = permanent gap.
+- **Realtime (SSE, migrated from WS 2026-07-02)** — **DONE (slice 5, 2026-06-21; transport swapped to SSE 2026-07-02).** `liveStream.js` fetch-based SSE stream on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. **`host.metrics` now live too** (slice 7 follow-on, 2026-06-21 — deep-dive-scoped subscribe + clobber-safe merge). Still deferred: `metrics.tick` (per-server, same shape, wire when per-server tiles need live numbers) + `capabilities.patch` (FE reads capability status from REST hydrate/rehydrate today); `network.patch` → slice 6; console = permanent gap.
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
 - **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.

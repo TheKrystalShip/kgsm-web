@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `kgsm-web` is the **Control Panel SPA** for the KGSM ecosystem — a standard
 Vite + React 18 (JSX) single-page app, ported from the no-build `krystal-design`
 prototype. It is a **runtime multi-host client**: it reads a localStorage
-registry of `kgsm-api` hosts and talks to them over `fetch` + WebSocket. The
+registry of `kgsm-api` hosts and talks to them over `fetch` + SSE. The
 `README.md` covers quick-start and the file layout; this file covers the
 architecture and the landmines.
 
@@ -68,7 +68,7 @@ module load; the app does a **full page reload** on any registry change
 (connect/disconnect) so every module-load read re-evaluates — the same way it
 reloads on login/logout/session-loss.
 
-Each host carries its own base URL + bearer; `apiV1Of(hostId)` / `wsUrlOf(hostId)`
+Each host carries its own base URL + bearer; `apiV1Of(hostId)` / `streamUrlOf(hostId, topics)`
 route per host, with a **sole-connection fallback** that makes N=1 the simple
 case. Multi-host (N≥2) fan-out + merge are real but some paths are still partly
 stubbed (see `merge.js`, `WIRING.md`). `CONNECTIONS.length` (0 → connect screen,
@@ -83,13 +83,13 @@ Components never touch the API directly. The flow is:
 component → useStore(domainStore)            (store.js / stores.js — reactive cache, React 18 useSyncExternalStore)
 domainStore.refresh() → api.get/post/patch   (apiClient.js — the ONE backend seam)
    fetch → adapters.js → store
-realtime: liveStream.js (one WS per host) → adaptStreamMessage → same stores
+realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-view dynamic streams) → adaptStreamMessage → same stores
 ```
 
 - **`apiClient.js` is the single seam.** Every store stays empty until it fetches;
   **call sites only ever see `api`**. It also owns connection health
   (`connectionStore` = REST reachability → cold-start/banner; `realtimeStore` =
-  per-host WS state, driven by `liveStream` `onMode`), the per-host auth gate
+  per-host SSE stream state, driven by `liveStream` `onMode`), the per-host auth gate
   (`api.host(id)` with 401-retry/silent-renew), `fanOut` (multi-host roll-up),
   `reconnectHost`/`reconnectAll` (drive the per-host sockets), and the SSE
   assistant turn (`api.host(id).turn`).
@@ -193,7 +193,8 @@ which re-cascades instantly; the picker is in Settings → Account). Landmines:
   schema diffs + the sequenced wiring plan. `§8` is the slice ledger; consult it
   for what's wired vs. pending rather than trusting prose elsewhere.
 - **The README's "What's done vs. left" section is STALE.** Auth (Discord OAuth +
-  per-host re-auth + refresh-token rotation) and the realtime WebSocket are
+  per-host re-auth + refresh-token rotation) and the realtime SSE stream
+  (fetch-based; migrated off WebSocket 2026-07-02, `sse-migration-plan.md`) are
   **built and committed** (see `authRedirect.js`, `sessionStore.js`,
   `liveStream.js`, and the git log) — they are NOT "left". **PWA installability is
   also built** (manifest + a production-only same-origin service worker — see the

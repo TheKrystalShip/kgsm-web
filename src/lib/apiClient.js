@@ -1,7 +1,8 @@
 import { createStore } from "./store.js";
-import { API_V1, apiV1Of, apiOriginOf, wsUrlOf, CONNECTIONS } from "./config.js";
+import { API_V1, apiV1Of, apiOriginOf, streamUrlOf, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
-import { createLiveStream } from "./liveStream.js";
+import { createSseStream } from "./liveStream.js";
+import { readSseStream } from "./sse.js";
 
 // alertsStore + sessionStore are used only inside request methods (deferred,
 // `?`-guarded). Static imports would put this base module in init cycles
@@ -23,8 +24,8 @@ import("./stores.js").then((m) => {
   // The first WS open can land before the host list hydrates → re-key the realtime
   // indicator under the real host id once hosts arrive (single-host; multi-host
   // fan-out is a later slice). Reuses this one dynamic import.
-  if (liveStreams.length && m.hostsStore) {
-    try { m.hostsStore.subscribe(() => liveStreams.forEach((s, i) => setLiveRealtime(CONNECTIONS[i] && CONNECTIONS[i].id, s.mode()))); } catch (e) {}
+  if (primaryStreams.length && m.hostsStore) {
+    try { m.hostsStore.subscribe(() => primaryStreams.forEach((s, i) => setLiveRealtime(CONNECTIONS[i] && CONNECTIONS[i].id, s.mode()))); } catch (e) {}
   }
 });
 
@@ -139,21 +140,6 @@ import("./stores.js").then((m) => {
     if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
     return sessionStore.tokenOf(id);   // may be a lapsed JWT — REST heals it reactively on the 401
   }
-  // The WebSocket variant of the bearer funnel. A browser hides a WS-handshake 401 as an opaque 1006
-  // close, so unlike REST the socket CANNOT heal reactively on rejection. So HERE, and only here, we read
-  // the token's OWN exp (sessionStore.tokenExpired) and rotate a lapsed bearer BEFORE dialing — never
-  // opening a socket the API would just 401. Everything else mirrors authorizedBearer.
-  async function wsBearer(hostId) {
-    const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
-    if (!sessionStore) { try { await sessionReady; } catch (e) {} }
-    if (!sessionStore || !sessionStore.authorize || !id || id === "all") return liveBearer(hostId);
-    let st = sessionStore.statusOf(id);
-    if (st !== "live") st = await sessionStore.authorize(id);
-    if (st === "live" && sessionStore.tokenExpired && sessionStore.tokenExpired(id)) st = await sessionStore.rotate(id);
-    if (st === "denied") { const e = authError(403, id); e.preflight = true; throw e; }
-    if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
-    return sessionStore.tokenOf(id);
-  }
   // hostId routes the call to that host's base URL + bearer (multi-host). With a
   // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
   // is byte-identical to the old single global-API_V1 path.
@@ -233,18 +219,12 @@ import("./stores.js").then((m) => {
   // the stream commits — so those land as a thrown apiError here, while a turn
   // that DID commit surfaces its own failures as an in-band `error` frame.
   //
-  // Parse one SSE event block → its in-band JSON payload. Each frame carries both
-  // an `event:` line and a `data:` line with an in-band `type` discriminator; we
-  // key on the canonical in-band `type`, so the `event:` line is ignored. Per the
-  // SSE spec, multiple `data:` lines concatenate with "\n" (the writer emits one).
-  function parseSseEvent(block) {
-    const data = [];
-    for (const line of block.split("\n")) {
-      if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
-    }
-    if (!data.length) return null;
-    try { return JSON.parse(data.join("\n")); } catch (e) { return null; }
-  }
+  // Framing + the read loop are shared with the realtime stream via sse.js
+  // (readSseStream); each frame carries both an `event:` line and a `data:`
+  // line with an in-band `type` discriminator, and we key on the canonical
+  // in-band `type`, so the `event:` line is ignored (parseSseEvent only reads
+  // `data:`).
+  //
   // POST /assistant/turn and pump §5·a frames to onEvent until the stream ends.
   // `bearer` is the assistant host's token (null under auth-disabled → unauth,
   // which that mode accepts). A pre-stream non-2xx throws apiError (the honest
@@ -268,57 +248,24 @@ import("./stores.js").then((m) => {
       let json = null; try { json = await res.json(); } catch (e) { json = null; }
       throw apiError(res.status, json);     // pre-stream degrade (404/503/502/400)
     }
-    if (!res.body) return;                  // nothing to stream (shouldn't happen on 200)
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      let chunk;
-      try { chunk = await reader.read(); }
-      catch (e) { if (e && e.name === "AbortError") throw e; break; }   // drop → keep what streamed
-      if (chunk.done) break;
-      buf += decoder.decode(chunk.value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf("\n\n")) !== -1) {
-        const block = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        const evt = parseSseEvent(block);
-        if (evt && onEvent) onEvent(evt);
-      }
-    }
-    // Flush a trailing complete block with no terminating blank line (defensive).
-    const tail = buf.trim();
-    if (tail) { const evt = parseSseEvent(tail); if (evt && onEvent) onEvent(evt); }
+    await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
   }
 
   // ---- latency probe (the dashboard Ping KPI) -----------------------------
-  // Measure the CLIENT-side round trip via a WebSocket ping/pong on the existing
-  // liveStream. The server echoes the client's timestamp verbatim — WE clock it:
-  // t0 (performance.now at send) → pong received → RTT = now - t0.
+  // Measure the CLIENT-side round trip via a REST GET to /health on the host.
   // Returns the RTT in ms, or null on any failure → the KPI honestly reads "no
   // reading" (never a fabricated latency, never 0). Deliberately ISOLATED from
   // markSuccess/markFailure: ping is a side channel, not the cold-start signal.
-  const _pendingPings = new Map(); // hostId → { resolve, timer }
-  const PING_TIMEOUT_MS = 3000;
   async function pingHost(hostId) {
-    const idx = CONNECTIONS.findIndex((c) => c.id === hostId);
-    const s = idx >= 0 ? liveStreams[idx] : null;
-    if (!s || s.mode() !== "live") return null;
-    return new Promise((resolve) => {
-      const clock = (typeof performance !== "undefined" && performance.now) ? () => performance.now() : () => Date.now();
-      const t0 = clock();
-      const timer = setTimeout(() => { _pendingPings.delete(hostId); resolve(null); }, PING_TIMEOUT_MS);
-      _pendingPings.set(hostId, { resolve, timer, t0 });
-      if (!s.ping()) { clearTimeout(timer); _pendingPings.delete(hostId); resolve(null); }
-    });
-  }
-  function _handlePong(hostId, ts) {
-    const entry = _pendingPings.get(hostId);
-    if (!entry) return;
-    clearTimeout(entry.timer);
-    _pendingPings.delete(hostId);
-    const rtt = (typeof performance !== "undefined" && performance.now) ? performance.now() - entry.t0 : Date.now() - entry.t0;
-    entry.resolve(Math.round(rtt));
+    const base = apiOriginOf(hostId);
+    if (!base) return null;
+    try {
+      const t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+      const res = await fetch(base + "/health");
+      if (!res.ok) return null;
+      const rtt = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - t0;
+      return Math.round(rtt);
+    } catch (e) { return null; }
   }
 
   async function get(path, hostId) {
@@ -342,36 +289,20 @@ import("./stores.js").then((m) => {
     return livedel(path, hostId);
   }
 
-  // ---- realtime transport (one WebSocket PER connection) ------------------
-  // subscribe(topics) tells each host's socket what to push; each inbound
-  // { topic, type, data } frame is dispatched to every listener subscribed to its
-  // topic. The store subscribers don't care which host a frame came from — frames
-  // from every host land in the shared stores (keyed by id).
+  // ---- realtime transport (SSE streams, one primary + dynamic per host) ------
+  // The primary stream carries a fixed global topic set and drives realtimeStore
+  // mode + rehydrateAll on open. Resource-scoped topics (containing '/') get
+  // their own ref-counted dynamic streams.
+  const GLOBAL_TOPICS = ["servers", "jobs", "audit", "alerts", "console", "players"];
+  const isResourceScoped = (t) => t.includes("/");
+
   const listeners = new Set();
-  let liveStreams = [];   // one WebSocket per connection; assigned below
   function dispatchMessage(full) {
     for (const l of listeners) if (l.topics.has(full.topic)) { try { l.fn(full); } catch (e) {} }
   }
   const topicStillWanted = (topic) => {
     for (const l of listeners) if (l.topics.has(topic)) return true;
     return false;
-  };
-  const stream = {
-    subscribe(topics, onMessage) {
-      const entry = { topics: new Set(topics), fn: onMessage };
-      listeners.add(entry);
-      liveStreams.forEach((s) => s.subscribe(topics));   // every host pushes these
-      return () => {
-        listeners.delete(entry);
-        // Tell the sockets to stop pushing any topic no remaining listener still
-        // wants — this re-idles the server's subscriber-gated pumps when a DYNAMIC
-        // subscription is torn down (the diagnostics deep-dive's hosts/{id}/metrics).
-        // The app-lifetime subscriptions (servers/jobs/audit) never dispose, so this
-        // branch only ever runs for those dynamic topics.
-        const drop = [...entry.topics].filter((t) => !topicStillWanted(t));
-        if (drop.length) liveStreams.forEach((s) => s.unsubscribe(drop));
-      };
-    },
   };
 
   // Reshape a server→client frame into the FE shapes the stores hold. Unknown
@@ -383,35 +314,20 @@ import("./stores.js").then((m) => {
     if (topic === "servers" && type === "server.patch") return { topic, type, data: adapt.adaptServer(data) };
     if (topic === "jobs" && type === "job.patch") return { topic, type, data: adapt.adaptJob(data) };
     if (topic === "alerts" && type === "alert.raise") return { topic, type, data: adapt.adaptAlert(data) };
-    // host.metrics rides hosts/{id}/metrics — reshape the HostMetricsDto into the FE telemetry partial
-    // (the WS parallel of adaptResponse for GET /hosts/{id}). The store merges it clobber-safe by id.
     if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptHostMetrics(data) };
-    // capabilities.patch rides hosts/{id}/capabilities — the FULL HostCapabilities block (metrics/assistant/
-    // watchdog). `provisioned` is now runtime-flippable, so this drives the capability SET live: connecting a
-    // leaf makes its capability appear, disconnecting makes it absent — the capability-gated UI (Performance,
-    // the assistant dock, watchdog controls) grows/shrinks with NO reload. The store folds it per-key.
     if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return { topic, type, data: adapt.adaptCapabilities(data) };
-    // metrics.tick rides servers/{id}/metrics — the per-server ServerMetricsDto, reshaped to a chart
-    // point for the Performance deep-dive's live window. The server id is in the TOPIC (the payload
-    // carries no id), so subscribeServerMetrics keys off its closure, not data.id.
     if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptServerMetrics(data) };
-    // log.line rides hosts/{id}/logs — one live aggregated journal line (same LogLine shape as the REST
-    // GET /hosts/{id}/logs page, so it adapts identically). Operator-gated at the socket; a viewer never
-    // gets these frames. The Logs tab prepends them onto the hydrated window.
     if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return { topic, type, data: adapt.adaptLogLine(data) };
-    // server.removed {id}, alert.resolve {id,resolution}, alert.retract {id} and
-    // audit.append (a record — adaptAudit is per-row identity) need no reshaping.
     return msg;
   }
 
-  // On every (re)open, re-hydrate the REST stores to catch deltas missed while a
-  // socket was down (§3·j).
+  // On every (re)open of the primary stream, re-hydrate the REST stores to catch
+  // deltas missed while the stream was down (§3·j).
   function rehydrateAll() {
     ["serversStore", "hostsStore", "auditStore", "libraryStore"].forEach(name => {
       const st = storesNs && storesNs[name];
       if (st && st.refresh) st.refresh().catch(() => {});
     });
-    // alertsStore lives in alertsApi.js (late-bound above), not the stores ns.
     if (alertsStore && alertsStore.refresh) alertsStore.refresh().catch(() => {});
   }
 
@@ -423,29 +339,102 @@ import("./stores.js").then((m) => {
     const id = connId || liveHostId() || "live";
     realtimeStore.setState((s) => ({ online, hosts: { ...s.hosts, [id]: { mode, attempts: 0, nextRetryInMs: 0, lastSyncAt: Date.now(), polling: mode === "reconnecting" } } }));
   }
-  // One socket per connection, each feeding the SAME dispatchMessage seam, so
-  // frames from every host land in the shared stores. realtimeStore is keyed per
-  // host and MERGED (never clobbered) so one host's link state doesn't overwrite
-  // another's.
-  if (CONNECTIONS.length) {
-    liveStreams = CONNECTIONS.map((conn) => createLiveStream({
-      url: wsUrlOf(conn.id),                 // sole-fallback for a lone seed; exact for registered hosts
-      bearer: () => wsBearer(conn.id),       // WS funnel: rotates a JWT-expired token BEFORE dialing (the socket can't heal on a 401)
+
+  // Per-host primary + dynamic stream registries.
+  let primaryStreams = [];      // one per connection
+  const dynamicStreams = new Map(); // topic → { stream, refCount, hosts }
+
+  // Open the primary SSE stream for a connection (global topics, drives mode + rehydrate).
+  function openPrimary(conn) {
+    const url = streamUrlOf(conn.id, GLOBAL_TOPICS);
+    if (!url) return null;
+    return createSseStream({
+      url,
+      bearer: () => authorizedBearer(conn.id),
       onOpen: () => rehydrateAll(),
       onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
-      onPong: (ts) => _handlePong(conn.id, ts),
-      onMode: (mode) => setLiveRealtime(conn.id, mode),
-    }));
+      onMode: (m) => setLiveRealtime(conn.id, m),
+      onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+    });
+  }
+
+  // Open a dynamic SSE stream for a resource-scoped topic on all connected hosts.
+  function openDynamic(topic) {
+    const hosts = [];
+    for (const conn of CONNECTIONS) {
+      const url = streamUrlOf(conn.id, [topic]);
+      if (!url) continue;
+      const s = createSseStream({
+        url,
+        bearer: () => authorizedBearer(conn.id),
+        onOpen: () => {},  // dynamic streams self-hydrate via REST
+        onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+        onMode: () => {},  // dynamic streams don't touch realtimeStore
+        onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+      });
+      hosts.push({ connId: conn.id, stream: s });
+    }
+    dynamicStreams.set(topic, { hosts, refCount: 1 });
+  }
+
+  // Close a dynamic stream for a topic.
+  function closeDynamic(topic) {
+    const entry = dynamicStreams.get(topic);
+    if (!entry) return;
+    for (const h of entry.hosts) { try { h.stream.close(); } catch (e) {} }
+    dynamicStreams.delete(topic);
+  }
+
+  const stream = {
+    subscribe(topics, onMessage) {
+      const entry = { topics: new Set(topics), fn: onMessage };
+      listeners.add(entry);
+      // Open dynamic streams for resource-scoped topics not yet covered.
+      for (const t of topics) {
+        if (!isResourceScoped(t)) continue;
+        const existing = dynamicStreams.get(t);
+        if (existing) { existing.refCount++; }
+        else { openDynamic(t); }
+      }
+      return () => {
+        listeners.delete(entry);
+        // Dispose dynamic streams no longer wanted by any listener.
+        for (const t of entry.topics) {
+          if (!isResourceScoped(t)) continue;
+          if (topicStillWanted(t)) continue;
+          const existing = dynamicStreams.get(t);
+          if (!existing) continue;
+          existing.refCount--;
+          if (existing.refCount <= 0) closeDynamic(t);
+        }
+      };
+    },
+  };
+
+  // One primary stream per connection, each feeding the SAME dispatchMessage seam.
+  if (CONNECTIONS.length) {
+    primaryStreams = CONNECTIONS.map((conn) => openPrimary(conn));
   }
 
   // User-driven "Reconnect now" (the connectivity banner / per-host indicator):
-  // drop the backoff and re-open that host's socket immediately.
+  // drop the backoff and re-open that host's streams immediately.
   function reconnectHost(id) {
     const idx = CONNECTIONS.findIndex((c) => c.id === id);
-    const s = idx >= 0 ? liveStreams[idx] : null;
+    const s = idx >= 0 ? primaryStreams[idx] : null;
     if (s && s.reconnect) s.reconnect();
+    // Also reconnect dynamic streams for this host.
+    for (const [, entry] of dynamicStreams) {
+      for (const h of entry.hosts) {
+        if (h.connId === id && h.stream && h.stream.reconnect) h.stream.reconnect();
+      }
+    }
   }
-  function reconnectAll() { liveStreams.forEach((s) => s && s.reconnect && s.reconnect()); }
+  function reconnectAll() {
+    primaryStreams.forEach((s) => s && s.reconnect && s.reconnect());
+    for (const [, entry] of dynamicStreams) {
+      for (const h of entry.hosts) { if (h.stream && h.stream.reconnect) h.stream.reconnect(); }
+    }
+  }
 
   // Browser network transitions are global (no network = every host link is down).
   // Offline → mark it; online → flip back and kick every socket to reconnect.
@@ -462,7 +451,10 @@ import("./stores.js").then((m) => {
   // before redialing. REST needs nothing here: it heals reactively on its next 401.
   function handleVisible() {
     if (typeof document !== "undefined" && document.hidden) return;
-    liveStreams.forEach((s) => { if (s && s.mode && s.mode() !== "live" && s.reconnect) s.reconnect(); });
+    primaryStreams.forEach((s) => { if (s && s.mode && s.mode() !== "live" && s.reconnect) s.reconnect(); });
+    for (const [, entry] of dynamicStreams) {
+      for (const h of entry.hosts) { if (h.stream && h.stream.mode && h.stream.mode() !== "live" && h.stream.reconnect) h.stream.reconnect(); }
+    }
   }
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("visibilitychange", handleVisible);

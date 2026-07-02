@@ -9,7 +9,6 @@
 //                   registry is empty it stands in as one connection — how the
 //                   smoke:live harness points the app at a backend, and a handy
 //                   dev shortcut.
-//   VITE_WS_BASE  — OPTIONAL ws(s):// override for the seed's realtime socket.
 //
 // CONNECTIONS is read once at module load; the app does a FULL PAGE RELOAD on any
 // registry change (connect / disconnect) — exactly as it reloads on login /
@@ -44,7 +43,6 @@ const RAW_SEED = clean(env.VITE_API_BASE);
 const SEED_URL = /^(self|same-origin)$/i.test(RAW_SEED)
   ? (typeof location !== "undefined" ? clean(location.origin) : "")
   : RAW_SEED;
-const SEED_WS = clean(env.VITE_WS_BASE);
 
 // The connection set the app drives. Real registry wins; otherwise the seed
 // stands in as one connection with NO known backend id yet (id:null) — the
@@ -54,7 +52,7 @@ const SEED_WS = clean(env.VITE_WS_BASE);
 const registry = readRegistry();
 export const CONNECTIONS = registry.length
   ? registry.map(h => ({ id: h.id || null, url: h.url, name: h.name || null }))
-  : (SEED_URL ? [{ id: null, url: SEED_URL, name: null, seed: true, ws: SEED_WS || null }] : []);
+  : (SEED_URL ? [{ id: null, url: SEED_URL, name: null, seed: true }] : []);
 
 // Normalize a stored host URL to an http(s) origin. A URL with an explicit
 // scheme is kept verbatim (the seed is a full URL, e.g. http://127.0.0.1:8097);
@@ -76,7 +74,7 @@ function connOf(hostId) {
   return CONNECTIONS[0] || null;   // default to the first when unscoped / unknown
 }
 
-// Per-host REST base ("…/api/v1") and realtime WS URL ("…/api/v1/stream").
+// Per-host REST base ("…/api/v1") and SSE stream URL ("…/api/v1/stream?topics=...").
 // Empty string when there's no connection — callers guard on CONNECTIONS.length.
 export function apiV1Of(hostId) {
   const c = connOf(hostId);
@@ -98,15 +96,17 @@ export function hostAddressOf(hostId) {
   if (!o) return "";
   try { return new URL(o).hostname; } catch (e) { return ""; }
 }
-export function wsUrlOf(hostId) {
-  const c = connOf(hostId);
-  if (!c) return "";
-  if (c.ws) return c.ws;                                   // explicit override (seed VITE_WS_BASE)
-  return originOf(c.url).replace(/^http/i, "ws") + "/api/v1/stream";
+// SSE stream URL: "…/api/v1/stream?topics=a,b,c". Topics are comma-separated,
+// URL-encoded, and fixed for the lifetime of the connection.
+export function streamUrlOf(hostId, topics) {
+  const base = apiV1Of(hostId);
+  if (!base) return "";
+  const qs = topics && topics.length ? "?topics=" + encodeURIComponent(topics.join(",")) : "";
+  return base + "/stream" + qs;
 }
 
 // Reconcile a connection's BACKEND host id once it's known (from connect's GET
-// /hosts probe, or cold-boot). Sets it in-memory (so apiV1Of/wsUrlOf exact-match
+// /hosts probe, or cold-boot). Sets it in-memory (so apiV1Of/streamUrlOf exact-match
 // it) AND persists it into the registry so the next load routes by id immediately
 // — no reconnect window. A no-op for the lone seed (kept id-less; sole-connection
 // fallback routes N=1 anyway), unless that seed already has a registry entry.
@@ -125,9 +125,8 @@ export function reconcileConnectionId(url, id) {
 
 // ---- backwards-compatible single-host aliases ---------------------------
 // The "sole / default connection" values. Existing single-host call sites
-// (authRedirect /me, LoginPage redirect, the lone WS) read these; they resolve
+// (authRedirect /me, LoginPage redirect) read these; they resolve
 // to the first/only connection, preserving N=1 behavior. Per-host call sites
-// pass an explicit id to apiV1Of/wsUrlOf instead.
+// pass an explicit id to apiV1Of/streamUrlOf instead.
 export const API_BASE = CONNECTIONS[0] ? originOf(CONNECTIONS[0].url) : "";
 export const API_V1 = apiV1Of(null);
-export const WS_URL = wsUrlOf(null);
