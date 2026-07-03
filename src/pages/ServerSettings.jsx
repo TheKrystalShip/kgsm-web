@@ -92,6 +92,10 @@ function ServerSettings({ server, onDeleted }) {
   const [restartDay, setRestartDay] = React.useState(null); // sun..sat
   const [timezone, setTimezone] = React.useState(null); // IANA string, "" = host-local
   const [nextFireUtc, setNextFireUtc] = React.useState(null); // read-only; null = scheduler absent/unknown
+  const [autoBackupOnRestart, setAutoBackupOnRestart] = React.useState(false);
+  const [backupRetention, setBackupRetention] = React.useState(5);
+  const [lastBackupUtc, setLastBackupUtc] = React.useState(null); // read-only; from scheduler status
+  const [lastBackupOk, setLastBackupOk] = React.useState(null); // read-only; null = unknown
 
   // ---- Save / Reset state ----
   const [saving, setSaving] = React.useState(false);
@@ -116,6 +120,10 @@ function ServerSettings({ server, onDeleted }) {
         setRestartDay(data.restartDay ?? "sun");
         setTimezone(data.timezone ?? "");
         setNextFireUtc(data.nextFireUtc ?? null);
+        setAutoBackupOnRestart(data.autoBackupOnRestart ?? false);
+        setBackupRetention(data.backupRetention ?? 5);
+        setLastBackupUtc(data.lastBackupUtc ?? null);
+        setLastBackupOk(data.lastBackupOk ?? null);
         setLoadState("ready");
       },
       (err) => {
@@ -132,6 +140,7 @@ function ServerSettings({ server, onDeleted }) {
     patchSettings(server.hostId, server.id, {
       autoUpdate, autostart, cpuPriority, memoryCapMb,
       scheduledRestart, restartTime, restartDay, timezone,
+      autoBackupOnRestart, backupRetention: Number(backupRetention),
       origin: "ui",
     }).then(
       (data) => {
@@ -144,6 +153,10 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
+          if (data.settings.autoBackupOnRestart !== undefined) setAutoBackupOnRestart(data.settings.autoBackupOnRestart ?? false);
+          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
+          if (data.settings.lastBackupUtc !== undefined) setLastBackupUtc(data.settings.lastBackupUtc ?? null);
+          if (data.settings.lastBackupOk !== undefined) setLastBackupOk(data.settings.lastBackupOk ?? null);
         }
         setSaving(false);
         setSaveMsg({ ok: true, text: "Saved" });
@@ -164,6 +177,7 @@ function ServerSettings({ server, onDeleted }) {
     patchSettings(server.hostId, server.id, {
       autoUpdate: null, autostart: null, cpuPriority: null, memoryCapMb: null,
       scheduledRestart: null, restartTime: null, restartDay: null, timezone: null,
+      autoBackupOnRestart: null, backupRetention: null,
       origin: "ui",
     }).then(
       (data) => {
@@ -177,6 +191,10 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
+          if (data.settings.autoBackupOnRestart !== undefined) setAutoBackupOnRestart(data.settings.autoBackupOnRestart ?? false);
+          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
+          if (data.settings.lastBackupUtc !== undefined) setLastBackupUtc(data.settings.lastBackupUtc ?? null);
+          if (data.settings.lastBackupOk !== undefined) setLastBackupOk(data.settings.lastBackupOk ?? null);
         }
         setSaving(false);
         setSaveMsg({ ok: true, text: "Reset to defaults" });
@@ -337,6 +355,34 @@ function ServerSettings({ server, onDeleted }) {
                     style={{ ...schedInputStyle, width: 150 }}
                   />
                 </SettingsRow>
+
+                <SettingsRow icon="archive" title="Back up before restart"
+                  sub="Take a backup each time the scheduled restart runs.">
+                  <Toggle on={!!autoBackupOnRestart} onChange={setAutoBackupOnRestart} />
+                </SettingsRow>
+
+                {autoBackupOnRestart && (
+                  <SettingsRow icon="layers" title="Keep backups"
+                    sub="How many recent backups to retain (older ones are pruned).">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={backupRetention ?? 5}
+                      onChange={e => setBackupRetention(Number(e.target.value))}
+                      style={{ ...schedInputStyle, width: 70, textAlign: "right" }}
+                    />
+                  </SettingsRow>
+                )}
+
+                {lastBackupUtc && (
+                  <SettingsRow icon="history" title="Last backup"
+                    sub="Most recent backup taken by the scheduler.">
+                    <span style={{ fontSize: 12.5, color: lastBackupOk === false ? "var(--danger, #e55)" : "var(--fg-2)" }}>
+                      {new Date(lastBackupUtc).toLocaleString()}{lastBackupOk === false ? " (failed)" : ""}
+                    </span>
+                  </SettingsRow>
+                )}
 
                 {nextFireUtc && (
                   <SettingsRow icon="alarm-clock" title="Next restart"

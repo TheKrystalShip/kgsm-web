@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Auto-backup rows in Scheduled tasks card: "Back up before restart" toggle and
+  "Keep N backups" retention input (shown only when a restart cadence is set).
+  "Last backup" read-only row shows most-recent backup timestamp and status from
+  the scheduler socket.
+
 ## [1.0.0] - 2026-07-03
 
 ### Added
