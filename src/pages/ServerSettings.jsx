@@ -85,6 +85,8 @@ function ServerSettings({ server, onDeleted }) {
   // ---- Form state (only Phase 0 live fields) ----
   const [autoUpdate, setAutoUpdate] = React.useState(null); // null = not loaded yet
   const [autostart, setAutostart] = React.useState(null); // null = not loaded or watchdog absent
+  const [crashRestart, setCrashRestart] = React.useState(true);
+  const [crashMaxRestarts, setCrashMaxRestarts] = React.useState(5);
   const [cpuPriority, setCpuPriority] = React.useState(null); // null = not loaded
   const [memoryCapMb, setMemoryCapMb] = React.useState(null); // null = not loaded (0 = uncapped is valid)
   const [scheduledRestart, setScheduledRestart] = React.useState(null); // null = not loaded
@@ -113,6 +115,8 @@ function ServerSettings({ server, onDeleted }) {
       (data) => {
         setAutoUpdate(!!data.autoUpdate);
         setAutostart(data.autostart != null ? !!data.autostart : null);
+        setCrashRestart(data.crashRestart ?? true);
+        setCrashMaxRestarts(data.crashMaxRestarts ?? 5);
         setCpuPriority(data.cpuPriority ?? null);
         setMemoryCapMb(data.memoryCapMb ?? null);
         setScheduledRestart(data.scheduledRestart ?? "off");
@@ -138,7 +142,7 @@ function ServerSettings({ server, onDeleted }) {
     setSaving(true);
     setSaveMsg(null);
     patchSettings(server.hostId, server.id, {
-      autoUpdate, autostart, cpuPriority, memoryCapMb,
+      autoUpdate, autostart, crashRestart, crashMaxRestarts, cpuPriority, memoryCapMb,
       scheduledRestart, restartTime, restartDay, timezone,
       autoBackupOnRestart, backupRetention: Number(backupRetention),
       origin: "ui",
@@ -146,6 +150,8 @@ function ServerSettings({ server, onDeleted }) {
       (data) => {
         if (data && data.settings) {
           if (data.settings.autostart != null) setAutostart(!!data.settings.autostart);
+          if (data.settings.crashRestart !== undefined) setCrashRestart(data.settings.crashRestart ?? true);
+          if (data.settings.crashMaxRestarts !== undefined) setCrashMaxRestarts(data.settings.crashMaxRestarts ?? 5);
           if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority);
           if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb);
           if (data.settings.scheduledRestart !== undefined) setScheduledRestart(data.settings.scheduledRestart ?? "off");
@@ -175,7 +181,7 @@ function ServerSettings({ server, onDeleted }) {
     setSaveMsg(null);
     // Reset: clear auto_update override by sending null
     patchSettings(server.hostId, server.id, {
-      autoUpdate: null, autostart: null, cpuPriority: null, memoryCapMb: null,
+      autoUpdate: null, autostart: null, crashRestart: null, crashMaxRestarts: null, cpuPriority: null, memoryCapMb: null,
       scheduledRestart: null, restartTime: null, restartDay: null, timezone: null,
       autoBackupOnRestart: null, backupRetention: null,
       origin: "ui",
@@ -184,6 +190,8 @@ function ServerSettings({ server, onDeleted }) {
         if (data && data.settings) {
           setAutoUpdate(!!data.settings.autoUpdate);
           if (data.settings.autostart != null) setAutostart(!!data.settings.autostart);
+          if (data.settings.crashRestart !== undefined) setCrashRestart(data.settings.crashRestart ?? true);
+          if (data.settings.crashMaxRestarts !== undefined) setCrashMaxRestarts(data.settings.crashMaxRestarts ?? 5);
           if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority ?? null);
           if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb ?? null);
           if (data.settings.scheduledRestart !== undefined) setScheduledRestart(data.settings.scheduledRestart ?? "off");
@@ -280,14 +288,38 @@ function ServerSettings({ server, onDeleted }) {
             Watchdog offline — autostart unavailable
           </div>
         ) : (
-          <SettingsRow icon="power" title="Autostart on boot"
-            sub="Automatically start this server when the host boots.">
-            {autostart === null ? (
-              <span style={{ fontSize: 12, color: "var(--fg-3)" }}>—</span>
-            ) : (
-              <Toggle on={!!autostart} onChange={setAutostart} />
+          <>
+            <SettingsRow icon="power" title="Autostart on boot"
+              sub="Automatically start this server when the host boots.">
+              {autostart === null ? (
+                <span style={{ fontSize: 12, color: "var(--fg-3)" }}>—</span>
+              ) : (
+                <Toggle on={!!autostart} onChange={setAutostart} />
+              )}
+            </SettingsRow>
+
+            <SettingsRow icon="refresh-cw" title="Restart on crash"
+              sub="Automatically restart if the server exits unexpectedly.">
+              <Toggle on={crashRestart} onChange={setCrashRestart} />
+            </SettingsRow>
+
+            {crashRestart && (
+              <SettingsRow icon="alert-triangle" title="Max consecutive restarts"
+                sub="Give up and alert after this many crashes in a row without reaching stability.">
+                <Select
+                  value={String(crashMaxRestarts)}
+                  options={[
+                    { value: "1", label: "1" },
+                    { value: "2", label: "2" },
+                    { value: "3", label: "3" },
+                    { value: "5", label: "5" },
+                    { value: "10", label: "10" },
+                  ]}
+                  onChange={(v) => setCrashMaxRestarts(Number(v))}
+                />
+              </SettingsRow>
             )}
-          </SettingsRow>
+          </>
         )}
       </SettingsSection>
 

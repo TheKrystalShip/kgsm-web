@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Crash-policy rows in the Startup & recovery card: "Restart on crash" toggle and
+  "Max consecutive restarts" select (shown only when restart-on-crash is on).
+  Wired to `crashRestart` / `crashMaxRestarts` in GET/PATCH /servers/{id}/settings;
+  watchdog-gated alongside autostart.
 - Auto-backup rows in Scheduled tasks card: "Back up before restart" toggle and
   "Keep N backups" retention input (shown only when a restart cadence is set).
   "Last backup" read-only row shows most-recent backup timestamp and status from
