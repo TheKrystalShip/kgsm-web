@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-03
+
+### Added
+- **Scheduled restart card** in server Settings. Cadence (off/daily/weekly/6h), time,
+  day-of-week (weekly only), optional timezone override, and next-scheduled-restart
+  timestamp from the kgsm-scheduler leaf. Scheduler-gated — gracefully absent when
+  the leaf is not deployed.
+
+## [0.9.0] - 2026-07-03
+
+### Added
+- **Settings Phase 2 — Resources.** CPU priority (Low/Normal/High) and Memory cap (MiB, 0=uncapped)
+  rows are now live in the Settings tab, watchdog-gated. CPU priority is live-applied to the running
+  cgroup; memory cap persists to config and takes effect at next restart (noted in the sub-label).
+  Both show the current values from the API on load.
+
+## [0.8.0] - 2026-07-03
+
+### Added
+- **Settings Phase 1 — Autostart.** The Startup & recovery section is now live: shows an Autostart
+  toggle when the watchdog capability is healthy (Save/Reset wire through). When watchdog is offline,
+  shows an honest "Watchdog offline — autostart unavailable" message instead of the Phase 1 placeholder.
+  The "—" sentinel appears when the watchdog is provisioned but the GET couldn't read the value.
+
+## [0.7.0] - 2026-07-03
+
+### Added
+- **Settings tab wired (Phase 0).** `ServerSettings.jsx` is now live: loads settings from
+  `GET /servers/{id}/settings`, auto-update toggle is wired end-to-end, Save and Reset buttons
+  call `PATCH /servers/{id}/settings`, Delete button calls `DELETE /servers/{id}` with a
+  two-step confirmation and navigates to the server list on 202 acceptance. Startup & recovery,
+  Scheduled tasks, and Resources sections show honest "Available in Phase N" placeholders until
+  their primitives land. `fetchSettings`, `patchSettings`, and `deleteServer` added to `stores.js`.
+
 ## [0.6.0] - 2026-07-02
 
 ### Changed

@@ -1092,4 +1092,20 @@ try {
   syncCapabilitySubscriptions();   // subscribe capabilities for any host already hydrated (the rest ride the hostsStore subscriber)
 } catch (e) {}
 
-export { __setJobTiming, adaptServerMetrics, applyLeafConfig, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, favoritesStore, fetchLeafConfig, fetchServerEvents, fetchServerMetricsHistory, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logSourcesStore, logsStore, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };
+// ---- Settings (Phase 0: auto_update toggle + delete) --------------------
+const _settingsClient = (hostId) => ((hostId && api.host) ? api.host(hostId) : api);
+
+function fetchSettings(hostId, serverId) {
+  return _settingsClient(hostId).get("/servers/" + serverId + "/settings");
+}
+
+function patchSettings(hostId, serverId, patch) {
+  return _settingsClient(hostId).patch("/servers/" + serverId + "/settings", patch);
+}
+
+function deleteServer(hostId, serverId, origin) {
+  const qs = origin ? "?origin=" + encodeURIComponent(origin) : "";
+  return _settingsClient(hostId).del("/servers/" + serverId + qs);
+}
+
+export { __setJobTiming, adaptServerMetrics, applyLeafConfig, auditEventHost, auditInScope, auditStore, awaitJob, commandServer, confirmCommand, deleteServer, favoritesStore, fetchLeafConfig, fetchServerEvents, fetchServerMetricsHistory, fetchSettings, filesKey, filesStore, hostsStore, installServer, jobsStore, libraryStore, logSourcesStore, logsStore, patchSettings, pingStore, scopeServers, selectedHostStore, sendConsoleInput, serverHostId, servicesStore, serversStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, subscribeServerMetrics, useIsFavorite, useSelectedHostId };

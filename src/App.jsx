@@ -157,7 +157,7 @@ function BootLanding() {
   );
 }
 
-function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit }) {
+function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit, onDeleted }) {
   if (useAlerts) useAlerts();
   // Pull this server's DETAIL superset on entry — specifically the `network` block
   // (required ports), which the list/stream omit. It's what gives the connect
@@ -292,7 +292,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
       )}
       {safeTab === "files"       && <FileBrowser server={server} />}
       {safeTab === "backups"     && <BackupsList server={server} />}
-      {safeTab === "settings"    && <ServerSettings server={server} />}
+      {safeTab === "settings"    && <ServerSettings server={server} onDeleted={onDeleted} />}
     </>
   );
 }
@@ -1111,6 +1111,7 @@ function App() {
                 onOpenServer={(id) => setRoute({ kind: "server", id })}
                 onViewServerAlerts={(id) => setRoute({ kind: "attention", serverId: id })}
                 onViewServerAudit={(id) => setRoute({ kind: "audit", serverId: id })}
+                onDeleted={() => setRoute({ kind: "servers" })}
               />
             : <ServerGate id={route.id} status={serversStatus} everLoaded={serversLoaded}
                 onBack={() => setRoute({ kind: "servers" })}

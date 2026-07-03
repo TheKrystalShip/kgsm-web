@@ -3,17 +3,18 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Select as KSelect } from "../components/Select.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
+import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";
+import { canOn } from "../lib/persona.js";
 
 // Settings panel — for things that don't belong in raw config files.
 // Autostart, scheduled restarts, crash recovery, update policy, resource caps,
 // player notifications.
 //
-// NOT WIRED YET: the editable-config backend isn't here, so the controls below
-// have no honest source to read or persist to. The tab renders a work-in-
-// progress state rather than showing fabricated toggle positions. The full form
-// UI is kept ready — flip SETTINGS_WIRED to true and read/write the settings
-// endpoint when it lands.
-const SETTINGS_WIRED = false;
+// Phase 0 wires the Updates auto-update toggle + delete-server end-to-end
+// against GET/PATCH /servers/{id}/settings and DELETE /servers/{id}. The
+// remaining sections (Startup & recovery, Scheduled tasks, Resources) show an
+// honest per-section "Available in Phase N" placeholder until their primitives
+// land.
 
 function SettingsRow({ icon, title, sub, children }) {
   // Mirrors the NeedsAttention / RecentActivity entry line: a rounded icon
@@ -71,30 +72,154 @@ function SettingsSection({ icon, title, action, children }) {
   );
 }
 
-function ServerSettings({ server }) {
+function ServerSettings({ server, onDeleted }) {
+  // watchdog capability check (unchanged — used by the watchdog-gated sections)
   const watchdogDown = serverCapUsable ? !serverCapUsable(server, "watchdog") : false;
-  const [s, setS] = React.useState({
-    autostart: true,
-    restartOnCrash: true,
-    maxCrashes: 3,
-    scheduledRestart: "daily",
-    restartTime: "04:00",
-    warnPlayers: true,
-    warnLeadMin: 5,
-    autoUpdate: "stable",
-    autoBackup: "6h",
-    retainBackups: 10,
-    ramCap: server.ram?.max ?? null,   // honest model: ram is null without live metrics, and max is always null (no per-instance cap) — never assume it's there
-    cpuPriority: "normal",
-  });
-  const set = (k, v) => setS(prev => ({ ...prev, [k]: v }));
+  // scheduler capability — the kgsm-scheduler leaf may not be deployed on this host.
+  const schedulerDown = serverCapUsable ? !serverCapUsable(server, "scheduler") : false;
 
-  if (!SETTINGS_WIRED) {
+  // ---- API-loaded settings state ----
+  const [loadState, setLoadState] = React.useState("loading"); // "loading" | "ready" | "error"
+  const [loadError, setLoadError] = React.useState(null);
+
+  // ---- Form state (only Phase 0 live fields) ----
+  const [autoUpdate, setAutoUpdate] = React.useState(null); // null = not loaded yet
+  const [autostart, setAutostart] = React.useState(null); // null = not loaded or watchdog absent
+  const [cpuPriority, setCpuPriority] = React.useState(null); // null = not loaded
+  const [memoryCapMb, setMemoryCapMb] = React.useState(null); // null = not loaded (0 = uncapped is valid)
+  const [scheduledRestart, setScheduledRestart] = React.useState(null); // null = not loaded
+  const [restartTime, setRestartTime] = React.useState(null); // "HH:MM"
+  const [restartDay, setRestartDay] = React.useState(null); // sun..sat
+  const [timezone, setTimezone] = React.useState(null); // IANA string, "" = host-local
+  const [nextFireUtc, setNextFireUtc] = React.useState(null); // read-only; null = scheduler absent/unknown
+
+  // ---- Save / Reset state ----
+  const [saving, setSaving] = React.useState(false);
+  const [saveMsg, setSaveMsg] = React.useState(null); // { ok, text }
+
+  // ---- Delete state ----
+  const [deletePhase, setDeletePhase] = React.useState("idle"); // "idle" | "confirm" | "deleting"
+  const [deleteError, setDeleteError] = React.useState(null);
+
+  // Load on mount
+  React.useEffect(() => {
+    if (!server || !server.id) return;
+    setLoadState("loading");
+    fetchSettings(server.hostId, server.id).then(
+      (data) => {
+        setAutoUpdate(!!data.autoUpdate);
+        setAutostart(data.autostart != null ? !!data.autostart : null);
+        setCpuPriority(data.cpuPriority ?? null);
+        setMemoryCapMb(data.memoryCapMb ?? null);
+        setScheduledRestart(data.scheduledRestart ?? "off");
+        setRestartTime(data.restartTime ?? "04:00");
+        setRestartDay(data.restartDay ?? "sun");
+        setTimezone(data.timezone ?? "");
+        setNextFireUtc(data.nextFireUtc ?? null);
+        setLoadState("ready");
+      },
+      (err) => {
+        setLoadError(err && err.message ? err.message : "Failed to load settings");
+        setLoadState("error");
+      }
+    );
+  }, [server && server.id, server && server.hostId]);
+
+  const handleSave = () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveMsg(null);
+    patchSettings(server.hostId, server.id, {
+      autoUpdate, autostart, cpuPriority, memoryCapMb,
+      scheduledRestart, restartTime, restartDay, timezone,
+      origin: "ui",
+    }).then(
+      (data) => {
+        if (data && data.settings) {
+          if (data.settings.autostart != null) setAutostart(!!data.settings.autostart);
+          if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority);
+          if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb);
+          if (data.settings.scheduledRestart !== undefined) setScheduledRestart(data.settings.scheduledRestart ?? "off");
+          if (data.settings.restartTime !== undefined) setRestartTime(data.settings.restartTime ?? "04:00");
+          if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
+          if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
+          if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
+        }
+        setSaving(false);
+        setSaveMsg({ ok: true, text: "Saved" });
+        setTimeout(() => setSaveMsg(null), 3000);
+      },
+      (err) => {
+        setSaving(false);
+        setSaveMsg({ ok: false, text: (err && err.message) ? err.message : "Save failed" });
+      }
+    );
+  };
+
+  const handleReset = () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveMsg(null);
+    // Reset: clear auto_update override by sending null
+    patchSettings(server.hostId, server.id, {
+      autoUpdate: null, autostart: null, cpuPriority: null, memoryCapMb: null,
+      scheduledRestart: null, restartTime: null, restartDay: null, timezone: null,
+      origin: "ui",
+    }).then(
+      (data) => {
+        if (data && data.settings) {
+          setAutoUpdate(!!data.settings.autoUpdate);
+          if (data.settings.autostart != null) setAutostart(!!data.settings.autostart);
+          if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority ?? null);
+          if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb ?? null);
+          if (data.settings.scheduledRestart !== undefined) setScheduledRestart(data.settings.scheduledRestart ?? "off");
+          if (data.settings.restartTime !== undefined) setRestartTime(data.settings.restartTime ?? "04:00");
+          if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
+          if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
+          if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
+        }
+        setSaving(false);
+        setSaveMsg({ ok: true, text: "Reset to defaults" });
+        setTimeout(() => setSaveMsg(null), 3000);
+      },
+      () => {
+        setSaving(false);
+        setSaveMsg({ ok: false, text: "Reset failed" });
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    if (deletePhase === "idle") { setDeletePhase("confirm"); return; }
+    if (deletePhase !== "confirm") return;
+    setDeletePhase("deleting");
+    setDeleteError(null);
+    deleteServer(server.hostId, server.id, "ui").then(
+      () => {
+        // 202 accepted — the server is being removed. Navigate away.
+        if (onDeleted) onDeleted();
+      },
+      (err) => {
+        setDeletePhase("idle");
+        setDeleteError((err && err.message) ? err.message : "Delete failed");
+      }
+    );
+  };
+
+  // Show full-tab loading / error states
+  if (loadState === "loading") {
     return (
       <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
-        <Icon name="settings" size={26} strokeWidth={1.6} />
-        <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>Work in progress — not available yet</div>
-        <div style={{ marginTop: 4, fontSize: 12.5 }}>The editable-settings backend isn't here yet — this panel lights up when it lands.</div>
+        <Icon name="loader" size={22} strokeWidth={1.6} />
+        <div style={{ marginTop: 10, fontSize: 13 }}>Loading settings…</div>
+      </div>
+    );
+  }
+  if (loadState === "error") {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
+        <Icon name="alert-circle" size={22} strokeWidth={1.6} />
+        <div style={{ marginTop: 10, fontSize: 13, color: "var(--fg-2)" }}>{loadError || "Failed to load settings"}</div>
       </div>
     );
   }
@@ -106,104 +231,221 @@ function ServerSettings({ server }) {
       <span className="status-led status-led--down"></span>
     </span>
   );
+  const schedulerLed = (
+    <span className="led-group">
+      <span className="led-group__age">Scheduler down</span>
+      <span className="status-led status-led--down"></span>
+    </span>
+  );
+
+  // Shared inline style for the free-text / time inputs in the schedule card,
+  // mirroring the Memory cap number input below.
+  const schedInputStyle = {
+    background: "var(--surface-3)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: 6,
+    color: "var(--fg-1)",
+    fontSize: 13,
+    padding: "3px 7px",
+  };
+
+  const cadence = scheduledRestart ?? "off";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Startup & recovery — Phase 1 */}
       <SettingsSection icon="power" title="Startup & recovery" action={watchdogDown ? watchdogLed : null}>
-        <div className={watchdogDown ? "cap-gated" : ""}>
-        <SettingsRow icon="power" title="Autostart on boot"
-          sub="Bring this server up automatically when the host machine starts.">
-          <Toggle on={s.autostart} onChange={v => set("autostart", v)} />
-        </SettingsRow>
-        <SettingsRow icon="life-buoy" title="Restart on crash"
-          sub="Auto-restart if the process dies unexpectedly.">
-          <Toggle on={s.restartOnCrash} onChange={v => set("restartOnCrash", v)} />
-        </SettingsRow>
-        <SettingsRow icon="repeat" title="Max consecutive restarts"
-          sub="If this many crash-restarts happen in a row, pause and alert.">
-          <Select value={String(s.maxCrashes)} options={["1","2","3","5","10"]} onChange={v => set("maxCrashes", +v)} />
-        </SettingsRow>
-        </div>
+        {watchdogDown ? (
+          <div style={{ padding: "10px 0 4px", color: "var(--fg-3)", fontSize: 12.5, textAlign: "center" }}>
+            <Icon name="alert-circle" size={13} strokeWidth={1.8} style={{ verticalAlign: "middle", marginRight: 5 }} />
+            Watchdog offline — autostart unavailable
+          </div>
+        ) : (
+          <SettingsRow icon="power" title="Autostart on boot"
+            sub="Automatically start this server when the host boots.">
+            {autostart === null ? (
+              <span style={{ fontSize: 12, color: "var(--fg-3)" }}>—</span>
+            ) : (
+              <Toggle on={!!autostart} onChange={setAutostart} />
+            )}
+          </SettingsRow>
+        )}
       </SettingsSection>
 
-      <SettingsSection icon="calendar-clock" title="Scheduled tasks" action={watchdogDown ? watchdogLed : null}>
-        <div className={watchdogDown ? "cap-gated" : ""}>
-        <SettingsRow icon="alarm-clock" title="Scheduled restart"
-          sub="Cycle the world to free memory and apply pending updates.">
-          <Select value={s.scheduledRestart}
-            options={[
-              { value: "off",     label: "Never" },
-              { value: "daily",   label: "Daily" },
-              { value: "weekly",  label: "Weekly (Sun)" },
-              { value: "hourly6", label: "Every 6h" },
-            ]} onChange={v => set("scheduledRestart", v)} />
-        </SettingsRow>
-        <SettingsRow icon="clock" title="Restart time"
-          sub="Local time the daily/weekly restart fires.">
-          <input value={s.restartTime} onChange={e => set("restartTime", e.target.value)}
-            style={{ background: "var(--surface-3)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-md)", height: 32, padding: "0 10px", color: "var(--fg-1)", fontFamily: "var(--font-mono)", fontSize: 13, width: 90, outline: "none", textAlign: "center" }} />
-        </SettingsRow>
-        <SettingsRow icon="megaphone" title="Warn online players"
-          sub="Broadcast in-game countdowns before the restart fires.">
-          <Toggle on={s.warnPlayers} onChange={v => set("warnPlayers", v)} />
-          <Select value={String(s.warnLeadMin)} options={["1","2","5","10","15"]} onChange={v => set("warnLeadMin", +v)} />
-          <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>min</span>
-        </SettingsRow>
-        </div>
-        <SettingsRow icon="database" title="Auto-backup"
-          sub="Snapshot the world on this cadence. Retention rolls oldest off.">
-          <Select value={s.autoBackup}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "1h",  label: "Every hour" },
-              { value: "6h",  label: "Every 6h" },
-              { value: "24h", label: "Daily" },
-            ]} onChange={v => set("autoBackup", v)} />
-          <Select value={String(s.retainBackups)} options={["5","10","20","50"]} onChange={v => set("retainBackups", +v)} />
-          <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>retained</span>
-        </SettingsRow>
+      {/* Scheduled tasks — Phase 3 (scheduler-leaf gated) */}
+      <SettingsSection icon="calendar-clock" title="Scheduled tasks" action={schedulerDown ? schedulerLed : null}>
+        {schedulerDown ? (
+          <div style={{ padding: "10px 0 4px", color: "var(--fg-3)", fontSize: 12.5, textAlign: "center" }}>
+            <Icon name="alert-circle" size={13} strokeWidth={1.8} style={{ verticalAlign: "middle", marginRight: 5 }} />
+            Scheduler leaf not deployed — scheduled restarts unavailable
+          </div>
+        ) : (
+          <>
+            <SettingsRow icon="calendar-clock" title="Restart cadence"
+              sub="Automatically restart this server on a schedule.">
+              <Select
+                value={cadence}
+                options={[
+                  { value: "off",    label: "Off" },
+                  { value: "daily",  label: "Daily" },
+                  { value: "weekly", label: "Weekly" },
+                  { value: "6h",     label: "Every 6 hours" },
+                ]}
+                onChange={setScheduledRestart}
+              />
+            </SettingsRow>
+
+            {cadence !== "off" && (
+              <>
+                <SettingsRow icon="clock" title="Restart time"
+                  sub="Time of day the restart runs.">
+                  <input
+                    type="time"
+                    value={restartTime ?? "04:00"}
+                    onChange={e => setRestartTime(e.target.value)}
+                    style={schedInputStyle}
+                  />
+                </SettingsRow>
+
+                {cadence === "weekly" && (
+                  <SettingsRow icon="calendar" title="Day of week"
+                    sub="Which day the weekly restart runs.">
+                    <Select
+                      value={restartDay ?? "sun"}
+                      options={[
+                        { value: "sun", label: "Sunday" },
+                        { value: "mon", label: "Monday" },
+                        { value: "tue", label: "Tuesday" },
+                        { value: "wed", label: "Wednesday" },
+                        { value: "thu", label: "Thursday" },
+                        { value: "fri", label: "Friday" },
+                        { value: "sat", label: "Saturday" },
+                      ]}
+                      onChange={setRestartDay}
+                    />
+                  </SettingsRow>
+                )}
+
+                <SettingsRow icon="globe" title="Timezone"
+                  sub="IANA timezone for the schedule (empty = host-local).">
+                  <input
+                    type="text"
+                    value={timezone ?? ""}
+                    placeholder="e.g. Europe/Madrid"
+                    onChange={e => setTimezone(e.target.value)}
+                    style={{ ...schedInputStyle, width: 150 }}
+                  />
+                </SettingsRow>
+
+                {nextFireUtc && (
+                  <SettingsRow icon="alarm-clock" title="Next restart"
+                    sub="Scheduled by the kgsm-scheduler leaf.">
+                    <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
+                      {new Date(nextFireUtc).toLocaleString()}
+                    </span>
+                  </SettingsRow>
+                )}
+              </>
+            )}
+          </>
+        )}
       </SettingsSection>
 
+      {/* Updates — LIVE in Phase 0 */}
       <SettingsSection icon="download" title="Updates">
-        <SettingsRow icon="download" title="Auto-update channel"
-          sub="When a new build is detected, install it on the next scheduled restart.">
-          <Select value={s.autoUpdate}
-            options={[
-              { value: "off",      label: "Manual only" },
-              { value: "stable",   label: "Stable" },
-              { value: "beta",     label: "Beta" },
-              { value: "bleeding", label: "Bleeding edge" },
-            ]} onChange={v => set("autoUpdate", v)} />
+        <SettingsRow icon="download" title="Auto-update"
+          sub="Apply the latest version on next restart (when available).">
+          <Toggle on={!!autoUpdate} onChange={setAutoUpdate} />
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection icon="cpu" title="Resources">
-        <SettingsRow icon="cpu" title="CPU priority"
-          sub="How aggressively the OS schedules this server vs other processes.">
-          <Select value={s.cpuPriority}
-            options={[
-              { value: "low",    label: "Low" },
-              { value: "normal", label: "Normal" },
-              { value: "high",   label: "High" },
-            ]} onChange={v => set("cpuPriority", v)} />
-        </SettingsRow>
-        <SettingsRow icon="hard-drive" title="Memory cap"
-          sub="Hard ceiling on RAM. Server is killed if exceeded.">
-          <input type="number" value={s.ramCap} onChange={e => set("ramCap", +e.target.value)}
-            style={{ background: "var(--surface-3)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-md)", height: 32, padding: "0 10px", color: "var(--fg-1)", fontFamily: "var(--font-mono)", fontSize: 13, width: 70, outline: "none", textAlign: "center" }} />
-          <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>GB</span>
-        </SettingsRow>
+      {/* Resources — LIVE in Phase 2 */}
+      <SettingsSection icon="cpu" title="Resources" action={watchdogDown ? watchdogLed : null}>
+        {watchdogDown ? (
+          <div style={{ padding: "10px 0 4px", color: "var(--fg-3)", fontSize: 12.5, textAlign: "center" }}>
+            <Icon name="alert-circle" size={13} strokeWidth={1.8} style={{ verticalAlign: "middle", marginRight: 5 }} />
+            Watchdog offline — resource caps unavailable
+          </div>
+        ) : (
+          <>
+            <SettingsRow icon="cpu" title="CPU priority"
+              sub="Scheduling weight for this server's cgroup (low=50, normal=100, high=400).">
+              <Select
+                value={cpuPriority ?? "normal"}
+                options={[
+                  { value: "low",    label: "Low" },
+                  { value: "normal", label: "Normal" },
+                  { value: "high",   label: "High" },
+                ]}
+                onChange={setCpuPriority}
+              />
+            </SettingsRow>
+            <SettingsRow icon="database" title="Memory cap"
+              sub="Maximum RAM for this server (0 = uncapped). Takes effect at next restart.">
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="number"
+                  min={0}
+                  step={256}
+                  value={memoryCapMb ?? 0}
+                  onChange={e => setMemoryCapMb(Number(e.target.value))}
+                  style={{
+                    width: 80,
+                    background: "var(--surface-3)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: 6,
+                    color: "var(--fg-1)",
+                    fontSize: 13,
+                    padding: "3px 7px",
+                    textAlign: "right",
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "var(--fg-3)" }}>MiB</span>
+              </div>
+            </SettingsRow>
+          </>
+        )}
       </SettingsSection>
 
-      <div style={{
-        display: "flex", gap: 10, padding: "8px 0",
-      }}>
-        <button className="icon-btn icon-btn--danger" style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}>
-          <Icon name="trash-2" size={14} />&nbsp;Delete server
-        </button>
+      {/* Button row */}
+      <div style={{ display: "flex", gap: 10, padding: "8px 0", alignItems: "center", flexWrap: "wrap" }}>
+        {deletePhase === "idle" && (
+          <button className="icon-btn icon-btn--danger"
+            style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}
+            onClick={handleDelete}>
+            <Icon name="trash-2" size={14} />&nbsp;Delete server
+          </button>
+        )}
+        {deletePhase === "confirm" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--fg-2)" }}>Permanently delete? This cannot be undone.</span>
+            <button className="icon-btn icon-btn--danger"
+              style={{ width: "auto", padding: "0 12px", fontSize: 13 }}
+              onClick={handleDelete}>Confirm delete</button>
+            <button className="icon-btn"
+              style={{ width: "auto", padding: "0 12px", fontSize: 13 }}
+              onClick={() => setDeletePhase("idle")}>Cancel</button>
+          </div>
+        )}
+        {deletePhase === "deleting" && (
+          <span style={{ fontSize: 13, color: "var(--fg-3)" }}>Deleting…</span>
+        )}
+        {deleteError && (
+          <span style={{ fontSize: 12.5, color: "var(--danger, #e55)" }}>{deleteError}</span>
+        )}
         <span style={{ flex: 1 }}></span>
-        <button className="icon-btn" style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}>Reset to defaults</button>
-        <button className="fb-editor__btn">Save changes</button>
+        {saveMsg && (
+          <span style={{ fontSize: 12.5, color: saveMsg.ok ? "var(--krystal-teal)" : "var(--danger, #e55)", marginRight: 4 }}>
+            {saveMsg.text}
+          </span>
+        )}
+        <button className="icon-btn" disabled={saving}
+          style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}
+          onClick={handleReset}>Reset to defaults</button>
+        <button className="fb-editor__btn" disabled={saving} onClick={handleSave}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
       </div>
     </div>
   );
