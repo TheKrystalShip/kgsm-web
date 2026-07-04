@@ -15,10 +15,13 @@ const round = (n, d = 0) => {
 };
 
 // ---- Servers ------------------------------------------------------------
-// api status is the watchdog/Docker run-state tri-state; the UI vocabulary is
-// online/offline/unknown (+ installing/updating/crashed/error, which are
-// synthesized later from the job + alert streams — slice 5/6).
-const SERVER_STATUS = { running: "online", stopped: "offline", unknown: "unknown" };
+// api status is the watchdog/Docker run-state (now a 4-state: running/stopped/
+// starting/unknown — "starting" sits between launch and the game finishing boot
+// (joinable), then flips to "running"); the UI vocabulary is
+// online/offline/starting/unknown (+ installing/updating/crashed/error, which are
+// synthesized later from the job + alert streams — slice 5/6). Arrives over the
+// SAME server.patch SSE frame that already carries status — no new transport.
+const SERVER_STATUS = { running: "online", stopped: "offline", starting: "starting", unknown: "unknown" };
 
 export function adaptServer(be) {
   if (!be) return be;

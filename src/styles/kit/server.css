@@ -37,6 +37,11 @@
 .hero__status--unknown .dot { background: var(--danger); animation: none; }
 .hero__status--updating { background: var(--warning-bg); color: var(--warning-fg); }
 .hero__status--updating .dot { background: var(--warning); }
+/* Transitional run-state: launched, not yet joinable — same warning tone as
+   updating (amber, not red/green) with a faster pulse to read as "actively
+   booting" rather than a steady warning. Mirrors .server-tile__pill--starting. */
+.hero__status--starting { background: var(--warning-bg); color: var(--warning-fg); }
+.hero__status--starting .dot { background: var(--warning); animation: kr-pulse 1.2s ease-in-out infinite; }
 .hero__status .timer { color: var(--fg-3); font-family: var(--font-mono); font-weight: 500; margin-left: 4px; }
 @keyframes kr-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
 

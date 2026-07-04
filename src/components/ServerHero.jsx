@@ -8,6 +8,11 @@ import { artBg } from "../lib/art.js";
 
 // Server hero card — top status, name, action chips, IP.
 
+// Nice labels for statuses whose raw backend word wouldn't read well verbatim.
+// Everything else (online/offline/unknown/updating/crashed) falls back to the
+// raw lowercase status, matching how this pill already renders those.
+const HERO_STATUS_LABEL = { starting: "Starting" };
+
 function StatusPill({ status, uptime, watchdogDown }) {
   // --glass swaps the pill's fill for the frosted dark backing so it stays legible
   // over the full-bleed key-art (the tone colour stays in the text + dot).
@@ -26,11 +31,14 @@ function StatusPill({ status, uptime, watchdogDown }) {
     offline: "hero__status hero__status--offline",
     updating: "hero__status hero__status--updating",
     crashed: "hero__status hero__status--offline",
+    // Launched, not yet joinable — the backend flips this to "running" once the
+    // game finishes booting (server.patch, same SSE frame as every other status).
+    starting: "hero__status hero__status--starting",
   }[status] || "hero__status";
   return (
     <span className={cls + " hero__status--glass"}>
       <span className="dot"></span>
-      {status}
+      {HERO_STATUS_LABEL[status] || status}
       {uptime && uptime !== "—" && <span className="timer">{uptime}</span>}
     </span>
   );
@@ -39,6 +47,11 @@ function StatusPill({ status, uptime, watchdogDown }) {
 function ServerHero({ server, onAction }) {
   const isOnline = server.status === "online";
   const isUpdating = server.status === "updating";
+  // Launched but not yet joinable (between launch and the game finishing boot) —
+  // treat it as busy like isUpdating: Start stays disabled, but Stop is allowed
+  // (a booting server can still be shut down). Restart stays online-only — it
+  // makes no sense to "restart" something that hasn't finished starting.
+  const isStarting = server.status === "starting";
   // Can the signed-in user operate this server's host? Players (viewer / consumer
   // preview) get the Join + connect surface only — no lifecycle controls, no rename.
   const canOps = serverOperable ? serverOperable(server) : true;
@@ -84,9 +97,9 @@ function ServerHero({ server, onAction }) {
           {canOps && (
             <>
               <div className="hero__group">
-                <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || isStarting || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="update"  variant="glass" disabled={isUpdating || watchdogDown || updateUnavailable} reason={updateUnavailable ? updReason : (watchdogDown ? wdReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
-                <ServerActionButton verb="stop"    variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="stop"    variant="glass" disabled={!(isOnline || isStarting) || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="restart" variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
               </div>
               <span className="hero__bardiv" aria-hidden="true"></span>

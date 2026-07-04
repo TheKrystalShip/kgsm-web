@@ -737,6 +737,26 @@ function App() {
   const handleAction = (action, targetId) => {
     const s = targetId ? servers.find(x => x.id === targetId) || activeServer : activeServer;
     if (!s) return;
+    // Optimistic UX for Start only: flip the card to "starting" immediately so it
+    // doesn't sit on stale "offline" for the round trip + the backend's own launch
+    // work, before the FIRST authoritative server.patch (starting→running) arrives
+    // over the same `servers` SSE stream and overwrites this. serversStore.refresh's
+    // REST merge already preserves socket-owned `status` for a known row, so this
+    // survives a background refetch same as any other socket-driven status.
+    // Honesty on failure: if the POST rejects, revert to the prior status — but
+    // only if nothing else has since moved status on (a real server.patch may have
+    // already landed and raced the rejection; don't clobber that with a stale revert).
+    if (action === "start") {
+      const prevStatus = s.status;
+      serversStore.patch(s.id, { status: "starting" });
+      commandServer(s, action).catch(err => {
+        if (err && err.code === 401) setReauthHostId(s.hostId);
+        const cur = serversStore.find(s.id);
+        if (cur && cur.status === "starting") serversStore.patch(s.id, { status: prevStatus });
+        // 403 (role removed) surfaces via the scoped denyGate; nothing to do here.
+      });
+      return;
+    }
     // Dispatch through commandServer → the HOST-SCOPED client so the per-host
     // session gate runs: an expired session that can't silently renew rejects 401 →
     // we open the re-auth modal for that host instead of the command failing

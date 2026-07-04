@@ -19,6 +19,11 @@ const INSTALL_PHASE_LABEL = {
   deploying:   "Deploying…",
 };
 
+// Nice label for the run-state pill's raw status word. Only "starting" needs one
+// today (the rest — online/offline/unknown/updating/crashed — already read fine
+// lowercase, and this pill has always rendered server.status verbatim).
+const PILL_LABEL = { starting: "Starting" };
+
 function ServerPhantomTile({ server }) {
   const art = artBg(server.hero, server.cover);
   const isUninstall = server.job?.verb === "uninstall";
@@ -69,6 +74,9 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
 
   const isOnline = server.status === "online";
   const isUpdating = server.status === "updating";
+  // Launched but not yet joinable — busy like isUpdating for Start, but a
+  // booting server can still be stopped (see ServerHero, same rule).
+  const isStarting = server.status === "starting";
   const pendingVerb = server.job && server.job.state === "running" ? server.job.verb : null;
   // Live CPU/RAM are host-metrics — when the host's metrics feed is down they
   // go dark with a red status LED, matching the host diagnostics treatment.
@@ -109,7 +117,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
           <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
             title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
             <span className="dot"></span>
-            {watchdogDown ? "unknown" : server.status}
+            {watchdogDown ? "unknown" : (PILL_LABEL[server.status] || server.status)}
           </span>
         </div>
         {server.notice
@@ -127,9 +135,9 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         </div>
         {canOps && (
           <div className="server-tile__quick">
-            <ServerActionButton verb="start"   disabled={isOnline || isUpdating || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
+            <ServerActionButton verb="start"   disabled={isOnline || isUpdating || isStarting || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
             <ServerActionButton verb="restart" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
-            <ServerActionButton verb="stop"    disabled={!isOnline || watchdogDown}              reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
+            <ServerActionButton verb="stop"    disabled={!(isOnline || isStarting) || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
           </div>
         )}
         {/* Join / connect — shown to everyone (operators play too), below their

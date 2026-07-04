@@ -199,6 +199,12 @@
 .server-tile__pill .dot { width: 6px; height: 6px; border-radius: 999px; }
 .server-tile__pill--online { background: var(--success-bg); color: var(--success-fg); }
 .server-tile__pill--online .dot { background: var(--success); animation: kr-pulse 1.8s ease-in-out infinite; }
+/* Transitional run-state: launched, not yet joinable (between launch and the
+   backend flipping running→ once the game finishes booting). Same warning
+   tone as installing/updating (amber, not red/green — it isn't a fault) with
+   a faster pulse to read as "actively booting" rather than "steady warning". */
+.server-tile__pill--starting { background: var(--warning-bg); color: var(--warning-fg); }
+.server-tile__pill--starting .dot { background: var(--warning); animation: kr-pulse 1.2s ease-in-out infinite; }
 .server-tile__pill--updating { background: var(--warning-bg); color: var(--warning-fg); }
 .server-tile__pill--updating .dot { background: var(--warning); animation: kr-pulse 1.8s ease-in-out infinite; }
 .server-tile__pill--offline { background: var(--veil-1); color: var(--fg-3); }

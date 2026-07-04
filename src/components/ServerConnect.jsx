@@ -19,6 +19,10 @@ function ServerConnect({ server, variant }) {
     : { isSteam: false, address: server.ip, online: server.status === "online", steamUrl: null };
   const [copied, setCopied] = React.useState(false);
   const online = join.online;
+  // Launched but not yet joinable — only a truly "online" (finished booting)
+  // server can be joined, so this stays gated the same as offline; only the
+  // copy changes so it doesn't misreport a booting server as "Offline".
+  const starting = server && server.status === "starting";
 
   const copy = (e) => {
     if (e) e.stopPropagation();
@@ -39,9 +43,9 @@ function ServerConnect({ server, variant }) {
           className={"connect-tile" + (online ? "" : " connect-tile--off")}
           href={online ? join.steamUrl : undefined}
           onClick={(e) => { e.stopPropagation(); if (!online) e.preventDefault(); }}
-          title={online ? "Launch Steam and join" : "Server is offline"}>
+          title={online ? "Launch Steam and join" : (starting ? "Server is starting…" : "Server is offline")}>
           <Icon name="play" size={13} strokeWidth={2.4} />
-          {online ? "Join" : "Offline"}
+          {online ? "Join" : (starting ? "Starting…" : "Offline")}
         </a>
       );
     }
@@ -50,9 +54,9 @@ function ServerConnect({ server, variant }) {
         className={"connect-tile connect-tile--copy" + (online ? "" : " connect-tile--off")}
         onClick={online ? copy : (e) => e.stopPropagation()}
         disabled={!online}
-        title={online ? "Copy the connect address" : "Server is offline"}>
+        title={online ? "Copy the connect address" : (starting ? "Server is starting…" : "Server is offline")}>
         <Icon name={copied ? "check" : "copy"} size={13} />
-        {copied ? "Copied" : (online ? "Copy IP" : "Offline")}
+        {copied ? "Copied" : (online ? "Copy IP" : (starting ? "Starting…" : "Offline"))}
       </button>
     );
   }
@@ -67,6 +71,7 @@ function ServerConnect({ server, variant }) {
   if (variant === "hero-bar") {
     const steamHint = online
       ? `Launch Steam and connect to ${server.game}. If it doesn’t join on its own, paste the address into the game’s server browser.`
+      : starting ? "Server is starting up — hang tight, it’ll be joinable shortly."
       : "Start the server to join";
     return (
       <div className="connect connect--bar">
@@ -89,7 +94,7 @@ function ServerConnect({ server, variant }) {
             onClick={(e) => { if (!online) e.preventDefault(); }}
             title={steamHint}>
             <Icon name="play" size={15} strokeWidth={2.4} />
-            {online ? "Join" : "Offline"}
+            {online ? "Join" : (starting ? "Starting…" : "Offline")}
           </a>
         )}
       </div>
@@ -105,9 +110,9 @@ function ServerConnect({ server, variant }) {
             className={"connect__join" + (online ? "" : " is-disabled")}
             href={online ? join.steamUrl : undefined}
             onClick={(e) => { if (!online) e.preventDefault(); }}
-            title={online ? "Launch Steam and connect to this server" : "Start the server to join"}>
+            title={online ? "Launch Steam and connect to this server" : (starting ? "Server is starting up" : "Start the server to join")}>
             <Icon name="play" size={16} strokeWidth={2.4} />
-            {online ? "Join via Steam" : "Server offline"}
+            {online ? "Join via Steam" : (starting ? "Server starting…" : "Server offline")}
           </a>
         )}
         <code className="connect__addr">{join.address || "—"}</code>
