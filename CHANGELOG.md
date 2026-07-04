@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.2)
+- Auth pipeline hardened across the board: `api.host(null/undefined)` now throws
+  immediately rather than silently building a broken unauthenticated client. Every
+  `(hostId && api.host) ? api.host(hostId) : api` fallback removed from stores and
+  components (11 sites in `stores.js`, plus `BackupsList`, `ConsolePanel`,
+  `PlayersTab`, `DiscordPage`). Read functions now bail with `null`/`[]` when
+  `hostId` is missing; write functions reject with an explicit error. `_fetchAuditPage`
+  switched to `api.fanOut` (consistent with every other multi-host read, closes the
+  unauthenticated-audit hole for id-less seed connections). `DiscordPage` host
+  derivation made reactive via `useStore(hostsStore)` so the page re-renders
+  correctly when `hostsStore` hydrates after a deep-link cold boot.
+
 ### Fixed (v1.4.1)
 - `GET /servers` always 401s on every page reload: `retryConnection` used the
   unscoped `api.get("/servers")`, which resolves auth via `selectedHostStore.id`.

@@ -104,11 +104,11 @@ function usePlayerRoster(server) {
   const [state, setState] = React.useState({ status: "loading" });
   React.useEffect(() => {
     if (!server) return;
+    if (!server.hostId) return;
     setState({ status: "loading" });
     let alive = true, hydrated = false, broken = false, detection = "unknown";
     let roster = new Map();     // playerIdentity -> player row
     const buffered = [];
-    const client = (server.hostId && api.host) ? api.host(server.hostId) : api;
 
     const flush = () => { if (alive) setState({ status: "ready", detection, players: [...roster.values()] }); };
 
@@ -120,7 +120,7 @@ function usePlayerRoster(server) {
       else buffered.push([m.type, m.data.player, m.data.serverId]);
     });
 
-    client.get("/servers/" + server.id + "/players").then(
+    api.host(server.hostId).get("/servers/" + server.id + "/players").then(
       (res) => {
         detection = (res && res.detection) || "unknown";
         ((res && res.players) || []).forEach((p) => {

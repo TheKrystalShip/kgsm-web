@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
 import { api } from "../lib/apiClient.js";
 import { hostsStore } from "../lib/stores.js";
+import { useStore } from "../lib/store.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // Discord integration — webhook config + per-event notification toggles + a real
@@ -40,13 +41,14 @@ const NOISE_STYLE = { fontSize: 11.5, color: "var(--fg-3)", fontFamily: "var(--f
 
 // ---------- config (wired to kgsm-api /integrations/discord) ----------
 function DiscordLiveConfig() {
-  const hostId = (hostsStore.getState().list[0] || {}).id || null;
+  const hosts = useStore(hostsStore, s => s.list);
+  const hostId = hosts[0]?.id ?? null;
   // Tier is read once (non-reactive) — fine because Settings is opened well after the
   // session resolves. Edge: a deep-link straight to settings before /me lands reads
   // tier:null → controls stay disabled until an unrelated re-render. Acceptable.
   const tier = (sessionStore && hostId) ? sessionStore.tierOf(hostId) : null;
   const canEdit = tier === "admin";
-  const client = () => (hostId && api.host) ? api.host(hostId) : api;
+  const client = () => api.host(hostId);
 
   const [view, setView] = React.useState(null);          // the DiscordIntegrationView
   const [loadErr, setLoadErr] = React.useState(null);

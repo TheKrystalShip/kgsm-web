@@ -474,6 +474,7 @@ import("./stores.js").then((m) => {
     return e;
   }
   function hostScoped(id) {
+    if (!id) throw new Error("api.host() requires a concrete host id (got " + id + ")");
     // THE reactive heal — this is the whole REST freshness story (the API is the authority). The funnel
     // hands out the current token WITHOUT checking expiry; when it lapses the API answers 401, and HERE we
     // mark the host expired and replay once. The replay re-enters authorizedBearer → authorize → rotate

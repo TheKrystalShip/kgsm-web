@@ -41,12 +41,12 @@ function useLiveConsole(server) {
   const [lines, setLines] = React.useState(null);
   React.useEffect(() => {
     if (!server) return;
+    if (!server.hostId) return;
     let alive = true, hydrated = false;
     const tail = [];          // REST scrollback (strings, no seq, no time)
     const follow = [];        // live WS lines, in arrival order, stamped with observed-at
     const seen = new Set();
     const flush = () => { if (alive) setLines([...tail, ...follow]); };
-    const client = (server.hostId && api.host) ? api.host(server.hostId) : api;
     // Subscribe first so nothing emitted during hydrate is lost; buffer until tail lands.
     const dispose = api.stream.subscribe(["servers/" + server.id + "/console"], (m) => {
       if (!alive || !m || m.type !== "console.line" || !m.data) return;
@@ -55,7 +55,7 @@ function useLiveConsole(server) {
       follow.push({ at: Date.now(), text: line });   // observed-at timestamp for the live line
       if (hydrated) flush();
     });
-    client.get("/servers/" + server.id + "/console?tail=200").then(
+    api.host(server.hostId).get("/servers/" + server.id + "/console?tail=200").then(
       (res) => { (res && res.lines || []).forEach((l) => tail.push(l)); hydrated = true; flush(); },
       () => { hydrated = true; flush(); }   // no scrollback (watchdog down / non-native) — live follow still works
     );

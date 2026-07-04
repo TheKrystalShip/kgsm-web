@@ -17,15 +17,15 @@ function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
   const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | null
-  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
 
   const load = React.useCallback(() => {
+    if (!server || !server.hostId) return Promise.resolve();
     setError(null);
-    return client.get("/servers/" + server.id + "/backups").then(
+    return api.host(server.hostId).get("/servers/" + server.id + "/backups").then(
       (res) => setList(Array.isArray(res && res.backups) ? res.backups : []),
       (err) => { setList([]); setError(err && (err.userMessage || err.message) || "Could not load backups."); }
     );
-  }, [server.id, server.hostId]);
+  }, [server && server.id, server && server.hostId]);
 
   React.useEffect(() => { setList(null); load(); }, [load]);
 
@@ -44,8 +44,8 @@ function BackupsList({ server }) {
       (err) => { setError(err && (err.userMessage || err.message) || "Action failed."); setBusy(null); }
     );
   };
-  const createBackup = () => runJob("create", () => client.post("/servers/" + server.id + "/backups", { origin: "ui" }));
-  const restoreBackup = (name) => runJob("restore:" + name, () => client.post("/servers/" + server.id + "/backups/restore", { backup: name, origin: "ui" }));
+  const createBackup = () => runJob("create", () => api.host(server.hostId).post("/servers/" + server.id + "/backups", { origin: "ui" }));
+  const restoreBackup = (name) => runJob("restore:" + name, () => api.host(server.hostId).post("/servers/" + server.id + "/backups/restore", { backup: name, origin: "ui" }));
 
   const count = list == null ? "—" : (list.length + (list.length === 1 ? " snapshot" : " snapshots"));
   return (

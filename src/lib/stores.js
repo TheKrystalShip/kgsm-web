@@ -91,8 +91,8 @@ serversStore.refresh = () => {
 // runs. Never rejects — a failure leaves the row as-is (the address stays "—").
 serversStore.fetchDetail = (id, hostId) => {
   if (!id) return Promise.resolve(null);
-  const client = (hostId && api.host) ? api.host(hostId) : api;
-  return client.get("/servers/" + id).then(be => {
+  if (!hostId) return Promise.resolve(null);
+  return api.host(hostId).get("/servers/" + id).then(be => {
     // Merge the detail-only fields onto the cached row WITHOUT clobbering the socket-owned
     // status/uptime/job: the `network` block (required ⋈ firewall) plus the blueprint's RAWG
     // cover/hero art (the list/stream omit both → only the detail GET carries them). hero is the
@@ -382,7 +382,7 @@ function subscribeServerMetrics(serverId, onTick) {
 // Gaps are absent points (the backend never carry-forwards). Empty series
 // when history is disabled or the monitor has never reported for this server.
 async function fetchServerMetricsHistory(serverId, range, hostId) {
-  if (!serverId) return null;
+  if (!serverId || !hostId) return null;
   const r = range || "1h";
   return api.host(hostId).get("/servers/" + serverId + "/metrics/history?range=" + r);
 }
@@ -394,10 +394,10 @@ async function fetchServerMetricsHistory(serverId, range, hostId) {
 // Best-effort by contract: callers treat a rejection as "no events", never an error.
 async function fetchServerEvents(serverId, hostId, sinceIso) {
   if (!serverId) return [];
+  if (!hostId) return [];
   const qs = new URLSearchParams({ serverId, limit: "200" });
   if (sinceIso) qs.set("since", sinceIso);
-  const client = (hostId && api.host) ? api.host(hostId) : api;
-  const page = await client.get("/audit?" + qs.toString());
+  const page = await api.host(hostId).get("/audit?" + qs.toString());
   return (page && page.rows) || (page && Array.isArray(page.data) ? page.data : null) || (Array.isArray(page) ? page : []) || [];
 }
 
@@ -422,7 +422,10 @@ const filesKey = (hostId, serverId) => (hostId || "_") + "/" + serverId;
 const _emptyFilesEntry = () => ({ dirs: {}, expanded: {}, open: null, everLoaded: false });
 // The store seam: a server carries its host, and like every write path here we
 // route through the host-scoped client so the per-host bearer/401-retry runs.
-const _filesClient = (hostId) => ((hostId && api.host) ? api.host(hostId) : api);
+const _filesClient = (hostId) => {
+  if (!hostId) throw new Error("_filesClient: hostId required");
+  return api.host(hostId);
+};
 const filesStore = createStore({ byServer: {} });
 filesStore.entry = (hostId, serverId) =>
   filesStore.getState().byServer[filesKey(hostId, serverId)] || null;
@@ -523,8 +526,8 @@ filesStore.saveFile = (hostId, serverId, path, content, etag) => {
 // panel button, "assistant" for a confirmed assistant proposal (slice 9b). The
 // server's resulting status + the in-flight job ride the WS, not this return.
 function commandServer(server, verb, origin = "ui") {
-  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
-  return client.post("/servers/" + server.id + "/commands", { verb, origin });
+  if (!server || !server.hostId) return Promise.reject(new Error("commandServer: server.hostId required"));
+  return api.host(server.hostId).post("/servers/" + server.id + "/commands", { verb, origin });
 }
 
 // Send an arbitrary console command to a running NATIVE server (POST /servers/{id}/
@@ -534,8 +537,8 @@ function commandServer(server, verb, origin = "ui") {
 // event + the console.input audit row sourced from it. Callers handle a rejected 401
 // (re-auth) + surface other failures (409 = not running / container).
 function sendConsoleInput(server, text, origin = "ui") {
-  const client = (server && server.hostId && api.host) ? api.host(server.hostId) : api;
-  return client.post("/servers/" + server.id + "/console", { input: text, origin });
+  if (!server || !server.hostId) return Promise.reject(new Error("sendConsoleInput: server.hostId required"));
+  return api.host(server.hostId).post("/servers/" + server.id + "/console", { input: text, origin });
 }
 
 // Resolve when a job reaches a terminal state, read from the WS-fed jobsStore.
@@ -627,13 +630,13 @@ function confirmCommand(server, verb) {
 // surfaces on `servers` (server.patch) when the install job settles.
 function installServer(cfg) {
   const hostId = (cfg && cfg.hostId) || (hostsStore.getState().list[0] || {}).id || null;
-  const client = (hostId && api.host) ? api.host(hostId) : api;
+  if (!hostId) return Promise.reject(new Error("installServer: hostId required"));
   const body = { blueprint: cfg.game.id, name: cfg.name, origin: "ui" };
   // Only send a real, in-range port; the backend rejects out-of-range, and an empty
   // field must not become a fabricated 0. Omit it → kgsm keeps the blueprint default.
   const port = Number(cfg.port);
   if (Number.isInteger(port) && port >= 1 && port <= 65535) body.port = port;
-  return client.post("/servers", body);
+  return api.host(hostId).post("/servers", body);
 }
 
 // ---- Selected host (GLOBAL scope) --------------------------------------
@@ -739,30 +742,22 @@ const AUDIT_CAP = 1000;    // initial-walk ceiling: auto-completes a typical per
                            //   log (→ search is honest over the whole loaded set); a
                            //   larger log stops here and discloses + offers "load older".
 let _auditGen = 0;         // bumped by refresh() → invalidates an in-flight loadMore
-// Which host this single-host walk reads. The sole/selected connection's id, so
-// the call routes through that host's AUTH-GATED client (api.host(id)) — the bare
-// api.get bypasses the per-host bearer + ensure()/401-retry, which under an
-// auth-enabled backend means an unauthenticated 401 and an empty log on cold boot
-// (the live WS still authenticates, so streamed appends appear but the backfill
-// never does). At boot selectedHost is "all" (hosts not hydrated yet) → fall back
-// to the lone connection. Null only for an id-less seed, where there's no bearer
-// to attach anyway → plain api.get (matches the multi-host fanOut: id ? scoped : bare).
-const _auditHostId = () => {
-  const sel = selectedHostStore.getState().id;
-  if (sel && sel !== "all") return sel;
-  const c = CONNECTIONS[0];
-  return c && c.id ? c.id : null;
-};
+// One keyset page via fanOut: auth-gated per-host bearer runs for each connection
+// (same as every other multi-host read). For N=1, nextCursor from the single host
+// is preserved so the cursor walk works as before. For N>1, the multi-host branch
+// in auditStore.refresh already handles fan-out and sets nextCursor=null, so
+// _fetchAuditPage is only called with N≤1 (single-host walk and loadMore).
 const _fetchAuditPage = (cursor, params) => {
   const qs = new URLSearchParams({ limit: String(AUDIT_BATCH) });
   if (cursor) qs.set("cursor", cursor);
   for (const k in (params || {})) { const v = params[k]; if (v != null && v !== "") qs.set(k, v); }
-  const id = _auditHostId();
-  const client = id ? api.host(id) : api;   // auth-gated when we know the host id
-  return client.get("/audit?" + qs.toString()).then(page => ({
-    rows: ((page && page.rows) || []).map(_withHost),
-    nextCursor: (page && page.nextCursor) || null,
-  }));
+  return api.fanOut("/audit?" + qs.toString()).then(results => {
+    const ok = results.filter(r => r.ok);
+    const rows = merge.mergeAuditRows(ok.flatMap(r => ((r.data && r.data.rows) || []).map(_withHost)));
+    // nextCursor is only meaningful for a single-host response (cross-host cursors don't share keyspace)
+    const nextCursor = ok.length === 1 ? ((ok[0].data && ok[0].data.nextCursor) || null) : null;
+    return { rows, nextCursor };
+  });
 };
 
 // Re-fetch the log (status → loading → ready/error). The audit page reads
@@ -974,9 +969,9 @@ servicesStore.applyRow = (hostId, row) => {
 // WS (for the capability-gated leaves), flipping the capability-gated UI live; this just keeps the board's
 // own provisioned chip in lock-step without waiting for a refetch. Returns the adapted row.
 function setLeafProvisioned(hostId, leaf, connected) {
-  const client = (hostId && api.host) ? api.host(hostId) : api;
+  if (!hostId) return Promise.reject(new Error("setLeafProvisioned: hostId required"));
   const action = connected ? "connect" : "disconnect";
-  return client.post("/hosts/" + hostId + "/services/" + leaf + "/" + action).then(raw => {
+  return api.host(hostId).post("/hosts/" + hostId + "/services/" + leaf + "/" + action).then(raw => {
     const row = adaptService(raw);
     if (row && row.id) servicesStore.applyRow(hostId, row);
     return row;
@@ -986,16 +981,14 @@ function setLeafProvisioned(hostId, leaf, connected) {
 // host-scoped so the per-host bearer rides. Returns the adapted LeafConfig (or null).
 function fetchLeafConfig(hostId, leaf) {
   if (!hostId || !leaf) return Promise.resolve(null);
-  const client = api.host ? api.host(hostId) : api;
-  return client.get("/hosts/" + hostId + "/services/" + leaf + "/config");
+  return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/config");
 }
 // Apply a config change (PUT .../{leaf}/config { values, reset }) → LeafConfigApplyResult. PUT returns a raw
 // body (no auto-adapt) → adaptLeafConfigApply it. The caller renders the outcome HONESTLY (a rolled_back is
 // not a success — the value didn't stick) and re-reads the form from result.config.
 function applyLeafConfig(hostId, leaf, body) {
-  if (!hostId || !leaf) return Promise.resolve(null);
-  const client = api.host ? api.host(hostId) : api;
-  return client.put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
+  if (!hostId || !leaf) return Promise.reject(new Error("applyLeafConfig: hostId required"));
+  return api.host(hostId).put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
 }
 
 // ---- Game library (installable catalog) ---------------------------------
@@ -1158,7 +1151,10 @@ try {
 } catch (e) {}
 
 // ---- Settings (Phase 0: auto_update toggle + delete) --------------------
-const _settingsClient = (hostId) => ((hostId && api.host) ? api.host(hostId) : api);
+const _settingsClient = (hostId) => {
+  if (!hostId) throw new Error("_settingsClient: hostId required");
+  return api.host(hostId);
+};
 
 function fetchSettings(hostId, serverId) {
   return _settingsClient(hostId).get("/servers/" + serverId + "/settings");
