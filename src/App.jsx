@@ -759,18 +759,25 @@ function App() {
   };
 
   const confirmInstall = (cfg) => {
-    // Install for real (POST /servers → 202 { job }; kgsm assigns the id and
-    // runs the download off-request). We do NOT fabricate a server row — the new
-    // instance surfaces on the `servers` channel (server.patch) when the install
-    // job settles, which can take a while for a large download. Close the modal and
-    // land on the roster; the server appears there when it's ready. (Per-instance
-    // install progress isn't shown yet — the job's serverId isn't in the roster
-    // until the server exists, so its `jobs` ticks have nothing to attach to.)
-    installServer(cfg).then(() => {
+    // POST /servers → 202 { job }. Seed a phantom card immediately so the user
+    // sees progress before kgsm finishes (which can take minutes for large games).
+    // The phantom lives in serversStore and is replaced in-place by server.patch
+    // SSE when the install completes. Other users see the phantom via job.patch SSE
+    // (the jobs subscriber handles that path reactively).
+    installServer(cfg).then((data) => {
+      const job = data && data.job;
+      if (job && job.serverId) {
+        serversStore.addPhantom(job.serverId, {
+          blueprint:   cfg.game.id,
+          cover:       cfg.game.cover  ?? null,
+          hero:        cfg.game.hero   ?? null,
+          displayName: cfg.game.name   ?? cfg.game.id,
+          hostId:      cfg.hostId      ?? null,
+        });
+      }
       setInstalling(null);
       setFirstRun(false);
       setRoute({ kind: "servers" });
-      serversStore.refresh().catch(() => {});
     }, err => {
       // 401 → re-auth that host; other failures (400 bad blueprint / 409 in-flight /
       // 503 engine absent) leave the modal open so the unfinished install stays visible.

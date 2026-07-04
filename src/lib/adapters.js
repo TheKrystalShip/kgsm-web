@@ -451,6 +451,41 @@ export function adaptJob(be) {
     verb: be.verb,
     state: JOB_TERMINAL[be.state] ? "done" : be.state,
     error: be.error ?? null,
+    phase: be.phase ?? null,       // install sub-phase: "preparing"|"downloading"|"deploying"
+    blueprint: be.blueprint ?? null, // carry through so SSE-driven phantom can look up cover art
+  };
+}
+
+// Build a phantom server row for an in-progress install. Injected into serversStore
+// immediately on POST /servers 202 (or reactively from job.patch SSE for other users),
+// flagged _phantom:true so the card renders its installing state instead of lifecycle actions.
+// Replaced in-place when the real server.patch SSE arrives after install completes.
+export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }) {
+  return {
+    id,
+    name: id,
+    hostId: hostId ?? null,
+    blueprint: blueprint ?? null,
+    runtime: null,
+    version: null,
+    game: displayName || blueprint || id,
+    cover: cover ?? null,
+    hero: hero ?? null,
+    status: "installing",
+    players: null,
+    uptime: null,
+    ip: null,
+    last_backup: null,
+    log: [],
+    cpu: null,
+    ram: null,
+    metrics: null,
+    network: null,
+    steamAppId: null,
+    clientSteamAppId: null,
+    isSteamAccountRequired: false,
+    job: { verb: "install", state: "queued", phase: null },
+    _phantom: true,
   };
 }
 

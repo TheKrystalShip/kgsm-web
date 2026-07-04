@@ -5,7 +5,7 @@ import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
-import { favoritesStore, hostsStore, useIsFavorite } from "../lib/stores.js";
+import { favoritesStore, hostsStore, serversStore, useIsFavorite } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 
 // ServerCard — the reusable game-server tile (art header, live metrics,
@@ -13,7 +13,48 @@ import { artBg } from "../lib/art.js";
 // servers only) and the dedicated Servers page (all servers, filterable), so
 // a card looks and behaves identically wherever it appears.
 
+const INSTALL_PHASE_LABEL = {
+  preparing:   "Preparing…",
+  downloading: "Downloading…",
+  deploying:   "Deploying…",
+};
+
+function ServerPhantomTile({ server }) {
+  const art = artBg(server.hero, server.cover);
+  const isFailed = server.status === "install-failed";
+  const phaseText = isFailed ? "Failed"
+    : (INSTALL_PHASE_LABEL[server.job?.phase]
+        || (server.job?.state === "queued" ? "Queued…" : "Installing…"));
+
+  return (
+    <div className="server-tile server-tile--phantom">
+      <div className="server-tile__art" style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <span className="server-tile__game">{server.blueprint || server.game}</span>
+      </div>
+      <div className="server-tile__body">
+        <div className="server-tile__head">
+          <div className="server-tile__name">{server.name}</div>
+          <span className={"server-tile__pill server-tile__pill--" + (isFailed ? "install-failed" : "installing")}>
+            <span className="dot"></span>
+            {phaseText}
+          </span>
+        </div>
+        {!isFailed && <div className="server-tile__progress" />}
+        {isFailed && (
+          <button
+            type="button"
+            className="server-tile__dismiss"
+            onClick={() => serversStore.remove(server.id)}>
+            Dismiss
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ServerTile({ server, onOpen, onAction, showHost }) {
+  if (server._phantom) return <ServerPhantomTile server={server} />;
   // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone).
   // Prefers landscape hero, then portrait cover, then themed gradient placeholder.
   const art = artBg(server.hero, server.cover);

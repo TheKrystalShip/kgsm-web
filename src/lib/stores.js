@@ -1,4 +1,4 @@
-import { adaptServerMetrics, adaptService, adaptLeafConfigApply } from "./adapters.js";
+import { adaptPhantom, adaptServerMetrics, adaptService, adaptLeafConfigApply } from "./adapters.js";
 import { api, realtimeStore } from "./apiClient.js";
 import { CONNECTIONS, reconcileConnectionId } from "./config.js";
 import * as merge from "./merge.js";
@@ -32,6 +32,14 @@ serversStore.add = (server) =>
   serversStore.setState(s => ({ ...s, list: [...s.list, server] }));
 serversStore.find = (id) =>
   serversStore.getState().list.find(x => x.id === id) || null;
+serversStore.remove = (id) =>
+  serversStore.setState(s => ({ ...s, list: s.list.filter(x => x.id !== id) }));
+// Inject a phantom install-in-progress row. No-ops if the id already exists
+// (real server beat the phantom, or the initiating user triggered twice).
+serversStore.addPhantom = (id, { blueprint, cover, hero, displayName, hostId } = {}) => {
+  if (serversStore.find(id)) return;
+  serversStore.add(adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }));
+};
 // Manual re-fetch of the authoritative server list. Game servers stay live on
 // their own via the `servers` WebSocket channel below, but a server registered
 // directly in the backend won't surface until the next push — so the Servers
@@ -59,9 +67,14 @@ serversStore.refresh = () => {
           // address). The fresh list element has no `network`, so without this a
           // rehydrate (every WS reopen) would wipe it → the hero connect address
           // flips back to "—". Detail-fetched-once, survives every list refresh.
-          return c ? { ...srv, status: c.status, uptime: c.uptime, job: c.job, network: c.network } : srv;
+          // Don't copy status from a phantom — the real backend data should win.
+          if (!c || c._phantom) return srv;
+          return { ...srv, status: c.status, uptime: c.uptime, job: c.job, network: c.network };
         });
-        return { ...s, list: next, status: "ready", error: null, everLoaded: true };
+        // Re-attach any phantom installs not yet in the backend list so they survive
+        // manual refreshes. They'll be replaced in-place when server.patch arrives.
+        const phantoms = s.list.filter(x => x._phantom && !next.some(r => r.id === x.id));
+        return { ...s, list: [...next, ...phantoms], status: "ready", error: null, everLoaded: true };
       });
       resolveGameNames();   // a refetch re-pulls `game` as the blueprint id → re-resolve
       return list;
@@ -130,14 +143,44 @@ jobsStore.get = (id) => (id ? jobsStore.getState().byId[id] || null : null);
 
 // Track the in-flight command per server from the `jobs` channel, so action
 // buttons can show progress (spinner) and lock siblings until it completes.
+// Install jobs also drive phantom card creation and phase updates for ALL
+// connected users (not just the one who initiated — the API broadcasts to everyone).
 api.stream.subscribe(["jobs"], (m) => {
   // The `jobs` channel pushes `job.patch` (adaptJob collapses the API's
   // succeeded|failed terminal states to "done"). `job` is accepted too for the
   // raw test-injection path.
   if ((m.type === "job" || m.type === "job.patch") && m.data) {
     jobsStore.upsert(m.data);              // retain by id for command-verify correlation
-    const { serverId, verb, state } = m.data;
-    serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
+    const { serverId, verb, state, phase, blueprint } = m.data;
+
+    if (verb === "install") {
+      // Create phantom for any user who doesn't have the server yet (multi-user
+      // broadcast path, or the job appeared before the local 202 resolved).
+      if (state !== "done" && !serversStore.find(serverId)) {
+        const lib = libraryStore.getState().list || [];
+        const gameEntry = blueprint ? lib.find(g => g.id === blueprint) : null;
+        serversStore.addPhantom(serverId, {
+          blueprint,
+          cover:       gameEntry?.cover ?? null,
+          hero:        gameEntry?.hero  ?? null,
+          displayName: gameEntry?.name  ?? blueprint,
+          hostId:      hostsStore.getState().list[0]?.id ?? null,
+        });
+      }
+      if (state === "done") {
+        if (m.data.error) {
+          // Failed install: keep phantom visible with a failed state so the user
+          // knows what happened; they can dismiss it.
+          serversStore.patch(serverId, { status: "install-failed", job: null });
+        }
+        // Success: leave the phantom in place — server.patch SSE will arrive
+        // shortly and the upsert path in the `servers` subscriber replaces it.
+      } else {
+        serversStore.patch(serverId, { job: { verb, state, phase: phase ?? null } });
+      }
+    } else {
+      serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
+    }
   }
 });
 

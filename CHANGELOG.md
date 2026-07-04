@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.3.0)
+- Phantom install card: when a new game server install starts, a dashed card appears in the
+  fleet immediately showing install progress. The pill text updates through "Preparing…",
+  "Downloading…", and "Deploying…" phases as kgsm emits events. All connected users see the
+  phantom — the card is driven by `job.patch` SSE, not just by the user who initiated the install.
+- On install failure the card switches to a red "Failed" pill with a Dismiss button.
+- The phantom is replaced in-place by the real server card when install completes.
+
 ### Added
 - Crash-policy rows in the Startup & recovery card: "Restart on crash" toggle and
   "Max consecutive restarts" select (shown only when restart-on-crash is on).
