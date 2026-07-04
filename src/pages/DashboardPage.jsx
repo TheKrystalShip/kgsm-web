@@ -95,7 +95,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   // first, then updating (needs watching), then offline last. "View all" opens
   // the full Servers page.
   const SERVER_STATUS_RANK = { online: 0, updating: 1, offline: 2 };
-  const favIds = favoritesStore ? useStore(favoritesStore, s => s.ids) : [];
+  const favIds = useStore(favoritesStore, s => s.ids);
   const favSet = React.useMemo(() => new Set(favIds), [favIds]);
   const featuredServers = React.useMemo(() => {
     return [...servers].sort((a, b) => {

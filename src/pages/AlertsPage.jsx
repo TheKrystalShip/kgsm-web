@@ -44,7 +44,7 @@ function AlertsSection({ title, subtitle, icon, items, defaultOpen, onAsk, onOpe
 
 function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServerId }) {
   useAlerts();
-  const selectedId = useSelectedHostId ? useSelectedHostId() : "all";
+  const selectedId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [query, setQuery] = React.useState("");
   const [sev, setSev] = React.useState("all");

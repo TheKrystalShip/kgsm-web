@@ -71,7 +71,7 @@ function alertBuckets(hostId, serverId) {
 // server's alerts, ignoring the host scope entirely.
 function NeedsAttention({ onPick, actionLabel = "Ask", onViewAll, className = "", max = Infinity, emptyState = false, hostId, serverId, title = "Alerts" }) {
   useAlerts();
-  const selectedId = useSelectedHostId ? useSelectedHostId() : "all";
+  const selectedId = useSelectedHostId();
   const scopeId = hostId != null ? hostId : selectedId;
   const [hidden, setHidden] = React.useState(false);
   const { active } = alertBuckets(scopeId, serverId);

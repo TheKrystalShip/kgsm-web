@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.4.4)
+- ESLint gate (`npm run lint`, ESLint 9 flat config in `eslint.config.js`).
+  Deliberately narrow: `no-undef` and `react-hooks/rules-of-hooks` are **errors**
+  (the two static bug classes the build silently passed in v1.4.3);
+  `react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a tracked
+  backlog). No typecheck or unit-test runner is added.
+
+### Fixed (v1.4.4)
+- Fixed 7 `rules-of-hooks` violations the new gate flagged, all the same vestigial
+  `useHook ? useHook() : fallback` / `if (useHook) useHook()` guard pattern left over
+  from the prototype's window-globals era (the imported hooks are always defined).
+  Sites: `NeedsAttention`, `AlertsPage`, `Toolbar` (`useFilters`), `DashboardPage`,
+  `DiagnosticsPage`, `ServerDetailPage`. In `ServerCard`, `useIsFavorite` was called
+  *after* the phantom-tile early return — hoisted it above the return so hook order
+  is stable regardless of `server._phantom`.
+
 ### Fixed (v1.4.3)
 - Follow-up to the architecture-cleanup refactor: fixed regressions the extraction
   introduced.

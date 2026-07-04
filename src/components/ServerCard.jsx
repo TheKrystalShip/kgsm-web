@@ -62,15 +62,16 @@ function ServerPhantomTile({ server }) {
 }
 
 function ServerTile({ server, onOpen, onAction, showHost }) {
+  // Pin state (client-local). The star both reads and writes the favorites
+  // store; toggling it mirrors the card into the pinned Favorites section on the
+  // Servers page without moving it out of its host group. Read before any early
+  // return so the hook order is stable (Rules of Hooks).
+  const isFav = useIsFavorite(server.id);
   if (server._phantom) return <ServerPhantomTile server={server} />;
   // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone).
   // Prefers landscape hero, then portrait cover, then themed gradient placeholder.
   const art = artBg(server.hero, server.cover);
   const host = showHost && hostsStore ? hostsStore.find(server.hostId) : null;
-  // Pin state (client-local). The star both reads and writes the favorites
-  // store; toggling it mirrors the card into the pinned Favorites section on the
-  // Servers page without moving it out of its host group.
-  const isFav = useIsFavorite ? useIsFavorite(server.id) : false;
 
   const isOnline = server.status === "online";
   const isUpdating = server.status === "updating";

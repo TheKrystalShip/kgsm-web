@@ -1,12 +1,13 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.4.4",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "eslint src",
     "preview": "vite preview",
     "deploy:prod": "bash scripts/deploy-prod.sh",
     "smoke": "node scripts/smoke-live.mjs"
@@ -19,7 +20,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "vite": "^6.0.5"
   }

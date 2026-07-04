@@ -28,7 +28,7 @@ import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
 function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit }) {
-  if (useAlerts) useAlerts();
+  useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
   const servers = useStore(serversStore, s => s.list);

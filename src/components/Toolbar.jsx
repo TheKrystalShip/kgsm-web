@@ -282,7 +282,7 @@ function useFilters(defaults = {}, { debounce = 250 } = {}) {
   const { search = "", ...rest } = defaults;
   const [query, setQuery] = React.useState(search);
   const [values, setValues] = React.useState(rest);
-  const debouncedQuery = useDebouncedValue ? useDebouncedValue(query, debounce) : query;
+  const debouncedQuery = useDebouncedValue(query, debounce);
   const searchPending = query.trim() !== debouncedQuery.trim();
   const set = React.useCallback((key, val) => setValues(v => ({ ...v, [key]: val })), []);
   const reset = React.useCallback(() => { setQuery(search); setValues(rest); }, []); // eslint-disable-line

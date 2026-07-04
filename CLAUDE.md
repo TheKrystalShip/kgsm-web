@@ -30,14 +30,19 @@ sudo); the bundle is live the moment the files land. Reserve the full
 `kgsm-api/deploy/deploy.sh` (which bounces the systemd unit) for **API code**
 changes — it also re-bundles the SPA.
 
-**There is no lint, typecheck, or unit-test runner** — don't hunt for `npm run
-lint`/`test`. The only automated check is `scripts/smoke-live.mjs` (`npm run
-smoke`): it writes a temporary `.env.local` with `VITE_API_BASE`, boots the real
-Vite module graph in jsdom against a RUNNING kgsm-api, and asserts real backend
-data renders without crashing. It expects an **auth-disabled** backend
-(unauthenticated reads + tier=admin from `/me`). After any data-layer or route
-change, run `npm run build` (the only mechanical check that no import dangles) and
-`npm run smoke` against a live api.
+**There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** —
+don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)
+is deliberately NARROW: `no-undef` and `react-hooks/rules-of-hooks` are **errors**
+(these are the static bug classes the build silently passed — see CHANGELOG v1.4.3:
+a component used-but-not-imported, and a hook called after an early return);
+`react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a real backlog
+to work down, not a wall). Keep errors at zero. The other automated check is
+`scripts/smoke-live.mjs` (`npm run smoke`): it writes a temporary `.env.local` with
+`VITE_API_BASE`, boots the real Vite module graph in jsdom against a RUNNING
+kgsm-api, and asserts real backend data renders without crashing. It expects an
+**auth-disabled** backend (unauthenticated reads + tier=admin from `/me`). After any
+data-layer or route change, run `npm run lint` (0 errors), `npm run build` (no
+import dangles), and `npm run smoke` against a live api.
 
 **For VISUAL / layout testing (smoke is jsdom — it does NOT lay out CSS), use the
 permanent headless-browser harness at `/home/heisen/tks/scripts/visual-harness/`**

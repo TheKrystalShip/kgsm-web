@@ -18,7 +18,7 @@ import { PlayersTab } from "./PlayersTab.jsx";
 import { ServerSettings } from "./ServerSettings.jsx";
 
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit, onDeleted }) {
-  if (useAlerts) useAlerts();
+  useAlerts();
   // Pull this server's DETAIL superset on entry — specifically the `network` block
   // (required ports), which the list/stream omit. It's what gives the connect
   // address its port (ServerConnect → serverJoin); merged onto the cached row so the
