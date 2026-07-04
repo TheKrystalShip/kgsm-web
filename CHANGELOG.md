@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.3)
+- Follow-up to the architecture-cleanup refactor: fixed regressions the extraction
+  introduced.
+  - `ServerDetailPage` referenced `RecentActivity` without importing it — an
+    undeclared identifier that threw `ReferenceError` (caught by the ErrorBoundary)
+    whenever an operator opened a server's Overview tab. Added the missing import.
+  - The assistant dock's "pin" toggle was a no-op: `App` kept a dead local
+    `manualPin` state and wired `onTogglePin` to it, while the real pin state
+    (driving `effPush`/`pushingPanel`) lived in `AssistantDockContext`. Removed the
+    dead state; the toggle now uses the context's `setManualPin`.
+  - `App` cleared stored auth and returned `<LoginPage />` mid-render (a render-phase
+    side effect) above ~20 hook calls (a Rules-of-Hooks hazard). Moved the `?auth=out`
+    handling into the top-level `user` state initializer; the null-user case is now
+    handled by the existing post-hooks guard.
+  - `AssistantDockContext`'s context-value `useMemo` never actually memoized — two
+    derived host-list arrays were rebuilt every render and used as deps, so every
+    consumer re-rendered on every provider render. Memoized the lists (and
+    `dockResize`) and completed the dependency array; the value is now stable on a
+    no-op render.
+
 ### Fixed (v1.4.2)
 - Auth pipeline hardened across the board: `api.host(null/undefined)` now throws
   immediately rather than silently building a broken unauthenticated client. Every

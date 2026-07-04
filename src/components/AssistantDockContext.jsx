@@ -47,7 +47,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
   });
 
   // ===== Functions =====
-  const dockResize = (e) => {
+  const dockResize = React.useCallback((e) => {
     e.preventDefault();
     const startX = e.clientX;
     const startW = dockWidth;
@@ -66,7 +66,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     e.currentTarget.classList.add("assistant-dock__resize--active");
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
-  };
+  }, [dockWidth]);
 
   const handleAssistantNavigate = React.useCallback((target) => {
     if (!target) return;
@@ -119,8 +119,14 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
   }, [manualPin]);
 
   // Per-host assistant capability
-  const assistantHostList = assistantHostsAll ? assistantHostsAll(hosts) : (assistantHosts ? assistantHosts(hosts) : []);
-  const usableAssistants = assistantHosts ? assistantHosts(hosts) : [];
+  const assistantHostList = React.useMemo(
+    () => (assistantHostsAll ? assistantHostsAll(hosts) : (assistantHosts ? assistantHosts(hosts) : [])),
+    [hosts]
+  );
+  const usableAssistants = React.useMemo(
+    () => (assistantHosts ? assistantHosts(hosts) : []),
+    [hosts]
+  );
   const assistantHost = hosts.find(h => h.id === assistantHostId) || usableAssistants[0] || assistantHostList[0] || null;
 
   React.useEffect(() => {
@@ -168,9 +174,15 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     dockResize, handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, openAssistant,
   }), [
-    assistantOpen, assistantSeed, manualPin, vw, assistantHostId, dockWidth,
+    assistantOpen, setAssistantOpen,
+    assistantSeed, setAssistantSeed,
+    manualPin, setManualPin,
+    vw, assistantHostId, setAssistantHostId,
+    dockWidth, setDockWidth,
     desktop, canPush, effPush, pushingPanel, railMode,
-    assistantHostList, assistantHost,
+    assistantHostList, usableAssistants, assistantHost,
+    dockResize, handleAssistantNavigate, openView,
+    askAssistant, askAboutAlert, openAssistant,
   ]);
 
   return (

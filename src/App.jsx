@@ -33,7 +33,11 @@ import { AppRouter } from "./components/AppRouter.jsx";
 // via useAssistantDock() throughout the tree.
 
 function App() {
-  const [user, setUser] = React.useState(() => readStoredUser());
+  const [user, setUser] = React.useState(() => {
+    const forcedOut = new URLSearchParams(window.location.search).get("auth") === "out";
+    if (forcedOut) { writeStoredUser(null); return null; }
+    return readStoredUser();
+  });
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [route, setRouteRaw] = React.useState(() => resolveRoute({ kind: "home" }));
@@ -53,13 +57,12 @@ function AppInner({ user, setUser, route, setRoute }) {
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    askAssistant, askAboutAlert, openAssistant, openView, handleAssistantNavigate } = dock;
+    askAssistant, askAboutAlert, openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
 
   // --- Auth ---
   const qp = new URLSearchParams(window.location.search);
-  const forcedOut = qp.get("auth") === "out";
   const forcedFirstRun = qp.has("first-run");
 
   const firstRun = React.useRef(forcedFirstRun || !!sessionStorage.getItem("krystal:first-run"));
@@ -81,8 +84,6 @@ function AppInner({ user, setUser, route, setRoute }) {
     if (user && user.hostId) sessionStore.forget(user.hostId);
     window.location.reload();
   }, [user]);
-
-  if (forcedOut && user) { writeStoredUser(null); return <LoginPage />; }
 
   // --- Data stores ---
   const servers = useStore(serversStore, s => s.list);
@@ -118,7 +119,6 @@ function AppInner({ user, setUser, route, setRoute }) {
     initialRoute.kind !== "home" || firstRun.current
   );
   const landedDefaultRef = React.useRef(initialRoute.kind === "home" && !firstRun.current);
-  const [manualPin, setManualPin] = React.useState(null);
 
   useRouteSync(route, setRoute, landingResolved);
 

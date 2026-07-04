@@ -5,6 +5,7 @@ import { DashBandList, loadBandOrder, saveBandOrder } from "../components/DashLa
 import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
+import { RecentActivity } from "../components/RecentActivity.jsx";
 import { ServerHero } from "../components/ServerHero.jsx";
 import { ServerNotice } from "../components/ServerNotice.jsx";
 import { StatTiles } from "../components/StatTiles.jsx";
