@@ -231,8 +231,7 @@
 .server-tile__quick button:disabled { opacity: 0.4; cursor: not-allowed; }
 .server-tile__quick button:disabled:hover { color: var(--fg-2); border-color: var(--border-subtle); }
 /* Phantom install card */
-.server-tile--phantom { border-style: dashed; border-color: var(--border-strong); }
-.server-tile--phantom:hover { border-color: var(--warning); border-style: dashed; }
+.server-tile--phantom { border-style: dashed; border-color: var(--warning); }
 .server-tile__progress { height: 3px; background: var(--border-subtle); border-radius: 2px; overflow: hidden; position: relative; }
 .server-tile__progress::after { content: ""; position: absolute; top: 0; height: 100%; width: 40%; background: var(--warning); border-radius: 2px; animation: kr-install-slide 1.6s ease-in-out infinite; }
 @keyframes kr-install-slide { 0% { left: -40%; } 100% { left: 110%; } }
