@@ -112,6 +112,13 @@ api.stream.subscribe(["servers"], (m) => {
     // directly on the backend surfaces here without waiting for a manual refresh).
     if (serversStore.find(m.data.id)) {
       const { id, ...patch } = m.data;
+      const existing = serversStore.find(id);
+      // While an uninstall is in flight the backend's verify step may publish a
+      // server.patch before server.removed (roster not yet flushed). Applying it
+      // would clear _phantom and briefly show a normal card before removal. Skip
+      // the patch entirely — server.removed is the only thing that should change
+      // the card state from here.
+      if (existing?._phantom && existing?.job?.verb === "uninstall") return;
       // Explicitly clear _phantom and job so a phantom install card transitions
       // to a real server card when server.patch arrives — adaptServer never
       // emits these keys, so a plain spread-merge would leave _phantom:true
