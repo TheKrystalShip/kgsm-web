@@ -112,7 +112,11 @@ api.stream.subscribe(["servers"], (m) => {
     // directly on the backend surfaces here without waiting for a manual refresh).
     if (serversStore.find(m.data.id)) {
       const { id, ...patch } = m.data;
-      serversStore.patch(id, patch);
+      // Explicitly clear _phantom and job so a phantom install card transitions
+      // to a real server card when server.patch arrives — adaptServer never
+      // emits these keys, so a plain spread-merge would leave _phantom:true
+      // in place and the card would stay stuck as a phantom install tile.
+      serversStore.patch(id, { ...patch, _phantom: false, job: null });
     } else {
       serversStore.add(m.data);
     }
