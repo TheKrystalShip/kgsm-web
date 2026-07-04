@@ -1,7 +1,6 @@
 // MobileNavToggle — slim handle pinned to the left edge on phones, matching
 // the swipe gesture position.
 
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 function MobileNavToggle({ onOpen }) {

@@ -76,7 +76,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       sessionStorage.setItem(TOKEN_PREFIX + id, JSON.stringify({
         status: r.status, tier: r.tier || null, token: r.token || null,
       }));
-    } catch (e) {}
+    } catch {}
   }
   function readSession(id) {
     try {
@@ -86,24 +86,24 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       // A persisted live session reads back live and heals reactively on first 401.
       // No lapsed-token expiry flip — the API is the authority.
       return r;
-    } catch (e) { return null; }
+    } catch { return null; }
   }
-  function forgetSession(id) { try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch (e) {} forgetRefresh(id); }
+  function forgetSession(id) { try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch {} forgetRefresh(id); }
 
   // ---- refresh token (localStorage — survives a browser close) -----------
   // The long-lived credential. Stored ONLY here (never in the sessionStorage
   // record's persisted shape), read by rotate() to exchange for an access token.
   function writeRefresh(id, token) {
-    try { if (token) localStorage.setItem(REFRESH_PREFIX + id, token); else localStorage.removeItem(REFRESH_PREFIX + id); } catch (e) {}
+    try { if (token) localStorage.setItem(REFRESH_PREFIX + id, token); else localStorage.removeItem(REFRESH_PREFIX + id); } catch {}
   }
-  function readRefresh(id) { try { return localStorage.getItem(REFRESH_PREFIX + id) || null; } catch (e) { return null; } }
-  function forgetRefresh(id) { try { localStorage.removeItem(REFRESH_PREFIX + id); } catch (e) {} }
+  function readRefresh(id) { try { return localStorage.getItem(REFRESH_PREFIX + id) || null; } catch { return null; } }
+  function forgetRefresh(id) { try { localStorage.removeItem(REFRESH_PREFIX + id); } catch {} }
 
   // ---- host URL registry (localStorage, URLs only) -----------------------
   function readRegistry() {
-    try { return JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]"); } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]"); } catch { return []; }
   }
-  function writeRegistry(list) { try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch (e) {} }
+  function writeRegistry(list) { try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch {} }
   function register(host) {
     // The registry stores the CONNECTION ORIGIN we actually reach this host at — an
     // explicit url if the caller has one, else the origin we're ALREADY talking to it
@@ -254,8 +254,8 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     Object.keys(store.getState().byHost).forEach(forgetSession);
     writeRegistry([]);
     store.setState({ byHost: {} });
-    if (hostsStore) hostsStore.setState(s => ({ ...s, list: [] }));
-    if (selectedHostStore) selectedHostStore.set("all");
+    hostsStore.setState(s => ({ ...s, list: [] }));
+    selectedHostStore.set("all");
   }
   // Sign out: drop EVERY per-host credential (access in sessionStorage + the long-lived
   // refresh token in localStorage) so a reload can't silently rotate back in — but KEEP
@@ -279,7 +279,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     // BEFORE the GET /hosts round-trip lands, so a same-origin reload restores its access
     // token + tier IMMEDIATELY (no Viewer flash / no doomed unauthenticated call).
     const ids = new Set([
-      ...((hostsStore && hostsStore.getState().list) || []).map(h => h && h.id),
+      ...(hostsStore.getState().list || []).map(h => h && h.id),
       ...readRegistry().map(h => h && h.id),
     ].filter(Boolean));
     const live = {};
@@ -315,14 +315,12 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // async, so seed() runs before the host exists — without this the gated surfaces would
   // stay at tier `none` and redirect to the viewer home. Idempotent: only hosts with no
   // session are authorized (authorize flips status off `none` synchronously).
-  if (hostsStore) {
-    const bootstrapNewHosts = () => {
-      (hostsStore.getState().list || []).forEach(h => {
-        if (statusOf(h.id) === "none") { register(h); authorize(h.id); }
-      });
-    };
-    hostsStore.subscribe(bootstrapNewHosts);
-    bootstrapNewHosts();
-  }
+  const bootstrapNewHosts = () => {
+    (hostsStore.getState().list || []).forEach(h => {
+      if (statusOf(h.id) === "none") { register(h); authorize(h.id); }
+    });
+  };
+  hostsStore.subscribe(bootstrapNewHosts);
+  bootstrapNewHosts();
 
 export { TIER_LABEL, sessionStore };

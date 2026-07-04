@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { alertHost } from "./ContextualAlerts.jsx";
 import { askAssistantUsable } from "../lib/capabilities.js";
@@ -17,11 +16,11 @@ function AlertCard({ item, onAsk, onOpenServer, onOpenHost, onOpenAudit, now }) 
   const resolved = item.status === "resolved";
   const sys = item.resolution && item.resolution.by === "system";
   const stamp = resolved ? item.resolvedAt : item.raisedAt;
-  const when = (parseTs && fmtRelative && stamp)
+  const when = stamp
     ? fmtRelative(parseTs(stamp), now)
     : null;
-  const hostId = alertHost ? alertHost(item) : null;
-  const host = hostId && hostsStore ? hostsStore.find(hostId) : null;
+  const hostId = alertHost(item);
+  const host = hostId ? hostsStore.find(hostId) : null;
 
   return (
     <div className={"alert-card alert-card--" + item.severity
@@ -74,9 +73,9 @@ function AlertCard({ item, onAsk, onOpenServer, onOpenHost, onOpenAudit, now }) 
       {!resolved && (
         <div className="alert-card__actions">
           <button className="alert-btn alert-btn--primary"
-            disabled={askAssistantUsable && !askAssistantUsable(item)}
-            title={(askAssistantUsable && !askAssistantUsable(item)) ? "Assistant unavailable on this alert\u2019s host" : undefined}
-            onClick={() => { if (!askAssistantUsable || askAssistantUsable(item)) onAsk(item); }}><Icon name="bot" size={13} /> Ask assistant</button>
+            disabled={!askAssistantUsable(item)}
+            title={!askAssistantUsable(item) ? "Assistant unavailable on this alert\u2019s host" : undefined}
+            onClick={() => { if (askAssistantUsable(item)) onAsk(item); }}><Icon name="bot" size={13} /> Ask assistant</button>
           {item.serverId
             ? <button className="alert-btn" onClick={() => onOpenServer(item.serverId, item.anchor && item.anchor.tab)}><Icon name="external-link" size={13} /> Open server</button>
             : (hostId && onOpenHost && <button className="alert-btn" onClick={() => onOpenHost(hostId)}><Icon name="external-link" size={13} /> Open host</button>)}

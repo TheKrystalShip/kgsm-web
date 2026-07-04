@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { KrystalAlerts } from "../lib/alertsApi.js";
 import { serverHostId } from "../lib/stores.js";
@@ -15,7 +14,7 @@ import { AlertCard } from "./AlertCard.jsx";
 
 // Active, anchored alerts matching a predicate over (anchor, alert).
 function anchoredAlerts(match) {
-  const list = KrystalAlerts ? KrystalAlerts.list() : [];
+  const list = KrystalAlerts.list();
   return list.filter(a => a.status === "firing" && a.anchor && match(a.anchor, a));
 }
 
@@ -24,7 +23,7 @@ function anchoredAlerts(match) {
 // panel-wide (null) and shows under every scope — mirrors auditEventHost.
 function alertHost(a) {
   if (a && a.anchor && a.anchor.hostId) return a.anchor.hostId;
-  if (a && a.serverId && serverHostId) return serverHostId(a.serverId);
+  if (a && a.serverId) return serverHostId(a.serverId);
   return null;
 }
 function alertInScope(a, hostId) {
@@ -47,11 +46,9 @@ function alertsTone(items) {
 // a list, at the top of a section). `tether` adds a downward connector that
 // points at the row immediately below it.
 function InlineAlertCard({ item, onAsk, onOpenServer, now, tether }) {
-  const Card = AlertCard;
-  if (!Card) return null;
   return (
     <div className={"ctx-alert ctx-alert--" + item.severity + (tether ? " ctx-alert--tether" : "")}>
-      <Card item={item} onAsk={onAsk} onOpenServer={onOpenServer} now={now || new Date()} />
+      <AlertCard item={item} onAsk={onAsk} onOpenServer={onOpenServer} now={now || new Date()} />
     </div>
   );
 }

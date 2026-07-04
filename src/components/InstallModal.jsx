@@ -1,7 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
 import { Select } from "./Select.jsx";
-import { can } from "../lib/persona.js";
 import { artBg } from "../lib/art.js";
 import { fmtFootprintMb } from "../lib/formatting.js";
 import { offeringHosts } from "../lib/servers.js";
@@ -37,7 +36,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   // Only hosts that OFFER this blueprint can install it. Absent game.hosts =
   // every host offers it (the common case). The catalog is the union across
   // the fleet, so a game added by one host alone is installable only there.
-  const offered = offeringHosts ? offeringHosts(game, hosts) : hosts;
+  const offered = offeringHosts(game, hosts);
   const restricted = offered.length > 0 && offered.length < hosts.length;
   // Default to the requested host only if it actually offers the game.
   const initialHost = (offered.some(h => h.id === defaultHostId) ? defaultHostId : null)

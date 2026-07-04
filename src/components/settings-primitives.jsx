@@ -1,4 +1,3 @@
-import React from "react";
 import { BriefCard } from "./BriefCard.jsx";
 import { Icon } from "./Icon.jsx";
 

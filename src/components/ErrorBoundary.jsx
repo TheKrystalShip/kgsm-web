@@ -38,8 +38,8 @@ class ErrorBoundary extends React.Component {
     // Telemetry seam — console today, a backend error endpoint later (one line).
     try {
       console.error("[Krystal] UI crash caught by boundary:", error, info && info.componentStack);
-    } catch (e) {}
-    if (this.props.onError) { try { this.props.onError(error, info); } catch (e) {} }
+    } catch {}
+    if (this.props.onError) { try { this.props.onError(error, info); } catch {} }
   }
   componentDidUpdate(prev) {
     // Clearing on a changed resetKey lets navigation recover a crashed page

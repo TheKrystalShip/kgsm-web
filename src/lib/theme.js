@@ -27,7 +27,7 @@ function readPref() {
   try {
     const v = localStorage.getItem(THEME_KEY);
     return VALID.includes(v) ? v : DEFAULT;
-  } catch (e) { return DEFAULT; }
+  } catch { return DEFAULT; }
 }
 
 const prefersLight = () =>
@@ -51,7 +51,7 @@ function applyResolved(resolved) {
     const canvas = getComputedStyle(root).getPropertyValue("--canvas").trim();
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta && canvas) meta.setAttribute("content", canvas);
-  } catch (e) {}
+  } catch {}
 }
 
 const initialPref = readPref();
@@ -60,7 +60,7 @@ const themeStore = createStore({ pref: initialPref, resolved: resolveTheme(initi
 // Set + persist the preference, then apply it live. `pref` ∈ VALID.
 themeStore.set = (pref) => {
   if (!VALID.includes(pref) || pref === themeStore.getState().pref) return;
-  try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+  try { localStorage.setItem(THEME_KEY, pref); } catch {}
   const resolved = resolveTheme(pref);
   applyResolved(resolved);
   themeStore.setState({ pref, resolved });

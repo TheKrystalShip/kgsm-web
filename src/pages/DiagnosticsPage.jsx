@@ -7,17 +7,16 @@ import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
-import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
+import { useAlerts } from "../components/NeedsAttention.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { api } from "../lib/apiClient.js";
-import { statusTone, uptimeFrom } from "../lib/formatting.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, logSourcesStore, logsStore, selectedHostStore, serversStore, servicesStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 
 // Imports from extracted modules
-import { slugify, makeHostSkeleton, uptimeShort } from "./diagnostics/diagHelpers.js";
+import { makeHostSkeleton } from "./diagnostics/diagHelpers.js";
 import { FleetHostCard, HostEditorModal, RemoveHostDialog } from "./diagnostics/diagComponents.jsx";
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
 import { DiagResources } from "./diagnostics/DiagResources.jsx";
@@ -115,8 +114,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   }
 
   if (!focusHostId || !hosts.find(h => h.id === focusHostId)) {
-    const anchored = anchoredAlerts || (() => []);
-    const fleetAlerts = anchored(an => an.surface === "diagnostics");
+    const fleetAlerts = anchoredAlerts(an => an.surface === "diagnostics");
     const PAGE_SIZE = 25;
     const matched = hosts.filter(h =>
       !hostQ || (h.name + " " + h.hostname + " " + (h.region || "")).toLowerCase().includes(hostQ));
@@ -179,7 +177,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
               key={h.id}
               host={h}
               serverCount={countFor(h.id)}
-              alerts={anchored(an => an.surface === "diagnostics" && an.hostId === h.id)}
+              alerts={anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id)}
               isActive={activeId === h.id}
               onInspect={onFocusHost}
               menuProps={menuProps}
@@ -213,7 +211,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   const host = hosts.find(h => h.id === focusHostId);
   const isActive = activeId === host.id;
 
-  if (sessionStore && sessionStore.isDenied(host.id)) {
+  if (sessionStore.isDenied(host.id)) {
     return (
       <>
         <div className="diag-head-row">
@@ -264,10 +262,8 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
     );
   }
 
-  const hostAlerts = anchoredAlerts
-    ? anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === host.id)
-    : [];
-  const fresh = hostMetricsFreshness ? hostMetricsFreshness(host) : null;
+  const hostAlerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === host.id);
+  const fresh = hostMetricsFreshness(host);
   const resourceAlerts = hostAlerts.filter(a => a.anchor.tab === "resources");
   const serviceAlerts  = hostAlerts.filter(a => a.anchor.tab === "services");
   const badge = (items) => items.length ? { badge: items.length, badgeTone: alertsTone(items) } : {};

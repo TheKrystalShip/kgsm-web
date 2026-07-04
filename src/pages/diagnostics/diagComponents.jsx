@@ -237,7 +237,7 @@ function HostMenu({ host, isActive, onSetActive, onEdit, onToggle, onRemove }) {
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
   const act = (fn) => (e) => { e.stopPropagation(); setOpen(false); fn(); };
-  const canManage = canOn ? canOn("host.manage", host.id) : true;
+  const canManage = canOn("host.manage", host.id);
   return (
     <div className="host-menu" ref={ref} onClick={e => e.stopPropagation()}>
       <button className={"icon-btn" + (open ? " icon-btn--on" : "")} onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} title="Manage host" aria-label="Manage host">
@@ -278,7 +278,7 @@ function FleetHostCard({ host, serverCount, alerts, isActive, onInspect, menuPro
         {alerts.length > 0 && (
           <span className={"fleet-card__alerts fleet-card__alerts--" + alertTone}><Icon name="triangle-alert" size={11} strokeWidth={2.4} />{alerts.length}</span>
         )}
-        {denied && HostAuthBadge && <HostAuthBadge hostId={host.id} size="sm" />}
+        {denied && <HostAuthBadge hostId={host.id} size="sm" />}
         {host.online && !denied && <HostConnection hostId={host.id} />}
         <HostMenu host={host} isActive={isActive} {...menuProps} />
       </div>

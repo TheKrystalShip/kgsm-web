@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "../components/Icon.jsx";
 
 // ServerGate — the async-state gate for the server-detail route. `serverForRender`

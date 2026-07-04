@@ -9,7 +9,7 @@ function readStoredUser() {
     if (persisted) return JSON.parse(persisted);
     const sessioned = sessionStorage.getItem(AUTH_SS_KEY);
     if (sessioned) return JSON.parse(sessioned);
-  } catch (e) {}
+  } catch {}
   return null;
 }
 
@@ -20,7 +20,7 @@ function writeStoredUser(user) {
     if (!user) return;
     const target = user.stay ? localStorage : sessionStorage;
     target.setItem(user.stay ? AUTH_LS_KEY : AUTH_SS_KEY, JSON.stringify(user));
-  } catch (e) {}
+  } catch {}
 }
 
 export { readStoredUser, writeStoredUser };

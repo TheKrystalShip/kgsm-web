@@ -102,7 +102,7 @@ function _subscribeHostCapabilities(hostId) {
 function syncCapabilitySubscriptions() {
   const ids = new Set((hostsStore.getState().list || []).map(h => h && h.id).filter(Boolean));
   for (const id of ids) if (!_capSubs.has(id)) _capSubs.set(id, _subscribeHostCapabilities(id));
-  for (const [id, dispose] of _capSubs) if (!ids.has(id)) { try { dispose(); } catch (e) {} _capSubs.delete(id); }
+  for (const [id, dispose] of _capSubs) if (!ids.has(id)) { try { dispose(); } catch {} _capSubs.delete(id); }
 }
 hostsStore.subscribe(syncCapabilitySubscriptions);
 

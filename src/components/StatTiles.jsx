@@ -1,4 +1,3 @@
-import React from "react";
 import { KPI } from "./KPI.jsx";
 import { useStore } from "../lib/store.js";
 import { auditStore } from "../lib/stores.js";

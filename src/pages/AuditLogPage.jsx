@@ -96,7 +96,7 @@ function AuditEventRow({ ev, now, hosts }) {
   // ones already covered in the summary so we don't double-print.
   const metaEntries = Object.entries(ev.meta || {}).filter(([k]) => k !== "source");
   // Host provenance: explicit hostId / derived from server / null = panel-wide.
-  const hostId = auditEventHost ? auditEventHost(ev) : ev.hostId;
+  const hostId = auditEventHost(ev);
   const host = hostId ? (hosts || []).find(h => h.id === hostId) : null;
 
   return (
@@ -252,10 +252,6 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   }
 
   const categories = ["all", "server", "host", "player", "backup", "file", "settings", "auth", "discord"];
-  const ranges     = ["1h", "24h", "7d", "30d", "all"];
-
-  const resetFilters = () => { setQuery(""); setCat("all"); setActor("all"); setServer("all"); setRange("all"); setSeverity("all"); };
-  const filtersActive = query || category !== "all" || actor !== "all" || server !== "all" || range !== "all" || severity !== "all";
 
   // Per-option counts behind each filter dimension, computed off the host-scoped
   // event set so the popover shows how many events each choice would surface.

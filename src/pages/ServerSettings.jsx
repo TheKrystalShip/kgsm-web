@@ -1,11 +1,9 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { Select as KSelect } from "../components/Select.jsx";
+import { Select } from "../components/Select.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";
-import { canOn } from "../lib/persona.js";
 
 // Settings panel — for things that don't belong in raw config files.
 // Autostart, scheduled restarts, crash recovery, update policy, resource caps,
@@ -13,9 +11,9 @@ import { canOn } from "../lib/persona.js";
 
 function ServerSettings({ server, onDeleted }) {
   // watchdog capability check (unchanged — used by the watchdog-gated sections)
-  const watchdogDown = serverCapUsable ? !serverCapUsable(server, "watchdog") : false;
+  const watchdogDown = !serverCapUsable(server, "watchdog");
   // scheduler capability — the kgsm-scheduler leaf may not be deployed on this host.
-  const schedulerDown = serverCapUsable ? !serverCapUsable(server, "scheduler") : false;
+  const schedulerDown = !serverCapUsable(server, "scheduler");
 
   // ---- API-loaded settings state ----
   const [loadState, setLoadState] = React.useState("loading"); // "loading" | "ready" | "error"

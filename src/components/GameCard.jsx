@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
@@ -73,7 +72,7 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
   const isNew = !count && addedMs && (+now - addedMs) <= NEW_WINDOW_DAYS * 86400000;
   const installed = count > 0;
   const hostLabel = hostAvailabilityLabel(game, allHosts);
-  const canDeploy = !installed && !!onDeploy && can && can("server.create");
+  const canDeploy = !installed && !!onDeploy && can("server.create");
 
   return (
     <article
@@ -139,7 +138,7 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
         ) : (
           <span className="bp-card__cta">
             {(installed
-              ? (can && can("server.operate") ? "Manage" : "View")
+              ? (can("server.operate") ? "Manage" : "View")
               : "View")} <Icon name="arrow-right" size={13} strokeWidth={2.2} />
           </span>
         )}

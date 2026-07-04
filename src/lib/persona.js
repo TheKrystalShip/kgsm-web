@@ -1,4 +1,3 @@
-import React from "react";
 import { hostAddressOf } from "./config.js";
 import { sessionStore } from "./sessionStore.js";
 import { hostsStore } from "./stores.js";
@@ -84,7 +83,7 @@ import { hostsStore } from "./stores.js";
       if (p) return JSON.parse(p);
       var s = sessionStorage.getItem(AUTH_SS_KEY);
       if (s) return JSON.parse(s);
-    } catch (e) {}
+    } catch {}
     return null;
   }
   function personaOverride() {
@@ -93,11 +92,11 @@ import { hostsStore } from "./stores.js";
     return (o && ROLE_SET[o]) ? o : null; // "admin" | "operator" | "viewer" | null(auto)
   }
   function tierOf(hostId) {
-    try { return sessionStore ? sessionStore.tierOf(hostId) : null; }
-    catch (e) { return null; }
+    try { return sessionStore.tierOf(hostId); }
+    catch { return null; }
   }
   function getHosts() {
-    return (hostsStore && hostsStore.getState().list) || [];
+    return hostsStore.getState().list || [];
   }
 
   // ── roleOn — the effective role on one host (override-aware) ────────────────

@@ -153,7 +153,7 @@ function FileBrowser({ server }) {
     return v && v >= 160 && v <= 640 ? v : 260;
   });
   React.useEffect(() => {
-    try { localStorage.setItem("krystal:files:treeW", String(treeW)); } catch (e) { /* private mode */ }
+    try { localStorage.setItem("krystal:files:treeW", String(treeW)); } catch { /* private mode */ }
   }, [treeW]);
   const treeResize = (e) => {
     e.preventDefault();
@@ -181,7 +181,6 @@ function FileBrowser({ server }) {
     const cached = filesStore.entry(hostId, serverId);
     setDraft((cached && cached.open && cached.open.content) || "");
     setOpenIssue(null); setSaveError(null); setStaleReload(false); setExpanded(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId, hostId]);
 
   const dirty = !!open && draft !== open.content;

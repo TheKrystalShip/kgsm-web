@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { useStore } from "../lib/store.js";
 import { sessionStore, TIER_LABEL } from "../lib/sessionStore.js";
@@ -107,7 +106,7 @@ function HostCapacityStrip({ host, title, hostLabel, onOpenDiagnostics, hideAler
 
 function HostAuthBadge({ hostId, size }) {
   const rec = useStore(sessionStore, s => s.byHost[hostId]) || { status: "none" };
-  const TIER = TIER_LABEL || {};
+  const TIER = TIER_LABEL;
   const map = {
     live:          { tone: "ok",   icon: "shield-check", label: TIER[rec.tier] || "Connected" },
     bootstrapping: { tone: "info", icon: "loader-2",     label: "Connecting\u2026", spin: true },

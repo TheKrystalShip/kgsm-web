@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "../components/Icon.jsx";
 
 // FirstRunWelcome — shown once, immediately after a brand-new user signs in.

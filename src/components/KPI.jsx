@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 // KPI — the canonical glance card used across the panel: dashboard summary,

@@ -113,6 +113,6 @@ import { createStore } from "./store.js";
   });
 
   // Hydrate once from REST on load (mirrors the stores.js boot hydrate).
-  try { alertsStore.refresh().catch(() => {}); } catch (e) {}
+  try { alertsStore.refresh().catch(() => {}); } catch {}
 
 export { KrystalAlerts, alertsStore };

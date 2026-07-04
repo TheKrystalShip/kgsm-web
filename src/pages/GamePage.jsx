@@ -1,4 +1,3 @@
-import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
@@ -52,13 +51,13 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
   // Which hosts offer this blueprint — derived live from the hosts store, so a
   // catalog sync (a host matching its offering to the fleet) re-renders here.
   const allHosts = useStore(hostsStore, s => s.list);
-  const offered = offeringHosts ? offeringHosts(game, allHosts) : allHosts;
+  const offered = offeringHosts(game, allHosts);
   const hostRestricted = offered.length > 0 && offered.length < allHosts.length;
   // Creating a server is its own capability, scoped per host: it's offered iff
   // the user can create on at least one host that offers this blueprint
   // (architecture.html §3·f·1). A read-only viewer never sees the entry point —
   // and the install modal's host picker is filtered to the same set.
-  const canCreate = canOn ? offered.some(h => canOn("server.create", h.id)) : true;
+  const canCreate = offered.some(h => canOn("server.create", h.id));
   const availValue = hostRestricted ? offered.map(h => h.name).join(", ") : "All hosts";
   // Instances of THIS blueprint — shared helper so the detail page and the
   // library grid/counts always agree (robust to per-instance ids like "rust-ab12").

@@ -20,7 +20,7 @@ import { favoritesStore, serversStore } from "../lib/stores.js";
 // reads "unknown" (its true state can't be confirmed) no matter its last-known
 // status, so grouping and sorting line up with the pill drawn on the card.
 function effectiveStatus(s) {
-  if (serverCapUsable && !serverCapUsable(s, "watchdog")) return "unknown";
+  if (!serverCapUsable(s, "watchdog")) return "unknown";
   return s.status;
 }
 
@@ -242,12 +242,10 @@ function ServersPage({ servers, onOpenServer, onAction, onLibrary, hosts = [], s
   const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = ordered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const filtersActive = q || status !== "all" || game !== "all";
-  const resetFilters = () => { setQuery(""); setStatus("all"); setGame("all"); };
   // Creating a server is gated (architecture.html §3·f·1): a read-only viewer
   // sees the inventory but no "New server" entry point. Aggregate — shown if the
   // user can create on any host.
-  const canCreate = can ? can("server.create") : true;
+  const canCreate = can("server.create");
 
   return (
     <>

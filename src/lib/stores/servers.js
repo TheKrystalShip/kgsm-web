@@ -192,7 +192,7 @@ function awaitJob(jobId, hostId) {
         if (!rt.online) return false;
         const h = rt.hosts[hostId];
         return h ? h.mode === "live" : true;
-      } catch (e) { return true; }
+      } catch { return true; }
     };
     const tick = () => {
       if (settled) return;

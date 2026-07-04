@@ -10,7 +10,7 @@ import { HostAuthBadge, OAuthIcon } from "./host-helpers.jsx";
 
 // Catalog nav label — read from the shared label map so it can't drift from the
 // dashboard's "Recently added" band or the breadcrumb. See labels.js KRYSTAL_LABELS.
-const CATALOG_LABEL = (KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog";
+const CATALOG_LABEL = KRYSTAL_LABELS.catalog || "Catalog";
 
 // HostSwitcher — GLOBAL scope selector. Lives above the nav and reframes the
 // entire panel to one host, or "All hosts" (aggregate). Styled after the old
@@ -30,7 +30,7 @@ function HostSwitcher({ hosts, selectedId, onSelect, onManage, collapsed }) {
   const all = selectedId === "all";
   const current = all ? null : (hosts.find(h => h.id === selectedId) || hosts[0]);
   const onlineCount = hosts.filter(h => h.online).length;
-  const currentDenied = current && sessionStore && sessionStore.isDenied(current.id);
+  const currentDenied = current && sessionStore.isDenied(current.id);
   const dotClass = (h) => "host-switch__dot host-switch__dot--" + (h.online ? "online" : "off");
 
   const pick = (id) => { onSelect(id); setOpen(false); };
@@ -110,7 +110,7 @@ function HostSwitcher({ hosts, selectedId, onSelect, onManage, collapsed }) {
                   <span className="host-switch__opt-sub">{h.hostname} · {h.region}</span>
                 </span>
                 {!h.online && <span className="host-switch__opt-flag">offline</span>}
-                {HostAuthBadge && <HostAuthBadge hostId={h.id} size="sm" />}
+                <HostAuthBadge hostId={h.id} size="sm" />
                 {active && <Icon name="check" size={15} className="host-switch__opt-check" />}
               </button>
             );
@@ -166,7 +166,7 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
           <div className="sidebar__account-menu__head">
             <div className="sidebar__account-menu__name">{user.display || user.name}</div>
             <div className="sidebar__account-menu__provider">
-              {OAuthIcon && <OAuthIcon provider={user.provider} size={11} />}
+              <OAuthIcon provider={user.provider} size={11} />
               Signed in via {user.provider}
             </div>
           </div>

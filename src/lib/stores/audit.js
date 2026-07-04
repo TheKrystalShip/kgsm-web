@@ -1,6 +1,6 @@
 // stores/audit.js — Selected host scope + audit log.
 
-import { api, realtimeStore } from "../apiClient.js";
+import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
 import * as merge from "../merge.js";
 import { createStore, useStore } from "../store.js";
@@ -16,11 +16,11 @@ function readSelectedHost() {
     if (!v) return list.length === 1 ? list[0].id : "all";
     if (v !== "all" && !hostsStore.find(v)) return "all";
     return v;
-  } catch (e) { return "all"; }
+  } catch { return "all"; }
 }
 const selectedHostStore = createStore({ id: readSelectedHost() });
 selectedHostStore.set = (id) => {
-  try { localStorage.setItem(SELECTED_HOST_KEY, id); } catch (e) {}
+  try { localStorage.setItem(SELECTED_HOST_KEY, id); } catch {}
   selectedHostStore.setState({ id });
 };
 hostsStore.subscribe(() => {
@@ -29,7 +29,7 @@ hostsStore.subscribe(() => {
     const list = hostsStore.getState().list || [];
     const want = list.length === 1 ? list[0].id : "all";
     if (selectedHostStore.getState().id !== want) selectedHostStore.setState({ id: want });
-  } catch (e) {}
+  } catch {}
 });
 const useSelectedHostId = () => useStore(selectedHostStore, s => s.id);
 

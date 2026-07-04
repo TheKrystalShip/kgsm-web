@@ -13,7 +13,7 @@ export function parseSseEvent(block) {
     if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
   }
   if (!data.length) return null;
-  try { return JSON.parse(data.join("\n")); } catch (e) { return null; }
+  try { return JSON.parse(data.join("\n")); } catch { return null; }
 }
 
 /// Read an SSE response body stream, calling `onEvent` for each parsed event.

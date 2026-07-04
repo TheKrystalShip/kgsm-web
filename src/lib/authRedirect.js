@@ -15,7 +15,7 @@ const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one
 const AUTH_LS_KEY = "krystal:auth";
 
 function stripHash() {
-  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
 }
 
 // Parse the OAuth fragment the callback handed back, then strip it from the URL.
@@ -27,14 +27,14 @@ export function captureOAuthFragment() {
     if (!h || !/(^|&)(access|error)=/.test(h)) return null;
     const p = new URLSearchParams(h);
     const error = p.get("error");
-    if (error) { try { sessionStorage.setItem(ERROR_KEY, error); } catch (e) {} stripHash(); return { error }; }
+    if (error) { try { sessionStorage.setItem(ERROR_KEY, error); } catch {} stripHash(); return { error }; }
     const access = p.get("access");
     const refresh = p.get("refresh");
     if (!access) { stripHash(); return null; }
-    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ access, refresh: refresh || null })); } catch (e) {}
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ access, refresh: refresh || null })); } catch {}
     stripHash();
     return { access, refresh: refresh || null };
-  } catch (e) { return null; }
+  } catch { return null; }
 }
 
 // Hand the stashed tokens to the session layer (single-host: the lone host owns
@@ -45,13 +45,13 @@ export function takePendingTokens() {
     if (!raw) return null;
     sessionStorage.removeItem(PENDING_KEY);
     return JSON.parse(raw);
-  } catch (e) { return null; }
+  } catch { return null; }
 }
 
 // One-shot read of a captured login error (the LoginPage surfaces it).
 export function takeOAuthError() {
   try { const e = sessionStorage.getItem(ERROR_KEY); if (e) sessionStorage.removeItem(ERROR_KEY); return e; }
-  catch (e) { return null; }
+  catch { return null; }
 }
 
 // On a fresh OAuth landing, establish the session BEFORE the app mounts (so it
@@ -94,7 +94,7 @@ export async function completeOAuthLogin(captured) {
         hostId = (h && h.id) || null;
         hostName = (h && (h.label || h.name)) || null;
       }
-    } catch (e) {}
+    } catch {}
     if (hostId) {
       reconcileConnectionId(API_BASE, hostId);
       takePendingTokens();                       // consume the one-shot stash; we adopt directly
@@ -109,16 +109,16 @@ export async function completeOAuthLogin(captured) {
         // reverts to an id-less connection on reload and the session can't be matched back —
         // dropping the user to the unauthenticated/Viewer state with every call 401-ing.
         sessionStore.register({ id: hostId, url: API_BASE, name: hostName });
-      } catch (e) {}
+      } catch {}
       try {
         const stores = await import("./stores.js");
         ["serversStore", "hostsStore", "libraryStore", "auditStore"].forEach((n) => {
-          try { if (stores[n] && stores[n].refresh) stores[n].refresh().catch(() => {}); } catch (e) {}
+          try { if (stores[n] && stores[n].refresh) stores[n].refresh().catch(() => {}); } catch {}
         });
-      } catch (e) {}
+      } catch {}
     }
-  } catch (e) {
-    try { sessionStorage.removeItem(PENDING_KEY); } catch (e2) {}
-    try { sessionStorage.setItem(ERROR_KEY, "login_failed"); } catch (e2) {}
+  } catch {
+    try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+    try { sessionStorage.setItem(ERROR_KEY, "login_failed"); } catch {}
   }
 }

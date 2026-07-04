@@ -4,16 +4,16 @@ import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
 import { ColdStartDown, ConnectivityBanner } from "./components/ErrorBoundary.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
-import { NeedsAttention, alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
+import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
 import { CONNECTIONS } from "./lib/config.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
-import { can, canOn, homeKind, resolveRoute } from "./lib/persona.js";
+import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { auditStore, commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
 import { FirstRunWelcome } from "./pages/FirstRunWelcome.jsx";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import { HostReauthModal } from "./pages/HostReauth.jsx";
@@ -27,6 +27,10 @@ import { MobileNavToggle } from "./components/MobileNavToggle.jsx";
 import { useRouteSync } from "./hooks/useRouteSync.js";
 import { useMobileSwipe } from "./hooks/useMobileSwipe.js";
 import { AppRouter } from "./components/AppRouter.jsx";
+
+// The assistant dock renders ChatPage inside its own <Suspense> (below), so it's
+// lazy-loaded here just like the full-page chat route in AppRouter.
+const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 
 // App — top-level shell. Auth gate + routing.
 // Wraps the inner app in AssistantDockProvider so dock state is available
@@ -57,7 +61,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    askAssistant, askAboutAlert, openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
+    askAboutAlert, openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
 
@@ -76,7 +80,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const returnTo = React.useRef(null);
   React.useEffect(() => {
     const saved = sessionStorage.getItem("krystal:returnTo");
-    if (saved) { try { returnTo.current = JSON.parse(saved); } catch (e) {} }
+    if (saved) { try { returnTo.current = JSON.parse(saved); } catch {} }
   }, []);
 
   const handleLogout = React.useCallback(() => {
@@ -105,15 +109,15 @@ function AppInner({ user, setUser, route, setRoute }) {
     const hash = window.location.hash.replace(/^#\/?/, "");
     if (hash) return KrystalRouter.parseHash();
     if (firstRun.current) return { kind: "addHost" };
-    return { kind: homeKind ? homeKind() : "home" };
+    return { kind: homeKind() };
   }, []);
 
-  const [tab, setTab] = React.useState(null);
+  const [tab] = React.useState(null);
   const [extraLog, setExtraLog] = React.useState({});
   const [installing, setInstalling] = React.useState(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(() => {
-    try { return localStorage.getItem("krystal:sidebar:collapsed") === "1"; } catch (e) { return false; }
+    try { return localStorage.getItem("krystal:sidebar:collapsed") === "1"; } catch { return false; }
   });
   const [landingResolved, setLandingResolved] = React.useState(
     initialRoute.kind !== "home" || firstRun.current
@@ -123,7 +127,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   useRouteSync(route, setRoute, landingResolved);
 
   React.useEffect(() => {
-    try { localStorage.setItem("krystal:sidebar:collapsed", collapsed ? "1" : "0"); } catch (e) {}
+    try { localStorage.setItem("krystal:sidebar:collapsed", collapsed ? "1" : "0"); } catch {}
   }, [collapsed]);
 
   React.useEffect(() => { setDrawerOpen(false); }, [route, tab]);
@@ -146,7 +150,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   React.useEffect(() => {
     if (landingResolved || !landedDefaultRef.current) return;
     if (!authzSettled) return;
-    setRoute({ kind: homeKind ? homeKind() : "home" });
+    setRoute({ kind: homeKind() });
     setLandingResolved(true);
   }, [authzSettled, landingResolved]);
 
@@ -216,8 +220,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const selectHost = (id) => selectedHostStore.set(id);
 
   // --- Render ---
-  const useAl = useAlerts || (() => null);
-  useAl();
+  useAlerts();
 
   if (!CONNECTIONS.length) {
     return <AddHostPage firstRun />;
@@ -226,18 +229,18 @@ function AppInner({ user, setUser, route, setRoute }) {
     return <LoginPage />;
   }
 
-  const alertCounts = alertBuckets ? alertBuckets(selectedHostId) : { active: [] };
+  const alertCounts = alertBuckets(selectedHostId);
   const attentionCount = alertCounts.active.length;
   const attentionTone = alertCounts.active.some(i => i.severity === "danger") ? "danger"
     : alertCounts.active.some(i => i.severity === "warn") ? "warn" : "info";
 
-  const diagActive = anchoredAlerts ? anchoredAlerts(an => an.surface === "diagnostics") : [];
+  const diagActive = anchoredAlerts(an => an.surface === "diagnostics");
   const diagnosticsCount = diagActive.length;
-  const diagnosticsTone = alertsTone ? alertsTone(diagActive) : "info";
+  const diagnosticsTone = alertsTone(diagActive);
 
-  const serverAlertsActive = anchoredAlerts ? anchoredAlerts(an => an.surface === "server") : [];
+  const serverAlertsActive = anchoredAlerts(an => an.surface === "server");
   const serversCount = serverAlertsActive.length;
-  const serversTone = alertsTone ? alertsTone(serverAlertsActive) : "info";
+  const serversTone = alertsTone(serverAlertsActive);
 
   if (route.kind === "addHost" || (hostsLoaded && hosts.length === 0)) {
     return <AddHostPage
@@ -257,11 +260,11 @@ function AppInner({ user, setUser, route, setRoute }) {
   }
 
   const deniedHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
-  const scopedDenied = !!(deniedHost && sessionStore && sessionStore.isDenied(selectedHostId));
+  const scopedDenied = !!(deniedHost && sessionStore.isDenied(selectedHostId));
   const denyGate = scopedDenied && !["fleet", "settings", "discord", "addHost"].includes(route.kind);
 
   const expiredHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
-  const scopedExpired = !!(expiredHost && sessionStore && sessionStore.needsReauth && sessionStore.needsReauth(selectedHostId));
+  const scopedExpired = !!(expiredHost && sessionStore.needsReauth(selectedHostId));
   const expiredGate = scopedExpired && !["fleet", "settings", "discord", "addHost"].includes(route.kind);
 
   const sidebarCollapsed = desktop ? collapsed : false;
@@ -272,7 +275,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     serverName: serverForRender ? serverForRender.name : null,
     gameName: activeGame ? activeGame.name : null,
     hostName: route.hostId ? ((hosts.find(h => h.id === route.hostId) || {}).name || null) : null,
-    catalogLabel: (KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog",
+    catalogLabel: KRYSTAL_LABELS.catalog || "Catalog",
   };
 
   return (
@@ -394,7 +397,7 @@ function AppInner({ user, setUser, route, setRoute }) {
           game={installing}
           hosts={hosts.filter(h => {
             const s = sessionsByHost[h.id];
-            return h.online && canOn && canOn("server.manage", h.id) && (!s || !s.denied);
+            return h.online && canOn("server.manage", h.id) && (!s || !s.denied);
           })}
           defaultHost={selectedHostId !== "all" ? selectedHostId : (hosts[0] && hosts[0].id)}
           onConfirm={confirmInstall}

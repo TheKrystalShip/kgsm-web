@@ -31,7 +31,7 @@ function readRegistry() {
     // A scheme-less entry (e.g. a bare "hotrod") is a corruption artifact — it would resolve to
     // https://hotrod via originOf and break every call. Drop it so the seed / connect screen take over.
     return Array.isArray(arr) ? arr.filter(h => h && h.url && /^https?:\/\//i.test(h.url)) : [];
-  } catch (e) { return []; }
+  } catch { return []; }
 }
 
 // Optional single-host seed from the build/dev env (also the smoke:live lever).
@@ -94,7 +94,7 @@ export function apiOriginOf(hostId) {
 export function hostAddressOf(hostId) {
   const o = apiOriginOf(hostId);
   if (!o) return "";
-  try { return new URL(o).hostname; } catch (e) { return ""; }
+  try { return new URL(o).hostname; } catch { return ""; }
 }
 // SSE stream URL: "…/api/v1/stream?topics=a,b,c". Topics are comma-separated,
 // URL-encoded, and fixed for the lifetime of the connection.
@@ -120,7 +120,7 @@ export function reconcileConnectionId(url, id) {
     let changed = false;
     for (const e of reg) { if (originOf(e.url) === o && e.id !== id) { e.id = id; changed = true; } }
     if (changed) localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg));
-  } catch (e) {}
+  } catch {}
 }
 
 // ---- backwards-compatible single-host aliases ---------------------------

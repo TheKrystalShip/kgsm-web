@@ -46,7 +46,7 @@ function DiscordLiveConfig() {
   // Tier is read once (non-reactive) — fine because Settings is opened well after the
   // session resolves. Edge: a deep-link straight to settings before /me lands reads
   // tier:null → controls stay disabled until an unrelated re-render. Acceptable.
-  const tier = (sessionStore && hostId) ? sessionStore.tierOf(hostId) : null;
+  const tier = hostId ? sessionStore.tierOf(hostId) : null;
   const canEdit = tier === "admin";
   const client = () => api.host(hostId);
 

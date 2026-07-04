@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 // BriefCard — the shared "briefing card" shell used across the panel. A titled

@@ -13,7 +13,7 @@ function DiagServices({ host }) {
   const list = useStore(servicesStore, s => s.list);
   const status = useStore(servicesStore, s => s.status);
   const forHost = useStore(servicesStore, s => s.hostId);
-  const canManage = hostId ? (canOn ? canOn("host.manage", hostId) : false) : false;
+  const canManage = hostId ? canOn("host.manage", hostId) : false;
   const [configuring, setConfiguring] = React.useState(null);
 
   React.useEffect(() => {

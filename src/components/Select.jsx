@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 // The one styled <select> for the whole app. appearance:none + a custom chevron so

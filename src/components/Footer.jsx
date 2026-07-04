@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 // KrystalFooter — app-wide footer. Brand block + open-source repo links.

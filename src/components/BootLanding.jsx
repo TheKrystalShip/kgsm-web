@@ -1,7 +1,6 @@
 // BootLanding — neutral hold shown on a fresh DEFAULT landing while per-host
 // roles resolve. Deep links never see this.
 
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 function BootLanding() {

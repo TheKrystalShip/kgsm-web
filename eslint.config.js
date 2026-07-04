@@ -28,8 +28,9 @@ export default [
       // doesn't flag imported components.
       "react/jsx-uses-vars": "error",
 
-      // The two rules that would have caught our regressions:
-      "no-undef": "error",                       // #1: RecentActivity used but not imported
+      // The rules that would have caught our regressions:
+      "no-undef": "error",                       // #1: identifier used but not imported (expression position)
+      "react/jsx-no-undef": "error",             // #1 in JSX-tag position: <Foo/> with no import (no-undef misses this)
       "react-hooks/rules-of-hooks": "error",     // #5: conditional / early-return hooks
 
       // Surfaces stale-closure / dead-memo dep arrays (#4). Warn, not error —

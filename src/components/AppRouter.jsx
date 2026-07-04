@@ -9,6 +9,7 @@ import { ContentError, ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { KrystalRouter } from "../lib/router.js";
 import { can } from "../lib/persona.js";
 import { serversStore } from "../lib/stores.js";
+import { ServerGate } from "../pages/ServerGate.jsx";
 
 const AlertsPage = React.lazy(() => import("../pages/AlertsPage.jsx"));
 const AuditLogPage = React.lazy(() => import("../pages/AuditLogPage.jsx"));

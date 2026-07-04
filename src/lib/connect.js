@@ -20,7 +20,7 @@ export function normalizeHostUrl(input) {
   let s = (input || "").trim();
   if (!s) return "";
   if (!/^https?:\/\//i.test(s)) s = "https://" + s;
-  try { return new URL(s).origin; } catch (e) { return ""; }
+  try { return new URL(s).origin; } catch { return ""; }
 }
 
 // Is a GET /api/v1 handshake body a kgsm-api? → { ok, name, version }.
@@ -50,16 +50,16 @@ export function registryEntry(origin, name, id) {
 // ---- impure: localStorage registry + app identity -----------------------
 function readRegistry() {
   try { const a = JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]"); return Array.isArray(a) ? a : []; }
-  catch (e) { return []; }
+  catch { return []; }
 }
 // Add (or replace, by origin) a connection in the registry. URLs only, no tokens.
 export function addConnection(entry) {
   const norm = normalizeHostUrl(entry.url);
   const list = readRegistry().filter((h) => normalizeHostUrl(h.url) !== norm);
   list.push(entry);
-  try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch (e) {}
+  try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch {}
 }
-export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.stringify(user)); } catch (e) {} }
+export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.stringify(user)); } catch {} }
 
 // ---- impure: probe a candidate host (fetch injectable for tests) --------
 // Returns { status, origin, name?, version?, user?, tier? } where status ∈
@@ -77,7 +77,7 @@ export async function connectHost(input, opts) {
     const r = await fetchImpl(origin + "/api/v1", { headers: { Accept: "application/json" } });
     if (!r.ok) return { status: "unreachable", origin };
     hs = parseHandshake(await r.json());
-  } catch (e) { return { status: "unreachable", origin }; }
+  } catch { return { status: "unreachable", origin }; }
   if (!hs.ok) return { status: "not_kgsm", origin };
 
   // /me is auth-gated. Under auth-disabled it 200s with a user; under auth-enabled
@@ -94,9 +94,9 @@ export async function connectHost(input, opts) {
     try {
       const hr = await fetchImpl(origin + "/api/v1/hosts", { headers: { Accept: "application/json" } });
       if (hr.ok) { const arr = await hr.json(); const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]); hostId = (h && h.id) || null; }
-    } catch (e) {}
+    } catch {}
     return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), tier: (me && me.tier) || "none", hostId };
-  } catch (e) { return { status: "unreachable", origin }; }
+  } catch { return { status: "unreachable", origin }; }
 }
 
 // ---- dev-only: auto-connect a seed against an auth-DISABLED host ------------
@@ -117,7 +117,7 @@ export async function connectHost(input, opts) {
 // production build.
 export async function devSeedAutoConnect(seedUrl, opts) {
   if (!seedUrl) return false;
-  try { if (localStorage.getItem(AUTH_LS_KEY)) return false; } catch (e) {}   // already signed in
+  try { if (localStorage.getItem(AUTH_LS_KEY)) return false; } catch {}   // already signed in
   if (readRegistry().length) return false;                                    // a real connection is configured
   const res = await connectHost(seedUrl, opts);
   if (res.status !== "ok") return false;                                      // needs_auth / unreachable → normal flow

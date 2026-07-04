@@ -1,4 +1,3 @@
-import React from "react";
 import { icons } from "lucide-react";
 
 // Icon — wraps lucide-react so the rest of the app keeps using kebab-case names

@@ -27,10 +27,10 @@ import { Icon } from "./Icon.jsx";
       const raw = localStorage.getItem(key);
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr.filter(x => typeof x === "string") : [];
-    } catch (e) { return []; }
+    } catch { return []; }
   }
   function saveBandOrder(key, order) {
-    try { localStorage.setItem(key, JSON.stringify(order)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(order)); } catch {}
   }
 
   // Back-compat: the dashboard's original entry points, now thin wrappers over
@@ -153,7 +153,7 @@ import { Icon } from "./Icon.jsx";
       const dn = nodes[from];
       dn.style.transition = "none";
       dn.style.zIndex = "6";
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp, { once: true });
       window.addEventListener("pointercancel", onPointerUp, { once: true });

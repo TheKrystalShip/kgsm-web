@@ -17,7 +17,7 @@ import { useSelectedHostId } from "../lib/stores.js";
 // Subscribe a component to feed changes (server pushes / local action echoes).
 function useAlerts() {
   const [, force] = React.useReducer(x => x + 1, 0);
-  React.useEffect(() => (KrystalAlerts ? KrystalAlerts.subscribe(force) : undefined), []);
+  React.useEffect(() => KrystalAlerts.subscribe(force), []);
   return KrystalAlerts;
 }
 
@@ -35,10 +35,10 @@ function useAlerts() {
 // `serverId`, when given, scopes strictly to that game server's alerts (used by
 // the server-detail Performance tab). Otherwise `hostId` applies the host scope.
 function alertBuckets(hostId, serverId) {
-  let list = KrystalAlerts ? KrystalAlerts.list() : [];
+  let list = KrystalAlerts.list();
   if (serverId) {
     list = list.filter(a => a.serverId === serverId);
-  } else if (hostId && hostId !== "all" && alertInScope) {
+  } else if (hostId && hostId !== "all") {
     list = list.filter(a => alertInScope(a, hostId));
   }
   const now = Date.now();
@@ -103,7 +103,7 @@ function NeedsAttention({ onPick, actionLabel = "Ask", onViewAll, className = ""
       ) : (
       <div className="chat-brief__list">
         {shown.map(it => {
-          const askOk = !askAssistantUsable || askAssistantUsable(it);
+          const askOk = askAssistantUsable(it);
           return (
           <div key={it.id} className={"chat-brief__item chat-brief__item--" + it.severity + (it.escalated ? " chat-brief__item--escalated" : "") + (askOk ? "" : " chat-brief__item--noask")} onClick={() => askOk && onPick && onPick(it)}>
             <span className="chat-brief__icon"><Icon name={it.icon} size={14} /></span>

@@ -2,7 +2,7 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
-import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.js";
+import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
 import { confirmCommand, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
@@ -12,13 +12,13 @@ import {
   CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
   uid, adaptResultCard, composeVerified, reduceTurnFrame, scaffoldHistory,
-  latestUsage, mergeServerConversations, renderMarkdown,
+  latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
 import { API_COMMAND_VERBS, commandMeta } from "./chat/chatConstants.js";
 import { ChatEvidence } from "./chat/EvidenceCards.jsx";
 import {
-  ChatContextPill, ChatThinking, ChatCommand, ChatScopeNotice,
-  ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatPending, ChatSystemNotice,
+  ChatContextPill, ChatCommand, ChatScopeNotice,
+  ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatSystemNotice,
 } from "./chat/ChatMessageParts.jsx";
 import { ChatContextMeter } from "./chat/ChatContextMeter.jsx";
 import { AssistantHostPicker } from "./chat/AssistantHostPicker.jsx";
@@ -26,15 +26,14 @@ import { ChatHistory } from "./chat/ChatHistory.jsx";
 import { ChatMessage } from "./chat/ChatMessage.jsx";
 
 function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
-  const assistantCap = (assistantHost && hostCapability) ? hostCapability(assistantHost, "assistant") : null;
-  const model = (assistantCap && assistantCap.info && assistantCap.info.model) || "assistant";
+  const assistantCap = assistantHost ? hostCapability(assistantHost, "assistant") : null;
   const conn = !assistantHost
     ? { tone: "muted",  label: "No assistant" }
     : assistantCap.state === "operational" ? { tone: "online", label: "Connected \u00b7 " + assistantHost.name }
     : assistantCap.state === "degraded"    ? { tone: "warn",   label: "Degraded \u00b7 " + assistantHost.name }
     : { tone: "danger", label: "Unavailable \u00b7 " + assistantHost.name };
 
-  const assistantUsable = !!(assistantHost && capUsable && capUsable(assistantHost, "assistant"));
+  const assistantUsable = !!(assistantHost && capUsable(assistantHost, "assistant"));
 
   const [convos, setConvos]     = React.useState(loadConversations);
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);
@@ -160,9 +159,6 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       return next;
     });
   };
-  const patchActive = (patch) => {
-    setConvos(prev => prev.map(c => c.id === activeId ? { ...c, ...patch } : c));
-  };
   const setMessages = (updater) => {
     setConvos(prev => prev.map(c => {
       if (c.id !== activeId) return c;
@@ -231,7 +227,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
 
-    if (!assistantHost || !(capUsable && capUsable(assistantHost, "assistant"))) {
+    if (!assistantHost || !capUsable(assistantHost, "assistant")) {
       const why = !assistantHost
         ? "No host is serving an assistant right now."
         : (assistantCap && assistantCap.message) ? assistantCap.message
@@ -416,7 +412,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               <p>{assistantHost
                 ? "Routed by " + assistantHost.name + "\u2019s backend. Each host runs its own \u2014 there is no central assistant."
                 : "No connected host is serving an assistant capability."}</p>
-              {ChatBriefingPanel && <ChatBriefingPanel onPick={startBriefingChat} />}
+              <ChatBriefingPanel onPick={startBriefingChat} />
               <div className="chat-suggestions">
                 {suggestions.map((s, i) => (
                   <button key={i} className="chat-suggestion" onClick={() => { setInput(s); if (taRef.current) taRef.current.focus(); }}>
@@ -527,3 +523,6 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
 }
 
 export { adaptResultCard, API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, latestUsage, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
+// Default export so React.lazy(() => import("./ChatPage.jsx")) resolves (AppRouter's
+// chat route + App.jsx's dock both lazy-load this).
+export default ChatPage;

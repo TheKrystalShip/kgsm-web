@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
@@ -54,11 +53,11 @@ function ServerHero({ server, onAction }) {
   const isStarting = server.status === "starting";
   // Can the signed-in user operate this server's host? Players (viewer / consumer
   // preview) get the Join + connect surface only — no lifecycle controls, no rename.
-  const canOps = serverOperable ? serverOperable(server) : true;
+  const canOps = serverOperable(server);
   const pendingVerb = server.job && server.job.state === "running" ? server.job.verb : null;
   // Lifecycle actions are watchdog-mediated — when the host's watchdog is down
   // the supervisor can't start/stop/restart/update, so the chips lock out.
-  const watchdogDown = serverCapUsable ? !serverCapUsable(server, "watchdog") : false;
+  const watchdogDown = !serverCapUsable(server, "watchdog");
   const wdReason = "Watchdog unavailable on this host — lifecycle actions are paused";
   // kgsm-api doesn't expose an `update` verb yet (deferred from M3 — there's no
   // honest update-check source either). Rather than offer a button that would 400
@@ -106,14 +105,7 @@ function ServerHero({ server, onAction }) {
             </>
           )}
           <div className="hero__group hero__group--connect">
-            {ServerConnect
-              ? <ServerConnect server={server} variant="hero-bar" />
-              : (
-                <div className="hero__ip">
-                  {server.ip}
-                  <button title="Copy"><Icon name="copy" size={14} /></button>
-                </div>
-              )}
+            <ServerConnect server={server} variant="hero-bar" />
           </div>
         </div>
         {canOps && watchdogDown && (

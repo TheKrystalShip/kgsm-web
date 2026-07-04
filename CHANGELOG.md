@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.5)
+- **Four latent crashes** the dead-code sweep + a new lint rule surfaced, all
+  used-but-not-imported in JSX-tag position (the same class as v1.4.3 #1, which
+  plain `no-undef` misses):
+  - `App.jsx` rendered `<ChatPage>` in the assistant dock but no longer imported it
+    (the refactor dropped the import; the dock opens by default on desktop, so this
+    was a white-screen on load — the dock sits outside the router's ErrorBoundary).
+    Now lazy-loaded, matching the existing `<Suspense>` wrapper.
+  - `AppRouter.jsx` rendered `<ServerGate>` (the not-yet-loaded/bad-id fallback)
+    without importing it → crash on a server route before the list loads. Imported.
+  - `ChatPage.jsx` had no default export, but `AppRouter` lazy-loads it via
+    `React.lazy(() => import(...))` (which requires a default) → the full-page chat
+    route crashed. Added `export default ChatPage` (every other lazy page had one).
+  - `ServerSettings.jsx` used `<Select>` but only imported it aliased as an unused
+    `KSelect` → `ReferenceError` on the Server Settings tab. Imported `Select`.
+- Also fixed a latent `store.patch(...)` reference in `capabilities.js` (leftover
+  from a removed alias) that would have thrown at runtime → `hostsStore.patch(...)`.
+
+### Changed (v1.4.5)
+- Added `react/jsx-no-undef` (error) to the lint gate — `no-undef` does not catch
+  undefined JSX-tag identifiers (`<Foo/>` with no import), which is exactly how the
+  four crashes above hid from the build. This closes that blind spot.
+- Dead-code / vestigial-guard sweep ("#6") across the whole `src/` tree: removed all
+  183 `no-unused-vars` (dead imports, unused `React` imports under the automatic JSX
+  runtime, unused locals, `catch (e)` → `catch`) and the vestigial
+  `Import ? Import(...) : fallback` / `{Import && <Import/>}` guards left over from the
+  prototype's window-globals era (the imported symbol is always defined). Net −107
+  lines. Runtime-data guards (`server && …`, `host.online && …`) were deliberately
+  left. Remaining lint backlog: 43 `react-hooks/exhaustive-deps` warnings.
+
 ### Added (v1.4.4)
 - ESLint gate (`npm run lint`, ESLint 9 flat config in `eslint.config.js`).
   Deliberately narrow: `no-undef` and `react-hooks/rules-of-hooks` are **errors**

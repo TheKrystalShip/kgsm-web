@@ -35,11 +35,9 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   const setTab = onTabChange || (() => {});
   // Can this user operate the host? Players get a stripped overview (note + Join
   // + status) and none of the operator sub-tabs.
-  const canOps = serverOperable ? serverOperable(server) : true;
+  const canOps = serverOperable(server);
   // Active alerts anchored to this server, grouped by the tab they concern.
-  const srvAlerts = anchoredAlerts
-    ? anchoredAlerts(an => an.surface === "server" && an.serverId === server.id)
-    : [];
+  const srvAlerts = anchoredAlerts(an => an.surface === "server" && an.serverId === server.id);
   const tabAlerts = (id) => srvAlerts.filter(a => (a.anchor.tab || "overview") === id);
   const badge = (id) => { const it = tabAlerts(id); return it.length ? { badge: it.length, badgeTone: alertsTone(it) } : {}; };
   const allTabs = [
@@ -62,10 +60,10 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // Hooks declared unconditionally here (Rules of Hooks) though only used by the
   // overview tab below.
   const OVERVIEW_ORDER_KEY = "krystal:server:overview:order";
-  const [ovOrder, setOvOrder] = React.useState(() => (loadBandOrder ? loadBandOrder(OVERVIEW_ORDER_KEY) : []));
+  const [ovOrder, setOvOrder] = React.useState(() => loadBandOrder(OVERVIEW_ORDER_KEY));
   const [customize, setCustomize] = React.useState(false);
-  const persistOverview = (order) => { setOvOrder(order); if (saveBandOrder) saveBandOrder(OVERVIEW_ORDER_KEY, order); };
-  const resetOverview = () => { setOvOrder([]); if (saveBandOrder) saveBandOrder(OVERVIEW_ORDER_KEY, []); };
+  const persistOverview = (order) => { setOvOrder(order); saveBandOrder(OVERVIEW_ORDER_KEY, order); };
+  const resetOverview = () => { setOvOrder([]); saveBandOrder(OVERVIEW_ORDER_KEY, []); };
   // Leaving the overview tab exits Customize, so you never return to a half-
   // finished arrange session on another tab's content.
   React.useEffect(() => { if (safeTab !== "overview" && customize) setCustomize(false); }, [safeTab]);
@@ -74,7 +72,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
       <ServerHero server={server} onAction={onAction} />
       <div className="subtabs-row">
         <SubTabs tabs={tabs} active={safeTab} onChange={setTab} />
-        {safeTab === "overview" && canOps && DashBandList && (
+        {safeTab === "overview" && canOps && (
           <div className={"dash-customize" + (customize ? " dash-customize--on" : "")}>
             {customize && (
               <span className="dash-customize__hint">
@@ -99,7 +97,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         )}
       </div>
       {safeTab === "overview" && (() => {
-        const notice = ServerNotice ? <ServerNotice server={server} canEdit={canOps} /> : null;
+        const notice = <ServerNotice server={server} canEdit={canOps} />;
         // Player overview: the operator's note, an at-a-glance status strip, then
         // the roster and console — both READ-ONLY (no kick/ban, no command input).
         // Joining lives in the hero above; no ops feed or arrange mode.
@@ -108,8 +106,8 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
             <>
               {notice}
               <StatTiles server={server} />
-              {PlayersTab && <PlayersTab server={server} readOnly />}
-              {ConsolePanel && <ConsolePanel server={server} readOnly />}
+              <PlayersTab server={server} readOnly />
+              <ConsolePanel server={server} readOnly />
             </>
           );
         }
@@ -122,14 +120,10 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
             id: "feed", label: "Alerts & activity",
             node: (
               <div className="dash-feed">
-                {NeedsAttention && (
-                  <NeedsAttention serverId={server.id} onPick={onAsk} emptyState max={3}
-                    onViewAll={() => onViewServerAlerts && onViewServerAlerts(server.id)} />
-                )}
-                {RecentActivity && (
-                  <RecentActivity serverId={server.id} max={3}
-                    onViewAll={() => onViewServerAudit && onViewServerAudit(server.id)} />
-                )}
+                <NeedsAttention serverId={server.id} onPick={onAsk} emptyState max={3}
+                  onViewAll={() => onViewServerAlerts && onViewServerAlerts(server.id)} />
+                <RecentActivity serverId={server.id} max={3}
+                  onViewAll={() => onViewServerAudit && onViewServerAudit(server.id)} />
               </div>
             )
           },
@@ -139,9 +133,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         return (
           <>
             {notice}
-            {DashBandList
-              ? <DashBandList bands={ovBands} customize={customize} storedOrder={ovOrder} onReorder={persistOverview} />
-              : ovBands.map(b => <React.Fragment key={b.id}>{b.node}</React.Fragment>)}
+            <DashBandList bands={ovBands} customize={customize} storedOrder={ovOrder} onReorder={persistOverview} />
           </>
         );
       })()}

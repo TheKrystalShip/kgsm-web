@@ -3,8 +3,6 @@ import { HostAuthBadge, HostDeniedNotice } from "../components/host-helpers.jsx"
 import { Icon } from "../components/Icon.jsx";
 import { CONNECTIONS } from "../lib/config.js";
 import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
-import { TIER_LABEL, sessionStore } from "../lib/sessionStore.js";
-import { useStore } from "../lib/store.js";
 
 // HostAccess.jsx — UI for the per-host identity/session layer (Model A).
 //

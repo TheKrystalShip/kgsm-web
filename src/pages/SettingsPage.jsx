@@ -1,7 +1,6 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { themeStore, useThemePref } from "../lib/theme.js";
-import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
@@ -27,7 +26,7 @@ function HostAccessSettings() {
       </div>
       {hosts.map(h => (
         <SettingsRow key={h.id} icon="server" title={h.name} sub={h.hostname + " · " + (h.region || "\u2014")}>
-          {HostAuthBadge && <HostAuthBadge hostId={h.id} />}
+          <HostAuthBadge hostId={h.id} />
         </SettingsRow>
       ))}
     </SettingsSection>
@@ -152,9 +151,7 @@ function SettingsPage({ user, onLogout }) {
             </>
           )}
 
-          {section === "discord" && (
-            DiscordPage ? React.createElement(DiscordPage) : null
-          )}
+          {section === "discord" && <DiscordPage />}
 
           {section === "tokens" && (
             <SettingsSection title="API tokens">

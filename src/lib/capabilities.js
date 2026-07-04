@@ -1,4 +1,3 @@
-import React from "react";
 import { alertHost } from "../components/ContextualAlerts.jsx";
 import { sessionStore } from "./sessionStore.js";
 import { hostsStore, serverHostId } from "./stores.js";
@@ -55,8 +54,8 @@ import { hostsStore, serverHostId } from "./stores.js";
   var STATE_LABEL = { absent: "Not offered", operational: "Operational", degraded: "Degraded", down: "Down", unknown: "Unknown" };
 
   function isDenied(host) {
-    try { return !!(sessionStore && host && sessionStore.isDenied(host.id)); }
-    catch (e) { return false; }
+    try { return !!(host && sessionStore.isDenied(host.id)); }
+    catch { return false; }
   }
 
   // Normalize one host's capability into a render-ready descriptor. Safe on
@@ -105,14 +104,12 @@ import { hostsStore, serverHostId } from "./stores.js";
   // on the live host store; every useStore subscriber re-renders. Stands in for
   // the backend pushing a capability.status change over the socket.
   function setHostCapability(hostId, capId, patch) {
-    var store = hostsStore;
-    if (!store) return;
-    var host = store.find(hostId);
+    var host = hostsStore.find(hostId);
     if (!host) return;
     var caps = Object.assign({}, host.capabilities || {});
     var prev = caps[capId] || { provisioned: true };
     caps[capId] = Object.assign({}, prev, patch, { since: patch.since || new Date().toISOString() });
-    store.patch(hostId, { capabilities: caps });
+    hostsStore.patch(hostId, { capabilities: caps });
   }
 
   const CAP_STATUS = STATUS;
@@ -124,18 +121,18 @@ import { hostsStore, serverHostId } from "./stores.js";
   // buttons, settings) to gate on the watchdog/metrics/assistant of its host.
   function serverCapUsable(server, capId) {
     if (!server) return true;
-    var host = (hostsStore && server.hostId) ? hostsStore.find(server.hostId) : null;
+    var host = server.hostId ? hostsStore.find(server.hostId) : null;
     return host ? capUsable(host, capId) : true;
   }
   // askAssistantUsable(alert) — can the "Ask assistant" action work for this
   // alert? Resolves the alert's host (anchor / server) and checks its assistant.
   // Host-less (panel-wide) alerts route to the default assistant → allowed.
   function askAssistantUsable(item) {
-    var hostId = (alertHost && alertHost(item))
+    var hostId = alertHost(item)
       || (item && item.anchor && item.anchor.hostId)
-      || (item && item.serverId && serverHostId && serverHostId(item.serverId));
+      || (item && item.serverId && serverHostId(item.serverId));
     if (!hostId) return true;
-    var host = hostsStore && hostsStore.find(hostId);
+    var host = hostsStore.find(hostId);
     return host ? capUsable(host, CAPS.ASSISTANT) : true;
   }
   // Hosts that OFFER an assistant (provisioned, access not denied) — the dock

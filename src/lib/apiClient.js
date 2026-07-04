@@ -25,7 +25,7 @@ import("./stores.js").then((m) => {
   // indicator under the real host id once hosts arrive (single-host; multi-host
   // fan-out is a later slice). Reuses this one dynamic import.
   if (primaryStreams.length && m.hostsStore) {
-    try { m.hostsStore.subscribe(() => primaryStreams.forEach((s, i) => setLiveRealtime(CONNECTIONS[i] && CONNECTIONS[i].id, s.mode()))); } catch (e) {}
+    try { m.hostsStore.subscribe(() => primaryStreams.forEach((s, i) => setLiveRealtime(CONNECTIONS[i] && CONNECTIONS[i].id, s.mode()))); } catch {}
   }
 });
 
@@ -112,7 +112,7 @@ import("./stores.js").then((m) => {
     try {
       const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
       if (sessionStore && sessionStore.tokenOf && id && id !== "all") return sessionStore.tokenOf(id);
-    } catch (e) {}
+    } catch {}
     return null;
   }
   // ---- the egress AUTH FUNNEL (the single chokepoint every request resolves its bearer through) ----
@@ -130,7 +130,7 @@ import("./stores.js").then((m) => {
     // we'd fall through to a tokenless bearer → a guaranteed 401 on every fresh load, healed only by the
     // reconnect backoff. Awaiting the module-ready promise lets seed() restore the persisted session
     // first, so the first call already carries the token. Bounded: the module is in-bundle.
-    if (!sessionStore) { try { await sessionReady; } catch (e) {} }
+    if (!sessionStore) { try { await sessionReady; } catch {} }
     // No session layer (auth-disabled / still unavailable), no host scope, or the aggregate scope → fall
     // back to the sync best-effort bearer (null when none).
     if (!sessionStore || !sessionStore.authorize || !id || id === "all") return liveBearer(hostId);
@@ -158,11 +158,11 @@ import("./stores.js").then((m) => {
     let res;
     try {
       res = await fetch(base + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
-    } catch (e) { markFailure(); throw netError(); }
+    } catch { markFailure(); throw netError(); }
     markSuccess();                   // the host answered → reachable
     if (res.status === 204) return null;
     let json = null;
-    try { json = await res.json(); } catch (e) { json = null; }
+    try { json = await res.json(); } catch { json = null; }
     if (!res.ok) throw apiError(res.status, json);
     return json;
   }
@@ -245,7 +245,7 @@ import("./stores.js").then((m) => {
     }
     markSuccess();                          // the host answered → reachable
     if (!res.ok) {
-      let json = null; try { json = await res.json(); } catch (e) { json = null; }
+      let json = null; try { json = await res.json(); } catch { json = null; }
       throw apiError(res.status, json);     // pre-stream degrade (404/503/502/400)
     }
     await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
@@ -265,7 +265,7 @@ import("./stores.js").then((m) => {
       if (!res.ok) return null;
       const rtt = ((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now()) - t0;
       return Math.round(rtt);
-    } catch (e) { return null; }
+    } catch { return null; }
   }
 
   async function get(path, hostId) {
@@ -298,7 +298,7 @@ import("./stores.js").then((m) => {
 
   const listeners = new Set();
   function dispatchMessage(full) {
-    for (const l of listeners) if (l.topics.has(full.topic)) { try { l.fn(full); } catch (e) {} }
+    for (const l of listeners) if (l.topics.has(full.topic)) { try { l.fn(full); } catch {} }
   }
   const topicStillWanted = (topic) => {
     for (const l of listeners) if (l.topics.has(topic)) return true;
@@ -333,7 +333,7 @@ import("./stores.js").then((m) => {
 
   function liveHostId() {
     try { return ((storesNs && storesNs.hostsStore && storesNs.hostsStore.getState().list[0]) || {}).id || null; }
-    catch (e) { return null; }
+    catch { return null; }
   }
   function setLiveRealtime(connId, mode) {
     const id = connId || liveHostId() || "live";
@@ -381,7 +381,7 @@ import("./stores.js").then((m) => {
   function closeDynamic(topic) {
     const entry = dynamicStreams.get(topic);
     if (!entry) return;
-    for (const h of entry.hosts) { try { h.stream.close(); } catch (e) {} }
+    for (const h of entry.hosts) { try { h.stream.close(); } catch {} }
     dynamicStreams.delete(topic);
   }
 
@@ -465,7 +465,7 @@ import("./stores.js").then((m) => {
   // enforces the 401/403/login_required state machine before any call. denied
   // → 403 (terminal); none/expired → lazily (re)bootstrap, then re-check.
   function hostAuthStatus(id) {
-    try { return sessionStore ? sessionStore.statusOf(id) : "live"; } catch (e) { return "live"; }
+    try { return sessionStore ? sessionStore.statusOf(id) : "live"; } catch { return "live"; }
   }
   function authError(code, id) {
     const e = new Error(code === 403 ? "Forbidden on host " + id : "Unauthorized on host " + id);

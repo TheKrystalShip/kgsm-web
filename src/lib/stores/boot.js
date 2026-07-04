@@ -1,6 +1,6 @@
 // stores/boot.js — Boot hydrate block. Runs once at import time.
 
-import { serversStore, resolveGameNames } from "./servers.js";
+import { serversStore } from "./servers.js";
 import { libraryStore } from "./library.js";
 import { hostsStore, syncCapabilitySubscriptions } from "./hosts.js";
 import { auditStore } from "./audit.js";
@@ -14,4 +14,4 @@ try {
   auditStore.refresh().catch(swallow);
   startPingLoop();
   syncCapabilitySubscriptions();
-} catch (e) {}
+} catch {}

@@ -1,4 +1,3 @@
-import React from "react";
 import { serverMetricsFreshness } from "./HostCardBody.jsx";
 import { Icon } from "./Icon.jsx";
 import { ServerActionButton } from "./ServerActions.jsx";
@@ -71,7 +70,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone).
   // Prefers landscape hero, then portrait cover, then themed gradient placeholder.
   const art = artBg(server.hero, server.cover);
-  const host = showHost && hostsStore ? hostsStore.find(server.hostId) : null;
+  const host = showHost ? hostsStore.find(server.hostId) : null;
 
   const isOnline = server.status === "online";
   const isUpdating = server.status === "updating";
@@ -82,13 +81,13 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // Live CPU/RAM are host-metrics — when the host's metrics feed is down they
   // go dark with a red status LED, matching the host diagnostics treatment.
   // Only meaningful while the server is online (offline servers report nothing).
-  const mFresh = serverMetricsFreshness ? serverMetricsFreshness(server) : null;
+  const mFresh = serverMetricsFreshness(server);
   const metricsOff = !!(mFresh && mFresh.frozen) && isOnline;
   // Lifecycle actions are watchdog-mediated — lock the quick row when down.
-  const watchdogDown = serverCapUsable ? !serverCapUsable(server, "watchdog") : false;
+  const watchdogDown = !serverCapUsable(server, "watchdog");
   // Players (viewer / consumer preview) can't operate this host — the quick
   // lifecycle row is replaced with a Join / connect button instead.
-  const canOps = serverOperable ? serverOperable(server) : true;
+  const canOps = serverOperable(server);
   // Open-on-click is scoped to the art, name and notice regions only — NOT the
   // whole tile. The quick-action buttons and the Join control live in the body
   // right next to those regions; making the whole tile clickable used to swallow
@@ -99,16 +98,14 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
       <div className="server-tile__art" onClick={open} style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
         <div className="server-tile__corner">
           {host && <span className="server-tile__host"><Icon name="server" size={10} strokeWidth={2.2} />{host.name}</span>}
-          {favoritesStore && (
-            <button
-              type="button"
-              className={"server-tile__fav" + (isFav ? " is-on" : "")}
-              onClick={(e) => { e.stopPropagation(); favoritesStore.toggle(server.id); }}
-              aria-pressed={isFav}
-              title={isFav ? "Remove from favorites" : "Add to favorites"}>
-              <Icon name="star" size={14} strokeWidth={2.2} />
-            </button>
-          )}
+          <button
+            type="button"
+            className={"server-tile__fav" + (isFav ? " is-on" : "")}
+            onClick={(e) => { e.stopPropagation(); favoritesStore.toggle(server.id); }}
+            aria-pressed={isFav}
+            title={isFav ? "Remove from favorites" : "Add to favorites"}>
+            <Icon name="star" size={14} strokeWidth={2.2} />
+          </button>
         </div>
         <span className="server-tile__game">{server.game}</span>
       </div>
@@ -143,11 +140,9 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         )}
         {/* Join / connect — shown to everyone (operators play too), below their
             lifecycle controls. */}
-        {ServerConnect && (
-          <div className="server-tile__connect">
-            <ServerConnect server={server} variant="tile" />
-          </div>
-        )}
+        <div className="server-tile__connect">
+          <ServerConnect server={server} variant="tile" />
+        </div>
       </div>
     </div>
   );

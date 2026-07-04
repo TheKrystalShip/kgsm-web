@@ -106,7 +106,6 @@ function TimeSeriesChart({ series, height = 120, range = "24h", yMin, yMax, yLab
   const allVals = series.flatMap(s => s.values).concat(compare?.values || []);
   const min = yMin != null ? yMin : Math.min(...allVals, 0);
   const max = yMax != null ? yMax : Math.max(...allVals, 1);
-  const span = (max - min) || 1;
 
   // Y scale — linear, or a zero-safe log (log1p, so an idle 0 sits at the axis and
   // an order-of-magnitude spike stays readable instead of flattening the baseline).

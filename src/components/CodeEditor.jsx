@@ -91,7 +91,7 @@ function cssVar(name, fallback) {
   try {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return v || fallback;
-  } catch (e) { return fallback; }
+  } catch { return fallback; }
 }
 const noHash = (c) => String(c).replace("#", "");
 

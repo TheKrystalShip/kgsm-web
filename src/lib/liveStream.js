@@ -13,7 +13,7 @@
 // One SSE stream to one host's `/api/v1/stream`. Topics are fixed at connect
 // via ?topics=. Changing topics = open another stream / close this one.
 
-import { parseSseEvent, readSseStream } from "./sse.js";
+import { readSseStream } from "./sse.js";
 
 const RECONNECT_BASE = 2500, RECONNECT_CAP = 12000;
 const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
@@ -33,7 +33,7 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
   let reconnectTimer = null;
   let closed = false;
 
-  const setMode = (m) => { if (m !== mode) { mode = m; try { onMode && onMode(m); } catch (e) {} } };
+  const setMode = (m) => { if (m !== mode) { mode = m; try { onMode && onMode(m); } catch {} } };
 
   function clearTimer() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
 
@@ -52,7 +52,7 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
     // Resolve the bearer through the egress AUTH FUNNEL. It may REJECT when the
     // session is truly dead — then we back off until a re-auth heals.
     let tok = null;
-    try { tok = bearer ? await bearer() : null; } catch (e) { scheduleReconnect(); return; }
+    try { tok = bearer ? await bearer() : null; } catch { scheduleReconnect(); return; }
     if (closed) return;
 
     const headers = { Accept: "text/event-stream" };
@@ -69,7 +69,7 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
     }
 
     if (res.status === 401) {
-      try { onUnauthorized && onUnauthorized(); } catch (e) {}
+      try { onUnauthorized && onUnauthorized(); } catch {}
       scheduleReconnect();
       return;
     }
@@ -82,13 +82,13 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
     // Stream is open — mark live.
     attempts = 0;
     setMode("live");
-    try { onOpen && onOpen(); } catch (e) {}
+    try { onOpen && onOpen(); } catch {}
 
     // Pump SSE frames until the stream ends.
     try {
       await readSseStream(res, (evt) => {
         if (evt && evt.topic && evt.type) {
-          try { onMessage && onMessage(evt); } catch (e) {}
+          try { onMessage && onMessage(evt); } catch {}
         }
       }, controller.signal);
     } catch (e) {
@@ -106,13 +106,13 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
     if (closed) return;
     clearTimer();
     attempts = 0;
-    if (controller) { try { controller.abort(); } catch (e) {} controller = null; }
+    if (controller) { try { controller.abort(); } catch {} controller = null; }
     connect();
   }
   function close() {
     closed = true;
     clearTimer();
-    if (controller) { try { controller.abort(); } catch (e) {} controller = null; }
+    if (controller) { try { controller.abort(); } catch {} controller = null; }
     setMode("offline");
   }
 

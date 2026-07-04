@@ -19,13 +19,13 @@ import { hostCapacityMeters } from "./host-helpers.jsx";
 // panel uses: denied (no Discord role) → danger, offline → off, live-metrics
 // capability down → warn, otherwise the worst of the live meters.
 function hostHealth(host) {
-  const denied = !!(sessionStore && sessionStore.isDenied(host.id));
+  const denied = !!sessionStore.isDenied(host.id);
   // The host's live-metrics capability can fail independently of the host
   // being online — degrade gracefully when it's not usable.
-  const metricsUsable = capUsable ? capUsable(host, "metrics") : true;
+  const metricsUsable = capUsable(host, "metrics");
   const metricsDown = !denied && host.online && !metricsUsable;
   const hasTelemetry = host.online && !denied && metricsUsable && !!host.ram && host.ram.total_gb > 0;
-  const meters = (hasTelemetry && hostCapacityMeters) ? hostCapacityMeters(host) : [];
+  const meters = hasTelemetry ? hostCapacityMeters(host) : [];
   const rank = { success: 0, warn: 1, danger: 2 };
   const worst = meters.length
     ? meters.reduce((w, m) => (rank[m.tone] > rank[w.tone] ? m : w), meters[0])
@@ -74,7 +74,7 @@ function hostMetricsFreshness(host) {
   // 5s cadence doesn't flip to "frozen" on a single hiccup.
   const staleMs = Math.max(intervalS * 3, 30) * 1000;
   const hasData = !!(host && host.cpu && Array.isArray(host.cpu.per_core) && host.cpu.per_core.length);
-  const usable = capUsable ? capUsable(host, "metrics") : true;
+  const usable = capUsable(host, "metrics");
   const stale = !usable || (ageMs != null && ageMs > staleMs);
   const state = !hasData ? "none" : stale ? "frozen" : "live";
   return {
@@ -85,7 +85,7 @@ function hostMetricsFreshness(host) {
     intervalS,
     staleMs,
     // "6m ago" style label for the last good sample.
-    label: lastAt && fmtRelative ? fmtRelative(lastAt, new Date()) : null,
+    label: lastAt ? fmtRelative(lastAt, new Date()) : null,
     message: rec ? (rec.message || null) : null,
     since: rec ? (rec.since || null) : null,
   };
@@ -98,7 +98,7 @@ function hostMetricsFreshness(host) {
 // when the host feed drops. No host (unhydrated) → treat as live, never break.
 function serverMetricsFreshness(server) {
   if (!server) return { state: "live", frozen: false, label: null };
-  const host = (hostsStore && server.hostId) ? hostsStore.find(server.hostId) : null;
+  const host = server.hostId ? hostsStore.find(server.hostId) : null;
   if (!host || !hostMetricsFreshness) return { state: "live", frozen: false, label: null };
   return hostMetricsFreshness(host);
 };

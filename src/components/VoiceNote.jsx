@@ -70,10 +70,10 @@ function useVoiceRecorder() {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (tickRef.current) clearInterval(tickRef.current);
     rafRef.current = null; tickRef.current = null;
-    try { recogRef.current && recogRef.current.stop(); } catch (e) {}
+    try { recogRef.current && recogRef.current.stop(); } catch {}
     recogRef.current = null;
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
-    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch (e) {} audioCtxRef.current = null; }
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} audioCtxRef.current = null; }
     analyserRef.current = null;
   }, []);
 
@@ -132,7 +132,7 @@ function useVoiceRecorder() {
         rafRef.current = requestAnimationFrame(loop);
       };
       rafRef.current = requestAnimationFrame(loop);
-    } catch (e) { /* waveform is non-essential */ }
+    } catch { /* waveform is non-essential */ }
 
     // Web Speech API → live transcript (best-effort)
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -155,12 +155,12 @@ function useVoiceRecorder() {
         recog.onerror = () => {};
         recog.onend = () => { /* may auto-stop; we restart only while recording */
           if (recRef.current && recRef.current.state === "recording") {
-            try { recog.start(); } catch (e) {}
+            try { recog.start(); } catch {}
           }
         };
         recog.start();
         recogRef.current = recog;
-      } catch (e) { /* transcription is best-effort */ }
+      } catch { /* transcription is best-effort */ }
     }
 
     startedRef.current = Date.now();
@@ -180,17 +180,17 @@ function useVoiceRecorder() {
       const blob = new Blob(chunksRef.current, { type: mime });
       const id = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       let url = "";
-      try { url = URL.createObjectURL(blob); VOICE_AUDIO.set(id, { url, mime }); } catch (e) {}
+      try { url = URL.createObjectURL(blob); VOICE_AUDIO.set(id, { url, mime }); } catch {}
       cleanup();
       setPhase("idle"); setLevels([]); setInterim(""); setTranscript("");
       resolve({ id, duration: Math.max(0.4, dur), peaks, transcript: txt });
     };
-    try { rec.stop(); } catch (e) { cleanup(); setPhase("idle"); resolve(null); }
+    try { rec.stop(); } catch { cleanup(); setPhase("idle"); resolve(null); }
   }), [cleanup]);
 
   const cancel = React.useCallback(() => {
     const rec = recRef.current;
-    if (rec && rec.state !== "inactive") { rec.onstop = null; try { rec.stop(); } catch (e) {} }
+    if (rec && rec.state !== "inactive") { rec.onstop = null; try { rec.stop(); } catch {} }
     cleanup();
     setPhase("idle"); setLevels([]); setInterim(""); setTranscript(""); setSeconds(0);
   }, [cleanup]);

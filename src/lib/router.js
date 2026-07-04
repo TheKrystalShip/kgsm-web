@@ -1,5 +1,3 @@
-import React from "react";
-
 // router.js — the URL <-> route bridge.
 //
 // The app's navigational state (which page, which server + tab, which focused
@@ -32,7 +30,7 @@ import React from "react";
 // user's language, the code keeps its existing vocabulary.
 
   const enc = encodeURIComponent;
-  const dec = (s) => { try { return decodeURIComponent(s); } catch (e) { return s; } };
+  const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
 
   // route object  ->  "#/..."
   function routeToHash(route) {

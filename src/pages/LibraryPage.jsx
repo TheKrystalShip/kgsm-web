@@ -1,17 +1,15 @@
 import React from "react";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
-import { fmtAddedLabel, GameCard, libraryNow, RECENT_WINDOW_DAYS } from "../components/GameCard.jsx";
+import { GameCard, libraryNow, RECENT_WINDOW_DAYS } from "../components/GameCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { LibrarySkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { fmtFootprintMb } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
-import { can } from "../lib/persona.js";
-import { hostAvailabilityLabel, instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
+import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
-import { artBg } from "../lib/art.js";
 
 // Re-export from shared modules so existing consumers don't break.
 export { fmtFootprintMb, offeringHosts };
@@ -22,10 +20,6 @@ export { fmtFootprintMb, offeringHosts };
 function instanceCountFor(game, servers) {
   return instancesOfBlueprint(game, servers).length;
 }
-function gameIsInstalled(game, servers) {
-  return instanceCountFor(game, servers) > 0;
-}
-
 // Category → icon + accent.
 const CATEGORY_META = {
   Survival: { icon: "flame",     color: "#FB923C" },
@@ -185,11 +179,11 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
   // your layout survives the refresh churn of iterating on a server fleet.
   const [collapsed, setCollapsed] = React.useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem(LIB_COLLAPSE_KEY) || "[]")); }
-    catch (e) { return new Set(); }
+    catch { return new Set(); }
   });
   const persistCollapsed = next => {
     setCollapsed(next);
-    try { localStorage.setItem(LIB_COLLAPSE_KEY, JSON.stringify([...next])); } catch (e) {}
+    try { localStorage.setItem(LIB_COLLAPSE_KEY, JSON.stringify([...next])); } catch {}
   };
   const [refreshing, setRefreshing] = React.useState(false);
   // Debounce the search so we filter + re-paginate only after a 250ms quiet
@@ -261,7 +255,7 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
   return (
     <>
       <div className="library-head">
-        <h1>{(KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog"}</h1>
+        <h1>{KRYSTAL_LABELS.catalog || "Catalog"}</h1>
         <div className="library-head__sub">Pick a game and we'll handle the install, port-forwarding, and config defaults. You bring the world.</div>
       </div>
       {dataLoading ? <LibrarySkeleton /> : (<>

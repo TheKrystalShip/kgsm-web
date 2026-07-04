@@ -33,7 +33,7 @@ async function boot() {
     try {
       const { devSeedAutoConnect } = await import("./lib/connect.js");
       await devSeedAutoConnect(import.meta.env.VITE_API_BASE);
-    } catch (e) {}
+    } catch {}
   }
   createRoot(document.getElementById("root")).render(
     <React.StrictMode>

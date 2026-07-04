@@ -1,12 +1,9 @@
 import React from "react";
 import { AlertCard, AlertSeverityTag } from "../components/AlertCard.jsx";
-import { alertHost } from "../components/ContextualAlerts.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { alertBuckets, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
-import { askAssistantUsable } from "../lib/capabilities.js";
-import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
@@ -52,9 +49,6 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   // serverFilter pins the board to a single game server (set when you arrive
   // from that server's overview "View all"). Surfaced as a dismissible chip.
   const [serverFilter, setServerFilter] = React.useState(initialServerId || "all");
-  const serverName = serverFilter !== "all"
-    ? ((serversStore && serversStore.find(serverFilter) || {}).name || serverFilter)
-    : null;
   // Debounce the search; both alert surfaces re-filter off the settled value.
   const dq = useDebouncedValue(query, 250);
   const searchPending = query.trim() !== dq.trim();
@@ -75,16 +69,8 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
     (!q || i.title.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q));
   const ff = firingSorted.filter(match), fr = resolved.filter(match);
   const filtering = !!q || sev !== "all" || source !== "all" || serverFilter !== "all";
-  const resetFilters = () => { setQuery(""); setSev("all"); setSource("all"); setServerFilter("all"); };
   const shownCount = ff.length + fr.length;
   const total = firing.length + resolved.length;
-
-  const SEVS = [
-    { id: "all",    label: "All severities" },
-    { id: "danger", label: "Critical" },
-    { id: "warn",   label: "Warning" },
-    { id: "info",   label: "Info" },
-  ];
 
   // Live counts behind each filter option, computed off the full (host-scoped)
   // alert set so the popover shows how many alerts each choice would surface.
@@ -105,7 +91,7 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
     const seen = new Map();
     (all || []).forEach(a => { if (a.serverId) seen.set(a.serverId, (seen.get(a.serverId) || 0) + 1); });
     seen.forEach((count, id) => {
-      const s = serversStore && serversStore.find(id);
+      const s = serversStore.find(id);
       opts.push({ value: id, label: (s && s.name) || id, count });
     });
     return opts;

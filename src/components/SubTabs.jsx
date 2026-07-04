@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 
 // SubTabs — the shared in-page section switcher (desktop button strip + a mobile

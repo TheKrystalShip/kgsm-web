@@ -11,10 +11,10 @@ function readFavorites() {
   try {
     const arr = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
     return Array.isArray(arr) ? arr.filter(x => typeof x === "string") : [];
-  } catch (e) { return []; }
+  } catch { return []; }
 }
 const favoritesStore = createStore({ ids: readFavorites() });
-function writeFavorites(ids) { try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids)); } catch (e) {} }
+function writeFavorites(ids) { try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids)); } catch {} }
 favoritesStore.has = (id) => favoritesStore.getState().ids.includes(id);
 favoritesStore.toggle = (id) => favoritesStore.setState(s => {
   const next = s.ids.includes(id) ? s.ids.filter(x => x !== id) : [...s.ids, id];

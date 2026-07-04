@@ -2,7 +2,6 @@
 // assistant's answer. Each card deep-links to the full context. Pure
 // props-in, JSX-out — no local state, no parent coupling.
 
-import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { TimeSeriesChart } from "../../components/TimeSeriesChart.jsx";
 import { ACTION_META } from "../../lib/formatting.js";
@@ -69,20 +68,17 @@ function EvidenceCardShell({ icon, title, sub, onOpen, openLabel, children, conf
 }
 
 function EvidencePerformance({ c, onOpen }) {
-  const TSChart = TimeSeriesChart;
   return (
     <EvidenceCardShell icon="line-chart" title={c.metric.label + " \u00b7 " + c.serverName} sub={c.caption}
       confidence={c.confidence} onOpen={onOpen} openLabel="Open Performance">
       <div className="ev-chart">
-        {TSChart && (
-          <TSChart
-            range="1h"
-            height={96}
-            yMin={0}
-            yMax={c.yMax || undefined}
-            series={[{ key: c.metric.key, color: c.metric.color, fill: true, values: c.values }]}
-            anomalies={[c.anomaly]} />
-        )}
+        <TimeSeriesChart
+          range="1h"
+          height={96}
+          yMin={0}
+          yMax={c.yMax || undefined}
+          series={[{ key: c.metric.key, color: c.metric.color, fill: true, values: c.values }]}
+          anomalies={[c.anomaly]} />
       </div>
       {c.correlated && (
         <div className="ev-correlate">
@@ -90,7 +86,7 @@ function EvidencePerformance({ c, onOpen }) {
           <span className="ev-correlate__text">
             Lines up with <b>{c.correlated.summary}</b>
           </span>
-          {ACTION_META && ACTION_META[c.correlated.action] && (
+          {ACTION_META[c.correlated.action] && (
             <span className={"audit-pill audit-pill--" + ACTION_META[c.correlated.action].tone}>
               <Icon name={ACTION_META[c.correlated.action].icon} size={10} strokeWidth={2.2} className="audit-pill__icon" />
               {c.correlated.action}

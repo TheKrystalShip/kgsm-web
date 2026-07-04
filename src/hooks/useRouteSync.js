@@ -16,9 +16,9 @@ function useRouteSync(route, setRoute, landingResolved) {
     if (window.location.hash === desired) { didInitUrl.current = true; return; }
     if (!didInitUrl.current) {
       didInitUrl.current = true;
-      try { window.history.replaceState(null, "", desired); return; } catch (e) {}
+      try { window.history.replaceState(null, "", desired); return; } catch {}
     }
-    try { window.location.hash = desired; } catch (e) {}
+    try { window.location.hash = desired; } catch {}
   }, [route, landingResolved]);
 
   // URL -> route

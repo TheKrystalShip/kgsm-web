@@ -1,10 +1,9 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
 import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
 import { DashBandList, loadDashOrder, saveDashOrder } from "../components/DashLayout.jsx";
 import { HostMeters, hostHealth } from "../components/HostCardBody.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { KPI, Kpi } from "../components/KPI.jsx";
+import { Kpi } from "../components/KPI.jsx";
 import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
@@ -12,7 +11,7 @@ import { GameCard } from "../components/GameCard.jsx";
 import { HostCapacityStrip } from "../components/host-helpers.jsx";
 import { RecentActivity } from "../components/RecentActivity.jsx";
 import { capUsable } from "../lib/capabilities.js";
-import { ACTION_META, fmtRelative, parseTs } from "../lib/formatting.js";
+import { parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
 import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore, useSelectedHostId } from "../lib/stores.js";
@@ -28,7 +27,6 @@ import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pin
 // mini-meter row per host (capacity can't be averaged across machines), each
 // row drilling into that host's diagnostics. Reuses the fleet-meter visuals.
 function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
-  const anchored = anchoredAlerts || (() => []);
   const openHost = (id) => onOpenHost && onOpenHost(id);
   return (
     <section className="cap-strip dash-fleet">
@@ -47,7 +45,7 @@ function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
       </div>
       <div className="dash-fleet__rows">
         {hosts.map(h => {
-          const alerts = anchored(an => an.surface === "diagnostics" && an.hostId === h.id);
+          const alerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id);
           // Shared health snapshot — same source as the Fleet grid cards.
           const { denied, metricsDown, meters, tone } = hostHealth(h);
           return (
@@ -85,8 +83,6 @@ function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
 function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canFleet = true }) {
   const onlineCount = servers.filter(s => s.status === "online").length;
   const totalPlayers = servers.reduce((n, s) => n + (s.players?.current || 0), 0);
-  // Dashboard grid is online-only — the full inventory is on the Servers page.
-  const onlineServers = servers.filter(s => s.status === "online");
   // Bottom "Servers" card — a single fit-to-width row (max 4), UNFILTERED by
   // status so it's not a duplicate of the "Online" KPI above. Servers carry no
   // added/created date, so instead of arbitrary list order we surface the ones
@@ -119,7 +115,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
   const selectedId = useSelectedHostId();
   const auditScoped = React.useMemo(
-    () => (auditInScope ? auditList.filter(ev => auditInScope(ev, selectedId)) : auditList),
+    () => auditList.filter(ev => auditInScope(ev, selectedId)),
     [auditList, selectedId]
   );
   // Catalog preview — a compact window onto the installable library. The backend
@@ -212,7 +208,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   const lastCrash = crash24h[0];
   // Crash detection is the watchdog's job — when the scoped host's watchdog is
   // down we can't claim "all stable", so the KPI reads unknown.
-  const scopedWatchdogDown = selectedId !== "all" && scopedHost && capUsable && !capUsable(scopedHost, "watchdog");
+  const scopedWatchdogDown = selectedId !== "all" && scopedHost && !capUsable(scopedHost, "watchdog");
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 5) return "Late one,";
@@ -226,10 +222,10 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   // per-browser in localStorage — exactly how sidebar collapse and dock width
   // are remembered. Dragging is gated behind an explicit "Customize" mode + a
   // grip handle, so it can never fire against the cards' normal click-to-drill.
-  const [dashOrder, setDashOrder] = React.useState(() => (loadDashOrder ? loadDashOrder() : []));
+  const [dashOrder, setDashOrder] = React.useState(() => loadDashOrder());
   const [customize, setCustomize] = React.useState(false);
-  const persistOrder = (order) => { setDashOrder(order); if (saveDashOrder) saveDashOrder(order); };
-  const resetLayout = () => { setDashOrder([]); if (saveDashOrder) saveDashOrder([]); };
+  const persistOrder = (order) => { setDashOrder(order); saveDashOrder(order); };
+  const resetLayout = () => { setDashOrder([]); saveDashOrder([]); };
 
   // The reorderable bands in their natural (default) order. Each carries a
   // stable id so a saved order survives content changes; conditional bands are
@@ -237,7 +233,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   const capacityNode = selectedId === "all"
     ? <DashFleetStrip hosts={hosts} onOpenDiagnostics={onDiagnostics} onOpenHost={onOpenHostDiagnostics} />
     : (scopedHost && (
-        (scopedHost.online && scopedHost.ram.total_gb > 0 && !scopedHost._pending && HostCapacityStrip)
+        (scopedHost.online && scopedHost.ram.total_gb > 0 && !scopedHost._pending)
           ? <HostCapacityStrip
               host={scopedHost}
               hostLabel={scopedHost.name}
@@ -300,7 +296,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
       // Recent activity, so there's no separate closed-alerts card. Alerts shows
       // its all-clear empty state to keep the band level.
       <div className="dash-feed">
-        {NeedsAttention && <NeedsAttention onPick={onAttention} onViewAll={onViewAlerts} max={3} emptyState title="Alerts - Latest" />}
+        <NeedsAttention onPick={onAttention} onViewAll={onViewAlerts} max={3} emptyState title="Alerts - Latest" />
 
         <RecentActivity hostId={selectedId} onViewAll={onAudit} max={3} title="Audit - Recent activity" />
       </div>
@@ -315,7 +311,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
       <div className="chat-brief">
         <div className="chat-brief__head">
           <span className="chat-brief__title">
-            <Icon name="library" size={13} /> {(KRYSTAL_LABELS && KRYSTAL_LABELS.catalog) || "Catalog"}
+            <Icon name="library" size={13} /> {KRYSTAL_LABELS.catalog || "Catalog"}
             <span className="chat-brief__count chat-brief__count--neutral">{libraryList.length}</span>
           </span>
           <button className="dash-section__more" onClick={() => onLibrary && onLibrary()}>
@@ -383,7 +379,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
               : <>{onlineCount} of {servers.length} servers online · {totalPlayers} players connected right now.</>}
           </div>
         </div>
-        {!dataLoading && DashBandList && (
+        {!dataLoading && (
           <div className={"dash-customize" + (customize ? " dash-customize--on" : "")}>
             {customize && (
               <span className="dash-customize__hint">
@@ -410,9 +406,7 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
 
       {dataLoading
         ? <DashboardSkeleton />
-        : (DashBandList
-            ? <DashBandList bands={bands} customize={customize} storedOrder={dashOrder} onReorder={persistOrder} />
-            : bands.map(b => <React.Fragment key={b.id}>{b.node}</React.Fragment>))}
+        : <DashBandList bands={bands} customize={customize} storedOrder={dashOrder} onReorder={persistOrder} />}
     </>
   );
 }

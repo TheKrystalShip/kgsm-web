@@ -2,8 +2,7 @@
 // its sub-modules. No React state, no component deps (except renderMarkdown
 // which returns JSX from plain data).
 
-import React from "react";
-import { commandMeta, COMMAND_META, API_COMMAND_VERBS } from "./chatConstants.js";
+import { commandMeta } from "./chatConstants.js";
 
 const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ACTIONS_LS  = "krystal:chat:actions";
@@ -25,17 +24,17 @@ function loadConversations() {
   try {
     const raw = localStorage.getItem(CHAT_LS_KEY);
     if (raw) return JSON.parse(raw);
-  } catch (e) {}
+  } catch {}
   return [];
 }
 function saveConversations(convos) {
-  try { localStorage.setItem(CHAT_LS_KEY, JSON.stringify(convos)); } catch (e) {}
+  try { localStorage.setItem(CHAT_LS_KEY, JSON.stringify(convos)); } catch {}
 }
 function loadSetting(key, fallback) {
-  try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
+  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
 }
 function saveSetting(key, val) {
-  try { localStorage.setItem(key, val); } catch (e) {}
+  try { localStorage.setItem(key, val); } catch {}
 }
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }

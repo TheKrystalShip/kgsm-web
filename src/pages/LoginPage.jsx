@@ -31,7 +31,7 @@ function LoginPage() {
     window.location.href = origin + "/auth/discord/start?prompt=consent";
   };
   const useDifferentHost = () => {
-    try { sessionStore.forgetHosts(); } catch (e) {}
+    try { sessionStore.forgetHosts(); } catch {}
     window.location.reload();   // registry now empty → the connect screen
   };
 

@@ -14,9 +14,7 @@ import { serverJoin } from "../lib/persona.js";
 // variant "hero"  → full row + address + honest note for the server detail page.
 
 function ServerConnect({ server, variant }) {
-  const join = serverJoin
-    ? serverJoin(server)
-    : { isSteam: false, address: server.ip, online: server.status === "online", steamUrl: null };
+  const join = serverJoin(server);
   const [copied, setCopied] = React.useState(false);
   const online = join.online;
   // Launched but not yet joinable — only a truly "online" (finished booting)
@@ -30,7 +28,7 @@ function ServerConnect({ server, variant }) {
     if (!text) return;              // no known address → never copy a literal "null"
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(text);
-    } catch (err) {}
+    } catch {}
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };

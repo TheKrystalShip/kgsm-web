@@ -15,9 +15,9 @@ function useAssistantDock() {
 
 function alertAssistantPrompt(item) {
   if (!item) return "";
-  const srv = item.serverId && serversStore ? serversStore.find(item.serverId) : null;
+  const srv = item.serverId ? serversStore.find(item.serverId) : null;
   const where = srv ? " on " + srv.name : "";
-  const when = (parseTs && fmtRelative && item.raisedAt)
+  const when = item.raisedAt
     ? fmtRelative(parseTs(item.raisedAt), new Date())
     : null;
   const raised = when ? " (raised " + when + ")" : "";
@@ -80,10 +80,10 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
   }, [setRoute]);
 
   const askAssistant = React.useCallback((serverId) => {
-    if (serverId && serverHostId) {
+    if (serverId) {
       const hid = serverHostId(serverId);
       const h = hid && hosts.find(x => x.id === hid);
-      if (h && capUsable && capUsable(h, "assistant")) setAssistantHostId(hid);
+      if (h && capUsable(h, "assistant")) setAssistantHostId(hid);
     }
     setAssistantOpen(true);
   }, [hosts]);
@@ -96,13 +96,13 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
 
   const openAssistant = React.useCallback(() => {
     const sh = hosts.find(h => h.id === selectedHostId);
-    if (!assistantHostId && sh && capUsable && capUsable(sh, "assistant")) setAssistantHostId(sh.id);
+    if (!assistantHostId && sh && capUsable(sh, "assistant")) setAssistantHostId(sh.id);
     setAssistantOpen(true);
   }, [hosts, selectedHostId, assistantHostId]);
 
   // ===== Effects =====
   React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:width", String(dockWidth)); } catch (e) {}
+    try { localStorage.setItem("krystal:dock:width", String(dockWidth)); } catch {}
   }, [dockWidth]);
 
   React.useEffect(() => {
@@ -115,16 +115,16 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     try {
       if (manualPin == null) localStorage.removeItem("krystal:dock:pin");
       else localStorage.setItem("krystal:dock:pin", manualPin ? "1" : "0");
-    } catch (e) {}
+    } catch {}
   }, [manualPin]);
 
   // Per-host assistant capability
   const assistantHostList = React.useMemo(
-    () => (assistantHostsAll ? assistantHostsAll(hosts) : (assistantHosts ? assistantHosts(hosts) : [])),
+    () => assistantHostsAll(hosts),
     [hosts]
   );
   const usableAssistants = React.useMemo(
-    () => (assistantHosts ? assistantHosts(hosts) : []),
+    () => assistantHosts(hosts),
     [hosts]
   );
   const assistantHost = hosts.find(h => h.id === assistantHostId) || usableAssistants[0] || assistantHostList[0] || null;
@@ -148,7 +148,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
   }, [assistantHostList.length]);
 
   React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:open", assistantOpen ? "1" : "0"); } catch (e) {}
+    try { localStorage.setItem("krystal:dock:open", assistantOpen ? "1" : "0"); } catch {}
   }, [assistantOpen]);
 
   // ===== Layout derivations =====

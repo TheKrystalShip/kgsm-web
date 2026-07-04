@@ -1,5 +1,3 @@
-import React from "react";
-
 // Skeletons.jsx — loading placeholders for the data-heavy surfaces.
 //
 // Rule: a skeleton occupies the SAME footprint the real content will, so the
