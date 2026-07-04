@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.1)
+- `GET /servers` always 401s on every page reload: `retryConnection` used the
+  unscoped `api.get("/servers")`, which resolves auth via `selectedHostStore.id`.
+  On cold load that store initialises to `"all"` (hostsStore is empty until the
+  first REST round-trip), triggering the `id === "all"` guard in `authorizedBearer`
+  → no token → unauthenticated request. Fix: use `api.fanOut("/servers")` instead,
+  which routes per-connection through `hostScoped(conn.id)` with a concrete host ID
+  → `authorizedBearer` succeeds on the first call.
+
 ### Added (v1.4.0)
 - iOS PWA polish: multi-resolution `apple-touch-icon` tags (180×180, 167×167, 152×152 px)
   so the home-screen icon renders at the correct size on every iPhone and iPad variant.

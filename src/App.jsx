@@ -686,7 +686,7 @@ function App() {
   // Reused by every Retry. The guard() in the api seam flips connectionStore.
   const retryConnection = React.useCallback(() => {
     connectionStore.setState(s => ({ ...s, retrying: true, status: s.everLoaded ? s.status : "connecting" }));
-    return api.get("/servers").catch(() => {});
+    return api.fanOut("/servers").catch(() => {});
   }, []);
   React.useEffect(() => { retryConnection(); }, [retryConnection]);
   // The host whose session needs interactive re-auth → drives HostReauthModal.
