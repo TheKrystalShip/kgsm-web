@@ -1,7 +1,7 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {

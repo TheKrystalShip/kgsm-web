@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.6)
+- Boot/auth hold screen ("Signing you in…"): fixed two bugs found during the v1.4.5
+  browser verification.
+  - The ellipsis rendered as a literal `…` — the escape sat in a JSX **text
+    node**, where `\u` is not processed. Wrapped it in a JS string expression
+    (`{"…"}`) so it renders "…". Fixed the identical case in `AppRouter`'s
+    Suspense fallback ("Loading…").
+  - The content leaned left on mobile: `BootLanding` reused the `.app` shell class,
+    whose `grid-template-columns: var(--sidebar-w) 1fr` pinned the centred content
+    into the narrow sidebar column (and the inline `display:grid` even overrode the
+    mobile `.app{display:block}`). Replaced with a self-contained `position:fixed;
+    inset:0` flex overlay centred on both axes at every breakpoint.
+
 ### Fixed (v1.4.5)
 - **Four latent crashes** the dead-code sweep + a new lint rule surfaced, all
   used-but-not-imported in JSX-tag position (the same class as v1.4.3 #1, which
