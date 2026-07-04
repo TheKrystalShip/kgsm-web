@@ -117,8 +117,14 @@
   /* Topbar: hamburger + brand on left, account on right.
      Secondary tab links collapse — they live in the sidebar instead. */
   .topbar {
-    height: 56px;
+    /* min-height instead of height so the bar grows when safe-area-inset-top
+       pushes it down (iOS standalone + black-translucent status bar). */
+    min-height: 56px;
     padding: 0 16px;
+    /* Re-apply the notch padding that the @supports block set — the shorthand
+       `padding: 0 16px` above would otherwise override it and run content
+       straight into the iPhone status bar. */
+    padding-top: env(safe-area-inset-top, 0);
     gap: 12px;
     position: sticky; top: 0; z-index: 30;
   }
@@ -153,7 +159,12 @@
      left-edge handle (vertically centred), so no top padding is needed to clear
      it. The .mnav styles + their ≤768px reveal live in the .mnav section. */
 
-  .assistant-fab { right: 16px; bottom: 16px; width: 48px; height: 48px; }
+  /* Keep the FAB clear of the home indicator and landscape notch cutout. */
+  .assistant-fab {
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    width: 48px; height: 48px;
+  }
 
   /* Dashboard */
   .dash-head h1 { font-size: 22px; }

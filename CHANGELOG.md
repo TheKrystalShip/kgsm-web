@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.4.0)
+- iOS PWA polish: multi-resolution `apple-touch-icon` tags (180×180, 167×167, 152×152 px)
+  so the home-screen icon renders at the correct size on every iPhone and iPad variant.
+- iOS launch / splash screens: `apple-touch-startup-image` entries with `media` queries
+  covering every current iPhone and iPad, eliminating the blank flash on cold-start.
+  13 portrait splash sizes generated (640–2048 px wide), all using the app canvas colour
+  (#0B0F14) with the icon centred — no white or system-default grey frame.
+- `format-detection` meta tag (`telephone=no, date=no, email=no, address=no`) to suppress
+  iOS auto-linking of phone numbers, dates, and addresses in rendered text.
+
+### Fixed (v1.4.0)
+- **iOS notch / status-bar overlap** — `@media (max-width: 768px)` reset `.topbar`'s
+  shorthand padding to `0 16px`, silently overriding the `@supports` block's
+  `padding-top: env(safe-area-inset-top)`. The topbar content was running straight
+  into the status bar when launched in standalone mode on any iPhone with a notch.
+  Fixed by re-applying the safe-area padding inside the mobile block and changing
+  `height: 56px` → `min-height: 56px` so the bar grows rather than the content
+  shrinking.
+- **Assistant FAB hidden behind home indicator** — `.assistant-fab { bottom: 16px }`
+  on mobile doesn't respect `env(safe-area-inset-bottom)`, so the FAB overlapped
+  the home bar on all edge-to-edge iPhones. Fixed with
+  `bottom: max(16px, env(safe-area-inset-bottom, 0px))` (and matching `right:` for
+  landscape notch clearance).
+
 ### Added (v1.3.0)
 - Phantom install card: when a new game server install starts, a dashed card appears in the
   fleet immediately showing install progress. The pill text updates through "Preparing…",
