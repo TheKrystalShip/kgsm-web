@@ -23,13 +23,13 @@ const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);
 //   bearer        — () => Promise<token|null>|token|null, AWAITED at each connect
 //   onOpen        — () => void, fired after the connected comment arrives (mode→live)
 //   onMessage     — (msg:{topic,type,data}) => void, one parsed server frame
-//   onMode        — (mode:"live"|"reconnecting"|"offline") => void, for realtimeStore
+//   onMode        — (mode:"live"|"connecting"|"reconnecting"|"offline") => void, for realtimeStore
 //   onUnauthorized— () => void, called on a 401 response (→ sessionStore.expire)
 // Returns { reconnect(), close(), mode() }.
 export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnauthorized }) {
   let controller = null;
   let attempts = 0;
-  let mode = "reconnecting";
+  let mode = "connecting";
   let reconnectTimer = null;
   let closed = false;
 
@@ -40,7 +40,7 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
   function scheduleReconnect() {
     if (closed) return;
     clearTimer();
-    setMode("reconnecting");
+    setMode(attempts > 0 ? "reconnecting" : "connecting");
     const wait = backoff(attempts++);
     reconnectTimer = setTimeout(connect, wait);
   }
@@ -64,7 +64,6 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
       res = await fetch(url, { headers, signal: controller.signal });
     } catch (e) {
       if (e && e.name === "AbortError") return;
-      setMode("reconnecting");
       scheduleReconnect();
       return;
     }
@@ -76,7 +75,6 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
     }
 
     if (!res.ok) {
-      setMode("reconnecting");
       scheduleReconnect();
       return;
     }
@@ -99,7 +97,6 @@ export function createSseStream({ url, bearer, onOpen, onMessage, onMode, onUnau
 
     // Stream ended (server closed, network drop, etc.) → reconnect.
     if (!closed) {
-      setMode("reconnecting");
       scheduleReconnect();
     }
   }
