@@ -182,6 +182,17 @@ api.stream.subscribe(["jobs"], (m) => {
       } else {
         serversStore.patch(serverId, { job: { verb, state, phase: phase ?? null } });
       }
+    } else if (verb === "uninstall") {
+      if (state === "done") {
+        if (m.data.error) {
+          // Failed uninstall: revert to a normal card — the server still exists.
+          serversStore.patch(serverId, { _phantom: false, job: null });
+        }
+        // Success: server.removed SSE arrives shortly and drops the row.
+      } else {
+        // In progress: flip the existing card to the phantom "Uninstalling" tile.
+        serversStore.patch(serverId, { _phantom: true, job: { verb, state } });
+      }
     } else {
       serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
     }

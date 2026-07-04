@@ -21,10 +21,13 @@ const INSTALL_PHASE_LABEL = {
 
 function ServerPhantomTile({ server }) {
   const art = artBg(server.hero, server.cover);
+  const isUninstall = server.job?.verb === "uninstall";
   const isFailed = server.status === "install-failed";
   const phaseText = isFailed ? "Failed"
+    : isUninstall ? "Uninstalling…"
     : (INSTALL_PHASE_LABEL[server.job?.phase]
         || (server.job?.state === "queued" ? "Queued…" : "Installing…"));
+  const pillClass = isFailed ? "install-failed" : isUninstall ? "uninstalling" : "installing";
 
   return (
     <div className="server-tile server-tile--phantom">
@@ -34,7 +37,7 @@ function ServerPhantomTile({ server }) {
       <div className="server-tile__body">
         <div className="server-tile__head">
           <div className="server-tile__name">{server.name}</div>
-          <span className={"server-tile__pill server-tile__pill--" + (isFailed ? "install-failed" : "installing")}>
+          <span className={"server-tile__pill server-tile__pill--" + pillClass}>
             <span className="dot"></span>
             {phaseText}
           </span>
