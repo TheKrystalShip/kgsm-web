@@ -1,4 +1,5 @@
 import React from "react";
+import { HostAuthBadge, HostDeniedNotice } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { CONNECTIONS } from "../lib/config.js";
 import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
@@ -16,46 +17,6 @@ import { useStore } from "../lib/store.js";
 //                     when no host is configured (the original empty-dashboard
 //                     fix) and for adding another host later. Drives the silent
 //                     Discord bounce (popup, gesture-bound) and lands a session.
-
-function HostAuthBadge({ hostId, size }) {
-  const rec = useStore(sessionStore, s => s.byHost[hostId]) || { status: "none" };
-  const TIER = TIER_LABEL || {};
-  const map = {
-    live:          { tone: "ok",   icon: "shield-check", label: TIER[rec.tier] || "Connected" },
-    bootstrapping: { tone: "info", icon: "loader-2",     label: "Connecting…", spin: true },
-    expired:       { tone: "warn", icon: "rotate-cw",    label: "Reconnecting…", spin: true },
-    denied:        { tone: "danger", icon: "lock",       label: "No access" },
-    none:          { tone: "muted", icon: "plug",        label: "Not connected" },
-  };
-  const m = map[rec.status] || map.none;
-  return (
-    <span className={"host-auth host-auth--" + m.tone + (size === "sm" ? " host-auth--sm" : "")} title={m.label}>
-      <Icon name={m.icon} size={size === "sm" ? 11 : 12} className={m.spin ? "is-spinning" : ""} />
-      <span className="host-auth__label">{m.label}</span>
-    </span>
-  );
-}
-
-function HostDeniedNotice({ host, onBack, onManage, embedded }) {
-  const name = (host && host.name) || "this host";
-  return (
-    <div className={"host-denied" + (embedded ? " host-denied--embedded" : "")}>
-      <div className="host-denied__icon"><Icon name="lock" size={26} strokeWidth={1.8} /></div>
-      <h2 className="host-denied__title">You don’t have permission on {name}</h2>
-      <p className="host-denied__body">
-        You’re signed in with Discord and <b>{name}</b> recognises you — but your Discord
-        role doesn’t grant access here. Each host checks roles against its own
-        community, so access can differ from host to host. Ask an admin of this
-        host’s Discord to grant your role, then reconnect.
-      </p>
-      <div className="host-denied__actions">
-        {onBack && <button className="host-btn host-btn--primary" onClick={onBack}><Icon name="layers" size={14} /> Back to all hosts</button>}
-        {onManage && <button className="host-btn" onClick={onManage}><Icon name="server-cog" size={14} /> Manage hosts</button>}
-      </div>
-      <div className="host-denied__hint"><Icon name="info" size={12} /> This isn’t a sign-in problem — re-logging in won’t change your role. It’s set on {name}’s side.</div>
-    </div>
-  );
-}
 
 function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   const [url, setUrl] = React.useState("");

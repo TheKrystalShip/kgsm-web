@@ -3,8 +3,9 @@ import { Icon } from "./Icon.jsx";
 import { Select } from "./Select.jsx";
 import { can } from "../lib/persona.js";
 import { artBg } from "../lib/art.js";
-import { fmtFootprintMb, offeringHosts } from "../pages/LibraryPage.jsx";
-import { Toggle } from "../pages/ServerSettings.jsx";
+import { fmtFootprintMb } from "../lib/formatting.js";
+import { offeringHosts } from "../lib/servers.js";
+import { Toggle } from "./settings-primitives.jsx";
 
 // InstallModal — overlay form for spinning up a new game server.
 // Props:

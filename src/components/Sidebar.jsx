@@ -4,8 +4,7 @@ import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { coverArtBg } from "../lib/art.js";
-import { HostAuthBadge } from "../pages/HostAccess.jsx";
-import { OAuthIcon } from "../pages/LoginPage.jsx";
+import { HostAuthBadge, OAuthIcon } from "./host-helpers.jsx";
 
 // Sidebar component — brand, primary nav, quick actions.
 

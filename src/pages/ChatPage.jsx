@@ -9,7 +9,7 @@ import { assistantHosts, capUsable, hostCapability } from "../lib/capabilities.j
 import { canOperate, isAdmin } from "../lib/persona.js";
 import { confirmCommand, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
-import { ACTION_META } from "./AuditLogPage.jsx";
+import { ACTION_META } from "../lib/formatting.js";
 
 // ChatPage — the assistant UI for a per-host assistant capability.
 //

@@ -1,7 +1,7 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { sessionStore } from "../lib/sessionStore.js";
-import { OAuthIcon } from "./LoginPage.jsx";
+import { OAuthIcon } from "../components/host-helpers.jsx";
 
 // HostReauth.jsx — interactive per-host re-authentication (Model A).
 //

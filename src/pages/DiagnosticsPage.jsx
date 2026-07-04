@@ -3,22 +3,23 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
 import { HostConnection } from "../components/ErrorBoundary.jsx";
 import { HostMeters, hostHealth, hostMetricsFreshness } from "../components/HostCardBody.jsx";
+import { CapacityMeter, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, hostCapacityMeters } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
 import { ConsoleView } from "../components/ConsoleView.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
+import { RecentActivity } from "../components/RecentActivity.jsx";
 import { Select } from "../components/Select.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { api } from "../lib/apiClient.js";
+import { statusTone, uptimeFrom } from "../lib/formatting.js";
 import { can, canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { applyLeafConfig, fetchLeafConfig, hostsStore, logSourcesStore, logsStore, selectedHostStore, serversStore, servicesStore, setLeafProvisioned, subscribeHostLogs, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
-import { RecentActivity } from "./DashboardPage.jsx";
-import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 
 // DiagnosticsPage — host-machine (not game-server) command center.
 //
@@ -31,141 +32,10 @@ import { HostAuthBadge, HostDeniedNotice } from "./HostAccess.jsx";
 //
 // Backed by hostsStore (hydrated from GET /hosts + live metric ticks).
 
-// ---------- Helpers ----------
-
-function uptimeFrom(bootTime) {
-  const boot = new Date(bootTime);
-  const ms = Date.now() - boot.getTime();
-  const days = Math.floor(ms / 86400000);
-  const hours = Math.floor((ms % 86400000) / 3600000);
-  const mins = Math.floor((ms % 3600000) / 60000);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
-}
-
-function fmtTimeFull(ts) {
-  const d = new Date(ts.replace(" ", "T"));
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-// Choose a traffic-light tone (success/warn/danger) for a numeric value
-// against amber/red thresholds.
-function statusTone(value, amber, red) {
-  if (value >= red) return "danger";
-  if (value >= amber) return "warn";
-  return "success";
-}
+// Re-export from shared modules so existing consumers don't break.
+export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
 // ---------- Overview tiles ----------
-// The overview KPIs reuse the shared KPI card (KPI) so the dashboard,
-// the host diagnostics overview, and the server-detail stats never drift. Unlike the dashboard, which stays calm when
-// healthy, the diagnostics tiles keep a full traffic-light top hairline on
-// every tone (green / amber / red) — see `.diag-tiles .kpi` in kit.css. Diag
-// tones (success/warn/danger) map onto Kpi tones (ok/warn/danger).
-const DIAG_KPI_TONE = { success: "ok", warn: "warn", danger: "danger" };
-
-// ---------- Host capacity strip (reusable) ----------
-// Compact CPU / Memory / Disk headroom meters. Defined here so Diagnostics
-// owns the source of truth; the Dashboard imports the very same component
-// (via window) for at-a-glance discovery with a jump-to-Diagnostics button.
-
-// Derive the three capacity meters from a host record. Kept separate so the
-// math lives in one place regardless of who renders it.
-function hostCapacityMeters(host) {
-  // No honest telemetry to chart (metrics capability down, or a freshly added
-  // host that hasn't reported) → no meters, never fabricated zeros. Callers
-  // treat an empty list as "metrics unavailable".
-  if (!host || !host.cpu || !host.ram || !host.ram.total_gb) return [];
-  const ramPct = Math.round((host.ram.used_gb / host.ram.total_gb) * 100);
-  const fullest = host.disks.reduce((acc, d) => {
-    const pct = (d.used_gb / d.total_gb) * 100;
-    return pct > acc.pct ? { disk: d, pct } : acc;
-  }, { disk: null, pct: 0 });
-  const diskPct = Math.round(fullest.pct);
-  const swapRatio = host.ram.swap_total_gb ? host.ram.swap_used_gb / host.ram.swap_total_gb : 0;
-  return [
-    {
-      key: "cpu", icon: "cpu", label: "CPU", pct: host.cpu.usage_pct,
-      value: host.cpu.usage_pct + "%",
-      detail: "load " + host.cpu.load_avg[0].toFixed(1) + " \u00b7 " + host.cpu.cores + " cores",
-      tone: statusTone(host.cpu.usage_pct, 60, 80),
-    },
-    {
-      key: "ram", icon: "memory-stick", label: "Memory", pct: ramPct,
-      value: ramPct + "%",
-      detail: host.ram.used_gb.toFixed(1) + " / " + host.ram.total_gb + " GB",
-      tone: statusTone(ramPct, 70, 85),
-      flag: swapRatio > 0.3 ? "swap rising" : null,
-    },
-    {
-      key: "disk", icon: "database", label: "Disk", pct: diskPct,
-      value: diskPct + "%",
-      detail: fullest.disk ? fullest.disk.mount + " \u00b7 " + fullest.disk.used_gb + " / " + fullest.disk.total_gb + " GB" : "\u2014",
-      tone: statusTone(diskPct, 80, 90),
-      flag: fullest.disk && fullest.disk.smart && fullest.disk.smart !== "ok" ? "SMART " + fullest.disk.smart : null,
-    },
-  ];
-}
-
-function CapacityMeter({ meter }) {
-  return (
-    <div className={"cap-meter cap-meter--" + meter.tone}>
-      <div className="cap-meter__top">
-        <span className="cap-meter__icon"><Icon name={meter.icon} size={14} strokeWidth={2.2} /></span>
-        <span className="cap-meter__label">{meter.label}</span>
-        <span className="cap-meter__value">{meter.value}</span>
-      </div>
-      <div className="cap-meter__track">
-        <i className="cap-meter__fill" style={{ width: Math.max(2, Math.min(100, meter.pct)) + "%" }}></i>
-      </div>
-      <div className="cap-meter__detail">
-        <span className="cap-meter__detail-text">{meter.detail}</span>
-        {meter.flag && (
-          <span className="cap-meter__flag"><Icon name="triangle-alert" size={10} strokeWidth={2.4} />{meter.flag}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HostCapacityStrip({ host, title, hostLabel, onOpenDiagnostics, hideAlert }) {
-  if (!host) return null;
-  const meters = hostCapacityMeters(host);
-  const rank = { success: 0, warn: 1, danger: 2 };
-  const worst = meters.reduce((w, m) => (rank[m.tone] > rank[w.tone] ? m : w), meters[0]);
-  const alert = !hideAlert && worst && worst.tone !== "success";
-  return (
-    <section className="cap-strip">
-      <div className="cap-strip__head">
-        <h2 className="cap-strip__title">
-          <Icon name="server" size={14} />
-          {title || "Host capacity"}
-          {hostLabel && <span className="cap-strip__host">{hostLabel}</span>}
-        </h2>
-        {alert && (
-          <span className={"cap-strip__alert cap-strip__alert--" + worst.tone}>
-            <Icon name="triangle-alert" size={12} strokeWidth={2.4} />
-            {worst.label} {worst.flag || ("at " + worst.value)}
-          </span>
-        )}
-        <span style={{ flex: 1 }}></span>
-        {onOpenDiagnostics && (
-          <button className="dash-section__more" onClick={onOpenDiagnostics}>
-            Diagnostics <Icon name="arrow-right" size={12} strokeWidth={2.2} />
-          </button>
-        )}
-      </div>
-      <div className="cap-strip__meters">
-        {meters.length
-          ? meters.map(m => <CapacityMeter key={m.key} meter={m} />)
-          : <div className="cap-strip__empty"><Icon name="activity" size={13} /> Live metrics unavailable on this host</div>}
-      </div>
-    </section>
-  );
-}
-
-// ---------- Metrics freshness UI ----------
 // When a host's live metrics stop arriving (agent's exporter down, or samples
 // gone stale), we keep showing the LAST reading rather than blanking the page,
 // but treat each KPI like a powered-down instrument readout: dimmed and dark
@@ -1601,4 +1471,4 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   );
 }
 
-export { CapacityMeter, FleetPage, HostCapacityStrip, hostCapacityMeters };
+export { FleetPage };

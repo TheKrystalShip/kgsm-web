@@ -4,6 +4,7 @@ import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AccountAvatar } from "../components/Sidebar.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
+import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
 import { auditEventHost, auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
@@ -11,76 +12,8 @@ import { auditEventHost, auditInScope, auditStore, hostsStore, selectedHostStore
 // Krystal. Same data feeds the small "Recent activity" panel on the
 // dashboard; this page is the canonical view with filters and search.
 
-// ---------- Action metadata ----------
-// Maps a dot-notation action key to its display details: human label, the
-// Lucide icon to show on the timeline pill, and the severity tone used to
-// colour that pill.  Severity tones map directly to the design system's
-// semantic colors.
-const ACTION_META = {
-  "server.install":        { label: "Server installed",   icon: "package-plus",  tone: "success" },
-  "server.start":          { label: "Server started",     icon: "play",          tone: "success" },
-  "server.stop":           { label: "Server stopped",     icon: "square",        tone: "danger"  },
-  "server.restart":        { label: "Server restarted",   icon: "rotate-cw",     tone: "update"  },
-  "server.update":         { label: "Server updated",     icon: "download",      tone: "info"    },
-  "server.crash":          { label: "Server crashed",     icon: "alert-triangle",tone: "danger"  },
-  "server.rename":         { label: "Server renamed",     icon: "pencil",        tone: "info"    },
-  "server.delete":         { label: "Server deleted",     icon: "trash-2",       tone: "danger"  },
-  "player.join":           { label: "Player joined",      icon: "log-in",        tone: "info"    },
-  "player.leave":          { label: "Player left",        icon: "log-out",       tone: "info"    },
-  "player.kick":           { label: "Player kicked",      icon: "user-x",        tone: "warn"    },
-  "player.ban":            { label: "Player banned",      icon: "shield-off",    tone: "danger"  },
-  "player.unban":          { label: "Player unbanned",    icon: "shield-check",  tone: "info"    },
-  "player.allow.add":      { label: "Allowlist updated",  icon: "user-check",    tone: "info"    },
-  "player.allow.remove":   { label: "Allowlist updated",  icon: "user-x",        tone: "warn"    },
-  "backup.create":         { label: "Backup created",     icon: "database",      tone: "success" },
-  "backup.restore":        { label: "Backup restored",    icon: "rotate-ccw",    tone: "warn"    },
-  "backup.delete":         { label: "Backup deleted",     icon: "trash-2",       tone: "danger"  },
-  "backup.download":       { label: "Backup downloaded",  icon: "download",      tone: "info"    },
-  "file.edit":             { label: "File edited",        icon: "file-pen",      tone: "info"    },
-  "file.upload":           { label: "File uploaded",      icon: "upload",        tone: "info"    },
-  "file.delete":           { label: "File deleted",       icon: "trash-2",       tone: "danger"  },
-  "settings.change":       { label: "Settings changed",   icon: "settings",      tone: "info"    },
-  "host.connect":          { label: "Host connected",     icon: "power",         tone: "success" },
-  "host.disconnect":       { label: "Host disconnected",  icon: "power-off",     tone: "warn"    },
-  "host.update":           { label: "Host updated",       icon: "package",       tone: "info"    },
-  "host.add":              { label: "Host added",         icon: "server-cog",    tone: "success" },
-  "host.remove":           { label: "Host removed",       icon: "trash-2",       tone: "danger"  },
-  "auth.login":            { label: "Signed in",          icon: "log-in",        tone: "info"    },
-  "auth.logout":           { label: "Signed out",         icon: "log-out",       tone: "info"    },
-  "auth.token.create":     { label: "API token created",  icon: "key",           tone: "info"    },
-  "discord.webhook.update":{ label: "Discord updated",    icon: "message-circle",tone: "info"    },
-};
-
-// Top-level category derived from the action key (the bit before the first dot).
-function actionCategory(action) {
-  return action.split(".")[0];
-}
-const CATEGORY_LABEL = {
-  server:   "Server",
-  player:   "Players",
-  backup:   "Backups",
-  file:     "Files",
-  settings: "Settings",
-  auth:     "Auth",
-  discord:  "Discord",
-  host:     "Hosts",
-};
-
-// ---------- Time helpers ----------
-
-function parseTs(ts) { return new Date(ts.replace(" ", "T")); }
-
-function fmtRelative(date, now = new Date()) {
-  const diff = (now - date) / 1000;
-  if (diff < 60)    return Math.max(0, Math.floor(diff)) + "s ago";
-  if (diff < 3600)  return Math.floor(diff / 60) + "m ago";
-  if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-  return Math.floor(diff / 86400) + "d ago";
-}
-
-function fmtTime(date) {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-}
+// Re-export from the shared module so existing consumers don't break.
+export { ACTION_META, actionCategory, CATEGORY_LABEL, fmtRelative, fmtTime, parseTs };
 
 function dayBucket(date, now = new Date()) {
   const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -433,4 +366,4 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   );
 }
 
-export { ACTION_META, AuditLogPage, actionCategory, auditServerParams, fmtRelative, fmtTime, parseTs };
+export { AuditLogPage, auditServerParams };

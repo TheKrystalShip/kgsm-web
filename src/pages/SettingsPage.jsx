@@ -6,8 +6,8 @@ import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { DiscordPage } from "./DiscordPage.jsx";
-import { HostAuthBadge } from "./HostAccess.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
+import { HostAuthBadge } from "../components/host-helpers.jsx";
+import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 
 // SettingsPage — account- and website-level settings (distinct from the

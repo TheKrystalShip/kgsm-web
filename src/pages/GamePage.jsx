@@ -3,11 +3,12 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
+import { fmtFootprintMb } from "../lib/formatting.js";
 import { canOn } from "../lib/persona.js";
+import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
-import { fmtFootprintMb, offeringHosts } from "./LibraryPage.jsx";
 
 // GamePage — the "blueprint" detail page for a single catalog game. A game in
 // the library is a TEMPLATE you can run, not a running server, so this page is
@@ -16,18 +17,6 @@ import { fmtFootprintMb, offeringHosts } from "./LibraryPage.jsx";
 // opens the install modal. Reuses the shared card family — KPI (glance specs),
 // BriefCard (About / defaults / your servers) and ServerTile (instances) — so
 // it reads identically to the dashboard and server-detail pages.
-
-// Servers created from a catalog blueprint — the SINGLE match rule, shared by the
-// blueprint detail page AND the library cards/counts so they can never drift.
-// Match on the backend blueprint id; the rawg_slug branch is a fallback, guarded
-// non-null on both sides or two slug-less servers (rawg_slug:null) would match
-// EVERY blueprint via null === null (a data-corruption bug).
-function instancesOfBlueprint(game, servers) {
-  return (servers || []).filter(s =>
-    (s.blueprint && s.blueprint === game.id) ||
-    (s.rawg_slug && game.rawg_slug && s.rawg_slug === game.rawg_slug) ||
-    s.id === game.id);
-}
 
 // A single label → value spec line, in the shared chat-brief entry-line style
 // (icon chip + title body + trailing value). Non-interactive, so it carries the

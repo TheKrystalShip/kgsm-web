@@ -8,13 +8,14 @@ import { KPI, Kpi } from "../components/KPI.jsx";
 import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
+import { GameCard } from "../components/GameCard.jsx";
+import { HostCapacityStrip } from "../components/host-helpers.jsx";
+import { RecentActivity } from "../components/RecentActivity.jsx";
 import { capUsable } from "../lib/capabilities.js";
+import { ACTION_META, fmtRelative, parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
 import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore, useSelectedHostId } from "../lib/stores.js";
-import { ACTION_META, fmtRelative, parseTs } from "./AuditLogPage.jsx";
-import { HostCapacityStrip } from "./DiagnosticsPage.jsx";
-import { GameCard } from "./LibraryPage.jsx";
 
 // DashboardPage — the post-login home. Aggregate stats, a server grid,
 // and a recent-activity feed. Designed to answer "what should I care about
@@ -80,73 +81,6 @@ function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
 
 // The dashboard KPI card lives in KPI.jsx (KPI) and is shared with the
 // host diagnostics overview and the server-detail overview stats.
-
-// Recent activity — a compact, read-only window onto the audit feed
-// (auditStore), newest-first and host-scoped via auditInScope.
-// Shared so the dashboard and the host diagnostics overview render the SAME
-// card from one place: pass `hostId` to scope ("all"/undefined → everything; a
-// host id → that host's server events plus panel-wide ones). Clicking a row or
-// "View all" calls onViewAll — the owner routes to the full Audit log.
-function RecentActivity({ hostId, serverId, onViewAll, max = 3, title = "Recent activity" }) {
-  const auditList = useStore(auditStore, s => s.list);
-  const scoped = React.useMemo(
-    () => {
-      // serverId pins the feed strictly to one game server's events (server
-      // detail). Otherwise fall back to the host scope used by the dashboard
-      // and diagnostics overview.
-      if (serverId) return auditList.filter(ev => ev.serverId === serverId);
-      return auditInScope ? auditList.filter(ev => auditInScope(ev, hostId)) : auditList;
-    },
-    [auditList, hostId, serverId]
-  );
-  const recent = scoped.slice(0, max);
-  // 1s clock so the "Xs ago" labels tick up live instead of freezing until the
-  // next audit entry arrives or the page reloads. `now` is the wall clock (same
-  // reference the full Audit log page uses), not the newest entry's own
-  // timestamp — pinning to that made the latest row read "0s ago" forever.
-  const [, setClock] = React.useState(0);
-  React.useEffect(() => {
-    const t = setInterval(() => setClock(c => c + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const now = new Date();
-  return (
-    <BriefCard
-      icon="scroll-text"
-      title={title}
-      count={scoped.length}
-      countTone="neutral"
-      onViewAll={onViewAll}
-    >
-      {scoped.length === 0 ? (
-        // Calm placeholder when the audit feed is empty, mirroring the Alerts
-        // card's all-clear state so the dashboard never shows a blank card.
-        // Neutral tone (not "success") — an empty log isn't good or bad.
-        <div className="chat-brief__empty chat-brief__empty--neutral">
-          <Icon name="scroll-text" size={20} />
-          <span className="chat-brief__empty-title">No recent activity</span>
-          <span className="chat-brief__empty-sub">Actions across your servers will show up here.</span>
-        </div>
-      ) : (
-      <div className="chat-brief__list">
-        {recent.map(ev => {
-          const meta = ACTION_META[ev.action] || { icon: "circle-dot", tone: "info" };
-          const d = parseTs(ev.ts);
-          return (
-            <div className={"chat-brief__item chat-brief__item--" + meta.tone} key={ev.id} onClick={onViewAll}>
-              <span className="chat-brief__icon"><Icon name={meta.icon} size={14} /></span>
-              <div className="chat-brief__body">
-                <span className="chat-brief__item-title chat-brief__item-title--wrap"><b>{ev.actor.name}</b> {ev.summary}</span>
-                <span className="chat-brief__detail">{fmtRelative(d, now)}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      )}
-    </BriefCard>
-  );
-}
 
 function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canFleet = true }) {
   const onlineCount = servers.filter(s => s.status === "online").length;
@@ -487,4 +421,4 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
 // server-detail stats share that same component.
 // RecentActivity is shared with the host diagnostics overview (scoped per host).
 
-export { DashboardPage, RecentActivity };
+export { DashboardPage };

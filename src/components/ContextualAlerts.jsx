@@ -2,7 +2,7 @@ import React from "react";
 import { Icon } from "./Icon.jsx";
 import { KrystalAlerts } from "../lib/alertsApi.js";
 import { serverHostId } from "../lib/stores.js";
-import { AlertCard } from "../pages/AlertsPage.jsx";
+import { AlertCard } from "./AlertCard.jsx";
 
 // ContextualAlerts — surface active alerts at their point of origin.
 //

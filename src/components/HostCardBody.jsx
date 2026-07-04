@@ -2,8 +2,8 @@ import React from "react";
 import { capUsable } from "../lib/capabilities.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { hostsStore } from "../lib/stores.js";
-import { fmtRelative } from "../pages/AuditLogPage.jsx";
-import { hostCapacityMeters } from "../pages/DiagnosticsPage.jsx";
+import { fmtRelative } from "../lib/formatting.js";
+import { hostCapacityMeters } from "./host-helpers.jsx";
 
 // HostCardBody — shared host-monitoring primitives.
 //

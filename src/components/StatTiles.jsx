@@ -2,7 +2,7 @@ import React from "react";
 import { KPI } from "./KPI.jsx";
 import { useStore } from "../lib/store.js";
 import { auditStore } from "../lib/stores.js";
-import { parseTs } from "../pages/AuditLogPage.jsx";
+import { parseTs } from "../lib/formatting.js";
 
 // StatTiles — the server-detail overview KPIs. Renders the shared KPI card
 // (KPI) so the overview matches the dashboard summary and host

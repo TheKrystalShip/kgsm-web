@@ -2,6 +2,7 @@ import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Select as KSelect } from "../components/Select.jsx";
+import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";
 import { canOn } from "../lib/persona.js";
@@ -9,68 +10,6 @@ import { canOn } from "../lib/persona.js";
 // Settings panel — for things that don't belong in raw config files.
 // Autostart, scheduled restarts, crash recovery, update policy, resource caps,
 // player notifications.
-//
-// Phase 0 wires the Updates auto-update toggle + delete-server end-to-end
-// against GET/PATCH /servers/{id}/settings and DELETE /servers/{id}. The
-// remaining sections (Startup & recovery, Scheduled tasks, Resources) show an
-// honest per-section "Available in Phase N" placeholder until their primitives
-// land.
-
-function SettingsRow({ icon, title, sub, children }) {
-  // Mirrors the NeedsAttention / RecentActivity entry line: a rounded icon
-  // chip, a two-line title/detail body, and a trailing affordance — here the
-  // setting's control(s) instead of an "Ask →" link. Non-clickable, so it uses
-  // the --static modifier (no pointer cursor / hover wash).
-  return (
-    <div className="chat-brief__item chat-brief__item--static">
-      <span className="chat-brief__icon"><Icon name={icon} size={14} /></span>
-      <div className="chat-brief__body">
-        <span className="chat-brief__item-title"><span className="chat-brief__titletext">{title}</span></span>
-        {sub && <span className="chat-brief__detail" style={{ whiteSpace: "normal" }}>{sub}</span>}
-      </div>
-      <div className="settings-row__controls" style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>{children}</div>
-    </div>
-  );
-}
-
-function Toggle({ on, onChange }) {
-  return (
-    <button onClick={() => onChange(!on)} style={{
-      width: 38, height: 22, borderRadius: 999,
-      background: on ? "var(--krystal-teal)" : "var(--surface-3)",
-      border: "1px solid " + (on ? "transparent" : "var(--border-subtle)"),
-      position: "relative", cursor: "pointer", padding: 0,
-      transition: "background 140ms",
-    }} aria-pressed={on}>
-      <span style={{
-        position: "absolute", top: 2, left: on ? 18 : 2,
-        width: 16, height: 16, borderRadius: 999,
-        background: on ? "var(--fg-inverse)" : "var(--fg-2)",
-        transition: "left 140ms",
-      }}></span>
-    </button>
-  );
-}
-
-// Thin adapter over the shared <Select> so these settings rows keep their
-// options-array / onChange(value) shape while adopting the app-wide styling.
-function Select({ value, options, onChange }) {
-  return (
-    <KSelect value={value} onChange={e => onChange(e.target.value)}>
-      {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
-    </KSelect>
-  );
-}
-
-function SettingsSection({ icon, title, action, children }) {
-  // Reuses the shared BriefCard shell so each settings group reads as the same
-  // card family as Alerts / Recent activity / Backups.
-  return (
-    <BriefCard icon={icon} title={title} action={action}>
-      <div className="chat-brief__list">{children}</div>
-    </BriefCard>
-  );
-}
 
 function ServerSettings({ server, onDeleted }) {
   // watchdog capability check (unchanged — used by the watchdog-gated sections)
@@ -529,4 +468,4 @@ function ServerSettings({ server, onDeleted }) {
   );
 }
 
-export { Select, ServerSettings, SettingsRow, SettingsSection, Toggle };
+export { ServerSettings };

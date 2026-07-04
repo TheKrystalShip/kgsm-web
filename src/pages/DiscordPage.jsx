@@ -1,6 +1,6 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "./ServerSettings.jsx";
+import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { api } from "../lib/apiClient.js";
 import { hostsStore } from "../lib/stores.js";
 import { useStore } from "../lib/store.js";

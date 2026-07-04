@@ -1,109 +1,32 @@
 import React from "react";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
+import { fmtAddedLabel, GameCard, libraryNow, RECENT_WINDOW_DAYS } from "../components/GameCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { LibrarySkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
+import { fmtFootprintMb } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
+import { hostAvailabilityLabel, instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
-import { instancesOfBlueprint } from "./GamePage.jsx";
+
+// Re-export from shared modules so existing consumers don't break.
+export { fmtFootprintMb, offeringHosts };
 
 // Library — Steam-like game catalog with search + category filter.
-// Cover art is whatever the backend sends on each catalog entry (game.cover):
-// the backend resolves it server-side and keeps any provider key off the
-// browser. When cover is absent we fall back to a themed gradient. The frontend
-// never talks to an image provider directly — see architecture.html §3·i.
 
-// Honest display of an advisory footprint figure (RAM / disk, in MB) from the
-// backend's blueprint `specs`. These are `null` on every blueprint today
-// (metadata curation is deferred upstream), so this renders an em dash — never a
-// fabricated default. ≥1 GB shows in GB (one decimal, trimmed); smaller in MB.
-// Exported so the catalog cards, the blueprint detail page and the install modal
-// all format the same backend numbers identically. The instant the API serves a
-// value, it renders here with no further wiring.
-export function fmtFootprintMb(mb) {
-  if (mb == null || !Number.isFinite(mb)) return "—";
-  if (mb >= 1024) {
-    const gb = mb / 1024;
-    return (Number.isInteger(gb) ? gb : Math.round(gb * 10) / 10) + " GB";
-  }
-  return Math.round(mb) + " MB";
-}
-
-// ---------- "Recently added" helpers (shared with the dashboard) ----------
-// The catalog carries an `addedAt` ISO date per game. Reference "now" is the
-// newest addedAt in the catalog, so the relative labels always read fresh
-// regardless of wall-clock.
-const RECENT_WINDOW_DAYS = 30;
-
-function libraryNow(list) {
-  const times = (list || []).map(g => g.addedAt ? +new Date(g.addedAt) : 0).filter(Boolean);
-  return times.length ? new Date(Math.max(...times)) : new Date();
-}
-
-// Newest-first, optionally clipped to the recent window / a max count.
-function recentlyAddedGames(list, { windowDays = RECENT_WINDOW_DAYS, max = null } = {}) {
-  const now = libraryNow(list);
-  const cutoff = windowDays ? +now - windowDays * 86400000 : -Infinity;
-  const sorted = (list || [])
-    .filter(g => g.addedAt && +new Date(g.addedAt) >= cutoff)
-    .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt));
-  return max ? sorted.slice(0, max) : sorted;
-}
-
-function fmtAddedLabel(addedAt, now) {
-  if (!addedAt) return "";
-  const date = new Date(addedAt);
-  const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dd = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diff = Math.round((d0 - dd) / 86400000);
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff < 7) return diff + "d ago";
-  if (diff < 14) return "1w ago";
-  if (diff < 30) return Math.floor(diff / 7) + "w ago";
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-// Count server instances created from a catalog blueprint, regardless of run
-// state (online / updating / stopped / errored). Uses the shared blueprint join
-// (see instancesOfBlueprint) so the count never drifts from the detail page.
+// Count server instances created from a catalog blueprint.
 function instanceCountFor(game, servers) {
   return instancesOfBlueprint(game, servers).length;
 }
-// Whether the operator runs at least one server from this blueprint. This is the
-// SINGLE source of truth for "installed" — derived live from the servers store,
-// never a static catalog flag (those drift out of sync the moment a server is
-// created or deleted). The card's run pill, the Installed/Available filters and
-// the Status grouping all read through here, so they can never disagree.
 function gameIsInstalled(game, servers) {
   return instanceCountFor(game, servers) > 0;
 }
 
-// ---------- Host availability ----------
-// A blueprint is offered by one or more connected hosts. `game.hosts` (a list
-// of host ids) names them; ABSENT means "offered everywhere" (identical catalog
-// across the fleet — the common case). Only a subset is worth surfacing.
-function offeringHosts(game, allHosts) {
-  const ids = Array.isArray(game.hosts) ? game.hosts : null;
-  if (!ids) return allHosts || [];
-  return (allHosts || []).filter(h => ids.includes(h.id));
-}
-// Short label shown on the card / detail page — null when the game is on every
-// host (nothing to flag). One host → "Primary only"; a subset → "2 of 3 hosts".
-function hostAvailabilityLabel(game, allHosts) {
-  const all = allHosts || [];
-  const off = offeringHosts(game, all);
-  if (!all.length || off.length >= all.length || off.length === 0) return null;
-  if (off.length === 1) return off[0].name + " only";
-  return off.length + " of " + all.length + " hosts";
-}
-
-// Category → icon + accent. The hue tints only the small category glyph so the
-// chip itself stays neutral — restrained, but enough to tell genres apart.
+// Category → icon + accent.
 const CATEGORY_META = {
   Survival: { icon: "flame",     color: "#FB923C" },
   Sandbox:  { icon: "boxes",     color: "#4ADE80" },
@@ -113,143 +36,14 @@ const CATEGORY_META = {
 function categoryMeta(cat) {
   return CATEGORY_META[cat] || { icon: "gamepad-2", color: "var(--fg-2)" };
 }
-// "Brand new" window for the NEW badge — tighter than the 30-day recent filter
-// so the badge stays meaningful.
-const NEW_WINDOW_DAYS = 14;
 
-function GameCard({ game, onPick, onDeploy, addedNow, compact }) {
-  // Single source of truth for "how many do I run": the servers store. Both the
-  // library grid and the dashboard's Recently added band read this, so the
-  // count is always consistent.
-  const servers = useStore(serversStore, s => s.list);
-  const allHosts = useStore(hostsStore, s => s.list);
-  const instances = instancesOfBlueprint(game, servers);
-  const count = instances.length;
-  const onlineCount = instances.filter(s => s.status === "online").length;
-  const bg = game.cover
-    ? `linear-gradient(180deg, transparent 0%, rgba(11,15,20,0.55) 100%), url("${game.cover}")`
-    : artBg(game.hero, null);
-
-  // --- Compact variant — the dashboard's "Recently added" rail. Kept lean so
-  // that surface is unchanged by the richer library card below. ---
-  if (compact) {
-    return (
-      <div className="game-card" onClick={() => onPick(game)}>
-        <div className="game-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
-          {count > 0 && (
-            <span className="game-card__installed" title={count + " server" + (count === 1 ? "" : "s") + " created"}>
-              <Icon name="server" size={11} strokeWidth={2.2} /> {count}
-            </span>
-          )}
-        </div>
-        <div className="game-card__body">
-          <div className="game-card__title">{game.name}</div>
-          <div className="game-card__meta">
-            {/* players is null when the blueprint declares no max (the common case
-                today) — omit the row rather than render an empty "— players". */}
-            {game.players && (
-              <span className="game-card__metarow"><Icon name="users" size={12} /> {game.players} players</span>
-            )}
-            {addedNow && game.addedAt && (
-              <span className="game-card__added"><Icon name="clock" size={11} /> {fmtAddedLabel(game.addedAt, addedNow)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Full blueprint card (library grid). Art still leads, but the deploy
-  // facts that actually matter are made legible: footprint, run-state, recency. ---
-  const now = addedNow || libraryNow([game]);
-  const addedMs = game.addedAt ? +new Date(game.addedAt) : 0;
-  const isNew = !count && addedMs && (+now - addedMs) <= NEW_WINDOW_DAYS * 86400000;
-  const installed = count > 0;
-  // Only flag host availability when the game ISN'T on every host (a subset).
-  const hostLabel = hostAvailabilityLabel(game, allHosts);
-  // A not-yet-installed blueprint that THIS persona may deploy gets a real
-  // "Deploy" action: the CTA opens the install modal directly (onDeploy) instead
-  // of bubbling to the card's open-detail click. `can("server.create")` is the
-  // aggregate reach (held on any host); the modal then scopes hosts per-host.
-  const canDeploy = !installed && !!onDeploy && can && can("server.create");
-
-  return (
-    <article
-      className={"bp-card" + (installed ? " bp-card--installed" : "")}
-      onClick={() => onPick(game)}
-      role="button" tabIndex={0}
-      // Guard on target===currentTarget so an Enter/Space landing on the nested
-      // Deploy button fires only that button, not the card's open-detail too.
-      onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); onPick(game); } }}
-    >
-      <div className="bp-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
-        {hostLabel && (
-          <span className="bp-card__host" title={"Only available on " + hostLabel.replace(/ only$/, "")}>
-            <Icon name="server" size={11} strokeWidth={2.1} /> {hostLabel}
-          </span>
-        )}
-        {installed ? (
-          <span className="bp-card__run" title={count + " server" + (count === 1 ? "" : "s") + " from this blueprint"}>
-            <span className={"bp-card__rundot" + (onlineCount ? " is-live" : "")}></span>
-            {count} {count === 1 ? "server" : "servers"}
-          </span>
-        ) : isNew ? (
-          <span className="bp-card__new">New</span>
-        ) : null}
-        <div className="bp-card__veil"></div>
-        <h3 className="bp-card__name">{game.name}</h3>
-      </div>
-
-      <div className="bp-card__specs">
-        <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="users" size={12} strokeWidth={2} /> {game.players}</span>
-          <span className="bp-spec__lbl">Players</span>
-        </div>
-        <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="memory-stick" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.recommendedRamMb)}</span>
-          <span className="bp-spec__lbl">RAM</span>
-        </div>
-        <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="hard-drive" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.baseDiskMb)}</span>
-          <span className="bp-spec__lbl">Disk</span>
-        </div>
-      </div>
-
-      <div className="bp-card__foot">
-        {installed ? (
-          <span className="bp-card__status bp-card__status--on">
-            {onlineCount > 0
-              ? <><span className="bp-card__livedot"></span>{onlineCount} online</>
-              : <>Idle · not running</>}
-          </span>
-        ) : (
-          <span className="bp-card__status">
-            <Icon name="clock" size={11} /> Added {fmtAddedLabel(game.addedAt, now)}
-          </span>
-        )}
-        {/* CTA reflects what THIS persona can do (architecture.html §3·f·1): a
-            read-only viewer can only view the blueprint, never deploy/manage.
-            "Deploy" is a real action — it opens the install modal directly
-            rather than the card's open-detail navigation. */}
-        {canDeploy ? (
-          <button
-            type="button"
-            className="bp-card__cta bp-card__cta--act"
-            title={"Deploy a new " + game.name + " server"}
-            onClick={e => { e.stopPropagation(); onDeploy(game); }}
-          >
-            Deploy <Icon name="arrow-right" size={13} strokeWidth={2.2} />
-          </button>
-        ) : (
-          <span className="bp-card__cta">
-            {(installed
-              ? (can && can("server.operate") ? "Manage" : "View")
-              : "View")} <Icon name="arrow-right" size={13} strokeWidth={2.2} />
-          </span>
-        )}
-      </div>
-    </article>
-  );
+function recentlyAddedGames(list, { windowDays = RECENT_WINDOW_DAYS, max = null } = {}) {
+  const now = libraryNow(list);
+  const cutoff = windowDays ? +now - windowDays * 86400000 : -Infinity;
+  const sorted = (list || [])
+    .filter(g => g.addedAt && +new Date(g.addedAt) >= cutoff)
+    .sort((a, b) => +new Date(b.addedAt) - +new Date(a.addedAt));
+  return max ? sorted.slice(0, max) : sorted;
 }
 
 // ---------- Grouping (Windows-Explorer-style foldable sections) ----------
@@ -564,4 +358,4 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
   );
 }
 
-export { CATEGORY_META, GameCard, Library, RECENT_WINDOW_DAYS, fmtAddedLabel, gameIsInstalled, hostAvailabilityLabel, instanceCountFor, libraryNow, offeringHosts, recentlyAddedGames };
+export { CATEGORY_META, Library };
