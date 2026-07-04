@@ -30,7 +30,7 @@ function ServerPhantomTile({ server }) {
   const pillClass = isFailed ? "install-failed" : isUninstall ? "uninstalling" : "installing";
 
   return (
-    <div className="server-tile server-tile--phantom">
+    <div className={"server-tile server-tile--phantom" + (isUninstall ? " server-tile--uninstalling" : "")}>
       <div className="server-tile__art" style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
         <span className="server-tile__game">{server.blueprint || server.game}</span>
       </div>
