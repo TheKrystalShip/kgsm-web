@@ -1,4 +1,5 @@
 import React from "react";
+import { AssistantDockProvider, useAssistantDock, alertAssistantPrompt } from "./components/AssistantDockContext.jsx";
 import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
 import { ColdStartDown, ConnectivityBanner, ContentError, ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
@@ -8,14 +9,12 @@ import { NeedsAttention, alertBuckets, useAlerts } from "./components/NeedsAtten
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
 import { CONNECTIONS } from "./lib/config.js";
-import { assistantHosts, assistantHostsAll, capUsable } from "./lib/capabilities.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
 import { can, canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { auditStore, commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, useSelectedHostId } from "./lib/stores.js";
-import { fmtRelative, parseTs } from "./lib/formatting.js";
+import { auditStore, commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
 import { ChatPage } from "./pages/ChatPage.jsx";
 import { FirstRunWelcome } from "./pages/FirstRunWelcome.jsx";
 import { AddHostPage, HostDeniedNotice } from "./pages/HostAccess.jsx";
@@ -35,6 +34,8 @@ const ServersPage = React.lazy(() => import("./pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage.jsx"));
 
 // App — top-level shell. Auth gate + routing.
+// Wraps the inner app in AssistantDockProvider so dock state is available
+// via useAssistantDock() throughout the tree.
 
 const AUTH_LS_KEY = "krystal:auth";
 const AUTH_SS_KEY = "krystal:auth:session";
@@ -58,28 +59,6 @@ function writeStoredUser(user) {
     const target = user.stay ? localStorage : sessionStorage;
     target.setItem(user.stay ? AUTH_LS_KEY : AUTH_SS_KEY, JSON.stringify(user));
   } catch (e) {}
-}
-
-// Build the question the "Ask assistant" button seeds into the composer. We
-// pre-fill (not auto-send) so the user stays in control. Grounded in the
-// specific alert: title, where it's firing, how long it's been up, and — when
-// it has escalated past auto-recovery — framed as a hands-on "walk me through
-// it" rather than an open "what's wrong".
-function alertAssistantPrompt(item) {
-  if (!item) return "";
-  const srv = item.serverId && serversStore ? serversStore.find(item.serverId) : null;
-  const where = srv ? " on " + srv.name : "";
-  const when = (parseTs && fmtRelative && item.raisedAt)
-    ? fmtRelative(parseTs(item.raisedAt), new Date())
-    : null;
-  const raised = when ? " (raised " + when + ")" : "";
-  if (item.escalated) {
-    return "The alert \u201C" + item.title + "\u201D" + where + " escalated \u2014 auto-recovery gave up after "
-      + item.attempts + " attempt" + (item.attempts === 1 ? "" : "s") + " and it needs a human. "
-      + "Walk me through diagnosing and fixing it.";
-  }
-  return "The alert \u201C" + item.title + "\u201D is firing" + where + raised
-    + ". What's likely causing it, and how do I fix it?";
 }
 
 // BootLanding — the neutral hold shown on a fresh DEFAULT landing while the
@@ -171,7 +150,30 @@ function MobileNavToggle({ onOpen }) {
   );
 }
 
+// App — top-level shell. Sets up minimal state, wraps in AssistantDockProvider.
 function App() {
+  const [user, setUser] = React.useState(() => readStoredUser());
+  const selectedHostId = useSelectedHostId();
+  const hosts = useStore(hostsStore, s => s.list);
+  const [route, setRouteRaw] = React.useState(() => resolveRoute({ kind: "home" }));
+  const setRoute = React.useCallback((r) => {
+    setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
+  }, []);
+  return (
+    <AssistantDockProvider hosts={hosts} selectedHostId={selectedHostId} setRoute={setRoute}>
+      <AppInner user={user} setUser={setUser} />
+    </AssistantDockProvider>
+  );
+}
+
+// AppInner — the real app body. Consumes dock state from context.
+function AppInner({ user, setUser }) {
+  const dock = useAssistantDock();
+  const { assistantOpen, setAssistantOpen, assistantSeed, setAssistantSeed,
+    assistantHost, assistantHostList, setAssistantHostId,
+    dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw,
+    askAssistant, askAboutAlert, openAssistant, openView, handleAssistantNavigate } = dock;
+
   // --- Auth ---
   // Dev/QA query overrides (UI state only, no data faking):
   //   ?auth=out   — force logged-out
@@ -180,7 +182,6 @@ function App() {
   const forcedOut = qp.get("auth") === "out";
   const forcedFirstRun = qp.has("first-run");
 
-  const [user, setUser] = React.useState(forcedOut ? null : readStoredUser());
   // First-run welcome fires once after a fresh sign-in. Because login reloads
   // (below), we carry that intent across the reload in a one-shot session flag
   // rather than React state. A forced re-auth return (returnTo stashed) is a
@@ -317,6 +318,7 @@ function App() {
   const setRoute = React.useCallback((r) => {
     setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
   }, []);
+
   // Default-landing gate (the per-host role race). On a DEFAULT landing the route
   // above was picked before roles were known, so we hold a neutral loading surface
   // (BootLanding) and don't commit it to the URL until the resolve-landing effect
@@ -340,71 +342,6 @@ function App() {
   React.useEffect(() => {
     try { localStorage.setItem("krystal:sidebar:collapsed", collapsed ? "1" : "0"); } catch (e) {}
   }, [collapsed]);
-  // Global assistant dock — toggled from anywhere, slides in from the right
-  // and overlays whatever page the user is on. Width is user-resizable and
-  // persisted.
-  const [assistantOpen, setAssistantOpen] = React.useState(false);
-  // A question seeded into the docked assistant by the "Ask assistant" button
-  // on an alert. { prompt, serverId, nonce } — the nonce makes each click a
-  // fresh seed even when the prompt text repeats. Consumed by ChatPage, which
-  // pre-fills the composer (does not auto-send).
-  const [assistantSeed, setAssistantSeed] = React.useState(null);
-  // Dock layout behavior (fixed): the OPEN dock pushes content left when there's
-  // room and overlays when it'd get tight, opening by default on large screens.
-  const tw = { dockBehavior: "auto", contentFloor: 1000, openByDefault: true };
-  // Pin override for 'auto' mode (the in-dock pin button). Persisted, so the
-  // user's choice is remembered across sessions. null = follow the auto rule;
-  // true/false = user forced push/overlay.
-  const [manualPin, setManualPin] = React.useState(() => {
-    const v = localStorage.getItem("krystal:dock:pin");
-    return v === "1" ? true : v === "0" ? false : null;
-  });
-  // Viewport width, tracked so push/overlay recomputes live on resize.
-  const [vw, setVw] = React.useState(() => window.innerWidth);
-  // Which host's assistant the dock/page targets. The assistant is a per-host
-  // capability with no central fallback (capabilities.js); this resolves below
-  // to an assistant-capable host or null.
-  const [assistantHostId, setAssistantHostId] = React.useState(null);
-  const [dockWidth, setDockWidth] = React.useState(() => {
-    const saved = parseInt(localStorage.getItem("krystal:dock:width") || "", 10);
-    return saved && saved >= 320 && saved <= 900 ? saved : 420;
-  });
-  const dockResize = (e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = dockWidth;
-    const min = 320, max = Math.min(900, window.innerWidth - 80);
-    const onMove = (ev) => {
-      const w = Math.max(min, Math.min(max, startW + (startX - ev.clientX)));
-      setDockWidth(w);
-    };
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.body.style.userSelect = "";
-      const handle = document.querySelector(".assistant-dock__resize");
-      if (handle) handle.classList.remove("assistant-dock__resize--active");
-    };
-    document.body.style.userSelect = "none";
-    e.currentTarget.classList.add("assistant-dock__resize--active");
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-  };
-  React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:width", String(dockWidth)); } catch (e) {}
-  }, [dockWidth]);
-  React.useEffect(() => {
-    const onResize = () => setVw(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  // Persist the pin preference so it survives reloads.
-  React.useEffect(() => {
-    try {
-      if (manualPin == null) localStorage.removeItem("krystal:dock:pin");
-      else localStorage.setItem("krystal:dock:pin", manualPin ? "1" : "0");
-    } catch (e) {}
-  }, [manualPin]);
 
   // Auto-close the drawer on any route change.
   React.useEffect(() => { setDrawerOpen(false); }, [route, tab]);
@@ -614,20 +551,9 @@ function App() {
     log: [...activeServer.log, ...(extraLog[activeServer.id] || [])],
   } : null;
 
-  // Nav chips in chat → real routes. Keeps the dock open so the conversation
-  // persists while the page behind it changes.
-  const handleAssistantNavigate = (target) => {
-    if (!target) return;
-    if (target.kind === "server") setRoute({ kind: "server", id: target.serverId, tab: target.tab });
-    else if (target.kind === "audit") setRoute({ kind: "audit" });
-    else setRoute({ kind: target.kind === "diagnostics" ? "fleet" : target.kind });
-  };
-
   // Sidebar host switcher → global scope. Selecting a host re-frames every
   // surface; deep server views stay valid because lookups use the full list.
   const selectHost = (id) => selectedHostStore.set(id);
-  // Assistant view links; the legacy "diagnostics" view now lives under Fleet.
-  const openView = (view) => setRoute({ kind: view === "diagnostics" ? "fleet" : view });
 
   // -------------- Render --------------
 
@@ -669,69 +595,6 @@ function App() {
   const serverAlertsActive = anchoredAlerts ? anchoredAlerts(an => an.surface === "server") : [];
   const serversCount = serverAlertsActive.length;
   const serversTone = alertsTone ? alertsTone(serverAlertsActive) : "info";
-
-  // Per-host assistant capability (capabilities.js). assistantHostList drives
-  // the dock's host picker AND whether the FAB exists at all; assistantHost is
-  // the resolved target — the chosen host if it still qualifies, else the first
-  // available one.
-  const assistantHostList = assistantHostsAll ? assistantHostsAll(hosts) : (assistantHosts ? assistantHosts(hosts) : []);
-  const usableAssistants = assistantHosts ? assistantHosts(hosts) : [];
-  // Resolve the selected host from the FULL host list so a host whose assistant
-  // just dropped STAYS selected (the chat shows the drop) instead of silently
-  // switching to another host. Falls back to the first usable assistant.
-  const assistantHost = hosts.find(h => h.id === assistantHostId) || usableAssistants[0] || assistantHostList[0] || null;
-  // Lock in the resolved host id once, so a later drop doesn't re-resolve away.
-  React.useEffect(() => {
-    if (!assistantHostId && assistantHost) setAssistantHostId(assistantHost.id);
-  }, [assistantHost && assistantHost.id, assistantHostId]);
-  // Open the assistant, pointing it at a server's host when that host serves one
-  // (otherwise it falls back to the resolved default).
-  const askAssistant = (serverId) => {
-    if (serverId && serverHostId) {
-      const hid = serverHostId(serverId);
-      const h = hid && hosts.find(x => x.id === hid);
-      if (h && capUsable && capUsable(h, "assistant")) setAssistantHostId(hid);
-    }
-    setAssistantOpen(true);
-  };
-
-  // "Ask assistant" on an alert → open the dock pointed at the alert's host AND
-  // seed the composer with a grounded question about THAT alert, so the user
-  // lands in a conversation already about the thing they clicked instead of a
-  // blank box. Pre-filled, not sent. Replaces the old open-to-nothing behaviour
-  // and is shared by every alert surface (board, dashboard, in-context cards).
-  const askAboutAlert = (item) => {
-    if (item && item.serverId) setRoute({ kind: "server", id: item.serverId });
-    askAssistant(item && item.serverId);
-    if (item) setAssistantSeed({ prompt: alertAssistantPrompt(item), serverId: item.serverId || null, nonce: Date.now() });
-  };
-
-  // Open the dock pointed at the current scope's host (mirrors the FAB).
-  const openAssistant = () => {
-    const sh = hosts.find(h => h.id === selectedHostId);
-    if (!assistantHostId && sh && capUsable && capUsable(sh, "assistant")) setAssistantHostId(sh.id);
-    setAssistantOpen(true);
-  };
-  // Restore the dock's open/closed state across sessions. Captured once at first
-  // render so the persist effect below can't clobber it before we read it.
-  const storedOpenRef = React.useRef(localStorage.getItem("krystal:dock:open"));
-  const didInitOpen = React.useRef(false);
-  React.useEffect(() => {
-    if (didInitOpen.current) return;
-    if (assistantHostList.length === 0) return;   // wait until hosts are known
-    didInitOpen.current = true;
-    // Mobile: never auto-open — the dock is a summoned fullscreen surface there.
-    if (window.innerWidth <= 768) return;
-    const stored = storedOpenRef.current;
-    if (stored === "0") return;                    // user hid it last time
-    if (stored === "1") { openAssistant(); return; } // user had it open
-    // First visit (no saved preference): default-open on large screens.
-    if (tw.openByDefault && tw.dockBehavior !== "rail") openAssistant();
-  }, [assistantHostList.length]);
-  // Persist open/closed whenever it changes, so the choice is remembered.
-  React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:open", assistantOpen ? "1" : "0"); } catch (e) {}
-  }, [assistantOpen]);
 
   // Cold start: the very first load couldn't reach the backend, so there's
   // nothing to show — the one case that warrants a full-screen takeover. A warm
@@ -776,19 +639,6 @@ function App() {
   const scopedExpired = !!(expiredHost && sessionStore && sessionStore.needsReauth && sessionStore.needsReauth(selectedHostId));
   const expiredGate = scopedExpired && !["fleet", "settings", "discord", "addHost"].includes(route.kind);
 
-  // --- Dock layout resolution ---------------------------------------------
-  // The decision is driven by AVAILABLE width, not device class: the dock only
-  // pushes when the content keeps at least `contentFloor` px. Drag the dock
-  // wider than that and it flips itself back to overlay.
-  const desktop = vw > 768;
-  const canPush = desktop && (vw - dockWidth) >= tw.contentFloor;
-  const effPush = manualPin == null ? canPush : (manualPin && canPush);
-  const pushingPanel = desktop && assistantOpen && (
-    tw.dockBehavior === "auto" ? effPush
-    : tw.dockBehavior === "rail" ? canPush
-    : false
-  );
-  const railMode = tw.dockBehavior === "rail" && desktop;
   // Collapse (icon rail) is a DESKTOP-only affordance. On mobile the sidebar is a
   // full-width off-canvas drawer with room to spare, so it always renders
   // expanded — host switcher and account show their full form, same as desktop.
