@@ -194,7 +194,13 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
   );
 }
 
-function Sidebar({ onHome, homeActive, onServers, serversActive, serversCount = 0, serversTone = "info", onLibrary, libraryActive, onDiscord, discordActive, onAudit, auditActive, onFleet, fleetActive, fleetCount = 0, fleetTone = "info", onChat, chatActive, onAttention, attentionActive, attentionCount = 0, attentionTone = "info", onSettings, settingsActive, user, onLogout, hosts = [], selectedHostId = "all", onSelectHost, open, collapsed, onToggleCollapse }) {
+function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info", fleetCount = 0, fleetTone = "info", attentionCount = 0, attentionTone = "info", user, onLogout, hosts = [], selectedHostId = "all", onSelectHost, open, collapsed, onToggleCollapse }) {
+  // Routing is the ONE contract from App: `route` (the current route) in, a single
+  // `onNavigate({ kind })` out. Active state derives from route.kind here rather
+  // than a bespoke boolean per entry plumbed down from App.
+  const go = (kind) => () => onNavigate && onNavigate({ kind });
+  const isActive = (kind) => route.kind === kind;
+
   // Nav visibility reads the ONE policy (persona.js) — no bespoke booleans
   // plumbed from App. Each entry is shown iff the persona holds its capability
   // on some host (aggregate). The breadcrumb derives from the same policy, so
@@ -218,22 +224,22 @@ function Sidebar({ onHome, homeActive, onServers, serversActive, serversCount = 
           <Icon name={collapsed ? "panel-left-open" : "panel-left-close"} size={16} />
         </button>
       </div>
-      <HostSwitcher hosts={hosts} selectedId={selectedHostId} onSelect={onSelectHost} onManage={onFleet} collapsed={collapsed} />
+      <HostSwitcher hosts={hosts} selectedId={selectedHostId} onSelect={onSelectHost} onManage={go("fleet")} collapsed={collapsed} />
       <nav className="sidebar__nav">
         <div className="sidebar__group">
           <div className="sidebar__group-label">Workspace</div>
           {canDashboard && (
-          <div className={"nav-item" + (homeActive ? " nav-item--active" : "")} onClick={onHome} data-tip="Home" aria-label="Home">
+          <div className={"nav-item" + (isActive("home") ? " nav-item--active" : "")} onClick={go("home")} data-tip="Home" aria-label="Home">
             <Icon name="home" size={16} />
             <span className="nav-item__label">Home</span>
           </div>
           )}
-          <div className={"nav-item" + (serversActive ? " nav-item--active" : "")} onClick={onServers} data-tip={"Servers" + (serversCount > 0 ? " · " + serversCount : "")} aria-label="Servers">
+          <div className={"nav-item" + (isActive("servers") ? " nav-item--active" : "")} onClick={go("servers")} data-tip={"Servers" + (serversCount > 0 ? " · " + serversCount : "")} aria-label="Servers">
             <Icon name="server" size={16} />
             <span className="nav-item__label">Servers</span>
             {serversCount > 0 && <span className={"nav-item__badge nav-item__badge--" + serversTone}>{serversCount}</span>}
           </div>
-          <div className={"nav-item" + (libraryActive ? " nav-item--active" : "")} onClick={onLibrary} data-tip={CATALOG_LABEL} aria-label={CATALOG_LABEL}>
+          <div className={"nav-item" + (isActive("library") ? " nav-item--active" : "")} onClick={go("library")} data-tip={CATALOG_LABEL} aria-label={CATALOG_LABEL}>
             <Icon name="library" size={16} />
             <span className="nav-item__label">{CATALOG_LABEL}</span>
           </div>
@@ -242,21 +248,21 @@ function Sidebar({ onHome, homeActive, onServers, serversActive, serversCount = 
         <div className="sidebar__group">
           <div className="sidebar__group-label">Monitoring</div>
           {canAlerts && (
-          <div className={"nav-item" + (attentionActive ? " nav-item--active" : "")} onClick={onAttention} data-tip={"Alerts" + (attentionCount > 0 ? " · " + attentionCount : "")} aria-label="Alerts">
+          <div className={"nav-item" + (isActive("attention") ? " nav-item--active" : "")} onClick={go("attention")} data-tip={"Alerts" + (attentionCount > 0 ? " · " + attentionCount : "")} aria-label="Alerts">
             <Icon name="triangle-alert" size={16} />
             <span className="nav-item__label">Alerts</span>
             {attentionCount > 0 && <span className={"nav-item__badge nav-item__badge--" + attentionTone}>{attentionCount}</span>}
           </div>
           )}
           {canFleet && (
-          <div className={"nav-item" + (fleetActive ? " nav-item--active" : "")} onClick={onFleet} data-tip={"Fleet" + (fleetCount > 0 ? " · " + fleetCount : "")} aria-label="Fleet">
+          <div className={"nav-item" + (isActive("fleet") ? " nav-item--active" : "")} onClick={go("fleet")} data-tip={"Fleet" + (fleetCount > 0 ? " · " + fleetCount : "")} aria-label="Fleet">
             <Icon name="server-cog" size={16} />
             <span className="nav-item__label">Fleet</span>
             {fleetCount > 0 && <span className={"nav-item__badge nav-item__badge--" + fleetTone}>{fleetCount}</span>}
           </div>
           )}
           {canAudit && (
-          <div className={"nav-item" + (auditActive ? " nav-item--active" : "")} onClick={onAudit} data-tip="Audit log" aria-label="Audit log">
+          <div className={"nav-item" + (isActive("audit") ? " nav-item--active" : "")} onClick={go("audit")} data-tip="Audit log" aria-label="Audit log">
             <Icon name="scroll-text" size={16} />
             <span className="nav-item__label">Audit log</span>
           </div>
@@ -265,8 +271,8 @@ function Sidebar({ onHome, homeActive, onServers, serversActive, serversCount = 
         )}
       </nav>
       <div className="sidebar__foot">
-        {user && <SidebarAccount user={user} onSettings={onSettings} onLogout={onLogout} collapsed={collapsed} />}
-        <div className={"nav-item" + (settingsActive ? " nav-item--active" : "")} onClick={onSettings} data-tip="Settings" aria-label="Settings">
+        {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
+        <div className={"nav-item" + (isActive("settings") ? " nav-item--active" : "")} onClick={go("settings")} data-tip="Settings" aria-label="Settings">
           <Icon name="settings" size={16} />
           <span className="nav-item__label">Settings</span>
         </div>

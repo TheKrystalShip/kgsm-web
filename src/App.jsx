@@ -281,23 +281,22 @@ function AppInner({ user, setUser, route, setRoute }) {
   return (
     <div className="app" style={{ "--dock-push": appInset + "px", ...(collapsed ? { "--sidebar-w": "64px" } : {}) }}>
       <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setCollapsed(c => !c)}
-        user={user}
         route={route}
         onNavigate={setRoute}
+        serversCount={serversCount}
+        serversTone={serversTone}
+        fleetCount={diagnosticsCount}
+        fleetTone={diagnosticsTone}
+        attentionCount={attentionCount}
+        attentionTone={attentionTone}
+        user={user}
+        onLogout={handleLogout}
         hosts={hosts}
         selectedHostId={selectedHostId}
         onSelectHost={selectHost}
-        servers={scopedServers}
-        onOpenServer={(id) => setRoute({ kind: "server", id })}
-        attentionCount={attentionCount}
-        attentionTone={attentionTone}
-        diagnosticsCount={diagnosticsCount}
-        diagnosticsTone={diagnosticsTone}
-        serversCount={serversCount}
-        serversTone={serversTone}
-        onLogout={handleLogout}
+        open={drawerOpen}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setCollapsed(c => !c)}
       />
 
       {drawerOpen && <div className="drawer-scrim" onClick={() => setDrawerOpen(false)} />}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.7)
+- Sidebar nav links (Home / Servers / Catalog / Alerts / Fleet / Audit log /
+  Settings) were dead no-ops — a refactor contract mismatch. `App` was passing the
+  new `route` + `onNavigate` props, but the `Sidebar` component still expected the
+  old individual `on<Page>` / `<page>Active` handlers, so every nav `onClick` was
+  `undefined`. Wired `Sidebar` to consume `route` + `onNavigate` (derives active
+  state from `route.kind`, emits `onNavigate({ kind })`), completing the intended
+  contract instead of reverting it. Also restored the dropped `open={drawerOpen}`
+  prop (mobile drawer). Verified live: all 7 items route correctly.
+
 ### Fixed (v1.4.6)
 - Boot/auth hold screen ("Signing you in…"): fixed two bugs found during the v1.4.5
   browser verification.
