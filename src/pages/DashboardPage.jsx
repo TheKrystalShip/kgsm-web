@@ -422,3 +422,4 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
 // RecentActivity is shared with the host diagnostics overview (scoped per host).
 
 export { DashboardPage };
+export default DashboardPage;

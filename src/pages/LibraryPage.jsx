@@ -359,3 +359,4 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
 }
 
 export { CATEGORY_META, Library };
+export default Library;

@@ -244,3 +244,4 @@ function DiscordPage() {
 }
 
 export { DiscordPage, buildIntegrationPatch };
+export default DiscordPage;

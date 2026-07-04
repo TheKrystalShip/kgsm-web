@@ -367,3 +367,4 @@ function AuditLogPage({ initialSeverity, initialServer }) {
 }
 
 export { AuditLogPage, auditServerParams };
+export default AuditLogPage;

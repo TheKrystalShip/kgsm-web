@@ -374,3 +374,4 @@ function ServersPage({ servers, onOpenServer, onAction, onLibrary, hosts = [], s
 }
 
 export { ServersPage };
+export default ServersPage;

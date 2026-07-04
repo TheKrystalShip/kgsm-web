@@ -1472,3 +1472,4 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
 }
 
 export { FleetPage };
+export default FleetPage;

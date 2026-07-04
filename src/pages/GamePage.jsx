@@ -206,3 +206,4 @@ function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse })
 }
 
 export { GamePage, instancesOfBlueprint };
+export default GamePage;

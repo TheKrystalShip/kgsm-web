@@ -202,3 +202,4 @@ function SettingsPage({ user, onLogout }) {
 }
 
 export { SettingsPage };
+export default SettingsPage;

@@ -15,22 +15,24 @@ import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
 import { auditStore, commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serverHostId, serversStore, useSelectedHostId } from "./lib/stores.js";
-import { AlertsPage } from "./pages/AlertsPage.jsx";
-import { AuditLogPage } from "./pages/AuditLogPage.jsx";
 import { fmtRelative, parseTs } from "./lib/formatting.js";
 import { ChatPage } from "./pages/ChatPage.jsx";
-import { DashboardPage } from "./pages/DashboardPage.jsx";
-import { FleetPage } from "./pages/DiagnosticsPage.jsx";
-import { DiscordPage } from "./pages/DiscordPage.jsx";
 import { FirstRunWelcome } from "./pages/FirstRunWelcome.jsx";
-import { GamePage } from "./pages/GamePage.jsx";
 import { AddHostPage, HostDeniedNotice } from "./pages/HostAccess.jsx";
 import { HostExpiredNotice, HostReauthModal } from "./pages/HostReauth.jsx";
-import { Library } from "./pages/LibraryPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
-import { ServersPage } from "./pages/ServersPage.jsx";
-import { ServerGate, ServerDetailPage } from "./pages/ServerDetailPage.jsx";
-import { SettingsPage } from "./pages/SettingsPage.jsx";
+import { ServerGate } from "./pages/ServerGate.jsx";
+
+const AlertsPage = React.lazy(() => import("./pages/AlertsPage.jsx"));
+const AuditLogPage = React.lazy(() => import("./pages/AuditLogPage.jsx"));
+const DashboardPage = React.lazy(() => import("./pages/DashboardPage.jsx"));
+const FleetPage = React.lazy(() => import("./pages/DiagnosticsPage.jsx"));
+const DiscordPage = React.lazy(() => import("./pages/DiscordPage.jsx"));
+const GamePage = React.lazy(() => import("./pages/GamePage.jsx"));
+const Library = React.lazy(() => import("./pages/LibraryPage.jsx"));
+const ServerDetailPage = React.lazy(() => import("./pages/ServerDetailPage.jsx"));
+const ServersPage = React.lazy(() => import("./pages/ServersPage.jsx"));
+const SettingsPage = React.lazy(() => import("./pages/SettingsPage.jsx"));
 
 // App — top-level shell. Auth gate + routing.
 
@@ -865,6 +867,7 @@ function App() {
               onReauth={() => setReauthHostId(selectedHostId)}
               onBack={() => selectHost("all")} />
           ) : (<>
+          <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>Loading…</div></div>}>
           {route.kind === "home" && <DashboardPage
             user={user}
             servers={scopedServers}
@@ -946,6 +949,7 @@ function App() {
                 onBack={() => setRoute({ kind: "servers" })}
                 onRetry={() => serversStore.refresh().catch(() => {})} />
           )}
+          </React.Suspense>
           </>)}
           </ErrorBoundary>
         </div>

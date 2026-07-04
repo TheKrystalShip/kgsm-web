@@ -180,3 +180,4 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
 // styling can never diverge between the dedicated page and in-context views.
 
 export { AlertCard, AlertSeverityTag, AlertsPage };
+export default AlertsPage;
