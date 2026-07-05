@@ -129,6 +129,11 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   React.useEffect(() => { setDrawerOpen(false); }, [route, tab]);
 
+  React.useEffect(() => {
+    const el = document.querySelector(".app__main");
+    if (el) el.scrollTo({ top: 0, behavior: "smooth" });
+  }, [route.kind, route.id, route.tab]);
+
   useMobileSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOpen);
 
   // --- Connection ---

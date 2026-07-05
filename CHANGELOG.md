@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.18)
+- **Page scrolls to top on navigation.** When navigating between pages, the main scroll container (`.app__main`) smoothly scrolls to the top so the user doesn't land mid-page.
+
 ### Fixed (v1.4.17)
 - **Library grid shows two cards side by side on small phones (≤480px).** The `≤480px` breakpoint forced `.game-grid` to a single column; changed to `repeat(2, 1fr)` to match the `≤768px` layout.
 
