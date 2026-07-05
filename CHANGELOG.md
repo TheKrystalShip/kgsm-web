@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+- **Added focused per-directory `CLAUDE.md` files** documenting the architecture-cleanup refactor's structure so future work doesn't re-monolith it: `src/` (source map + module boundaries), `src/pages/` (pages & routing), `src/lib/` (data layer), `src/lib/stores/` (domain-split stores), `src/components/` (shared UI + `<Modal>`), `src/styles/` (CSS tokens + `kit/` barrel). Root `CLAUDE.md` now points to them. Also removed the stray empty `src/pages/__tmp_test__/` directory.
+
 ### Fixed (v1.4.19)
 - **Fleet page subtabs (Overview, Resources, Services, Logs) now persist in the URL.** The fleet route encodes/decodes a `tab` segment (`#/fleet/<hostId>/<tab>`), matching how server detail tabs already work. Tab state is driven by the route instead of local React state, so back/forward, reload, and deep links land on the correct tab.
 

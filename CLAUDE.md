@@ -9,6 +9,14 @@ registry of `kgsm-api` hosts and talks to them over `fetch` + SSE. The
 `README.md` covers quick-start and the file layout; this file covers the
 architecture and the landmines.
 
+**Per-directory docs (read the one for wherever you're working):** the source
+tree carries focused nested `CLAUDE.md` files that lock in the 2026-07
+architecture-cleanup refactor's structure — `src/CLAUDE.md` (the source map +
+module boundaries), `src/pages/CLAUDE.md` (pages & routing), `src/lib/CLAUDE.md`
+(data layer), `src/lib/stores/CLAUDE.md` (the domain-split stores),
+`src/components/CLAUDE.md` (shared UI + `<Modal>`), `src/styles/CLAUDE.md` (CSS
+tokens + the `kit/` barrel). This file stays the architecture/landmines narrative.
+
 ## Commands
 
 ```bash
