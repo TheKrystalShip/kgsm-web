@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.10)
+- **#8 Big-file splits (refactor problem row 4).** Carved the two worst offenders
+  into cohesive sibling modules, keeping each original file's **public exports
+  identical** so no consumer changed:
+  - **`PerformanceTab.jsx` 654 → 432.** Pure constants + formatters → new
+    `performance/perfHelpers.js`; the presentational pieces (`StatStrip`,
+    `AnomalyBadge`, `MetricChartCard`, `RangeSelector`, `EmptyPerf`) → new
+    `performance/PerfCards.jsx`. The tab file keeps only its two stateful views
+    (Live / Historical) + the range orchestrator.
+  - **`diagComponents.jsx` 393 → 11-line barrel.** The nine-component grab-bag split
+    by cohesion into `diagnostics/diagLeafCards.jsx` (leaf/service cards) and
+    `diagnostics/diagHostCards.jsx` (host/fleet cards + host modals); `diagComponents.jsx`
+    now just re-exports both, so `DiagServices`/`DiagResources`/`DiagOverview`/
+    `LeafConfigModal`/`DiagnosticsPage` keep their existing imports.
+- **Fixed (incidental, found during #8 verification):** several `\uXXXX` escapes sat
+  in **JSX text nodes / attributes** on the Fleet page, where the build does **not**
+  process them (the v1.4.6 class), so they rendered literally — the Fleet header
+  em-dash, the host-search placeholder ellipsis, the "no hosts match" curly quotes,
+  and the host subtitles' `·`/`—`. Replaced with literal characters in
+  `DiagnosticsPage.jsx`; the migrated diag cards were converted at the same time.
+  (A broader cross-file sweep for the same class is flagged as a follow-up.)
+- No behaviour change from the splits. Verified: lint 0 errors, build green, and the
+  Performance tab + Fleet page + edit-host modal render with `errs:[]` and no stray
+  escapes live in the visual harness.
+
 ### Changed (v1.4.9)
 - **#7 Shared `<Modal>` primitive (refactor problem-adjacent).** Eight modals each
   hand-rolled the same three things — an Escape `keydown` effect, a fixed scrim, and

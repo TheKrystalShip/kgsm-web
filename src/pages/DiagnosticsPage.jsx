@@ -133,7 +133,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
               <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add host
             </button>
           </div>
-          <div className="dash-head__sub">Every host this panel aggregates \u2014 health, diagnostics and management in one place.</div>
+          <div className="dash-head__sub">Every host this panel aggregates — health, diagnostics and management in one place.</div>
         </div>
 
         {dataLoading ? <FleetSkeleton /> : (<>
@@ -166,7 +166,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
             value={hostQuery}
             onChange={setHostQuery}
             pending={searchPending}
-            placeholder="Search hosts\u2026" />
+            placeholder="Search hosts…" />
           <ToolbarSpacer />
           <ToolbarCount shown={matched.length} total={hosts.length} unit="hosts" />
         </Toolbar>
@@ -192,7 +192,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
           )}
         </div>
         {matched.length === 0 && (
-          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-3)" }}>No hosts match \u201c{hostQuery.trim()}\u201d.</div>
+          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-3)" }}>No hosts match “{hostQuery.trim()}”.</div>
         )}
         <Pagination
           page={safePage}
@@ -221,7 +221,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
           <div className="diag-head">
             <div className="diag-head__title">
               <h1>{host.name}</h1>
-              <div className="dash-head__sub">{host.hostname} \u00b7 {host.region}</div>
+              <div className="dash-head__sub">{host.hostname} · {host.region}</div>
             </div>
           </div>
         </div>
@@ -241,7 +241,7 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
       <div className="diag-head">
         <div className="diag-head__title">
           <h1>{host.name}{isActive && <span className="host-picker__active-tag">active</span>}</h1>
-          <div className="dash-head__sub">{host.hostname} \u00b7 {host.region} \u2014 host machine health, distinct from per-game-server metrics.</div>
+          <div className="dash-head__sub">{host.hostname} · {host.region} — host machine health, distinct from per-game-server metrics.</div>
         </div>
         {host.online && <HostConnection hostId={host.id} full />}
       </div>
