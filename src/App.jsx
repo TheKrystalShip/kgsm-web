@@ -13,7 +13,7 @@ import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { commandServer, hostsStore, installServer, libraryStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
 import { FirstRunWelcome } from "./pages/FirstRunWelcome.jsx";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import { HostReauthModal } from "./pages/HostReauth.jsx";
@@ -61,7 +61,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    askAboutAlert, openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
+    openAssistant, handleAssistantNavigate, setManualPin } = dock;
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
 
@@ -91,13 +91,9 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   // --- Data stores ---
   const servers = useStore(serversStore, s => s.list);
-  const serversStatus = useStore(serversStore, s => s.status);
-  const serversLoaded = useStore(serversStore, s => s.everLoaded);
   const libraryList = useStore(libraryStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
   const sessionsByHost = useStore(sessionStore, s => s.byHost);
-
-  const scopedServers = scopeServers(servers, selectedHostId);
 
   const authzSettled = hosts.every(h => {
     const s = sessionsByHost[h.id];
@@ -313,34 +309,18 @@ function AppInner({ user, setUser, route, setRoute }) {
             route={route}
             setRoute={setRoute}
             user={user}
-            servers={servers}
-            scopedServers={scopedServers}
-            hosts={hosts}
-            selectedHostId={selectedHostId}
-            serversStatus={serversStatus}
-            serversLoaded={serversLoaded}
-            activeServer={activeServer}
             activeGame={activeGame}
             serverForRender={serverForRender}
             handleAction={handleAction}
             openGame={openGame}
             handleInstall={handleInstall}
-            askAboutAlert={askAboutAlert}
-            selectHost={selectHost}
             deniedHost={deniedHost}
             denyGate={denyGate}
             expiredHost={expiredHost}
             expiredGate={expiredGate}
             setReauthHostId={setReauthHostId}
             handleLogout={handleLogout}
-            installing={installing}
             setInstalling={setInstalling}
-            getServerState={dock.getServerState}
-            assistantHost={assistantHost}
-            assistantHostList={assistantHostList}
-            setAssistantHostId={setAssistantHostId}
-            openView={openView}
-            handleAssistantNavigate={handleAssistantNavigate}
           />
         </div>
         <KrystalFooter />

@@ -8,7 +8,7 @@ import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, To
 import { serverCapUsable } from "../lib/capabilities.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
-import { favoritesStore, serversStore } from "../lib/stores.js";
+import { favoritesStore, hostsStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // ServersPage — the dedicated home for every installed game server.
 //
@@ -112,7 +112,10 @@ function FavoritesSection({ items, onOpenServer, onAction }) {
   );
 }
 
-function ServersPage({ servers, onOpenServer, onAction, onLibrary, hosts = [], selectedHostId = "all", onSelectHost, initialStatus }) {
+function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
+  const selectedHostId = useSelectedHostId();
+  const servers = scopeServers(useStore(serversStore, s => s.list), selectedHostId);
+  const hosts = useStore(hostsStore, s => s.list);
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState(initialStatus || "all");
   const [game, setGame] = React.useState("all");
@@ -274,7 +277,7 @@ function ServersPage({ servers, onOpenServer, onAction, onLibrary, hosts = [], s
         <ToolbarFilters
           fields={[
             { id: "status", label: "Status", value: status, onChange: setStatus, default: "all", options: statusOptions },
-            { id: "host",   label: "Host",   value: selectedId, onChange: (v) => onSelectHost && onSelectHost(v), default: "all", options: hostOptions, hidden: !multiHost },
+            { id: "host",   label: "Host",   value: selectedId, onChange: (v) => selectedHostStore.set(v), default: "all", options: hostOptions, hidden: !multiHost },
             { id: "game",   label: "Game",   value: game, onChange: setGame, default: "all", options: gameOptions },
             { id: "group",  label: "Group",  value: groupBy, onChange: setGroupBy, default: "none", options: [
               { value: "none",      label: "None" },

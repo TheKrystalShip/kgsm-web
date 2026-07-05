@@ -8,7 +8,8 @@ import { HostExpiredNotice } from "../pages/HostReauth.jsx";
 import { ContentError, ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { KrystalRouter } from "../lib/router.js";
 import { can } from "../lib/persona.js";
-import { serversStore } from "../lib/stores.js";
+import { selectedHostStore, serversStore } from "../lib/stores.js";
+import { useAssistantDock } from "./AssistantDockContext.jsx";
 import { ServerGate } from "../pages/ServerGate.jsx";
 
 const AlertsPage = React.lazy(() => import("../pages/AlertsPage.jsx"));
@@ -23,12 +24,17 @@ const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("../pages/SettingsPage.jsx"));
 const ChatPage = React.lazy(() => import("../pages/ChatPage.jsx"));
 
-function AppRouter({ route, setRoute, user, servers, scopedServers, hosts, selectedHostId,
-  serversStatus, serversLoaded, activeServer, activeGame, serverForRender,
-  handleAction, openGame, handleInstall, askAboutAlert, selectHost,
+function AppRouter({ route, setRoute, user, activeGame, serverForRender,
+  handleAction, openGame, handleInstall,
   deniedHost, denyGate, expiredHost, expiredGate, setReauthHostId,
-  handleLogout, installing, setInstalling, getServerState,
-  assistantHost, assistantHostList, setAssistantHostId, openView, handleAssistantNavigate }) {
+  handleLogout, setInstalling }) {
+
+  // Assistant/dock state is provided by AssistantDockProvider (an ancestor of this
+  // router), so read it from context here rather than threading it down from the
+  // shell. Data (servers/hosts/scope) is likewise read by the pages themselves from
+  // the singleton stores — this router only owns ROUTING (route → page + callbacks).
+  const { askAboutAlert, getServerState, assistantHost, assistantHostList,
+    setAssistantHostId, openView, handleAssistantNavigate } = useAssistantDock();
 
   return (
     <ErrorBoundary
@@ -36,17 +42,16 @@ function AppRouter({ route, setRoute, user, servers, scopedServers, hosts, selec
       fallback={(reset, error) => <ContentError error={error} onRetry={reset} onHome={() => setRoute({ kind: "home" })} />}>
     {denyGate ? (
       <HostDeniedNotice host={deniedHost}
-        onBack={() => selectHost("all")}
+        onBack={() => selectedHostStore.set("all")}
         onManage={() => setRoute({ kind: "fleet", hostId: deniedHost.id })} />
     ) : expiredGate ? (
       <HostExpiredNotice host={expiredHost}
-        onReauth={() => setReauthHostId(selectedHostId)}
-        onBack={() => selectHost("all")} />
+        onReauth={() => setReauthHostId(expiredHost.id)}
+        onBack={() => selectedHostStore.set("all")} />
     ) : (<>
     <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{"Loading\u2026"}</div></div>}>
     {route.kind === "home" && <DashboardPage
       user={user}
-      servers={scopedServers}
       canFleet={can("nav.fleet")}
       onOpenServer={(id) => setRoute({ kind: "server", id })}
       onAction={(id, action) => handleAction(action, id)}
@@ -69,10 +74,6 @@ function AppRouter({ route, setRoute, user, servers, scopedServers, hosts, selec
     />}
     {route.kind === "servers" && <ServersPage
       key={route.status || "all"}
-      servers={scopedServers}
-      hosts={hosts}
-      selectedHostId={selectedHostId}
-      onSelectHost={selectHost}
       initialStatus={route.status}
       onOpenServer={(id) => setRoute({ kind: "server", id })}
       onAction={(id, action) => handleAction(action, id)}
@@ -82,7 +83,6 @@ function AppRouter({ route, setRoute, user, servers, scopedServers, hosts, selec
     {route.kind === "game" && (activeGame
       ? <GamePage
           game={activeGame}
-          servers={servers}
           onCreate={(g) => setInstalling(g)}
           onOpenServer={(id) => setRoute({ kind: "server", id })}
           onAction={(id, action) => handleAction(action, id)}
@@ -121,7 +121,7 @@ function AppRouter({ route, setRoute, user, servers, scopedServers, hosts, selec
           onViewServerAudit={(id) => setRoute({ kind: "audit", serverId: id })}
           onDeleted={() => setRoute({ kind: "servers" })}
         />
-      : <ServerGate id={route.id} status={serversStatus} everLoaded={serversLoaded}
+      : <ServerGate id={route.id}
           onBack={() => setRoute({ kind: "servers" })}
           onRetry={() => serversStore.refresh().catch(() => {})} />
     )}

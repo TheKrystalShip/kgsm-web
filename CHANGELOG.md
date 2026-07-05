@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.8)
+- **#3 Prop-drilling cleanup (refactor problem-table row 5).** The Phase-6 App
+  extraction *relocated* the god-component prop list onto `AppRouter` (~31 props)
+  rather than eliminating it. Thinned `AppRouter` to routing only (~15 props) by
+  splitting the props by ownership:
+  - **Store-derived data now read in the pages, not threaded.** `DashboardPage`,
+    `ServersPage`, `GamePage` read `serversStore`/`hostsStore`/scope directly (via
+    `useStore` + `scopeServers` + `useSelectedHostId`), and `ServerGate` reads the
+    store's `status`/`everLoaded` — the same pattern `FleetPage`/`ServerDetailPage`
+    already used. Dropped `servers`/`scopedServers`/`hosts`/`selectedHostId`/
+    `serversStatus`/`serversLoaded` from the router.
+  - **Assistant/dock state read from context in the router.** `AppRouter` now calls
+    `useAssistantDock()` for `askAboutAlert`/`getServerState`/`assistantHost`/…
+    instead of receiving 7 props from the shell (it renders inside
+    `AssistantDockProvider`).
+  - **Dead props removed:** `activeServer` and `installing` were passed to
+    `AppRouter` but never used in its body.
+  - Genuinely shell-local props stay threaded (route/setRoute, `serverForRender`
+    with merged console `extraLog`, the deny/expired gates, `handleAction`, install
+    + reauth + logout, `user`) — and routing callbacks stay on the router (they keep
+    pages decoupled from the router). Host-selection in the router's deny/expired
+    gates calls `selectedHostStore.set` directly.
+  - No behaviour change. Both sides of every contract were updated together (the
+    v1.4.7 lesson). Verified: lint 0 errors, build green, and every page renders
+    with `errs:[]` live in the visual harness (Servers/ServerDetail/Game confirmed
+    populated with real data).
+
 ### Fixed (v1.4.7)
 - Sidebar nav links (Home / Servers / Catalog / Alerts / Fleet / Audit log /
   Settings) were dead no-ops — a refactor contract mismatch. `App` was passing the

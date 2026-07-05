@@ -14,7 +14,7 @@ import { capUsable } from "../lib/capabilities.js";
 import { parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // DashboardPage — the post-login home. Aggregate stats, a server grid,
 // and a recent-activity feed. Designed to answer "what should I care about
@@ -80,7 +80,9 @@ function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
 // The dashboard KPI card lives in KPI.jsx (KPI) and is shared with the
 // host diagnostics overview and the server-detail overview stats.
 
-function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canFleet = true }) {
+function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canFleet = true }) {
+  const selectedId = useSelectedHostId();
+  const servers = scopeServers(useStore(serversStore, s => s.list), selectedId);
   const onlineCount = servers.filter(s => s.status === "online").length;
   const totalPlayers = servers.reduce((n, s) => n + (s.players?.current || 0), 0);
   // Bottom "Servers" card — a single fit-to-width row (max 4), UNFILTERED by
@@ -113,7 +115,6 @@ function DashboardPage({ user, servers, onOpenServer, onAction, onLibrary, onIns
   const hosts = useStore(hostsStore, s => s.list);
   const pings = useStore(pingStore, s => s.byHost);
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  const selectedId = useSelectedHostId();
   const auditScoped = React.useMemo(
     () => auditList.filter(ev => auditInScope(ev, selectedId)),
     [auditList, selectedId]

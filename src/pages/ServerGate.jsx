@@ -1,4 +1,6 @@
 import { Icon } from "../components/Icon.jsx";
+import { useStore } from "../lib/store.js";
+import { serversStore } from "../lib/stores.js";
 
 // ServerGate — the async-state gate for the server-detail route. `serverForRender`
 // is legitimately null in three non-crash cases: the servers store is still on its
@@ -10,7 +12,9 @@ import { Icon } from "../components/Icon.jsx";
 // boundary (the crash this replaces). `everLoaded` is the real "first fetch
 // finished" signal: a warm refresh preserves the list, so a null past everLoaded
 // is a true 404, not a transient.
-function ServerGate({ id, status, everLoaded, onBack, onRetry }) {
+function ServerGate({ id, onBack, onRetry }) {
+  const status = useStore(serversStore, s => s.status);
+  const everLoaded = useStore(serversStore, s => s.everLoaded);
   const wrap = { textAlign: "center", padding: "64px 0", color: "var(--fg-3)" };
   const title = { marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 };
   const sub = { fontSize: 12.5, maxWidth: 460, margin: "4px auto 0" };

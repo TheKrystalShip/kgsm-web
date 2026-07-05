@@ -6,7 +6,7 @@ import { fmtFootprintMb } from "../lib/formatting.js";
 import { canOn } from "../lib/persona.js";
 import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore } from "../lib/stores.js";
+import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 
 // GamePage — the "blueprint" detail page for a single catalog game. A game in
@@ -36,7 +36,8 @@ function SpecRow({ icon, label, value, mono, tone }) {
   );
 }
 
-function GamePage({ game, servers, onCreate, onOpenServer, onAction, onBrowse }) {
+function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
+  const servers = useStore(serversStore, s => s.list);
   // Runtime facts come STRAIGHT from the backend blueprint DTO — never a
   // hardcoded per-game map. `ports` is served today (kgsm parses it from the
   // blueprint), so the game port is real; `specs` (maxPlayers / recommendedRamMb
