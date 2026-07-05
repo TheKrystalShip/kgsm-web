@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.15)
+- **Files tab: file explorer/editor no longer fills to the footer / squishes.**
+  Two parts, both traced to the same phase-6 refactor (`989b9cb`) plus a stale floor:
+  - The refactor dropped the conditional that put `content--fill` on the shell
+    `.content` for the Files tab (`route.kind === "server" && route.tab === "files"`),
+    so the vertical fill-chain (`.app__main → .content--fill → .fb-briefcard →
+    .fb-card`) never engaged and the browser fell back to its `min-height:460px`.
+    Restored the conditional in `App.jsx` (works now that `.app__main` is back — v1.4.14).
+  - Moved the "generous minimum" floor from `.content--fill` (the **whole column**,
+    which the tall cinematic `ServerHero` + sub-tabs already ate ~480px of, leaving the
+    card collapsed to ~158px) down onto `.fb-briefcard` (the file-browser container):
+    `min-height: 520px`. Made `.content--fill` `flex: 1 0 auto` (grow, never shrink) so
+    it fills to the footer on a tall viewport but keeps its content height on a short
+    one — `.app__main` scrolls instead of squashing the card or riding the footer up
+    under the hero (the collapse `kit/responsive.css` guards against on mobile).
+  - Verified live in Chromium: at 900px the card holds **448px** and the page scrolls
+    (footer reachable, flush at the bottom when scrolled); at 1300px it grows to
+    **558px** and fills right down to the footer (25px content-padding gap). Lint clean,
+    build green.
+
 ### Fixed (v1.4.14)
 - **Shell layout regression: page scroll + sticky footer.** The refactor's phase-6
   extraction (commit `989b9cb`) silently renamed the shell `<main>` from

@@ -302,7 +302,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       <MobileNavToggle onOpen={() => setDrawerOpen(true)} />
 
       <main className="app__main">
-        <div className="content">
+        <div className={"content" + (route.kind === "server" && route.tab === "files" ? " content--fill" : "")}>
           <ConnectivityBanner conn={conn} onRetry={retryConnection} />
           <Breadcrumb
             route={route}

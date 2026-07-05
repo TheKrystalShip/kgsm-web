@@ -232,22 +232,26 @@
    .fb-card, so the editor claims all height down to the footer. The grid's single
    row becomes minmax(0,1fr) so the tree + editor stretch to the card height and
    scroll INTERNALLY (the save bar stays pinned, never pushed off-screen). */
-/* A generous floor (NOT 0) so the editor stays usable when the viewport is short:
-   without it the fill chain collapses the card to ~3–4 editor lines and you'd have
-   to zoom the page out to read. The floor lives HERE, at the TOP of the fill chain,
-   not on .fb-card — flooring the card directly would let it spill past its shrunk
-   flex parents; flooring the container instead makes .app__main (overflow-y:auto @
-   100vh) scroll cleanly. On a tall viewport flex-grow still expands past the floor,
-   so the existing fill + internal-scroll is unchanged. (A planned pop-out full-screen
-   modal will add the upper escape hatch.) */
-.content--fill { flex: 1 1 auto; min-height: 640px; }
+/* Vertical fill + a generous floor so the editor stays usable at any viewport:
+   - The floor lives on .fb-briefcard (the file-browser container), NOT on
+     .content--fill. It used to sit on .content--fill (the whole column), but the
+     cinematic ServerHero + sub-tabs eat ~480px at the top, so a column-level floor
+     left the card itself collapsed to a few editor lines. Flooring the browser
+     container directly guarantees the tree + editor a generous minimum height
+     regardless of how tall the hero is.
+   - .content--fill is flex:1 0 auto (grow, NEVER shrink): it grows to fill all the
+     way down to the footer on a tall viewport, but on a short one it keeps its
+     content height so .app__main (overflow-y:auto @ 100vh) scrolls instead of
+     squashing the card or riding the footer up under the hero (the same collapse
+     kit/responsive.css guards against on mobile). */
+.content--fill { flex: 1 0 auto; min-height: 0; }
 /* Only the file-browser card flexes. The hero / sub-tabs / breadcrumb keep their
    natural height (flex-shrink:0) — otherwise the height-constrained column would
    shrink the hero below its content and its overflow:hidden would clip the
-   start/stop/connect controls. The card takes flex-basis:0 + min-height:0 so it
-   fills exactly the leftover space and scrolls internally, never starving siblings. */
+   start/stop/connect controls. The card takes flex-basis:0 so it fills the leftover
+   space and scrolls internally, floored at a generous min-height so it never squishes. */
 .content--fill > * { flex-shrink: 0; }
-.content--fill > .fb-briefcard { flex: 1 1 0; min-height: 0; }
+.content--fill > .fb-briefcard { flex: 1 1 0; min-height: 520px; }
 .fb-briefcard { display: flex; flex-direction: column; min-height: 0; }
 .fb-briefcard .fb-card { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
 .fb-briefcard .fb-tree { min-height: 0; }
