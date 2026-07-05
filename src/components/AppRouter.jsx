@@ -95,6 +95,8 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     {route.kind === "audit"   && <AuditLogPage key={(route.severity || "all") + "|" + (route.serverId || "all")} initialSeverity={route.severity} initialServer={route.serverId} />}
     {route.kind === "fleet" && <FleetPage
       focusHostId={route.hostId}
+      tab={route.tab || "overview"}
+      onTabChange={(t) => setRoute({ kind: "fleet", hostId: route.hostId, tab: t === "overview" ? undefined : t })}
       onFocusHost={(id) => setRoute({ kind: "fleet", hostId: id || undefined })}
       onAsk={askAboutAlert}
       onOpenServer={(id) => setRoute({ kind: "server", id })}

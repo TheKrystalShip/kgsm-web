@@ -26,13 +26,14 @@ import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
-function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit }) {
+function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit }) {
   useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
   const servers = useStore(serversStore, s => s.list);
   const activeId = useSelectedHostId();
-  const [tab, setTab] = React.useState("overview");
+  const tab = tabProp || "overview";
+  const setTab = onTabChange || (() => {});
   const [, setClock] = React.useState(0);
   React.useEffect(() => {
     if (!focusHostId) return;
@@ -48,8 +49,6 @@ function FleetPage({ focusHostId, onFocusHost, onAsk, onOpenServer, onOpenServer
   const searchPending = hostQuery.trim() !== dq.trim();
   const hostQ = dq.trim().toLowerCase();
   React.useEffect(() => { setHostPage(0); }, [hostQ]);
-
-  React.useEffect(() => { setTab("overview"); }, [focusHostId]);
 
   const countFor = (hostId) => servers.filter(s => s.hostId === hostId).length;
 

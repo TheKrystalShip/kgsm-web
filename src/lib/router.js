@@ -20,7 +20,8 @@
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
 //   #/fleet                  fleet grid
-//   #/fleet/<hostId>         a host's diagnostics deep-dive
+//   #/fleet/<hostId>         a host's diagnostics deep-dive (overview)
+//   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
 //   #/discord                Discord integration
 //   #/settings               account settings
 //   #/assistant              the assistant page
@@ -51,7 +52,11 @@
         if (route.serverId) p.push("serverId=" + enc(route.serverId));
         return "#/audit" + (p.length ? "?" + p.join("&") : "");
       }
-      case "fleet":     return "#/fleet" + (route.hostId ? "/" + enc(route.hostId) : "");
+      case "fleet": {
+        let h = "#/fleet" + (route.hostId ? "/" + enc(route.hostId) : "");
+        if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
+        return h;
+      }
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       case "discord":   return "#/discord";
@@ -91,7 +96,12 @@
         if (q.get("serverId")) r.serverId = q.get("serverId");
         return r;
       }
-      case "fleet":     return segs[1] ? { kind: "fleet", hostId: dec(segs[1]) } : { kind: "fleet" };
+      case "fleet": {
+        if (!segs[1]) return { kind: "fleet" };
+        const r = { kind: "fleet", hostId: dec(segs[1]) };
+        if (segs[2]) r.tab = dec(segs[2]);
+        return r;
+      }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
       case "discord":   return { kind: "discord" };
       case "settings":  return { kind: "settings" };

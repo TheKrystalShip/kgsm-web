@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.19)
+- **Fleet page subtabs (Overview, Resources, Services, Logs) now persist in the URL.** The fleet route encodes/decodes a `tab` segment (`#/fleet/<hostId>/<tab>`), matching how server detail tabs already work. Tab state is driven by the route instead of local React state, so back/forward, reload, and deep links land on the correct tab.
+
 ### Fixed (v1.4.18)
 - **Page scrolls to top on navigation.** When navigating between pages, the main scroll container (`.app__main`) smoothly scrolls to the top so the user doesn't land mid-page.
 
