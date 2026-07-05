@@ -10,7 +10,6 @@ import { api, connectionStore } from "./lib/apiClient.js";
 import { CONNECTIONS } from "./lib/config.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
 import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
-import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
 import { commandServer, hostsStore, installServer, libraryStore, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
@@ -98,16 +97,15 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   const authzSettled = hosts.every(h => {
     const s = sessionsByHost[h.id];
-    return s && (s.role || s.denied || s.needReauth);
+    return s && s.status !== "none" && s.status !== "bootstrapping";
   });
 
-  const initialRoute = React.useMemo(() => {
-    if (returnTo.current) return returnTo.current;
-    const hash = window.location.hash.replace(/^#\/?/, "");
-    if (hash) return KrystalRouter.parseHash();
-    if (firstRun.current) return { kind: "addHost" };
-    return { kind: homeKind() };
-  }, []);
+  // Determine whether this is a default landing (no deep link, no returnTo, not
+  // first-run). Default landings need to wait for hosts + roles to resolve before
+  // routing — homeKind() depends on can() which depends on hostsStore being
+  // populated (async). Deep links resolve immediately.
+  const hasDeepLink = !!(returnTo.current || window.location.hash.replace(/^#\/?/, ""));
+  const isDefaultLanding = !hasDeepLink && !firstRun.current;
 
   const [tab] = React.useState(null);
   const [extraLog, setExtraLog] = React.useState({});
@@ -116,10 +114,8 @@ function AppInner({ user, setUser, route, setRoute }) {
   const [collapsed, setCollapsed] = React.useState(() => {
     try { return localStorage.getItem("krystal:sidebar:collapsed") === "1"; } catch { return false; }
   });
-  const [landingResolved, setLandingResolved] = React.useState(
-    initialRoute.kind !== "home" || firstRun.current
-  );
-  const landedDefaultRef = React.useRef(initialRoute.kind === "home" && !firstRun.current);
+  const [landingResolved, setLandingResolved] = React.useState(!isDefaultLanding);
+  const landedDefaultRef = React.useRef(isDefaultLanding);
 
   useRouteSync(route, setRoute, landingResolved);
 
@@ -152,11 +148,11 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   React.useEffect(() => {
     if (landingResolved || !landedDefaultRef.current) return;
-    if (!authzSettled) return;
+    if (!hostsLoaded || !authzSettled) return;
     setRoute({ kind: homeKind() });
     setLandingResolved(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once auth settles; setRoute/setLandingResolved are stable setters
-  }, [authzSettled, landingResolved]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the two async gates
+  }, [hostsLoaded, authzSettled, landingResolved]);
 
   const activeServer = route.kind === "server"
     ? servers.find(s => s.id === route.id) || null

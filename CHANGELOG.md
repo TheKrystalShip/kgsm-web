@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.20)
+- **Fix redirect to `#/servers` on page refresh for admin/operator roles.** The initial route was computed before `hostsStore` loaded (async), so `can()` always returned `false` and `homeKind()` fell back to `"servers"`. The `landingResolved` flag was then set prematurely, bypassing the deferred resolution effect that was supposed to correct the route once auth settled. Fixed by determining the default landing from the URL context (not `homeKind()`), and gating the deferred resolution on `hostsLoaded` so `homeKind()` is only called after hosts and roles are known.
+- **Fix `authzSettled` checking non-existent session properties.** The `authzSettled` gate checked `s.role || s.denied || s.needReauth`, but session records have `tier` and `status` — not those properties. This meant `authzSettled` was always `false` once hosts loaded, so the deferred landing resolution effect could never fire. Fixed to check `s.status !== "none" && s.status !== "bootstrapping"`.
+
 ### Docs
 - **Added focused per-directory `CLAUDE.md` files** documenting the architecture-cleanup refactor's structure so future work doesn't re-monolith it: `src/` (source map + module boundaries), `src/pages/` (pages & routing), `src/lib/` (data layer), `src/lib/stores/` (domain-split stores), `src/components/` (shared UI + `<Modal>`), `src/styles/` (CSS tokens + `kit/` barrel). Root `CLAUDE.md` now points to them. Also removed the stray empty `src/pages/__tmp_test__/` directory.
 
