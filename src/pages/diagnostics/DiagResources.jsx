@@ -48,7 +48,7 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
               ))}
             </div>
             <div className="diag-meta-line" style={{ marginTop: 14 }}>
-              load 1m / 5m / 15m: <b>{host.cpu.load_avg[0].toFixed(1)}</b> \u00b7 <b>{host.cpu.load_avg[1].toFixed(1)}</b> \u00b7 <b>{host.cpu.load_avg[2].toFixed(1)}</b>
+              load 1m / 5m / 15m: <b>{host.cpu.load_avg[0].toFixed(1)}</b> · <b>{host.cpu.load_avg[1].toFixed(1)}</b> · <b>{host.cpu.load_avg[2].toFixed(1)}</b>
             </div>
           </div>
         </div>
@@ -76,7 +76,7 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
             <div className="diag-meta-line" style={{ marginTop: 14 }}>
               swap: <b>{host.ram.swap_used_gb} / {host.ram.swap_total_gb} GB</b>
               {host.ram.swap_used_gb / host.ram.swap_total_gb > 0.3 && (
-                <span style={{ color: "var(--warning-fg)", marginLeft: 10 }}>\u2191 rising \u2014 investigate</span>
+                <span style={{ color: "var(--warning-fg)", marginLeft: 10 }}>↑ rising — investigate</span>
               )}
             </div>
           </div>

@@ -89,7 +89,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
           onBrowse={() => setRoute({ kind: "library" })}
         />
       : <div style={{ padding: "60px 0", textAlign: "center", color: "var(--fg-3)" }}>
-          That game isn\u2019t in the library. <button className="dash-servers-empty__link" onClick={() => setRoute({ kind: "library" })}>Back to the library</button>
+          That game isn’t in the library. <button className="dash-servers-empty__link" onClick={() => setRoute({ kind: "library" })}>Back to the library</button>
         </div>)}
     {route.kind === "discord" && <DiscordPage />}
     {route.kind === "audit"   && <AuditLogPage key={(route.severity || "all") + "|" + (route.serverId || "all")} initialSeverity={route.severity} initialServer={route.serverId} />}

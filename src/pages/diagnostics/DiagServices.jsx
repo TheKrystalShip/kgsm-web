@@ -33,7 +33,7 @@ function DiagServices({ host }) {
         <div className="players-toolbar">
           <div className="svc-summary">
             <span className="svc-summary__stat"><b>{running}</b> running</span>
-            <span className="svc-summary__sep">\u00b7</span>
+            <span className="svc-summary__sep">·</span>
             <span className="svc-summary__stat">{installed.length} of {rows.length} installed</span>
           </div>
           <span style={{ flex: 1 }}></span>

@@ -158,7 +158,7 @@ function EvidenceChanges({ c, onOpenServer }) {
           <div className="ev-changes__row" key={i}>
             <span className="ev-changes__icon" style={{ color: TONE[ch.tone] || "var(--fg-3)" }}><Icon name={ch.icon} size={12} /></span>
             <div className="ev-changes__body">
-              <span className="ev-changes__label">{ch.label}<span className="ev-changes__by"> \u00b7 {ch.by}</span></span>
+              <span className="ev-changes__label">{ch.label}<span className="ev-changes__by"> · {ch.by}</span></span>
               <span className="ev-changes__detail">{ch.detail}</span>
             </div>
             <span className="ev-changes__rel">{ch.rel}</span>

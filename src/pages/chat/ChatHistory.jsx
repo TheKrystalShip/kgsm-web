@@ -36,7 +36,7 @@ function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading
             ))}
             {loading && (
               <div className="chat-rail__empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <span className="oauth-spinner"></span> Loading chat history\u2026
+                <span className="oauth-spinner"></span> Loading chat history…
               </div>
             )}
           </div>

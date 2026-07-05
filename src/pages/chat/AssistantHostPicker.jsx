@@ -20,7 +20,7 @@ function AssistantHostPicker({ hosts, current, onSelect }) {
     <div className="asst-host" ref={ref}>
       <button
         className={"asst-host__trigger" + (open ? " asst-host__trigger--open" : "") + (many ? "" : " asst-host__trigger--solo")}
-        onClick={() => many && setOpen(o => !o)} title="Which host\u2019s assistant"
+        onClick={() => many && setOpen(o => !o)} title="Which host’s assistant"
         aria-haspopup={many ? "listbox" : undefined} aria-expanded={open}>
         <span className={"asst-host__dot asst-host__dot--" + dotTone}></span>
         <span className="asst-host__name">{current.name}</span>

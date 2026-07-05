@@ -40,7 +40,7 @@ function ChatContextPill({ msg }) {
       </span>
       <span className="chat-context__label">
         {pending ? label + "\u2026" : label}
-        {!pending && summary && <span className="chat-context__detail"> \u00b7 {summary}</span>}
+        {!pending && summary && <span className="chat-context__detail"> · {summary}</span>}
       </span>
       {!pending && <Icon name="check" size={12} strokeWidth={2.6} className="chat-context__check" />}
     </div>
@@ -90,7 +90,7 @@ function ChatCommand({ msg, onRun }) {
       <div className="chat-actions__row">
         {!apiBacked ? (
           <button className="chat-action chat-action--disabled" disabled
-            title="This action isn\u2019t available from the panel yet.">
+            title="This action isn’t available from the panel yet.">
             <Icon name={meta.icon} size={13} strokeWidth={2.2} />
             <span>{meta.label} {target}</span>
             <span className="chat-action__reason">Not available from the panel yet</span>
@@ -154,7 +154,7 @@ function ChatVerify({ msg }) {
     return (
       <div className="chat-verify chat-verify--pending">
         <span className="oauth-spinner"></span>
-        <span>Verifying {msg.action.label.toLowerCase()}\u2026</span>
+        <span>Verifying {msg.action.label.toLowerCase()}…</span>
       </div>
     );
   }

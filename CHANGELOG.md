@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.13)
+- **JSX-text `\uXXXX` escapes rendering literally.** A `’`/`—`/`·`/
+  `…`/`↑` escape only decodes inside a JavaScript string literal; in a JSX
+  **text node or attribute value** the JSX transform emits a doubled backslash, so the
+  DOM literally contains `’` and the browser paints it verbatim (confirmed in
+  Chromium — the game-not-found fallback showed `That game isn’t in the library.`).
+- Classified all 110 source occurrences (strip JS-string spans → a surviving escape is
+  JSX text; plus an attribute-value pass) and fixed the **19 that ship as literal-in-DOM**
+  across 10 files (AppRouter, ChatPage, EvidenceCards, ChatContextMeter, ChatHistory,
+  ChatMessageParts, AssistantHostPicker, DiagServices, LeafConfigModal, DiagResources),
+  converting each JSX-text/attribute escape to the literal UTF-8 character. The other ~91
+  occurrences are in JS-string context (`{"…"}`, `label:`, concatenation) and decode
+  correctly — left untouched. `LeafConfigModal.jsx:110` was surgical: its JSX-text `’`
+  was fixed but the same line's ` — ` inside a `{" … "}` string was left as-is.
+  Also tidied a lone non-rendering `—` in a `BootLanding.jsx` comment so it won't
+  re-trip the classifier.
+- These sit on rare/conditional screens (invalid game route, swap >30%, the admin
+  leaf-config modal mid-apply, voice-note recording), which is why they went unnoticed.
+- Verified: the fresh production bundle contains **0** doubled-backslash escapes (was 19),
+  the game-not-found screen now renders a real `’` in Chromium (DOM `innerText` check +
+  screenshot), lint clean (0/0), build green.
+
 ### Changed (v1.4.12)
 - **`exhaustive-deps` backlog — silenced with intent, not "fixed".** A narrow triage
   pass over all 43 `react-hooks/exhaustive-deps` warnings (25 hook sites) found

@@ -98,7 +98,7 @@ function ChatContextMeter({ usage, onCompact }) {
                 ? "Summarize the older messages to free up the context window"
                 : "Nothing to compact yet \u2014 send a message first"}>
               {compacting
-                ? <><span className="oauth-spinner" /> Compacting\u2026</>
+                ? <><span className="oauth-spinner" /> Compacting…</>
                 : <><Icon name="fold-vertical" size={13} strokeWidth={2.2} /> Compact</>}
             </button>
             {note && <span className="chat-ctx__pop-note">{note}</span>}

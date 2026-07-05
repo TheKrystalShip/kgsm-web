@@ -497,7 +497,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           )}
           <div className="chat-composer__hint">
             {voice.phase === "recording" || voice.phase === "requesting"
-              ? <span>Recording a voice note \u00b7 I'll transcribe it and reply</span>
+              ? <span>Recording a voice note · I'll transcribe it and reply</span>
               : <>Enter to send, Shift+Enter for newline</>}
           </div>
         </div>

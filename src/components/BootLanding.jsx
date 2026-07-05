@@ -4,7 +4,7 @@
 import { Icon } from "./Icon.jsx";
 
 function BootLanding() {
-  // Self-contained full-viewport hold \u2014 deliberately NOT the `.app` shell class,
+  // Self-contained full-viewport hold — deliberately NOT the `.app` shell class,
   // whose grid-template-columns (sidebar + main) would pin this into the narrow
   // first column and push the content off-centre. Fixed overlay + flex centres on
   // both axes at every breakpoint.

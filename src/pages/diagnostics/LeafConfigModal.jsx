@@ -102,12 +102,12 @@ function LeafConfigModal({ hostId, leaf, onClose }) {
 
         <div className="host-editor__body leaf-cfg__body">
           {loadState === "loading" && (
-            <div className="leaf-cfg__state"><Icon name="loader" size={20} className="act-spin" /><span>Reading {title} configuration\u2026</span></div>
+            <div className="leaf-cfg__state"><Icon name="loader" size={20} className="act-spin" /><span>Reading {title} configuration…</span></div>
           )}
           {loadState === "error" && (
             <div className="leaf-cfg__state leaf-cfg__state--error">
               <Icon name="triangle-alert" size={20} />
-              <span>Couldn\u2019t read the leaf configuration{loadErr && (loadErr.userMessage || loadErr.message) ? " \u2014 " + (loadErr.userMessage || loadErr.message) : "."}</span>
+              <span>Couldn’t read the leaf configuration{loadErr && (loadErr.userMessage || loadErr.message) ? " \u2014 " + (loadErr.userMessage || loadErr.message) : "."}</span>
             </div>
           )}
           {loadState === "ready" && fields.length === 0 && (
@@ -119,9 +119,9 @@ function LeafConfigModal({ hostId, leaf, onClose }) {
                 <div className={"leaf-cfg-result leaf-cfg-result--" + (result.outcome === "applied" ? "ok" : result.outcome === "unchanged" ? "neutral" : "warn")}>
                   <Icon name={result.outcome === "applied" ? "circle-check" : result.outcome === "unchanged" ? "info" : "triangle-alert"} size={14} strokeWidth={2.2} />
                   <span className="leaf-cfg-result__text">
-                    {result.outcome === "applied" && <>Applied \u2014 the leaf restarted and is healthy.</>}
+                    {result.outcome === "applied" && <>Applied — the leaf restarted and is healthy.</>}
                     {result.outcome === "unchanged" && <>No changes to apply.</>}
-                    {result.outcome === "rolled_back" && <>Rolled back \u2014 the value didn\u2019t stick. {result.message || "The leaf failed its health check and was restored to the previous configuration."}</>}
+                    {result.outcome === "rolled_back" && <>Rolled back — the value didn’t stick. {result.message || "The leaf failed its health check and was restored to the previous configuration."}</>}
                     {result.outcome === "error" && <>{result.message || "The change could not be applied."}</>}
                     {result.health && result.health.message && (result.outcome === "applied") && <span className="leaf-cfg-result__sub"> {result.health.message}</span>}
                   </span>
