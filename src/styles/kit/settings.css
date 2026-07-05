@@ -24,7 +24,7 @@
 }
 .settings-input--mono { font-family: var(--font-mono); font-size: 13px; }
 .settings-input:focus { border-color: var(--border-accent); box-shadow: var(--ring-input); }
-.settings-foot { display: flex; justify-content: flex-end; padding-top: 16px; }
+.settings-foot { display: flex; justify-content: flex-end; padding: 14px; }
 .settings-pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
 .settings-pill--ok { background: var(--success-bg); color: var(--success-fg); }
 .settings-btn-ghost {

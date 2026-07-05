@@ -104,7 +104,7 @@ function SettingsPage({ user, onLogout }) {
         <div className="settings-body">
           {section === "account" && (
             <SettingsSection title="Profile">
-              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px", borderBottom: "1px solid var(--border-subtle)" }}>
                 <span style={{ width: 52, height: 52, borderRadius: 999, background: "linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press))", color: "var(--fg-inverse)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700 }}>
                   {(profile.display || "?")[0].toUpperCase()}
                 </span>
