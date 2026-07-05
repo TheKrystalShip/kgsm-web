@@ -9,6 +9,7 @@ import { HostConnection } from "../../components/ErrorBoundary.jsx";
 import { HostMeters, hostHealth } from "../../components/HostCardBody.jsx";
 import { HostAuthBadge } from "../../components/host-helpers.jsx";
 import { Icon } from "../../components/Icon.jsx";
+import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { canOn } from "../../lib/persona.js";
 import { servicesStore, setLeafProvisioned } from "../../lib/stores.js";
@@ -316,14 +317,9 @@ function HostEditorModal({ host, onSave, onClose }) {
     if (editing) onSave({ label: name.trim(), region: region.trim() });
     else onSave({ name: name.trim(), hostname: hostname.trim(), region: region.trim() });
   };
-  React.useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div className="modal host-editor" onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose}>
+      <div className="modal host-editor">
         <div className="host-editor__head">
           <div className="host-editor__head-icon"><Icon name={editing ? "pencil" : "server-cog"} size={18} /></div>
           <div>
@@ -356,15 +352,15 @@ function HostEditorModal({ host, onSave, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 function RemoveHostDialog({ host, serverCount, onConfirm, onClose }) {
   const blocked = serverCount > 0;
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div className="modal host-remove" onClick={e => e.stopPropagation()}>
+    <Modal onClose={onClose}>
+      <div className="modal host-remove">
         <div className={"host-remove__icon" + (blocked ? " host-remove__icon--warn" : " host-remove__icon--danger")}>
           <Icon name={blocked ? "shield-alert" : "trash-2"} size={20} />
         </div>
@@ -387,7 +383,7 @@ function RemoveHostDialog({ host, serverCount, onConfirm, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

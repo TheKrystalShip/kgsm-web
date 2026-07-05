@@ -1,7 +1,7 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { Modal } from "../components/Modal.jsx";
 import { TimeSeriesChart, detectAnomalies, ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
 import { adaptServerMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents } from "../lib/stores.js";
 
@@ -119,12 +119,8 @@ function MetricChartCard({
   const [hidden, setHidden] = React.useState(() => new Set());
   const [fsZoom, setFsZoom] = React.useState(null);   // full-screen-local zoom (own provider)
 
-  React.useEffect(() => {
-    if (!expanded) { setFsZoom(null); return; }
-    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  // Collapsing drops the full-screen-local zoom; Escape-to-close is handled by Modal.
+  React.useEffect(() => { if (!expanded) setFsZoom(null); }, [expanded]);
 
   const multi = series && series.length > 1;
   const toggleSeries = (key) => setHidden(prev => {
@@ -194,16 +190,15 @@ function MetricChartCard({
           </button>
         </div>
       ) : card(false)}
-      {expanded && createPortal(
-        <div className="chart-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+      {expanded && (
+        <Modal onClose={() => setExpanded(false)} scrimClassName="chart-modal-scrim">
           <div className="chart-modal" role="dialog" aria-modal="true"
             aria-label={typeof title === "string" ? title : "Chart"}>
             <ChartHoverProvider zoom={fsZoom} onZoom={range !== "live" ? setFsZoom : undefined}>
               {card(true)}
             </ChartHoverProvider>
           </div>
-        </div>,
-        document.body
+        </Modal>
       )}
     </>
   );

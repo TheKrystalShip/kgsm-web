@@ -1,7 +1,7 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { Modal } from "../components/Modal.jsx";
 import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
@@ -138,12 +138,6 @@ function FileBrowser({ server }) {
   // the editor each time isn't practical). Esc / scrim-click / the bar toggle
   // close it.
   const [expanded, setExpanded] = React.useState(false);
-  React.useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
 
   // Draggable tree/editor split — the tree column width (px), remembered per
   // browser so a wide tree (for deep/nested dirs) survives a reload. Drives the
@@ -350,13 +344,12 @@ function FileBrowser({ server }) {
           </button>
         </div>
       ) : cardBody}
-      {expanded && createPortal(
-        <div className="fb-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+      {expanded && (
+        <Modal onClose={() => setExpanded(false)} scrimClassName="fb-modal-scrim">
           <div className="fb-modal" role="dialog" aria-modal="true" aria-label={"Files — " + serverId}>
             {cardBody}
           </div>
-        </div>,
-        document.body
+        </Modal>
       )}
     </BriefCard>
   );

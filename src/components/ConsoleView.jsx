@@ -1,6 +1,6 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
+import { Modal } from "./Modal.jsx";
 import { Select } from "./Select.jsx";
 
 // fmtClock — a wall-clock HH:MM:SS from an ISO string or epoch ms; "" for absent/garbage
@@ -61,12 +61,6 @@ function ConsoleView({
     if (sources && sources.length && !sources.some(s => s.id === sourceId)) setSourceId(sources[0].id);
   }, [sources, sourceId]);
   React.useEffect(() => { setExpanded(false); }, [resetKey]);
-  React.useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
 
   const current = sources ? (sources.find(s => s.id === sourceId) || sources[0]) : null;
   const shown = current ? (current.lines || []) : lines;
@@ -122,13 +116,12 @@ function ConsoleView({
           </div>
         </section>
       ) : body}
-      {expanded && createPortal(
-        <div className="console-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) setExpanded(false); }}>
+      {expanded && (
+        <Modal onClose={() => setExpanded(false)} scrimClassName="console-modal-scrim">
           <div className="console-modal" role="dialog" aria-modal="true" aria-label={title}>
             {body}
           </div>
-        </div>,
-        document.body
+        </Modal>
       )}
     </>
   );

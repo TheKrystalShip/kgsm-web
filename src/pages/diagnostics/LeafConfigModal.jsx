@@ -3,6 +3,7 @@
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
+import { Modal } from "../../components/Modal.jsx";
 import { fetchLeafConfig, applyLeafConfig } from "../../lib/stores.js";
 import { ConfigFieldRow } from "./diagComponents.jsx";
 
@@ -39,12 +40,6 @@ function LeafConfigModal({ hostId, leaf, onClose }) {
     );
     return () => { cancelled = true; };
   }, [hostId, leaf.id, hydrate]);
-
-  React.useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const setField = (key, val) => setDrafts((d) => ({ ...d, [key]: val }));
   const setSecret = (key, val) => setSecretDrafts((d) => ({ ...d, [key]: val }));
@@ -91,8 +86,8 @@ function LeafConfigModal({ hostId, leaf, onClose }) {
   const title = (config && config.displayName) || leaf.displayName || leaf.id;
 
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div className="modal leaf-cfg" onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onClose}>
+      <div className="modal leaf-cfg">
         <div className="host-editor__head">
           <div className="host-editor__head-icon"><Icon name="sliders-horizontal" size={18} /></div>
           <div>
@@ -152,7 +147,7 @@ function LeafConfigModal({ hostId, leaf, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

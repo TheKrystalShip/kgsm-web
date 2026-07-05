@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
+import { Modal } from "./Modal.jsx";
 import { Select } from "./Select.jsx";
 import { artBg } from "../lib/art.js";
 import { fmtFootprintMb } from "../lib/formatting.js";
@@ -61,13 +62,6 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   const selectedHost = offered.find(h => h.id === form.hostId) || null;
   const installDir = (selectedHost && selectedHost.installDirectory) || null;
 
-  // Close on ESC.
-  React.useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-
   // If the offering changes while the modal is open (a host syncs its catalog)
   // and the picked host no longer offers the game, fall back to a valid one.
   const offeredIds = offered.map(h => h.id).join(",");
@@ -87,7 +81,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   const art = artBg(game.hero, game.cover);
 
   return (
-    <div className="k-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <Modal onClose={onClose} scrimClassName="k-backdrop">
       <form className="k-modal" onSubmit={submit}>
         <div className="k-modal__art" style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}></div>
         <div className="k-modal__head">
@@ -199,7 +193,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Modal } from "../components/Modal.jsx";
 import { sessionStore } from "../lib/sessionStore.js";
 import { OAuthIcon } from "../components/host-helpers.jsx";
 
@@ -50,13 +51,6 @@ function HostReauthModal({ host, onClose, onDone }) {
   const [phase, setPhase] = React.useState("idle");
   const busy = phase === "opening" || phase === "verifying";
 
-  // Esc closes (unless mid-flight). Mirrors the other modals.
-  React.useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose && onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
-
   const reauth = () => {
     if (busy || !id || !sessionStore) return;
     setPhase("opening");                       // popup → discord.com (re-establishes the SSO anchor)
@@ -71,8 +65,7 @@ function HostReauthModal({ host, onClose, onDone }) {
   };
 
   return (
-    <div className="modal-scrim reauth-scrim"
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose && onClose(); }}>
+    <Modal onClose={onClose} canClose={!busy} scrimClassName="modal-scrim reauth-scrim">
       <div className="reauth-modal" role="dialog" aria-modal="true" aria-label={"Re-authorize " + name}>
         {!busy && (
           <button className="reauth-modal__close" onClick={onClose} aria-label="Close"><Icon name="x" size={16} /></button>
@@ -113,7 +106,7 @@ function HostReauthModal({ host, onClose, onDone }) {
           <span>This re-confirms your identity with {name} only — your other hosts and their sessions aren’t touched.</span>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

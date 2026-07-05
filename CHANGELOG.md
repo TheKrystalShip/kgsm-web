@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.9)
+- **#7 Shared `<Modal>` primitive (refactor problem-adjacent).** Eight modals each
+  hand-rolled the same three things — an Escape `keydown` effect, a fixed scrim, and
+  a click-outside check (three of them also duplicated `createPortal`). Extracted one
+  `src/components/Modal.jsx` that owns that behaviour (portal-to-`<body>` + Escape +
+  scrim mouse-down close, both gated by a `canClose` prop) and migrated every site to
+  it. Net −41 lines across the call sites.
+  - **Behaviour-only primitive:** the caller keeps its exact scrim *visual* class via
+    `scrimClassName` (`.k-backdrop` / `.modal-scrim` / `.console-modal-scrim` / …),
+    so there is **no visual change** — all three scrim classes are already
+    `position:fixed; inset:0`, so portaling to `<body>` only lifts them out of any
+    clipping ancestor.
+  - **Migrated (8):** `InstallModal`, `HostReauthModal` (its `!busy` guard → `canClose`),
+    `LeafConfigModal`, `HostEditorModal` + `RemoveHostDialog` (diagComponents), and the
+    three fullscreen pop-outs `ConsoleView` / `FileBrowser` / `PerformanceTab`.
+  - **Small consistency wins:** the `onClick={onClose}` sites now close on a *mouse-down
+    outside the box* (target-checked) instead of any bubbled click, and
+    `RemoveHostDialog` gained Escape-to-close (it had none).
+  - **Deliberately not migrated:** `Toolbar`'s filters/sort dropdown and the chat
+    popovers (`usePortalPopover`) are *anchored popovers*, not scrim modals — a
+    different pattern, left alone.
+  - Verified: lint 0 errors, build green, and in the visual harness `InstallModal`
+    (Family A) + `ConsoleView` pop-out (Family B) open portaled-to-`<body>`, close on
+    Escape and scrim-click, with `errs:[]` and unchanged appearance.
+
 ### Changed (v1.4.8)
 - **#3 Prop-drilling cleanup (refactor problem-table row 5).** The Phase-6 App
   extraction *relocated* the god-component prop list onto `AppRouter` (~31 props)
