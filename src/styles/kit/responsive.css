@@ -500,7 +500,7 @@
   .dash-head h1 { font-size: 20px; }
   .dash-summary { grid-template-columns: 1fr 1fr; }
   .stats { grid-template-columns: 1fr 1fr; }
-  .game-grid { grid-template-columns: 1fr; }
+  .game-grid { grid-template-columns: repeat(2, 1fr); }
   .game-card__art { aspect-ratio: 2 / 3; }
   .hero__name { font-size: 19px; }
   .chip { height: 42px; font-size: 11px; padding: 0 8px; }
