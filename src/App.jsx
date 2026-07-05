@@ -301,7 +301,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       {drawerOpen && <div className="drawer-scrim" onClick={() => setDrawerOpen(false)} />}
       <MobileNavToggle onOpen={() => setDrawerOpen(true)} />
 
-      <main className={"main" + (pushingPanel ? " main--push" : "") + (railReserve ? " main--rail" : "")}>
+      <main className="app__main">
         <div className="content">
           <ConnectivityBanner conn={conn} onRetry={retryConnection} />
           <Breadcrumb

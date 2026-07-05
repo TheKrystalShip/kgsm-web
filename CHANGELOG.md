@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.14)
+- **Shell layout regression: page scroll + sticky footer.** The refactor's phase-6
+  extraction (commit `989b9cb`) silently renamed the shell `<main>` from
+  `className="app__main"` to `className="main"` (plus invented `main--push` /
+  `main--rail` modifiers), but the CSS was never renamed — the entire `kit/` layer
+  still targets `.app__main`. So the live `<main>` matched no rule and lost
+  `overflow-y:auto`, `display:flex; flex-direction:column`, and
+  `container-type:inline-size` at once:
+  - **the Catalog (and any tall page) could not scroll** — `body{overflow:hidden}`
+    clipped the content with no scroll container;
+  - **the footer was no longer pinned to the bottom** — `.kfoot { margin-top:auto }`
+    is inert without a flex-column parent, so it floated right after the content.
+  Restored `<main className="app__main">` (the pre-refactor class; the `main--*`
+  modifiers had no CSS anywhere — the dock push is handled by `.app`'s
+  `padding-right:var(--dock-push)`). Verified live in Chromium: Catalog scrolls
+  (`scrollHeight 4141 > clientHeight 900`) and the footer bar sits flush at the
+  viewport bottom; lint clean, build green.
+
 ### Fixed (v1.4.13)
 - **JSX-text `\uXXXX` escapes rendering literally.** A `’`/`—`/`·`/
   `…`/`↑` escape only decodes inside a JavaScript string literal; in a JSX
