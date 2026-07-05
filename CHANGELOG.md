@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.11)
+- **#8 Big-file splits — finished the remaining page files.** Same technique as
+  v1.4.10 (extract to sibling modules, keep public exports identical → no consumer
+  changed):
+  - **`ServerSettings.jsx` 469 → 279.** The three gated setting groups → new
+    `serverSettings/SettingsSections.jsx` (`StartupSection`, `ScheduleSection`,
+    `ResourcesSection`) as presentational components fed their state slice + setters;
+    all form state + the load/save/reset/delete handlers stay in the parent (they
+    read every field). The tiny Updates group stays inline.
+  - **`DashboardPage.jsx` 420 → 366.** `DashFleetStrip` (the all-hosts capacity
+    strip) → new `dashboard/DashFleetStrip.jsx`; dropped the two imports it solely
+    used. The customizable band render stays inline (entangled with local layout
+    state — extracting it would add prop-drilling for no real gain).
+  - **`ChatPage.jsx` 528 → 507.** The message-role dispatch → new
+    `chat/ChatThread.jsx` (a pure render switch), moving nine message-part imports
+    out of ChatPage. The composer/header seams were **left inline** — they'd each
+    need ~15-19 props from the shared chat state, so extracting them would add
+    drilling, not remove it (ChatPage was already reduced 1944→528 in Phase 5).
+- **Left as-is (documented):** `TimeSeriesChart` (single cohesive chart) and
+  `apiClient.js`/`adapters.js` (data-layer seams — splitting risks the acyclic-import
+  invariant).
+- No behaviour change. Verified: lint 0 errors, build green, and the Settings tab
+  (all four sections), Dashboard, and the docked Chat render with `errs:[]` in the
+  visual harness.
+
 ### Changed (v1.4.10)
 - **#8 Big-file splits (refactor problem row 4).** Carved the two worst offenders
   into cohesive sibling modules, keeping each original file's **public exports

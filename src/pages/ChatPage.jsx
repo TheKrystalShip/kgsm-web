@@ -15,15 +15,13 @@ import {
   latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
 import { API_COMMAND_VERBS, commandMeta } from "./chat/chatConstants.js";
-import { ChatEvidence } from "./chat/EvidenceCards.jsx";
-import {
-  ChatContextPill, ChatCommand, ChatScopeNotice,
-  ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatSystemNotice,
-} from "./chat/ChatMessageParts.jsx";
+// ChatCommand is imported only to re-export it (see the export list below); the
+// message-role dispatch that used it now lives in ChatThread.
+import { ChatCommand } from "./chat/ChatMessageParts.jsx";
 import { ChatContextMeter } from "./chat/ChatContextMeter.jsx";
 import { AssistantHostPicker } from "./chat/AssistantHostPicker.jsx";
 import { ChatHistory } from "./chat/ChatHistory.jsx";
-import { ChatMessage } from "./chat/ChatMessage.jsx";
+import { ChatThread } from "./chat/ChatThread.jsx";
 
 function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
   const assistantCap = assistantHost ? hostCapability(assistantHost, "assistant") : null;
@@ -422,27 +420,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               </div>
             </div>
           ) : (
-            <div className="chat-thread">
-              {active.messages.map((m, i) =>
-                m.role === "context"
-                  ? <ChatContextPill key={i} msg={m} />
-                  : m.role === "system"
-                    ? <ChatSystemNotice key={i} msg={m} />
-                  : m.role === "scope"
-                    ? <ChatScopeNotice key={i} msg={m} />
-                  : m.role === "checkpoint"
-                    ? <ChatCheckpointNotice key={i} msg={m} />
-                  : m.role === "toggle"
-                    ? <ChatToggleNotice key={i} msg={m} />
-                    : m.role === "evidence"
-                      ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
-                      : m.role === "command"
-                        ? <ChatCommand key={i} msg={m} onRun={runLiveCommand} />
-                        : m.role === "verify"
-                          ? <ChatVerify key={i} msg={m} />
-                          : <ChatMessage key={i} msg={m} user={user} onOpenServer={onOpenServer} onOpenView={onOpenView} />
-              )}
-            </div>
+            <ChatThread messages={active.messages} user={user}
+              onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={runLiveCommand} />
           )}
         </div>
 
