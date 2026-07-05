@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.16)
+- **Assistant FAB button now visible on mobile.** The floating action button was gated to `desktop` only, so mobile users had no visible way to open the assistant dock (only an unreliable right-edge swipe). The CSS already had mobile styles ready; removed the JS guard.
+
 ### Fixed (v1.4.15)
 - **Files tab: file explorer/editor no longer fills to the footer / squishes.**
   Two parts, both traced to the same phase-6 refactor (`989b9cb`) plus a stale floor:
