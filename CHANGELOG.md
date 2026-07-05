@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.12)
+- **`exhaustive-deps` backlog — silenced with intent, not "fixed".** A narrow triage
+  pass over all 43 `react-hooks/exhaustive-deps` warnings (25 hook sites) found
+  **zero genuine staleness bugs** — every one is either a deliberate `[obj.id]`-not-
+  `[obj]` choice (the primitive *is* in the deps; listing the whole object would
+  resubscribe/refetch on every render), a run-once/edge-detector effect where a
+  ref/guard is the real trigger, or a constant false-positive (`tw` is a fresh-per-
+  render literal with frozen contents; `SERVER_STATUS_RANK` is a constant map). In
+  each case the linter's only available "fix" — adding the missing dep — would
+  **introduce** a regression (a refetch storm, a clobbered in-progress edit, a reset
+  live buffer), the opposite of the goal.
+- Rather than leave the warnings as a trap for a future session to "fix", added a
+  scoped `// eslint-disable-next-line react-hooks/exhaustive-deps -- <reason>` at
+  each of the 27 anchor lines, each carrying the specific why (e.g. ChatPage's history
+  loader excludes `convos` because depping it would refetch on every streamed
+  message; AuditLog's `now` keeps `[scoped]` as a deliberate recompute trigger).
+- **No behaviour change** — comment-only. `npm run lint` is now fully clean (0 errors,
+  0 warnings, down from 43); build green.
+
 ### Changed (v1.4.11)
 - **#8 Big-file splits — finished the remaining page files.** Same technique as
   v1.4.10 (extract to sibling modules, keep public exports identical → no consumer

@@ -47,6 +47,7 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewSer
   const svcForHost = useStore(servicesStore, s => s.hostId);
   React.useEffect(() => {
     if (host && host.id) servicesStore.refresh(host.id).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only host.id is used (and in deps); the object churns each render
   }, [host && host.id]);
   const svcReady = svcForHost === host.id;
 

@@ -52,6 +52,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
       if (ra !== rb) return ra - rb;
       return (b.players?.current || 0) - (a.players?.current || 0);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- SERVER_STATUS_RANK is a constant rank map, never changes
   }, [servers, favSet]);
   // Recent activity is the same feed as the Audit log page — the dashboard is
   // just a compact window onto it. Use the page's host-scoping (auditInScope)

@@ -29,6 +29,7 @@ function LogConsole({
   const [sourceId, setSourceId] = React.useState(defaultSource || (sources[0] && sources[0].id));
   const [draft, setDraft] = React.useState("");
   const bodyRef = React.useRef(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- current is derived from props each render; the lines memo is a cheap best-effort and correctness doesn't need referential stability
   const current = sources.find(s => s.id === sourceId) || sources[0] || { lines: [] };
 
   const lines = React.useMemo(() => {

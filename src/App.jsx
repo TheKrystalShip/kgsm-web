@@ -75,6 +75,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       sessionStorage.removeItem("krystal:first-run");
       firstRun.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount cleanup; forcedFirstRun is derived once from the query string and never changes
   }, []);
 
   const returnTo = React.useRef(null);
@@ -141,6 +142,7 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   React.useEffect(() => {
     if (firstRun.current) setRoute({ kind: "library" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount redirect; setRoute is a stable state setter
   }, []);
 
   React.useEffect(() => {
@@ -148,6 +150,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     if (!authzSettled) return;
     setRoute({ kind: homeKind() });
     setLandingResolved(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once auth settles; setRoute/setLandingResolved are stable setters
   }, [authzSettled, landingResolved]);
 
   const activeServer = route.kind === "server"

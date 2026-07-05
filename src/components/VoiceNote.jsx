@@ -262,6 +262,7 @@ function VoiceNoteBubble({ voice }) {
     a.addEventListener("timeupdate", onTime);
     a.addEventListener("ended", onEnd);
     return () => { a.pause(); a.removeEventListener("timeupdate", onTime); a.removeEventListener("ended", onEnd); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entry.url is already the dep (as entry && entry.url); rebuild the audio element only when the clip changes
   }, [available, entry && entry.url]);
 
   const toggle = () => {

@@ -60,6 +60,7 @@ function useLiveConsole(server) {
       () => { hydrated = true; flush(); }   // no scrollback (watchdog down / non-native) — live follow still works
     );
     return () => { alive = false; dispose(); };   // unsubscribe re-idles the backend's console bridge
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the object churns each render, so depping it would resubscribe constantly
   }, [server && server.id, server && server.hostId]);
   return lines;
 }

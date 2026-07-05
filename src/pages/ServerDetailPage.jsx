@@ -66,6 +66,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   const resetOverview = () => { setOvOrder([]); saveBandOrder(OVERVIEW_ORDER_KEY, []); };
   // Leaving the overview tab exits Customize, so you never return to a half-
   // finished arrange session on another tab's content.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- exit customize when leaving the overview tab; customize can only be enabled while on that tab
   React.useEffect(() => { if (safeTab !== "overview" && customize) setCustomize(false); }, [safeTab]);
   return (
     <>

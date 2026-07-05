@@ -19,6 +19,7 @@ function ServerNotice({ server, canEdit }) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(notice);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- resync the draft only when switching servers, not on every notice change (would clobber an in-progress edit)
   React.useEffect(() => { setDraft(server.notice || ""); setEditing(false); }, [server.id]);
 
   const save = () => {

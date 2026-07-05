@@ -25,6 +25,7 @@ function BackupsList({ server }) {
       (res) => setList(Array.isArray(res && res.backups) ? res.backups : []),
       (err) => { setList([]); setError(err && (err.userMessage || err.message) || "Could not load backups."); }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the full object churns each render
   }, [server && server.id, server && server.hostId]);
 
   React.useEffect(() => { setList(null); load(); }, [load]);

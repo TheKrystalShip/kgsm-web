@@ -69,6 +69,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
     if (form.hostId && !offered.some(h => h.id === form.hostId)) {
       set("hostId", (offered.find(h => h.online) || offered[0] || {}).id || null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-validate the picked host only when the offering (offeredIds) changes; form.hostId is read fresh at that point
   }, [offeredIds]);
 
   const submit = (e) => {

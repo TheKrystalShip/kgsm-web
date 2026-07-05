@@ -133,6 +133,7 @@ function usePlayerRoster(server) {
       (err) => { broken = true; hydrated = true; if (alive) setState({ status: "error", error: err }); }
     );
     return () => { alive = false; dispose(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the full object churns each render
   }, [server && server.id, server && server.hostId]);
   return state;
 }

@@ -29,6 +29,7 @@ function useRouteSync(route, setRoute, landingResolved) {
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- attach the hashchange listener once; current route is read via routeRef, setRoute is stable
   }, []);
 }
 

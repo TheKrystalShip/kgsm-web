@@ -76,6 +76,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       (list) => { if (histReqRef.current === reqId) setConvos(prev => mergeServerConversations(prev, list, assistantHost.id)); },
       () => {})
       .finally(() => { if (histReqRef.current === reqId) setHistLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
   }, [assistantHost && assistantHost.id, assistantUsable]);
 
   React.useEffect(() => {
@@ -92,6 +93,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       },
       () => {});
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch history on every streamed message
   }, [activeId, assistantHost && assistantHost.id]);
 
   const prevUsableRef = React.useRef(assistantUsable);
@@ -108,6 +110,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     }
     prevUsableRef.current = assistantUsable;
     prevHostRef.current = hostId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref-based edge detector on the usable-flip; the extra values are read once at the transition, minimal deps keep the edge correct
   }, [assistantUsable, assistantHost && assistantHost.id, activeId]);
 
   React.useEffect(() => {
@@ -258,6 +261,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
         : c));
     }
     return { compacted, messagesCompacted: n };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
   }, [assistantHost && assistantHost.id, activeId]);
 
   const voice = useVoiceRecorder();
@@ -279,6 +283,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   React.useEffect(() => {
     if (!seed || !seed.prompt) return;
     startBriefingChat({ prompt: seed.prompt });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per seed via seed.nonce; seed.prompt is read fresh at that edge
   }, [seed && seed.nonce]);
 
   const runLiveCommand = (card) => {

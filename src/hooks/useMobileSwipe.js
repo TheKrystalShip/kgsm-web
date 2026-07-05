@@ -35,6 +35,7 @@ function useMobileSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOp
       document.removeEventListener("touchstart", onStart);
       document.removeEventListener("touchend", onEnd);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-bind touch handlers on drawer/assistant open changes; the setters are stable
   }, [drawerOpen, assistantOpen]);
 }
 

@@ -64,6 +64,7 @@ function DiscordLiveConfig() {
       v => { if (!live) return; setView(v); setChannelInput((v && v.channelLabel) || ""); },
       err => { if (live) setLoadErr((err && err.userMessage) || "Couldn't load the Discord integration."); });
     return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on hostId change; client is derived from hostId
   }, [hostId]);
 
   if (loadErr) return <SettingsSection title="Webhook"><div style={{ padding: "12px 0", color: "var(--danger)", fontSize: 13 }}><Icon name="alert-triangle" size={13} /> {loadErr}</div></SettingsSection>;

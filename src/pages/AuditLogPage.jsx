@@ -204,6 +204,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   // The "now" anchor: real wall-clock — relative times are vs now, and it matches
   // the server's `since` (also real-now-relative). Recomputed when the loaded set
   // changes so streamed-in events keep fresh relative times.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- [scoped] is a deliberate recompute trigger so relative times refresh as the audit set grows; now intentionally doesn't read it
   const now = React.useMemo(() => new Date(), [scoped]);
 
   // Debounce the free-text search so we don't re-query on every keystroke. The

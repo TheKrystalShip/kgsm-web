@@ -72,6 +72,7 @@ function ServerSettings({ server, onDeleted }) {
         setLoadState("error");
       }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the full object churns each render
   }, [server && server.id, server && server.hostId]);
 
   const handleSave = () => {

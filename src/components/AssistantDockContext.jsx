@@ -131,6 +131,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
 
   React.useEffect(() => {
     if (!assistantHostId && assistantHost) setAssistantHostId(assistantHost.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived every render, so depping it would loop
   }, [assistantHost && assistantHost.id, assistantHostId]);
 
   // Restore dock open/closed state across sessions
@@ -145,6 +146,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     if (stored === "0") return;
     if (stored === "1") { openAssistant(); return; }
     if (tw.openByDefault && tw.dockBehavior !== "rail") openAssistant();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot dock-open init guarded by didInitOpen; tw is a constant literal
   }, [assistantHostList.length]);
 
   React.useEffect(() => {
@@ -173,6 +175,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     assistantHostList, usableAssistants, assistantHost,
     dockResize, handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, openAssistant,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tw is a fresh-per-render literal with constant contents; depping it would rebuild the context value every render
   }), [
     assistantOpen, setAssistantOpen,
     assistantSeed, setAssistantSeed,

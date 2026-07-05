@@ -67,6 +67,7 @@ function LiveMetrics({ server, stopped }) {
         return arr.length > BUFFER_CAP ? arr.slice(arr.length - BUFFER_CAP) : arr;
       });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed the live buffer only on server switch, not on every metrics tick (which would reset the buffer)
   }, [server.id]);
 
   React.useEffect(() => {
