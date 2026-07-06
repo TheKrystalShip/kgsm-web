@@ -17,7 +17,7 @@
 .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .game-card {
   background: var(--surface-1); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
+  border-radius: var(--r-sm); overflow: hidden; cursor: pointer;
   transition: transform var(--d-base) var(--ease-out), border-color var(--d-base) var(--ease-out);
   display: flex; flex-direction: column;
 }
@@ -52,7 +52,7 @@
    made legible instead of hidden in a corner badge. */
 .bp-card {
   background: var(--surface-1); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg); overflow: hidden; cursor: pointer;
+  border-radius: var(--r-sm); overflow: hidden; cursor: pointer;
   display: flex; flex-direction: column;
   transition: transform var(--d-base) var(--ease-out),
               border-color var(--d-base) var(--ease-out),
@@ -282,7 +282,7 @@
 .fb-editor__btn {
   background: var(--krystal-teal); color: var(--btn-accent-fg);
   border: 1px solid transparent;
-  border-radius: var(--r-md); padding: 0 14px; height: 36px;
+  border-radius: var(--r-sm); padding: 0 14px; height: 36px;
   font-family: var(--font-ui); font-weight: 600; font-size: 13px;
   cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -383,7 +383,7 @@
 .backup-row__tag--auto { background: var(--info-bg); color: var(--info-fg); }
 .backup-row__tag--manual { background: var(--krystal-teal-dim); color: var(--krystal-teal); }
 .backup-row__actions { display: flex; gap: 6px; }
-.icon-btn { background: transparent; border: 1px solid var(--border-subtle); color: var(--fg-2); width: 32px; height: 32px; border-radius: var(--r-md); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.icon-btn { background: transparent; border: 1px solid var(--border-subtle); color: var(--fg-2); width: 32px; height: 32px; border-radius: var(--r-sm); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .icon-btn:hover { color: var(--fg-1); border-color: var(--border-strong); background: var(--surface-2); }
 .icon-btn--danger:hover { color: var(--danger-fg); border-color: var(--danger); }
 

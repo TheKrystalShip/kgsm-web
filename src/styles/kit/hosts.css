@@ -148,7 +148,7 @@
 .fleet-card {
   text-align: left; cursor: pointer;
   background: var(--surface-1); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg); padding: 16px 18px;
+  border-radius: var(--r-sm); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 12px;
   transition: border-color var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out);
 }

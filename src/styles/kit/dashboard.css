@@ -20,7 +20,7 @@
 .dash-customize__hint > span { color: var(--krystal-teal); }
 .dash-customize__btn {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 30px; padding: 0 12px; border-radius: var(--r-md);
+  height: 30px; padding: 0 12px; border-radius: var(--r-sm);
   background: var(--surface-2); border: 1px solid var(--border-subtle);
   color: var(--fg-2); font-family: var(--font-ui); font-size: 12.5px; font-weight: 600;
   cursor: pointer; transition: background 120ms cubic-bezier(0.2,0.8,0.2,1), color 120ms, border-color 120ms;
@@ -186,7 +186,7 @@
 .dash-section h2 .count { font-size: 11.5px; font-weight: 600; color: var(--fg-3); background: var(--surface-2); padding: 2px 8px; border-radius: 999px; }
 
 .server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.server-tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; transition: border-color var(--d-fast) var(--ease-out); }
+.server-tile { background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-sm); overflow: hidden; transition: border-color var(--d-fast) var(--ease-out); }
 .server-tile:hover { border-color: var(--border-strong); }
 /* Only the art, title and notice open the server — not the whole tile — so the
    quick-action / Join controls below stay independently clickable. */
@@ -229,7 +229,7 @@
 .server-tile__quick button {
   flex: 1; height: 28px; padding: 0 8px;
   background: var(--surface-3); border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md); color: var(--fg-2);
+  border-radius: var(--r-sm); color: var(--fg-2);
   font-size: 11px; font-weight: 600; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
@@ -268,7 +268,7 @@
 .servers-empty {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 6px; padding: 60px 24px;
-  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
   color: var(--fg-3);
 }
 .servers-empty > svg { color: var(--fg-4); margin-bottom: 6px; }

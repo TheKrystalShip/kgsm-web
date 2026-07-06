@@ -7,7 +7,7 @@
   position: relative;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
   min-height: 220px;
   padding: 24px 28px;
@@ -64,7 +64,7 @@
 .chip {
   font-family: var(--font-ui); font-weight: 700; font-size: 12px;
   letter-spacing: 0.06em; text-transform: uppercase;
-  border-radius: var(--r-md); padding: 0 16px; height: 36px;
+  border-radius: var(--r-sm); padding: 0 16px; height: 36px;
   display: inline-flex; align-items: center; gap: 7px;
   border: none; cursor: pointer; color: var(--btn-accent-fg);
   transition: filter var(--d-fast) var(--ease-out);
@@ -178,7 +178,7 @@
 /* The control bar */
 .hero__bar {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 10px; border-radius: var(--r-md);
+  padding: 10px; border-radius: var(--r-sm);
   background: rgba(14,20,28,0.62);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border: 1px solid rgba(255,255,255,0.09);
@@ -268,7 +268,7 @@
 .tile__bar > i { display: block; height: 100%; border-radius: 999px; transition: width 600ms var(--ease-out); }
 
 /* ============= Console ============= */
-.console-card { background: var(--surface-0); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column; min-height: 280px; }
+.console-card { background: var(--surface-0); border: 1px solid var(--border-subtle); border-radius: var(--r-sm); overflow: hidden; display: flex; flex-direction: column; min-height: 280px; }
 .console-card__head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-1); flex-shrink: 0; }
 /* Match the shared card-title style (.chat-brief__title) so the Console header
    sits in the same family as the other detail-page cards — a small, muted,
@@ -359,7 +359,7 @@
 .console-modal .console-card__body { max-height: none; }
 
 /* ============= Sub-tabs (inside server detail) ============= */
-.subtabs { display: flex; gap: 4px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 5px; width: fit-content; }
+.subtabs { display: flex; gap: 4px; background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: var(--r-sm); padding: 5px; width: fit-content; }
 .subtab { font-family: var(--font-ui); font-weight: 500; font-size: 13.5px; color: var(--fg-3); background: transparent; border: none; padding: 7px 14px; border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; gap: 7px; }
 .subtab:hover { color: var(--fg-1); }
 .subtab--active { background: var(--surface-3); color: var(--fg-1); font-weight: 600; }
