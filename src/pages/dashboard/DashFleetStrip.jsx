@@ -3,6 +3,7 @@
 // drilling into that host's diagnostics. Reuses the fleet-meter visuals. Extracted
 // from DashboardPage.jsx (#8). Hook-less → no React import (automatic JSX runtime).
 
+import { BriefCard } from "../../components/BriefCard.jsx";
 import { alertsTone, anchoredAlerts } from "../../components/ContextualAlerts.jsx";
 import { HostMeters, hostHealth } from "../../components/HostCardBody.jsx";
 import { Icon } from "../../components/Icon.jsx";
@@ -10,20 +11,14 @@ import { Icon } from "../../components/Icon.jsx";
 function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
   const openHost = (id) => onOpenHost && onOpenHost(id);
   return (
-    <section className="cap-strip dash-fleet">
-      <div className="cap-strip__head">
-        <h2 className="cap-strip__title">
-          <Icon name="server-cog" size={14} />
-          Fleet capacity
-          <span className="cap-strip__host">{hosts.length} hosts</span>
-        </h2>
-        <span style={{ flex: 1 }}></span>
-        {onOpenDiagnostics && (
-          <button className="dash-section__more" onClick={onOpenDiagnostics}>
-            View all <Icon name="arrow-right" size={12} strokeWidth={2.2} />
-          </button>
-        )}
-      </div>
+    <BriefCard
+      icon="server-cog"
+      title="Fleet capacity"
+      count={hosts.length}
+      countTone="neutral"
+      onViewAll={onOpenDiagnostics}
+      className="dash-fleet"
+    >
       <div className="dash-fleet__rows">
         {hosts.map(h => {
           const alerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id);
@@ -54,7 +49,7 @@ function DashFleetStrip({ hosts, onOpenDiagnostics, onOpenHost }) {
           );
         })}
       </div>
-    </section>
+    </BriefCard>
   );
 }
 
