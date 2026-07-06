@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.23)
+- **Clean up dead auth/routing code in App.jsx.** Removed the unused `returnTo` ref (`krystal:returnTo` is never written), the dead `forcedOut`/`?auth=out` path (logout already handles its own reload), the `firstRun.current` ref and its mount redirect (overwritten by landing resolution; `krystal:first-run` is never set), and the `setUser` prop (never called after mount). Simplified the landing resolution to always re-parse the URL hash via `KrystalRouter.routeFromHash()` instead of branching on `hasDeepLink`. The auth/routing sequence now reads as three clean gates: no connections → connect screen, no user → login, auth not ready → boot landing, then route.
+
 ### Fixed (v1.4.22)
 - **Fix deep-link redirect on page refresh.** Navigating to a deep link (e.g. `#/fleet/hotrod/resources`) and refreshing the page would redirect to `#/servers`. The initial route was resolved from `{ kind: "home" }` without parsing the URL hash, so `can()` failed on the empty async hosts list. Deep links also bypassed the deferred-resolution effect by setting `landingResolved = true` immediately, causing `useRouteSync` to overwrite the URL hash before roles loaded. Fixed by parsing the initial hash in `useState`, deferring both deep links and default landings until `hostsLoaded && authzSettled`, and re-parsing the URL hash via `KrystalRouter.routeFromHash()` once capabilities are known (not using the already-rejected route state).
 

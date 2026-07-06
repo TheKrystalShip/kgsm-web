@@ -14,7 +14,6 @@ import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
 import { commandServer, hostsStore, installServer, libraryStore, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
-import { FirstRunWelcome } from "./pages/FirstRunWelcome.jsx";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import { HostReauthModal } from "./pages/HostReauth.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
@@ -37,11 +36,7 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 // via useAssistantDock() throughout the tree.
 
 function App() {
-  const [user, setUser] = React.useState(() => {
-    const forcedOut = new URLSearchParams(window.location.search).get("auth") === "out";
-    if (forcedOut) { writeStoredUser(null); return null; }
-    return readStoredUser();
-  });
+  const [user] = React.useState(() => readStoredUser());
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [route, setRouteRaw] = React.useState(() => {
@@ -53,13 +48,13 @@ function App() {
   }, []);
   return (
     <AssistantDockProvider hosts={hosts} selectedHostId={selectedHostId} setRoute={setRoute}>
-      <AppInner user={user} setUser={setUser} route={route} setRoute={setRoute} />
+      <AppInner user={user} route={route} setRoute={setRoute} />
     </AssistantDockProvider>
   );
 }
 
 // AppInner — the real app body. Consumes dock state from context.
-function AppInner({ user, setUser, route, setRoute }) {
+function AppInner({ user, route, setRoute }) {
   const dock = useAssistantDock();
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
@@ -69,23 +64,6 @@ function AppInner({ user, setUser, route, setRoute }) {
   const hosts = useStore(hostsStore, s => s.list);
 
   // --- Auth ---
-  const qp = new URLSearchParams(window.location.search);
-  const forcedFirstRun = qp.has("first-run");
-
-  const firstRun = React.useRef(forcedFirstRun || !!sessionStorage.getItem("krystal:first-run"));
-  React.useEffect(() => {
-    if (firstRun.current && !forcedFirstRun) {
-      sessionStorage.removeItem("krystal:first-run");
-      firstRun.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount cleanup; forcedFirstRun is derived once from the query string and never changes
-  }, []);
-
-  const returnTo = React.useRef(null);
-  React.useEffect(() => {
-    const saved = sessionStorage.getItem("krystal:returnTo");
-    if (saved) { try { returnTo.current = JSON.parse(saved); } catch {} }
-  }, []);
 
   const handleLogout = React.useCallback(() => {
     writeStoredUser(null);
@@ -104,11 +82,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     return s && s.status !== "none" && s.status !== "bootstrapping";
   });
 
-  // Determine whether the user arrived with a deep link (URL hash or returnTo).
-  // Both deep links and default landings wait for hosts + roles to resolve
-  // before routing — homeKind() and resolveRoute() depend on can() which
-  // depends on hostsStore being populated (async).
-  const hasDeepLink = !!(returnTo.current || window.location.hash.replace(/^#\/?/, ""));
+  const authzReady = hostsLoaded && authzSettled;
 
   const [tab] = React.useState(null);
   const [extraLog, setExtraLog] = React.useState({});
@@ -144,21 +118,13 @@ function AppInner({ user, setUser, route, setRoute }) {
   const [reauthHostId, setReauthHostId] = React.useState(null);
 
   React.useEffect(() => {
-    if (firstRun.current) setRoute({ kind: "library" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount redirect; setRoute is a stable state setter
-  }, []);
-
-  React.useEffect(() => {
     if (landingResolved) return;
-    if (!hostsLoaded || !authzSettled) return;
-    if (hasDeepLink) {
-      setRoute(KrystalRouter.routeFromHash());
-    } else {
-      setRoute({ kind: homeKind() });
-    }
+    if (!authzReady) return;
+    const deepRoute = KrystalRouter.routeFromHash();
+    setRoute(deepRoute || { kind: homeKind() });
     setLandingResolved(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the two async gates
-  }, [hostsLoaded, authzSettled, landingResolved, hasDeepLink]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the async gate
+  }, [authzReady, landingResolved]);
 
   const activeServer = route.kind === "server"
     ? servers.find(s => s.id === route.id) || null
@@ -211,7 +177,6 @@ function AppInner({ user, setUser, route, setRoute }) {
         });
       }
       setInstalling(null);
-      firstRun.current = false;
       setRoute({ kind: "servers" });
     }, err => {
       if (err && err.code === 401) setReauthHostId(cfg.hostId);
@@ -392,10 +357,6 @@ function AppInner({ user, setUser, route, setRoute }) {
           onConfirm={confirmInstall}
           onClose={() => setInstalling(null)}
         />
-      )}
-
-      {firstRun.current && !installing && (
-        <FirstRunWelcome onDismiss={() => { firstRun.current = false; }} />
       )}
     </div>
   );
