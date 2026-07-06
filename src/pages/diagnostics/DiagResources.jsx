@@ -2,7 +2,6 @@
 // network interface table, open-ports table. Pure render from props — no hooks,
 // no stores.
 
-import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { StatusLed } from "./diagComponents.jsx";
 
@@ -13,7 +12,7 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
     return (
       <div className="diag-empty">
         <Icon name="activity" size={18} strokeWidth={1.8} />
-        <p>Live metrics are unavailable on this host{fresh && fresh.message ? " \u2014 " + fresh.message : "."}</p>
+        <p>Live metrics are unavailable on this host{fresh && fresh.message ? " — " + fresh.message : "."}</p>
         <p className="diag-empty__sub">CPU, memory, disk and network telemetry need the host's metrics agent to be running.</p>
       </div>
     );
@@ -87,80 +86,121 @@ function DiagResources({ host, fresh, servers = [], onOpenServerSettings }) {
       {host.disks && host.disks.length > 0 && (
         <div className={"chat-brief" + (frozen ? " is-frozen" : "")} style={{ marginTop: 16 }}>
           <div className="chat-brief__head">
-            <span className="chat-brief__title"><Icon name="database" size={13} /> Disk{host.disks.length > 1 ? "s" : ""}</span>
+            <span className="chat-brief__title">
+              <Icon name="database" size={13} /> Disk{host.disks.length > 1 ? "s" : ""}
+              <span className="chat-brief__count chat-brief__count--neutral">{host.disks.length}</span>
+            </span>
             <StatusLed live={!frozen} label={frozen ? ageShort : null} />
           </div>
-          <div className="chat-brief__pad">
-            <div className="disk-list">
-              {host.disks.map((d, i) => {
-                const pct = d.total_gb > 0 ? (d.used_gb / d.total_gb) * 100 : 0;
-                return (
-                  <div className="disk-row" key={i}>
-                    <span className="disk-row__mount">{d.mount}</span>
-                    <div className="disk-row__bar"><div className="disk-row__fill" style={{ width: pct + "%" }}></div></div>
-                    <span className="disk-row__pct">{Math.round(pct)}%</span>
-                    <span className="disk-row__size">{d.used_gb} / {d.total_gb} GB</span>
+          <div className="disk-list">
+            {host.disks.map((d, i) => {
+              const pct = d.total_gb > 0 ? Math.round((d.used_gb / d.total_gb) * 100) : 0;
+              const tone = pct > 90 ? "danger" : pct > 80 ? "warn" : "success";
+              const smart = d.smart === "warn" ? "warn" : d.smart === "fail" ? "danger" : "success";
+              return (
+                <div className="disk-row" key={i}>
+                  <div className="disk-row__head">
+                    <code className="disk-row__mount">{d.mount}</code>
+                    {d.device && <span className="disk-row__device">{d.device}</span>}
+                    {d.fs && <span className="disk-row__fs">{d.fs}</span>}
+                    <span style={{ flex: 1 }}></span>
+                    {d.smart && <span className={"disk-row__smart disk-row__smart--" + smart}>SMART: {d.smart}</span>}
                   </div>
-                );
-              })}
-            </div>
+                  <div className="disk-row__bar">
+                    <i className={"disk-row__fill disk-row__fill--" + tone} style={{ width: pct + "%" }}></i>
+                  </div>
+                  <div className="disk-row__usage">
+                    <span><b>{d.used_gb}</b> / {d.total_gb} GB used</span>
+                    <span style={{ marginLeft: "auto" }}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Network interfaces */}
-      {host.network && host.network.interfaces && host.network.interfaces.length > 0 && (
+      {/* Network — interfaces + open ports in one card */}
+      {host.network && (
+        (host.network.interfaces && host.network.interfaces.length > 0) ||
+        (host.network.open_ports && host.network.open_ports.length > 0)
+      ) && (
         <div className={"chat-brief" + (frozen ? " is-frozen" : "")} style={{ marginTop: 16 }}>
           <div className="chat-brief__head">
-            <span className="chat-brief__title"><Icon name="network" size={13} /> Network</span>
+            <span className="chat-brief__title">
+              <Icon name="network" size={13} /> Network
+              {host.network.interfaces && host.network.interfaces.length > 0 && (
+                <span className="chat-brief__count chat-brief__count--neutral">{host.network.interfaces.length} iface</span>
+              )}
+            </span>
             <StatusLed live={!frozen} label={frozen ? ageShort : null} />
           </div>
-          <div className="chat-brief__pad">
-            <div className="net-iface-grid">
+          {host.network.interfaces && host.network.interfaces.length > 0 && (
+            <div className="iface-list">
               {host.network.interfaces.map((iface, i) => (
-                <div className="net-iface" key={i}>
-                  <span className="net-iface__name">{iface.name}</span>
-                  <span className="net-iface__speed">{iface.speed_mbps ? iface.speed_mbps + " Mbps" : "\u2014"}</span>
-                  <span className="net-iface__rx"><Icon name="arrow-down" size={11} /> {iface.rx_kbps || 0} kbps</span>
-                  <span className="net-iface__tx"><Icon name="arrow-up" size={11} /> {iface.tx_kbps || 0} kbps</span>
+                <div className="iface-row" key={i}>
+                  <code className="iface-row__name">{iface.name}</code>
+                  <span className="iface-row__ip">{iface.ip || "—"}</span>
+                  <span className="iface-row__mac">{iface.mac || "—"}</span>
+                  <span className="iface-row__metric">
+                    <span style={{ color: "var(--fg-3)" }}>↓</span> <b>{iface.rx_kbps || 0}</b> kbps
+                  </span>
+                  <span className="iface-row__metric">
+                    <span style={{ color: "var(--fg-3)" }}>↑</span> <b>{iface.tx_kbps || 0}</b> kbps
+                  </span>
+                  {iface.errors != null && (
+                    <span className={"iface-row__errors" + (iface.errors > 0 ? " iface-row__errors--bad" : "")}>
+                      {iface.errors} errors
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Open ports */}
-      {host.network && host.network.open_ports && host.network.open_ports.length > 0 && (
-        <div className={"chat-brief" + (frozen ? " is-frozen" : "")} style={{ marginTop: 16 }}>
-          <div className="chat-brief__head">
-            <span className="chat-brief__title"><Icon name="door-open" size={13} /> Open ports</span>
-            <StatusLed live={!frozen} label={frozen ? ageShort : null} />
-          </div>
-          <div className="chat-brief__pad">
-            <div className="port-grid" style={{ gridTemplateColumns: PORT_COLS }}>
-              <span className="port-grid__head">Port</span>
-              <span className="port-grid__head">Protocol</span>
-              <span className="port-grid__head">Owner</span>
-              <span className="port-grid__head">Exposure</span>
-              <span></span>
-              {host.network.open_ports.map((p, i) => (
-                <React.Fragment key={i}>
-                  <span className="port-grid__cell">{p.port}</span>
-                  <span className="port-grid__cell">{p.proto || "tcp"}</span>
-                  <span className="port-grid__cell">{p.server ? serverName(p.server) : "\u2014"}</span>
-                  <span className={"port-grid__cell port-grid__cell--" + portExposure(p)}>{portExposure(p)}</span>
-                  <span className="port-grid__cell">
-                    {p.server && onOpenServerSettings && (
-                      <button className="port-grid__go" onClick={() => onOpenServerSettings(p.server)} title="Open server settings">
-                        <Icon name="arrow-right" size={12} strokeWidth={2.2} />
-                      </button>
-                    )}
-                  </span>
-                </React.Fragment>
-              ))}
+          )}
+          {host.network.open_ports && host.network.open_ports.length > 0 && (
+            <div className="ports-block">
+              <div className="ports-block__head">
+                Open ports <span className="ports-block__count">{host.network.open_ports.length}</span>
+              </div>
+              <div className="card-table">
+                <div className="card-table__head" style={{ gridTemplateColumns: PORT_COLS }}>
+                  <span className="card-table__th">Port</span>
+                  <span className="card-table__th">Service</span>
+                  <span className="card-table__th">Owner</span>
+                  <span className="card-table__th">Exposure</span>
+                  <span></span>
+                </div>
+                {host.network.open_ports.map((p, i) => {
+                  const exp = portExposure(p);
+                  return (
+                    <div className="card-table__row" key={i} style={{ gridTemplateColumns: PORT_COLS }}>
+                      <span className="card-table__cell port-num"><b>{p.port}</b><span className="port-proto">/{p.proto || "tcp"}</span></span>
+                      <span className="card-table__cell port-svc">{p.app || "—"}</span>
+                      <span className="card-table__cell">
+                        {p.server ? (
+                          <button className="port-owner port-owner--link" onClick={() => onOpenServerSettings && onOpenServerSettings(p.server)} title={"Configure " + serverName(p.server)}>
+                            <Icon name="gamepad-2" size={13} />
+                            <span className="port-owner__name">{serverName(p.server)}</span>
+                            <Icon name="arrow-up-right" size={12} />
+                          </button>
+                        ) : (
+                          <span className="port-owner port-owner--host"><Icon name="server" size={13} /> Host service</span>
+                        )}
+                      </span>
+                      <span className="card-table__cell">
+                        <span className={"port-exp port-exp--" + exp}>
+                          <Icon name={exp === "public" ? "globe" : "lock"} size={11} /> {exp === "public" ? "Public" : "LAN"}
+                        </span>
+                      </span>
+                      <span className="card-table__cell port-chevron">
+                        {p.server && <Icon name="chevron-right" size={15} />}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </>

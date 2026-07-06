@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.21)
+- **Restore Disk and Network styles on the Resources tab.** The split-DiagnosticsPage refactor rewrote the JSX with new class names that had no CSS. Reverted `DiagResources.jsx` to the original row-based patterns: disk rows use `disk-row__head / disk-row__bar / disk-row__usage`; network uses `iface-list / iface-row`; open ports use `ports-block + card-table` inside one Network card. Restored the matching CSS in `observability.css`.
+
 ### Fixed (v1.4.20)
 - **Fix redirect to `#/servers` on page refresh for admin/operator roles.** The initial route was computed before `hostsStore` loaded (async), so `can()` always returned `false` and `homeKind()` fell back to `"servers"`. The `landingResolved` flag was then set prematurely, bypassing the deferred resolution effect that was supposed to correct the route once auth settled. Fixed by determining the default landing from the URL context (not `homeKind()`), and gating the deferred resolution on `hostsLoaded` so `homeKind()` is only called after hosts and roles are known.
 - **Fix `authzSettled` checking non-existent session properties.** The `authzSettled` gate checked `s.role || s.denied || s.needReauth`, but session records have `tier` and `status` — not those properties. This meant `authzSettled` was always `false` once hosts loaded, so the deferred landing resolution effect could never fire. Fixed to check `s.status !== "none" && s.status !== "bootstrapping"`.

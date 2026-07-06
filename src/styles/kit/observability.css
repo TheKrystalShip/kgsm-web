@@ -922,14 +922,9 @@
 .ram-legend b { color: var(--fg-1); font-weight: 600; font-family: var(--font-mono); }
 .ram-legend .swatch { width: 8px; height: 8px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 5px; }
 
-/* Disk list */
+/* Disk list — rows sit directly inside .chat-brief, each with its own padding */
 .disk-list { display: flex; flex-direction: column; }
-/* Disk entries are inline rows inside the shared card chrome (.chat-brief),
-   divided by hairlines — matching Processes / Recent activity, not a stack of
-   separate mini-cards. */
-.disk-row {
-  padding: 13px 14px;
-}
+.disk-row { padding: 13px 14px; }
 .disk-row + .disk-row { border-top: 1px solid var(--border-subtle); }
 .disk-row__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .disk-row__mount { color: var(--fg-1); font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
@@ -938,15 +933,15 @@
 .disk-row__smart--success { background: var(--success-bg); color: var(--success-fg); }
 .disk-row__smart--warn    { background: var(--warning-bg); color: var(--warning-fg); }
 .disk-row__smart--danger  { background: var(--danger-bg);  color: var(--danger-fg);  }
-.disk-row__bar { height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.disk-row__bar { height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; margin-bottom: 6px; }
 .disk-row__fill { display: block; height: 100%; border-radius: 999px; transition: width var(--d-base); }
 .disk-row__fill--success { background: var(--success); }
 .disk-row__fill--warn    { background: var(--warning); }
 .disk-row__fill--danger  { background: var(--danger);  }
-.disk-row__usage { display: flex; margin-top: 6px; font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
+.disk-row__usage { display: flex; font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
 .disk-row__usage b { color: var(--fg-1); }
 
-/* Network interface list */
+/* Network interface list — rows sit directly inside .chat-brief */
 .iface-list { display: flex; flex-direction: column; }
 .iface-row {
   display: grid;
@@ -964,21 +959,7 @@
 .iface-row__errors { font-size: 11px; color: var(--success-fg); font-family: var(--font-mono); }
 .iface-row__errors--bad { color: var(--danger-fg); }
 
-/* Open ports grid */
-.ports-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
-.port-chip {
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  padding: 6px 10px;
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--fg-2);
-}
-.port-chip code { color: var(--krystal-teal); font-size: 11.5px; }
-.port-chip__server { margin-left: auto; color: var(--fg-3); font-size: 11px; font-family: var(--font-mono); }
-
-/* Open-ports table — lives inside the Network card, reuses .card-table chrome.
-   Each game-server port links to that server's config; host services don't. */
+/* Open-ports block — sits below the iface list inside the Network card */
 .ports-block { border-top: 1px solid var(--border-subtle); }
 .ports-block__head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); }
 .ports-block__count { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 999px; letter-spacing: 0; }
