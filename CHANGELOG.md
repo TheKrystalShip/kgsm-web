@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.24)
+- **Restyle sidebar host picker to Minimal-Flat.** Replaced the heavy card-like trigger (surface-2 background, border, glow-ring dot, two-line column layout) with a borderless, transparent ghost button. The trigger is now a single-line flex row: status dot + host name + thin separator + metadata + caret. Hover reveals a subtle surface fill; open state is a plain surface background with no accent border or ring. Dropdown menu tightened to match (lighter padding, inline option layout). Rail mode updated to hide the flat row and show only the dot + code. Inspired by the assistant dock's minimal host picker language.
+
 ### Fixed (v1.4.23)
 - **Clean up dead auth/routing code in App.jsx.** Removed the unused `returnTo` ref (`krystal:returnTo` is never written), the dead `forcedOut`/`?auth=out` path (logout already handles its own reload), the `firstRun.current` ref and its mount redirect (overwritten by landing resolution; `krystal:first-run` is never set), and the `setUser` prop (never called after mount). Simplified the landing resolution to always re-parse the URL hash via `KrystalRouter.routeFromHash()` instead of branching on `hasDeepLink`. The auth/routing sequence now reads as three clean gates: no connections → connect screen, no user → login, auth not ready → boot landing, then route.
 

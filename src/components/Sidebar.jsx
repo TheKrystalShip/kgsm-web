@@ -61,20 +61,16 @@ function HostSwitcher({ hosts, selectedId, onSelect, onManage, collapsed }) {
           <span className="host-switch__code">{all ? "ALL" : codeOf(current)}</span>
         ) : (
           <>
-            <span className="host-switch__main">
-              {all ? (
-                <>
-                  <span className="host-switch__name">All hosts</span>
-                  <span className="host-switch__sub">{hosts.length} hosts · {onlineCount} online</span>
-                </>
-              ) : (
-                <>
-                  <span className="host-switch__name">{current.name}</span>
-                  <span className="host-switch__sub">{current.hostname} · {current.region}</span>
-                </>
-              )}
+            <span className="host-switch__name">
+              {all ? "All hosts" : current.name}
             </span>
-            <Icon name="chevrons-up-down" size={14} className="host-switch__caret" />
+            <span className="host-switch__sep"></span>
+            <span className="host-switch__meta">
+              {all
+                ? hosts.length + " hosts · " + onlineCount + " online"
+                : (current.hostname || "") + " · " + (current.region || "")}
+            </span>
+            <Icon name="chevrons-up-down" size={12} className="host-switch__caret" />
           </>
         )}
       </button>
