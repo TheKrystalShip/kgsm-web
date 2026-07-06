@@ -293,7 +293,8 @@
      flex child of .app__main — rides up to sit right after the collapsed box (almost
      to the hero). Sizing to content instead lets .app__main (overflow-y:auto) scroll. */
   .content--fill { flex: 0 0 auto; min-height: 0; }
-  .content--fill > .fb-briefcard { flex: 0 0 auto; }
+  .content--fill > .page { flex: 0 0 auto; }
+  .content--fill > .page > .fb-briefcard { flex: 0 0 auto; }
   .fb-briefcard .fb-card { flex: 0 0 auto; grid-template-rows: auto auto; }
   .fb-briefcard .fb-editor { min-height: 560px; }
   /* The pop-out goes edge-to-edge on a phone and stacks like the inline card —

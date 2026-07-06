@@ -50,6 +50,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
         onBack={() => selectedHostStore.set("all")} />
     ) : (<>
     <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{"Loading\u2026"}</div></div>}>
+    <div className="page" key={KrystalRouter.routeToHash(route)}>
     {route.kind === "home" && <DashboardPage
       user={user}
       canFleet={can("nav.fleet")}
@@ -127,6 +128,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
           onBack={() => setRoute({ kind: "servers" })}
           onRetry={() => serversStore.refresh().catch(() => {})} />
     )}
+    </div>
     </React.Suspense>
     </>)}
     </ErrorBoundary>

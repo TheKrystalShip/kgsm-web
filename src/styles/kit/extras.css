@@ -180,3 +180,20 @@
 .server-group__chip--fav svg { fill: currentColor; }
 .server-group--fav .server-group__name { font-size: 16px; }
 .server-group--fav .server-group__rule { border-top-color: var(--border-strong); }
+
+/* ============================================================
+   Page mount animation — subtle fade+rise on route change
+   ============================================================ */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: k-page-in var(--d-slow) var(--ease-out);
+}
+@keyframes k-page-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page { animation: none; }
+}

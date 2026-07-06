@@ -250,8 +250,9 @@
    shrink the hero below its content and its overflow:hidden would clip the
    start/stop/connect controls. The card takes flex-basis:0 so it fills the leftover
    space and scrolls internally, floored at a generous min-height so it never squishes. */
-.content--fill > * { flex-shrink: 0; }
-.content--fill > .fb-briefcard { flex: 1 1 0; min-height: 520px; }
+.content--fill > .page { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
+.content--fill > .page > * { flex-shrink: 0; }
+.content--fill > .page > .fb-briefcard { flex: 1 1 0; min-height: 520px; }
 .fb-briefcard { display: flex; flex-direction: column; min-height: 0; }
 .fb-briefcard .fb-card { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
 .fb-briefcard .fb-tree { min-height: 0; }
