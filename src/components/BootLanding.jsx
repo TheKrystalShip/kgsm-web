@@ -1,5 +1,5 @@
-// BootLanding — neutral hold shown on a fresh DEFAULT landing while per-host
-// roles resolve. Deep links never see this.
+// BootLanding — neutral hold shown while per-host roles resolve. Displayed for
+// both default landings and deep links until hosts + authz are ready.
 
 import { Icon } from "./Icon.jsx";
 
