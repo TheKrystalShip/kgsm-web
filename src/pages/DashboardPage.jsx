@@ -6,7 +6,6 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { GameCard } from "../components/GameCard.jsx";
-import { HostCapacityStrip } from "../components/host-helpers.jsx";
 import { RecentActivity } from "../components/RecentActivity.jsx";
 import { capUsable } from "../lib/capabilities.js";
 import { parseTs } from "../lib/formatting.js";
@@ -111,8 +110,8 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     return () => ro.disconnect();
   }, [dataLoading]);
   const featuredVisible = featuredServers.slice(0, serverFit);
-  // Specific host → that host's capacity strip. "All hosts" → a compact fleet
-  // strip (one mini-meter row per host) since capacity can't be averaged.
+  // Fleet capacity strip — one mini-meter row per host (capacity can't be
+  // averaged). Always shows the fleet view regardless of host selection.
   const scopedHost = selectedId !== "all" ? (hosts.find(h => h.id === selectedId) || hosts[0] || null) : null;
   const now = auditScoped.length ? parseTs(auditScoped[0].ts) : new Date();
 
@@ -178,26 +177,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   // The reorderable bands in their natural (default) order. Each carries a
   // stable id so a saved order survives content changes; conditional bands are
   // simply omitted when empty and the saved order absorbs the gap (merge-safe).
-  const capacityNode = selectedId === "all"
-    ? <DashFleetStrip hosts={hosts} onOpenDiagnostics={onDiagnostics} onOpenHost={onOpenHostDiagnostics} />
-    : (scopedHost && (
-        (scopedHost.online && scopedHost.ram.total_gb > 0 && !scopedHost._pending)
-          ? <HostCapacityStrip
-              host={scopedHost}
-              hostLabel={scopedHost.name}
-              hideAlert
-              onOpenDiagnostics={() => onOpenHostDiagnostics && onOpenHostDiagnostics(scopedHost.id)} />
-          : (
-            <section className="cap-strip">
-              <div className="cap-strip__head">
-                <h2 className="cap-strip__title"><Icon name="server" size={14} /> Host capacity <span className="cap-strip__host">{scopedHost.name}</span></h2>
-              </div>
-              <div style={{ padding: "22px 16px", textAlign: "center", color: "var(--fg-3)", fontSize: 13 }}>
-                <Icon name="plug" size={18} /> <span style={{ marginLeft: 6 }}>{scopedHost._pending ? "Awaiting the agent\u2019s first check-in \u2014 capacity appears once it reports in." : "No live telemetry for this host."}</span>
-              </div>
-            </section>
-          )
-      ));
+  const capacityNode = <DashFleetStrip hosts={hosts} onOpenDiagnostics={onDiagnostics} onOpenHost={onOpenHostDiagnostics} />;
 
   const bands = [];
   bands.push({
