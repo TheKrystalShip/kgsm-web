@@ -58,10 +58,6 @@
   transform: translateX(0);
 }
 
-.assistant-dock-scrim {
-  display: none;
-}
-
 /* Push mode: the open dock reads as a layout column rather than a floating
    overlay — .app reserves space via --dock-push, so content reflows left, and
    the dock drops its heavy shadow (the border-left is the divider). */
@@ -608,6 +604,7 @@
 }
 
 .assistant-icon__eye-g {
+  will-change: translate;
   animation: assistant-icon-look 8s ease-in-out infinite;
 }
 
@@ -647,15 +644,21 @@
   }
 }
 
+/* Desktop: eyes follow cursor via CSS custom properties set by JS.
+   On touch devices this block doesn't match, so the keyframe above stays active. */
+@media (hover: hover) {
+  .assistant-icon__eye-g {
+    animation: none;
+    translate: var(--eye-x, 0) var(--eye-y, 0);
+    transition: translate 0.1s ease-out;
+  }
+}
+
 /* On phones the dock is full-width with a dimming scrim behind it. */
 @media (max-width: 768px) {
   .assistant-dock {
     width: 100vw;
     border-left: none;
-  }
-
-  .assistant-dock-scrim {
-    display: none;
   }
 
   /* nav + followup chips lose the avatar indent (matches other chat rows) */
