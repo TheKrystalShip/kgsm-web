@@ -303,7 +303,7 @@ function AppInner({ user, route, setRoute }) {
         <KrystalFooter />
       </main>
 
-      <aside className={"assistant-dock" + (assistantOpen ? " assistant-dock--open" : "") + (pushingPanel ? " assistant-dock--push" : "")}
+      <aside className={"assistant-dock" + (assistantOpen ? " assistant-dock--open" : "") + (pushingPanel ? " assistant-dock--push" : "") + (dockWidth < 550 ? " assistant-dock--compact" : "")}
         style={{ width: window.innerWidth <= 768 ? undefined : dockWidth }}>
         {assistantOpen && <div className="assistant-dock__resize" onPointerDown={dockResize} title="Drag to resize"></div>}
         {assistantOpen && (
@@ -348,7 +348,6 @@ function AppInner({ user, route, setRoute }) {
         </Modal>
       )}
 
-      {assistantOpen && pushingPanel && <div className="assistant-dock__scrim" onClick={() => setAssistantOpen(false)} />}
       {railMode && !assistantOpen && (
         <button className="assistant-rail" onClick={openAssistant} title="Open assistant" aria-label="Open assistant">
           <span className="assistant-rail__icon"><AssistantFabIcon size={18} /></span>

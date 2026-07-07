@@ -177,8 +177,9 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 | FE | BE | Resolution |
 |---|---|---|
 | response = bare array | `{data:[…], nextCursor}` | ✅ **DONE**: `adaptAudit`→`{rows,nextCursor}`; store walks the cursor + `loadMore()`; structured filters push down (severity/serverId/actor/since/category); page discloses incompleteness |
-| `actor:{name,provider}` | `actor:{kind,name,provider}` | **A**: pass `kind` through |
+| `actor:{name,provider}` | `actor:{kind,name,provider}` | ✅ **DONE**: `AuditActor` uses `actor.kind` for system check; `kind` passed through |
 | `action` enum (incl. `file.*`, `settings.*`, `discord.*`, `host.*`, `player.allow.*`) | closed vocab (`server.*`, `backup.*`, `network.ports.*`, `network.upnp.*`, `player.join/leave`, `auth.*`) | ✅ **already satisfied**: `AuditLogPage.jsx` `ACTION_META[…] \|\| {label:ev.action, icon:"circle-dot"}` renders an unknown action with a generic icon (forward-compat); some FE actions still have no BE source |
+| `origin` (top-level) | `origin` (top-level nullable) | ✅ **DONE**: source chip reads `ev.origin` (was incorrectly `ev.meta.source`); included in search index |
 | `severity`, `target`, `summary`, `meta`, `serverId`, `hostId` | same | ✅ |
 
 ### Alert — close (prototype-proven)

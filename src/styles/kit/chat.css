@@ -2753,6 +2753,31 @@
   flex: 1;
 }
 
+/* Dock compact mode — when the assistant dock is resized narrow, the composer
+   toolbar controls (context gauge, Thinking, Auto-run) collapse to icon-only
+   variants so mic/send don't get pushed off-screen. This mirrors the mobile
+   styles but is triggered by dock width, not viewport width. */
+.assistant-dock--compact .chat-composer__bar {
+  gap: 6px;
+}
+
+.assistant-dock--compact .chat-ctx .chat-ctx__track {
+  display: none;
+}
+
+.assistant-dock--compact .chat-act-toggle:not(.chat-ctx) .chat-act-toggle__label,
+.assistant-dock--compact .chat-act-toggle:not(.chat-ctx) .chat-act-toggle__state {
+  display: none;
+}
+
+.assistant-dock--compact .chat-act-toggle:not(.chat-ctx) {
+  width: 30px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 /* ---- mobile ---- */
 @media (max-width: 768px) {
   .chat-page {

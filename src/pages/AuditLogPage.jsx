@@ -1,7 +1,7 @@
 import React from "react";
+import { AuditActor } from "../components/AuditActor.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
-import { AccountAvatar } from "../components/Sidebar.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
@@ -43,7 +43,7 @@ function queryAudit(list, filters, now) {
     if (filters.severity === "attention" && ev.severity !== "warn" && ev.severity !== "danger") return false;
     if (filters.severity !== "all" && filters.severity !== "attention" && ev.severity !== filters.severity) return false;
     if (q) {
-      const hay = [ev.summary, ev.action, ev.actor.name, ev.target?.name || "", JSON.stringify(ev.meta || {})].join(" ").toLowerCase();
+      const hay = [ev.summary, ev.action, ev.actor.name, ev.origin || "", ev.target?.name || "", JSON.stringify(ev.meta || {})].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -72,29 +72,12 @@ function auditServerParams({ severity, server, actor, range, category } = {}, no
 
 // ---------- Components ----------
 
-function AuditActor({ actor, size = 28 }) {
-  const isSystem = actor.provider === "system";
-  if (isSystem) {
-    return (
-      <span style={{
-        width: size, height: size, borderRadius: 999,
-        background: "var(--surface-3)", color: "var(--fg-3)",
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-      }} title="System">
-        <Icon name="bot" size={size * 0.55} />
-      </span>
-    );
-  }
-  return <AccountAvatar user={actor} size={size} />;
-}
-
 function AuditEventRow({ ev, now, hosts }) {
   const meta = ACTION_META[ev.action] || { label: ev.action, icon: "circle-dot", tone: "info" };
   const date = parseTs(ev.ts);
   // Render meta dictionary as compact "key=value" chips, but skip a few
   // ones already covered in the summary so we don't double-print.
-  const metaEntries = Object.entries(ev.meta || {}).filter(([k]) => k !== "source");
+  const metaEntries = Object.entries(ev.meta || {});
   // Host provenance: explicit hostId / derived from server / null = panel-wide.
   const hostId = auditEventHost(ev);
   const host = hostId ? (hosts || []).find(h => h.id === hostId) : null;
@@ -120,8 +103,8 @@ function AuditEventRow({ ev, now, hosts }) {
           {metaEntries.map(([k, v]) => (
             <span key={k} className="audit-row__chip"><b>{k}:</b> {String(v)}</span>
           ))}
-          {ev.meta?.source && (
-            <span className="audit-row__chip"><Icon name="circle-arrow-out-up-right" size={10} /> {ev.meta.source}</span>
+          {ev.origin && (
+            <span className="audit-row__origin"><Icon name="circle-arrow-out-up-right" size={10} strokeWidth={2.2} /> {ev.origin}</span>
           )}
         </div>
       </div>
