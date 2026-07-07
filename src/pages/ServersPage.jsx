@@ -124,10 +124,9 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // active key to flip direction. See ToolbarSort / sortByAccessor.
   const [sort, setSort] = React.useState("status");
   const [sortDir, setSortDir] = React.useState("asc");
-  // Grouping mode. Host by default — the fleet's natural top-level cut; each
-  // section is a machine, which is how operators reason about capacity and
-  // blast radius. "none" restores the classic paginated grid.
-  const [groupBy, setGroupBy] = React.useState("host");
+  // Grouping mode. None by default — flat paginated grid. Toggle to "host" or
+  // "blueprint" via the Group filter if you want sections.
+  const [groupBy, setGroupBy] = React.useState("none");
   const onSort = (key, dir) => { setSort(key); setSortDir(dir); };
   const [refreshing, setRefreshing] = React.useState(false);
   // Debounce the search so filtering + pagination settle after a quiet window.

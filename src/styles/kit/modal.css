@@ -16,7 +16,7 @@
 .k-modal {
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-xl);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-pop);
   width: 100%;
   max-width: 520px;
@@ -75,7 +75,7 @@
 .k-field input {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   height: 38px; padding: 0 12px;
   color: var(--fg-1);
   font-family: var(--font-ui); font-size: 13.5px;
@@ -139,4 +139,24 @@
   transition: color var(--d-fast);
 }
 .k-input-affix__btn:hover { color: var(--fg-1); }
+
+/* Modal footer buttons — shared sizing so Cancel and primary action match.
+   --secondary is a ghost outline; --primary is the teal accent.
+   No inline style hacks needed — just pick the variant. */
+.k-modal__btn {
+  height: 38px; padding: 0 16px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.k-modal__btn--primary {
+  background: var(--krystal-teal); color: var(--btn-accent-fg); border: 1px solid transparent;
+}
+.k-modal__btn--primary:hover { background: var(--krystal-teal-hover); }
+.k-modal__btn--secondary {
+  background: transparent; color: var(--fg-2); border: 1px solid var(--border-subtle);
+}
+.k-modal__btn--secondary:hover { background: var(--surface-2); color: var(--fg-1); border-color: var(--border-strong); }
 

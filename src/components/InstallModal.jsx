@@ -188,8 +188,8 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
               ? <>~{fmtFootprintMb(game.specs.baseDiskMb)} download</>
               : "Download size unknown"}
           </span>
-          <button type="button" className="icon-btn" style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600, height: 38 }} onClick={onClose}>Cancel</button>
-          <button type="submit" className="fb-editor__btn" style={{ height: 38, padding: "0 18px" }}>
+          <button type="button" className="k-modal__btn k-modal__btn--secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="k-modal__btn k-modal__btn--primary">
             <Icon name="download" size={14} strokeWidth={2.2} />&nbsp;Install
           </button>
         </div>

@@ -103,7 +103,7 @@
 .sidebar__account-wrap { position: relative; }
 .sidebar__account {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 7px 8px; border-radius: var(--r-md);
+  padding: 7px 8px; border-radius: var(--r-sm);
   background: transparent; border: 1px solid transparent; cursor: pointer; text-align: left;
   transition: background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
 }
@@ -116,7 +116,7 @@
 .sidebar__account-menu {
   position: absolute; bottom: calc(100% + 6px); left: 0; right: 0;
   background: var(--surface-1); border: 1px solid var(--border-strong);
-  border-radius: var(--r-md); box-shadow: var(--shadow-2);
+  border-radius: var(--r-sm); box-shadow: var(--shadow-2);
   padding: 6px; display: flex; flex-direction: column; gap: 2px; z-index: 30;
   animation: k-fade var(--d-fast) var(--ease-out);
 }

@@ -13,7 +13,7 @@
 .toolbar__search {
   display: flex; align-items: center; gap: 8px;
   flex: 1; min-width: 220px; height: 36px; padding: 0 12px;
-  background: var(--surface-1);
+  background: var(--surface-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
   color: var(--fg-3);
@@ -25,6 +25,12 @@
   color: var(--fg-1); font-family: var(--font-ui); font-size: 14px;
 }
 .toolbar__search input::placeholder { color: var(--fg-4); }
+/* The inner input never carries its own highlight — the box owns the focus
+   affordance. Kills the universal :focus-visible ring (tokens.css) on the
+   field, so focusing the input doesn't double up a glow inside the already-
+   accented box. Matches chat-composer__box textarea's focus suppression. */
+.toolbar__search input:focus,
+.toolbar__search input:focus-visible { outline: none; box-shadow: none; }
 .toolbar__search-clear {
   flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border-radius: var(--r-sm);
@@ -162,7 +168,7 @@
 .audit-group__events {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
   display: flex; flex-direction: column;
 }
@@ -240,7 +246,7 @@
   margin-top: 16px; padding: 10px 14px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
 }
 .pagination__summary { font-size: 12px; color: var(--fg-3); white-space: nowrap; }
 .pagination__summary b { color: var(--fg-1); font-weight: 600; font-family: var(--font-mono); }
@@ -250,7 +256,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-mono); font-size: 13px; font-weight: 600;
   color: var(--fg-2); background: transparent;
-  border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle); border-radius: var(--r-sm);
   cursor: pointer;
   transition: color var(--d-fast) var(--ease-out),
               border-color var(--d-fast) var(--ease-out),
