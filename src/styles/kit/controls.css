@@ -14,13 +14,35 @@
   flex-wrap: wrap;
 }
 
+.toolbar__col-search {
+  flex: 0 0 50%;
+  min-width: 200px;
+}
+
+.toolbar__col-filters {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar__col-rest {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 /* Search — calm anchor: reads as part of the page, lifts on focus. */
 .toolbar__search {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
-  min-width: 220px;
+  min-width: 0;
   height: 36px;
   padding: 0 12px;
   background: var(--surface-3);
@@ -90,8 +112,7 @@
 }
 
 .toolbar__spacer {
-  flex: 1 1 0;
-  min-width: 8px;
+  display: none;
 }
 
 .toolbar__count {
@@ -416,6 +437,13 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
+/* Mobile: 2 rows — search full-width on row 1, filters + rest on row 2 */
+@media (max-width: 860px) {
+  .toolbar__col-search {
+    flex: 0 0 100%;
+  }
+}
+
 /* Page header row — title left, primary action right, centered with the title. */
 .dash-head__row {
   display: flex;
@@ -608,6 +636,36 @@
 .audit-row__host--panel {
   color: var(--fg-3);
   font-weight: 500;
+}
+
+/* Origin provenance chip on each audit row — same shape as host pill */
+.audit-row__origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-2);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+}
+
+.audit-row__origin>svg {
+  color: var(--fg-3);
+}
+
+/* Audit rows inside a BriefCard (e.g. RecentActivity on the dashboard) —
+   tighter padding to fit the compact card context, hover feedback for
+   click-to-navigate. */
+.chat-brief .audit-row {
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.chat-brief .audit-row:hover {
+  background: var(--surface-2);
 }
 
 /* "Load older events" — only when a live keyset cursor has more (older) rows than

@@ -32,7 +32,22 @@ import { useDebouncedValue } from "./Pagination.jsx";
 // whose rows are tiles/cards (Servers, Library) sort via ToolbarSort.
 
 function Toolbar({ children, className }) {
-  return <div className={"toolbar" + (className ? " " + className : "")}>{children}</div>;
+  const search = [], filters = [], rest = [];
+  React.Children.forEach(children, child => {
+    if (!React.isValidElement(child)) { rest.push(child); return; }
+    const t = child.type;
+    if (t === ToolbarSearch) search.push(child);
+    else if (t === ToolbarFilters || t === ToolbarSort) filters.push(child);
+    else rest.push(child);
+  });
+
+  return (
+    <div className={"toolbar" + (className ? " " + className : "")}>
+      <div className="toolbar__col-search">{search}</div>
+      <div className="toolbar__col-filters">{filters}</div>
+      <div className="toolbar__col-rest">{rest}</div>
+    </div>
+  );
 }
 
 function ToolbarSearch({ value, onChange, placeholder, pending, autoFocus, ariaLabel }) {
