@@ -43,19 +43,18 @@ import { hostsStore } from "./stores.js";
     NAV_FLEET:     "nav.fleet",       // the fleet grid + host deep-dive
     NAV_DISCORD:   "nav.discord",     // Discord integration config
     NAV_SETTINGS:  "nav.settings",    // account settings
-    NAV_ASSISTANT: "nav.assistant",   // the assistant page / dock
     SERVER_OPERATE: "server.operate", // lifecycle, files, backups, settings, MOTD, moderation
     SERVER_CREATE:  "server.create",  // install/create a NEW game server (distinct from operating one)
     HOST_MANAGE:    "host.manage",    // add/forget hosts, fleet management
   };
 
   // ── Role → capability matrix (explicit; each set audits at a glance) ────────
-  // Viewer  — READ-ONLY: servers + catalog + settings + assistant. No creating,
+  // Viewer  — READ-ONLY: servers + catalog + settings. No creating,
   //           no operating — it can browse the catalog but not deploy from it.
   // Operator— + dashboard, alerts, audit, Discord config, SERVER_CREATE and
   //           SERVER_OPERATE.
   // Admin   — + fleet and host management.
-  var VIEWER = [CAP.NAV_SERVERS, CAP.NAV_LIBRARY, CAP.NAV_SETTINGS, CAP.NAV_ASSISTANT];
+  var VIEWER = [CAP.NAV_SERVERS, CAP.NAV_LIBRARY, CAP.NAV_SETTINGS];
   var OPERATOR = VIEWER.concat([CAP.NAV_DASHBOARD, CAP.NAV_ALERTS, CAP.NAV_AUDIT, CAP.NAV_DISCORD, CAP.SERVER_CREATE, CAP.SERVER_OPERATE]);
   var ADMIN = OPERATOR.concat([CAP.NAV_FLEET, CAP.HOST_MANAGE]);
   var ROLE_CAPS = { none: [], viewer: VIEWER, operator: OPERATOR, admin: ADMIN };
@@ -73,7 +72,6 @@ import { hostsStore } from "./stores.js";
     fleet:     CAP.NAV_FLEET,
     discord:   CAP.NAV_DISCORD,
     settings:  CAP.NAV_SETTINGS,
-    chat:      CAP.NAV_ASSISTANT,
     addHost:   CAP.HOST_MANAGE,
   };
 

@@ -22,7 +22,6 @@ const Library = React.lazy(() => import("../pages/LibraryPage.jsx"));
 const ServerDetailPage = React.lazy(() => import("../pages/ServerDetailPage.jsx"));
 const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("../pages/SettingsPage.jsx"));
-const ChatPage = React.lazy(() => import("../pages/ChatPage.jsx"));
 
 function AppRouter({ route, setRoute, user, activeGame, serverForRender,
   handleAction, openGame, handleInstall,
@@ -33,8 +32,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
   // router), so read it from context here rather than threading it down from the
   // shell. Data (servers/hosts/scope) is likewise read by the pages themselves from
   // the singleton stores — this router only owns ROUTING (route → page + callbacks).
-  const { askAboutAlert, getServerState, assistantHost, assistantHostList,
-    setAssistantHostId, openView, handleAssistantNavigate } = useAssistantDock();
+  const { askAboutAlert } = useAssistantDock();
 
   return (
     <ErrorBoundary
@@ -106,14 +104,6 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onViewAudit={() => setRoute({ kind: "audit" })}
     />}
     {route.kind === "settings" && <SettingsPage user={user} onLogout={handleLogout} />}
-    {route.kind === "chat" && <ChatPage user={user}
-      assistantHost={assistantHost}
-      assistantHosts={assistantHostList}
-      onSelectAssistantHost={setAssistantHostId}
-      onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
-      onOpenView={openView}
-      onNavigate={handleAssistantNavigate}
-      getServerState={getServerState} />}
     {route.kind === "server" && (serverForRender
       ? <ServerDetailPage server={serverForRender} onAction={handleAction}
           tab={route.tab || "overview"}

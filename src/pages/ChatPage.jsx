@@ -404,6 +404,13 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
                 </button>
               </div>
             )}
+            {!docked && onClose && (
+              <div className="chat-head__win">
+                <button className="chat-headbtn" onClick={onClose} title="Exit full screen (ESC)" aria-label="Exit full screen (ESC)">
+                  <Icon name="minimize-2" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

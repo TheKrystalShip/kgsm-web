@@ -15,6 +15,8 @@ import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
 import { commandServer, hostsStore, installServer, libraryStore, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
+import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
+import { Modal } from "./components/Modal.jsx";
 import { HostReauthModal } from "./pages/HostReauth.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 
@@ -27,8 +29,7 @@ import { useRouteSync } from "./hooks/useRouteSync.js";
 import { useMobileSwipe } from "./hooks/useMobileSwipe.js";
 import { AppRouter } from "./components/AppRouter.jsx";
 
-// The assistant dock renders ChatPage inside its own <Suspense> (below), so it's
-// lazy-loaded here just like the full-page chat route in AppRouter.
+// ChatPage is lazy-loaded for both the dock and the full-screen modal.
 const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 
 // App — top-level shell. Auth gate + routing.
@@ -59,7 +60,7 @@ function AppInner({ user, route, setRoute }) {
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    openAssistant, handleAssistantNavigate, setManualPin } = dock;
+    openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
 
@@ -87,6 +88,7 @@ function AppInner({ user, route, setRoute }) {
   const [tab] = React.useState(null);
   const [extraLog, setExtraLog] = React.useState({});
   const [installing, setInstalling] = React.useState(null);
+  const [chatFullscreen, setChatFullscreen] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(() => {
     try { return localStorage.getItem("krystal:sidebar:collapsed") === "1"; } catch { return false; }
@@ -315,7 +317,7 @@ function AppInner({ user, route, setRoute }) {
             onTogglePin={() => setManualPin(!effPush)}
             seed={assistantSeed}
             onClose={() => setAssistantOpen(false)}
-            onExpand={() => setRoute({ kind: "chat" })}
+            onExpand={desktop ? () => { setAssistantOpen(false); setChatFullscreen(true); } : undefined}
             onNavigate={handleAssistantNavigate}
             getServerState={dock.getServerState}
             assistantHost={assistantHost}
@@ -326,15 +328,35 @@ function AppInner({ user, route, setRoute }) {
         )}
       </aside>
 
+      {chatFullscreen && (
+        <Modal onClose={() => setChatFullscreen(false)} scrimClassName="chat-modal-scrim">
+          <div className="chat-modal" role="dialog" aria-modal="true" aria-label="Assistant">
+            <ChatPage
+              user={user}
+              docked={false}
+              seed={null}
+              onClose={() => setChatFullscreen(false)}
+              assistantHost={assistantHost}
+              assistantHosts={assistantHostList}
+              onSelectAssistantHost={setAssistantHostId}
+              onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
+              onOpenView={openView}
+              onNavigate={handleAssistantNavigate}
+              getServerState={dock.getServerState}
+            />
+          </div>
+        </Modal>
+      )}
+
       {assistantOpen && pushingPanel && <div className="assistant-dock__scrim" onClick={() => setAssistantOpen(false)} />}
       {railMode && !assistantOpen && (
         <button className="assistant-rail" onClick={openAssistant} title="Open assistant" aria-label="Open assistant">
-          <span className="assistant-rail__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span>
+          <span className="assistant-rail__icon"><AssistantFabIcon size={18} /></span>
         </button>
       )}
       {!assistantOpen && (
         <button className="assistant-fab" onClick={openAssistant} title="Open assistant" aria-label="Open assistant">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+          <AssistantFabIcon size={22} />
         </button>
       )}
 

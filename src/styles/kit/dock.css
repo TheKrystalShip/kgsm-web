@@ -257,6 +257,37 @@
 }
 .chat-navchip:hover { background: var(--krystal-teal); color: var(--btn-accent-fg); border-color: transparent; }
 
+/* Independent blink + look-around animations.
+   Blink runs on the eye ellipses (scaleY), look runs on the group wrapper (translate).
+   Because they're different elements in the SVG DOM, they compose naturally —
+   the eyes blink regardless of where they're looking. */
+.assistant-icon__eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: assistant-icon-blink 3s ease-in-out infinite;
+}
+
+@keyframes assistant-icon-blink {
+  0%, 44%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(0.1); }
+  48% { transform: scaleY(1); }
+}
+
+.assistant-icon__eye-g {
+  animation: assistant-icon-look 8s ease-in-out infinite;
+}
+
+@keyframes assistant-icon-look {
+  0%, 25% { translate: 0; }
+  30% { translate: -2px 0; }
+  45% { translate: -2px 0; }
+  50% { translate: 0; }
+  70% { translate: 0; }
+  75% { translate: 2px 0; }
+  90% { translate: 2px 0; }
+  100% { translate: 0; }
+}
+
 /* On phones the dock is full-width with a dimming scrim behind it. */
 @media (max-width: 768px) {
   .assistant-dock { width: 100vw; border-left: none; }

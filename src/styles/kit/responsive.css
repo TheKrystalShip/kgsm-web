@@ -302,6 +302,8 @@
   .fb-modal-scrim { padding: 0; }
   .fb-modal { border: none; border-radius: 0; }
   .fb-modal .fb-card { grid-template-rows: auto minmax(0, 1fr); }
+  .chat-modal-scrim { padding: 0; }
+  .chat-modal { border: none; border-radius: 0; }
   /* File-editor toolbar: keep path + unsaved indicator on one row, with the
      path truncating via ellipsis. Save / Reset live in fb-editor__foot — see
      desktop styles — and remain visible regardless of viewport. */

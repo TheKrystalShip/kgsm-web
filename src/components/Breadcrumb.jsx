@@ -21,7 +21,6 @@ function breadcrumbTrail(route, ctx) {
                       break;
     case "discord":   trail.push({ label: "Discord" }); break;
     case "settings":  trail.push({ label: "Settings" }); break;
-    case "chat":      trail.push({ label: "Assistant" }); break;
     default:          break;
   }
   return trail;

@@ -24,10 +24,9 @@
 //   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
 //   #/discord                Discord integration
 //   #/settings               account settings
-//   #/assistant              the assistant page
 //
 // Internal route.kind names differ from a couple of URL words on purpose
-// (kind "attention" ↔ /alerts, kind "chat" ↔ /assistant) — the URL speaks the
+// (kind "attention" ↔ /alerts) — the URL speaks the
 // user's language, the code keeps its existing vocabulary.
 
   const enc = encodeURIComponent;
@@ -61,7 +60,6 @@
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       case "discord":   return "#/discord";
       case "settings":  return "#/settings";
-      case "chat":      return "#/assistant";
       default:          return "#/";
     }
   }
@@ -105,12 +103,10 @@
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
       case "discord":   return { kind: "discord" };
       case "settings":  return { kind: "settings" };
-      case "assistant": return { kind: "chat" };
       // Legacy/aliases so old links still resolve.
       case "diagnostics":
         return { kind: "fleet" };
       case "hosts":     return segs[1] === "add" ? { kind: "addHost" } : { kind: "fleet" };
-      case "chat":      return { kind: "chat" };
       default:          return { kind: "home" };
     }
   }
