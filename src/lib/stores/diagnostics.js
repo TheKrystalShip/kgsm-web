@@ -49,6 +49,14 @@ function subscribeHostLogs(hostId) {
   });
 }
 
+function subscribeHostServices(hostId) {
+  if (!hostId) return () => {};
+  const topic = "hosts/" + hostId + "/services";
+  return api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "service.patch" && m.data) servicesStore.applyRow(hostId, m.data);
+  });
+}
+
 // ---- Host log sources ----
 const logSourcesStore = createStore({
   sources: [],
@@ -129,5 +137,5 @@ function applyLeafConfig(hostId, leaf, body) {
 
 export {
   logsStore, logSourcesStore, servicesStore,
-  subscribeHostLogs, setLeafProvisioned, fetchLeafConfig, applyLeafConfig,
+  subscribeHostLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig,
 };

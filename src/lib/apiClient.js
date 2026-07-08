@@ -318,6 +318,7 @@ import("./stores.js").then((m) => {
     if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return { topic, type, data: adapt.adaptCapabilities(data) };
     if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptServerMetrics(data) };
     if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return { topic, type, data: adapt.adaptLogLine(data) };
+    if (type === "service.patch" && /^hosts\/[^/]+\/services$/.test(topic || "")) return { topic, type, data: adapt.adaptService(data) };
     return msg;
   }
 
@@ -329,6 +330,9 @@ import("./stores.js").then((m) => {
       if (st && st.refresh) st.refresh().catch(() => {});
     });
     if (alertsStore && alertsStore.refresh) alertsStore.refresh().catch(() => {});
+    // Services are per-host (carry hostId); rehydrate only when a host's services are loaded.
+    const svc = storesNs && storesNs.servicesStore;
+    if (svc && svc.getState && svc.getState().hostId) svc.refresh(svc.getState().hostId).catch(() => {});
   }
 
   function liveHostId() {

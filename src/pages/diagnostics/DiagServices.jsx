@@ -4,7 +4,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { useStore } from "../../lib/store.js";
 import { canOn } from "../../lib/persona.js";
-import { servicesStore } from "../../lib/stores.js";
+import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { LeafCard } from "./diagComponents.jsx";
 import { LeafConfigModal } from "./LeafConfigModal.jsx";
 
@@ -19,6 +19,7 @@ function DiagServices({ host }) {
   React.useEffect(() => {
     if (!hostId) return;
     servicesStore.refresh(hostId).catch(() => {});
+    return subscribeHostServices(hostId);
   }, [hostId]);
 
   const ready = forHost === hostId;

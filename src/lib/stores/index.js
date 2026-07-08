@@ -10,7 +10,7 @@ export { hostsStore, syncCapabilitySubscriptions, subscribeHostMetrics, subscrib
 export { filesKey, filesStore } from "./files.js";
 export { selectedHostStore, useSelectedHostId, scopeServers, serverHostId, auditEventHost, auditInScope, auditStore } from "./audit.js";
 export { libraryStore } from "./library.js";
-export { logsStore, logSourcesStore, servicesStore, subscribeHostLogs, setLeafProvisioned, fetchLeafConfig, applyLeafConfig } from "./diagnostics.js";
+export { logsStore, logSourcesStore, servicesStore, subscribeHostLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig } from "./diagnostics.js";
 export { favoritesStore, useIsFavorite, pingStore, startPingLoop } from "./ui.js";
 
 // Boot hydrate — side effect on import

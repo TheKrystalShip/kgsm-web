@@ -6,7 +6,7 @@ import { NeedsAttention } from "../../components/NeedsAttention.jsx";
 import { RecentActivity } from "../../components/RecentActivity.jsx";
 import { useStore } from "../../lib/store.js";
 import { statusTone, uptimeFrom } from "../../lib/formatting.js";
-import { servicesStore } from "../../lib/stores.js";
+import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { ServicesSummaryCard } from "./diagComponents.jsx";
 
 const DIAG_KPI_TONE = { cpu: "teal", ram: "teal", disk: "teal", net: "muted", temp: "teal", uptime: "ok" };
@@ -47,6 +47,7 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewSer
   const svcForHost = useStore(servicesStore, s => s.hostId);
   React.useEffect(() => {
     if (host && host.id) servicesStore.refresh(host.id).catch(() => {});
+    return subscribeHostServices(host && host.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only host.id is used (and in deps); the object churns each render
   }, [host && host.id]);
   const svcReady = svcForHost === host.id;
