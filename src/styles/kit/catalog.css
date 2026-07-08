@@ -32,7 +32,7 @@
 .library-search {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   height: 40px;
   padding: 0 12px;
   display: flex;
@@ -664,7 +664,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   cursor: pointer;
   color: var(--fg-2);
   font-size: 13px;
@@ -878,7 +878,7 @@
   color: var(--fg-3);
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 5px;
   display: inline-flex;
   align-items: center;
@@ -977,7 +977,7 @@
 .backup-row__ico {
   width: 32px;
   height: 32px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--krystal-teal-dim);
   color: var(--krystal-teal);
   display: flex;
