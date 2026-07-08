@@ -67,7 +67,14 @@ api.stream.subscribe(["servers"], (m) => {
       const { id, ...patch } = m.data;
       const existing = serversStore.find(id);
       if (existing?._phantom && existing?.job?.verb === "uninstall") return;
-      serversStore.patch(id, { ...patch, _phantom: false, job: null });
+      serversStore.patch(id, {
+        ...patch,
+        network: existing?.network ?? patch.network ?? null,
+        cover:   existing?.cover   ?? patch.cover   ?? null,
+        hero:    existing?.hero    ?? patch.hero    ?? null,
+        _phantom: false,
+        job: null,
+      });
     } else {
       serversStore.add(m.data);
     }
