@@ -20,7 +20,12 @@ function breadcrumbTrail(route, ctx) {
                         : trail.push({ label: "Fleet" });
                       break;
     case "discord":   trail.push({ label: "Discord" }); break;
-    case "settings":  trail.push({ label: "Settings" }); break;
+    case "settings":  trail.push({ label: "Settings", kind: "settings" });
+                      if (route.tab && route.tab !== "account") {
+                        var tabLabels = { connections: "Connections", discord: "Discord", tokens: "API tokens", danger: "Danger zone" };
+                        trail.push({ label: tabLabels[route.tab] || route.tab });
+                      }
+                      break;
     default:          break;
   }
   return trail;

@@ -23,7 +23,8 @@
 //   #/fleet/<hostId>         a host's diagnostics deep-dive (overview)
 //   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
 //   #/discord                Discord integration
-//   #/settings               account settings
+//   #/settings               account settings (default: account tab)
+//   #/settings/<tab>         settings, a specific tab
 //
 // Internal route.kind names differ from a couple of URL words on purpose
 // (kind "attention" ↔ /alerts) — the URL speaks the
@@ -59,7 +60,11 @@
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       case "discord":   return "#/discord";
-      case "settings":  return "#/settings";
+      case "settings": {
+        let h = "#/settings";
+        if (route.tab && route.tab !== "account") h += "/" + enc(route.tab);
+        return h;
+      }
       default:          return "#/";
     }
   }
@@ -102,7 +107,11 @@
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
       case "discord":   return { kind: "discord" };
-      case "settings":  return { kind: "settings" };
+      case "settings": {
+        const r = { kind: "settings" };
+        if (segs[1]) r.tab = dec(segs[1]);
+        return r;
+      }
       // Legacy/aliases so old links still resolve.
       case "diagnostics":
         return { kind: "fleet" };

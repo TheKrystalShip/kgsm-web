@@ -103,7 +103,10 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onViewAlerts={() => setRoute({ kind: "attention" })}
       onViewAudit={() => setRoute({ kind: "audit" })}
     />}
-    {route.kind === "settings" && <SettingsPage user={user} onLogout={handleLogout} />}
+    {route.kind === "settings" && <SettingsPage
+      tab={route.tab || "account"}
+      onTabChange={(t) => setRoute({ kind: "settings", tab: t === "account" ? undefined : t })}
+      user={user} onLogout={handleLogout} />}
     {route.kind === "server" && (serverForRender
       ? <ServerDetailPage server={serverForRender} onAction={handleAction}
           tab={route.tab || "overview"}

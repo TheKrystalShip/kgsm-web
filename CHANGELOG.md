@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.4.25)
+- **Settings page tabs are now URL-routed.** Replaced the left sidebar nav with `<SubTabs>` (the same horizontal tab bar used by server detail and fleet pages). Each settings section (Account, Connections, Discord, API tokens, Danger zone) has a deep-linkable route (`#/settings/discord`, etc.). Back/Forward navigation, page refresh, and bookmarking all work. The default tab (Account) is omitted from the URL, matching the `overview` convention in other tabbed pages.
+
 ### Changed (v1.4.24)
 - **Restyle sidebar host picker to Minimal-Flat.** Replaced the heavy card-like trigger (surface-2 background, border, glow-ring dot, two-line column layout) with a borderless, transparent ghost button. The trigger is now a single-line flex row: status dot + host name + thin separator + metadata + caret. Hover reveals a subtle surface fill; open state is a plain surface background with no accent border or ring. Dropdown menu tightened to match (lighter padding, inline option layout). Rail mode updated to hide the flat row and show only the dot + code. Inspired by the assistant dock's minimal host picker language.
 
