@@ -1,32 +1,12 @@
 import React from "react";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { themeStore, useThemePref } from "../lib/theme.js";
-import { sessionStore } from "../lib/sessionStore.js";
-import { useStore } from "../lib/store.js";
-import { hostsStore } from "../lib/stores.js";
-import { HostAuthBadge } from "../components/host-helpers.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 
 // SettingsPage — account- and website-level settings (distinct from the
 // per-server Settings sub-tab). Uses SubTabs for URL-routed tab navigation,
 // matching the pattern used by ServerDetailPage and FleetPage.
-
-// Per-host access — one identity (Discord), but a role resolved separately on
-// each host (§6·a), so access legitimately differs host to host.
-function HostAccessSettings() {
-  const hosts = useStore(hostsStore, s => s.list);
-  useStore(sessionStore, s => s.byHost);
-  return (
-    <SettingsSection title="Host access">
-      {hosts.map(h => (
-        <SettingsRow key={h.id} icon="server" title={h.name} sub={h.hostname + " · " + (h.region || "\u2014")}>
-          <HostAuthBadge hostId={h.id} />
-        </SettingsRow>
-      ))}
-    </SettingsSection>
-  );
-}
 
 const THEME_OPTS = [
   { id: "auto",             label: "Auto (system)"     },
@@ -56,7 +36,6 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
 
   const tabs = [
     { id: "account",      label: "Account",        icon: "user" },
-    { id: "connections",  label: "Connections",    icon: "link-2" },
   ];
 
   // Redirect to account tab if the current tab doesn't exist
@@ -65,13 +44,6 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
     setTab("account");
     return null;
   }
-
-  const PROVIDERS = [
-    { id: "discord",   label: "Discord",   connected: (user?.provider || "discord") === "discord", detail: "Primary — your servers and roles sync from here." },
-    { id: "google",    label: "Google",    connected: user?.provider === "google" },
-    { id: "github",    label: "GitHub",    connected: user?.provider === "github" },
-    { id: "microsoft", label: "Microsoft", connected: user?.provider === "microsoft" },
-  ];
 
   return (
     <>
@@ -124,21 +96,6 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
           </>
         )}
 
-        {validTab === "connections" && (
-          <>
-            <HostAccessSettings />
-            <SettingsSection title="Connected accounts">
-              {PROVIDERS.map(p => (
-                <SettingsRow key={p.id} icon="link-2" title={p.label}
-                  sub={p.connected ? (p.detail || "Connected.") : `Sign in with ${p.label} as an alternative.`}>
-                  {p.connected
-                    ? <span className="settings-pill settings-pill--ok">Connected</span>
-                    : <button className="settings-btn-ghost">Connect</button>}
-                </SettingsRow>
-              ))}
-            </SettingsSection>
-          </>
-        )}
       </div>
     </>
   );

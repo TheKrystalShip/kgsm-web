@@ -21,8 +21,7 @@ function breadcrumbTrail(route, ctx) {
                       break;
     case "settings":  trail.push({ label: "Settings", kind: "settings" });
                       if (route.tab && route.tab !== "account") {
-                        var tabLabels = { connections: "Connections" };
-                        trail.push({ label: tabLabels[route.tab] || route.tab });
+                        trail.push({ label: route.tab });
                       }
                       break;
     default:          break;
