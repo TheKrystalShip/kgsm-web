@@ -22,8 +22,7 @@
 //   #/fleet                  fleet grid
 //   #/fleet/<hostId>         a host's diagnostics deep-dive (overview)
 //   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
-//   #/settings               account settings (default: account tab)
-//   #/settings/<tab>         settings, a specific tab
+//   #/settings               account settings
 //
 // Internal route.kind names differ from a couple of URL words on purpose
 // (kind "attention" ↔ /alerts) — the URL speaks the
@@ -58,11 +57,7 @@
       }
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
-      case "settings": {
-        let h = "#/settings";
-        if (route.tab && route.tab !== "account") h += "/" + enc(route.tab);
-        return h;
-      }
+      case "settings":  return "#/settings";
       default:          return "#/";
     }
   }
@@ -104,11 +99,7 @@
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
-      case "settings": {
-        const r = { kind: "settings" };
-        if (segs[1]) r.tab = dec(segs[1]);
-        return r;
-      }
+      case "settings":  return { kind: "settings" };
       // Legacy/aliases so old links still resolve.
       case "diagnostics":
         return { kind: "fleet" };

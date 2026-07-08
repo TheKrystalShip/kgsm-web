@@ -19,11 +19,7 @@ function breadcrumbTrail(route, ctx) {
                         ? trail.push({ label: "Fleet", kind: "fleet" }, { label: ctx.hostName || "Host" })
                         : trail.push({ label: "Fleet" });
                       break;
-    case "settings":  trail.push({ label: "Settings", kind: "settings" });
-                      if (route.tab && route.tab !== "account") {
-                        trail.push({ label: route.tab });
-                      }
-                      break;
+    case "settings":  trail.push({ label: "Settings", kind: "settings" }); break;
     default:          break;
   }
   return trail;
