@@ -1,5 +1,4 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { themeStore, useThemePref } from "../lib/theme.js";
 import { sessionStore } from "../lib/sessionStore.js";
@@ -21,9 +20,6 @@ function HostAccessSettings() {
   useStore(sessionStore, s => s.byHost);
   return (
     <SettingsSection title="Host access">
-      <div className="settings-hint-line">
-        <Icon name="shield-check" size={13} /> Your Discord identity is the same on every host — but each host grants its own role, so what you can do can differ per host.
-      </div>
       {hosts.map(h => (
         <SettingsRow key={h.id} icon="server" title={h.name} sub={h.hostname + " · " + (h.region || "\u2014")}>
           <HostAuthBadge hostId={h.id} />
@@ -67,20 +63,21 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
     { id: "account",      label: "Account",        icon: "user" },
     { id: "connections",  label: "Connections",    icon: "link-2" },
     { id: "discord",      label: "Discord",        icon: "message-circle" },
-    { id: "tokens",       label: "API tokens",     icon: "key" },
     { id: "danger",       label: "Danger zone",    icon: "triangle-alert" },
   ];
+
+  // Redirect to account tab if the current tab doesn't exist
+  const validTab = tabs.some(t => t.id === tab) ? tab : "account";
+  if (validTab !== tab) {
+    setTab("account");
+    return null;
+  }
 
   const PROVIDERS = [
     { id: "discord",   label: "Discord",   connected: (user?.provider || "discord") === "discord", detail: "Primary — your servers and roles sync from here." },
     { id: "google",    label: "Google",    connected: user?.provider === "google" },
     { id: "github",    label: "GitHub",    connected: user?.provider === "github" },
     { id: "microsoft", label: "Microsoft", connected: user?.provider === "microsoft" },
-  ];
-
-  const TOKENS = [
-    { name: "deploy-bot",   scopes: "servers:read, servers:control", created: "May 21, 2026", last: "2h ago" },
-    { name: "grafana-pull", scopes: "metrics:read",                  created: "Apr 02, 2026", last: "5m ago" },
   ];
 
   return (
@@ -90,18 +87,18 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
         <div className="dash-head__sub">Your account and how Krystal behaves across the site.</div>
       </div>
 
-      <SubTabs tabs={tabs} active={tab} onChange={setTab} />
+      <SubTabs tabs={tabs} active={validTab} onChange={setTab} />
 
       <div className="settings-body">
-        {tab === "account" && (
+        {validTab === "account" && (
           <SettingsSection title="Profile">
-            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px", borderBottom: "1px solid var(--border-subtle)" }}>
-              <span style={{ width: 52, height: 52, borderRadius: 999, background: "linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press))", color: "var(--fg-inverse)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700 }}>
+            <div className="settings-profile">
+              <span className="settings-profile__avatar">
                 {(profile.display || "?")[0].toUpperCase()}
               </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ color: "var(--fg-1)", fontWeight: 600, fontSize: 15 }}>{profile.display}</span>
-                <span style={{ color: "var(--fg-3)", fontSize: 12.5, fontFamily: "var(--font-mono)" }}>via {user?.provider || "discord"}</span>
+              <div className="settings-profile__info">
+                <span className="settings-profile__name">{profile.display}</span>
+                <span className="settings-profile__provider">via {user?.provider || "discord"}</span>
               </div>
             </div>
             <SettingsRow icon="user" title="Display name" sub="Shown across Krystal and in Discord notifications.">
@@ -126,7 +123,7 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
           </SettingsSection>
         )}
 
-        {tab === "connections" && (
+        {validTab === "connections" && (
           <>
             <HostAccessSettings />
             <SettingsSection title="Connected accounts">
@@ -142,46 +139,17 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
           </>
         )}
 
-        {tab === "discord" && <DiscordPage />}
+        {validTab === "discord" && <DiscordPage />}
 
-        {tab === "tokens" && (
-          <SettingsSection title="API tokens">
-            <div className="settings-tokens">
-              {TOKENS.map(t => (
-                <div className="settings-token" key={t.name}>
-                  <span className="settings-token__ico"><Icon name="key" size={15} /></span>
-                  <div className="settings-token__body">
-                    <span className="settings-token__name">{t.name}</span>
-                    <span className="settings-token__scopes">{t.scopes}</span>
-                    <span className="settings-token__meta">created {t.created} · last used {t.last}</span>
-                  </div>
-                  <button className="icon-btn icon-btn--danger" title="Revoke"><Icon name="trash-2" size={14} /></button>
-                </div>
-              ))}
-            </div>
-            <div className="settings-foot">
-              <button className="fb-editor__btn"><Icon name="plus" size={14} strokeWidth={2.2} />&nbsp;Create token</button>
-            </div>
-          </SettingsSection>
-        )}
-
-        {tab === "danger" && (
-          <div className="settings-danger">
-            <div className="settings-danger__row">
-              <div>
-                <div className="settings-danger__title">Sign out everywhere</div>
-                <div className="settings-danger__sub">End every active session on all devices.</div>
-              </div>
+        {validTab === "danger" && (
+          <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
+            <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
               <button className="settings-btn-ghost" onClick={onLogout}>Sign out</button>
-            </div>
-            <div className="settings-danger__row">
-              <div>
-                <div className="settings-danger__title">Delete account</div>
-                <div className="settings-danger__sub">Permanently remove your account and all servers. This cannot be undone.</div>
-              </div>
+            </SettingsRow>
+            <SettingsRow icon="trash-2" title="Delete account" sub="Permanently remove your account and all servers. This cannot be undone.">
               <button className="settings-btn-danger">Delete account</button>
-            </div>
-          </div>
+            </SettingsRow>
+          </SettingsSection>
         )}
       </div>
     </>

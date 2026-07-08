@@ -13,7 +13,7 @@ function SettingsRow({ icon, title, sub, children }) {
         <span className="chat-brief__item-title"><span className="chat-brief__titletext">{title}</span></span>
         {sub && <span className="chat-brief__detail" style={{ whiteSpace: "normal" }}>{sub}</span>}
       </div>
-      <div className="settings-row__controls" style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>{children}</div>
+      <div className="settings-row__controls">{children}</div>
     </div>
   );
 }

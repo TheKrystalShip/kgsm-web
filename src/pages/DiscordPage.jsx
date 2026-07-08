@@ -36,9 +36,6 @@ function buildIntegrationPatch({ webhook, webhookDirty, clearWebhook, channelLab
   return body;
 }
 
-const INPUT_STYLE = { background: "var(--surface-3)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-md)", height: 32, padding: "0 10px", color: "var(--fg-1)", fontFamily: "var(--font-mono)", fontSize: 12.5, width: 340, outline: "none" };
-const NOISE_STYLE = { fontSize: 11.5, color: "var(--fg-3)", fontFamily: "var(--font-mono)" };
-
 // ---------- config (wired to kgsm-api /integrations/discord) ----------
 function DiscordLiveConfig() {
   const hosts = useStore(hostsStore, s => s.list);
@@ -67,8 +64,8 @@ function DiscordLiveConfig() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on hostId change; client is derived from hostId
   }, [hostId]);
 
-  if (loadErr) return <SettingsSection title="Webhook"><div style={{ padding: "12px 0", color: "var(--danger)", fontSize: 13 }}><Icon name="alert-triangle" size={13} /> {loadErr}</div></SettingsSection>;
-  if (!view) return <SettingsSection title="Webhook"><div style={{ padding: "12px 0", color: "var(--fg-3)", fontSize: 13 }}>Loading…</div></SettingsSection>;
+  if (loadErr) return <SettingsSection title="Webhook"><div className="settings-notice settings-notice--danger"><Icon name="alert-triangle" size={13} /> {loadErr}</div></SettingsSection>;
+  if (!view) return <SettingsSection title="Webhook"><div className="settings-notice">Loading…</div></SettingsSection>;
 
   const webhookDirty = webhookInput.trim().length > 0;
   const channelDirty = channelInput !== (view.channelLabel || "");
@@ -107,7 +104,7 @@ function DiscordLiveConfig() {
     <>
       <SettingsSection title="Webhook">
         {!canEdit && (
-          <div style={{ padding: "8px 0", color: "var(--fg-3)", fontSize: 12.5, display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="settings-notice">
             <Icon name="lock" size={13} /> Read-only — managing integrations is an admin action.
           </div>
         )}
@@ -115,7 +112,7 @@ function DiscordLiveConfig() {
           sub={view.webhook.configured ? "A webhook is configured — paste a new URL to replace it (the current one is never shown)." : "Paste a channel webhook. Server > Settings > Integrations > Webhooks > New Webhook in Discord."}>
           <input value={webhookInput} onChange={e => setWebhookInput(e.target.value)} disabled={!canEdit}
             placeholder={view.webhook.configured ? (view.webhook.hint || "configured") : "https://discord.com/api/webhooks/…"}
-            spellCheck="false" style={INPUT_STYLE} />
+            spellCheck="false" className="settings-input settings-input--mono" style={{ width: 340 }} />
           <button className="fb-editor__btn" onClick={save} disabled={!canEdit || saving || (!webhookDirty && !channelDirty)}>Save</button>
           <button className="fb-editor__btn" onClick={runTest} disabled={!canEdit || !view.webhook.configured}>Test</button>
         </SettingsRow>
@@ -128,13 +125,13 @@ function DiscordLiveConfig() {
         <SettingsRow icon="hash" title="Posting as"
           sub="Channel label surfaced in alerts (cosmetic — Discord controls the real channel).">
           <input value={channelInput} onChange={e => setChannelInput(e.target.value)} disabled={!canEdit}
-            placeholder="#krystal-ops" spellCheck="false" style={{ ...INPUT_STYLE, fontSize: 13, width: 200 }} />
+            placeholder="#krystal-ops" spellCheck="false" className="settings-input settings-input--mono" style={{ fontSize: 13, width: 200 }} />
         </SettingsRow>
         <SettingsRow icon="power" title="Enabled" sub="Master switch for outbound Discord notifications on this host.">
           <Toggle on={view.enabled} onChange={canEdit ? toggleEnabled : () => {}} />
         </SettingsRow>
         {test && (
-          <div style={{ padding: "8px 0 2px", fontSize: 12.5, display: "flex", alignItems: "center", gap: 7, color: test.pending ? "var(--fg-3)" : test.ok ? "var(--success)" : "var(--danger)" }}>
+          <div className={`settings-notice ${test.pending ? "" : test.ok ? "settings-notice--ok" : "settings-notice--danger"}`}>
             {test.pending ? <><span className="oauth-spinner"></span> Sending test…</> : <><Icon name={test.ok ? "circle-check-big" : "alert-triangle"} size={13} /> {test.msg}</>}
           </div>
         )}
@@ -142,11 +139,11 @@ function DiscordLiveConfig() {
 
       <SettingsSection title="What to announce">
         {view.events.length === 0 && (
-          <div style={{ padding: "12px 0", color: "var(--fg-3)", fontSize: 13 }}>No notification events are available on this host yet.</div>
+          <div className="settings-notice">No notification events are available on this host yet.</div>
         )}
         {view.events.map(e => (
           <SettingsRow key={e.id} icon="bell" title={e.title} sub={e.description}>
-            <span style={NOISE_STYLE}>{CADENCE_LABEL[e.cadence] || e.cadence}{e.ping ? " · pings" : ""}</span>
+            <span className="chat-brief__detail" style={{ fontFamily: "var(--font-mono)" }}>{CADENCE_LABEL[e.cadence] || e.cadence}{e.ping ? " · pings" : ""}</span>
             <Toggle on={e.enabled} onChange={canEdit ? () => toggleEvent(e) : () => {}} />
           </SettingsRow>
         ))}
@@ -157,12 +154,12 @@ function DiscordLiveConfig() {
 
 function DiscordPage() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: "var(--fg-1)", letterSpacing: "-0.01em", margin: 0 }}>Discord integration</h1>
-        <div style={{ color: "var(--fg-3)", fontSize: 14, marginTop: 4 }}>
+    <div className="settings-discord-page">
+      <div className="settings-discord-header">
+        <h1>Discord integration</h1>
+        <p>
           One webhook. The crew finds out when something happens — without anyone tabbing back to Krystal.
-        </div>
+        </p>
       </div>
 
       <DiscordLiveConfig />
@@ -170,26 +167,26 @@ function DiscordPage() {
       {/* Slash commands preview — illustrative; control commands are kgsm-bot's
           surface, not this webhook (the integration's `bot` block is honestly null). */}
       <SettingsSection title="Slash commands (preview)">
-        <div style={{ padding: "12px 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--fg-3)" }}>Read-only</div>
-        <div style={{ padding: "8px 0 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px" }}>
+        <div className="settings-cmd-label">Read-only</div>
+        <div className="settings-cmd-grid">
           {[
             { c: "/krystal status",       d: "Lists every server, online state, player count, uptime." },
             { c: "/krystal players <id>", d: "Names + join times for a given server." },
             { c: "/krystal logs <id>",    d: "Last 20 lines of the live console — useful for triage." },
             { c: "/krystal info <id>",    d: "Game, version, IP:port, install dir, autostart status." },
           ].map(s => (
-            <div key={s.c} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <code style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--krystal-teal)" }}>{s.c}</code>
-              <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>{s.d}</span>
+            <div key={s.c} className="settings-cmd-entry">
+              <code>{s.c}</code>
+              <span>{s.d}</span>
             </div>
           ))}
         </div>
 
-        <div style={{ padding: "8px 0 4px", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--fg-3)", display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="settings-cmd-label">
           Control
-          <span style={{ background: "var(--warning-bg)", color: "var(--warning-fg)", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: "0.04em" }}>OPS ROLE</span>
+          <span className="chat-brief__count">OPS ROLE</span>
         </div>
-        <div style={{ padding: "8px 0 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px" }}>
+        <div className="settings-cmd-grid">
           {[
             { c: "/krystal start <id>",   d: "Bring a server online — same as the Start button on the site." },
             { c: "/krystal stop <id>",    d: "Graceful shutdown. Warns players first if warnings are on." },
@@ -200,45 +197,30 @@ function DiscordPage() {
             { c: "/krystal install <game>", d: "Open an install flow — Krystal DMs the requester to fill in name + ports." },
             { c: "/krystal kick <id> <player>", d: "Boot a player. Reason is optional but appended to the audit log." },
           ].map(s => (
-            <div key={s.c} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <code style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--krystal-teal)" }}>{s.c}</code>
-              <span style={{ color: "var(--fg-3)", fontSize: 12.5 }}>{s.d}</span>
+            <div key={s.c} className="settings-cmd-entry">
+              <code>{s.c}</code>
+              <span>{s.d}</span>
             </div>
           ))}
-        </div>
-
-        <div style={{ padding: "10px 0 16px", color: "var(--fg-3)", fontSize: 12.5, display: "flex", alignItems: "center", gap: 8 }}>
-          <Icon name="info" size={14} />
-          Control commands require the Krystal Bot installed (not just a webhook), and a Discord role mapped to "Ops" in <code style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>discord.toml</code>.
         </div>
       </SettingsSection>
 
       {/* Preview card — what a message looks like */}
       <SettingsSection title="Preview">
-        <div style={{ padding: "16px 0" }}>
-          <div style={{
-            background: "#313338", borderRadius: "var(--r-md)", padding: "12px 16px",
-            display: "flex", gap: 12, alignItems: "flex-start",
-            fontFamily: "var(--font-ui)", border: "1px solid var(--border-subtle)",
-          }}>
-            <img src="/assets/tks-mark.png" width="40" height="40" alt="" style={{ objectFit: "contain", borderRadius: 999, background: "#1e1f22" }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "baseline", gap: 8 }}>
-                Krystal <span style={{ background: "var(--krystal-teal)", color: "var(--fg-inverse)", fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, letterSpacing: "0.04em" }}>BOT</span>
-                <span style={{ color: "#949ba4", fontSize: 11, fontWeight: 400 }}>Today at 07:35</span>
+          <div className="settings-discord-msg">
+            <img src="/assets/tks-mark.png" width="40" height="40" alt="" className="settings-discord-msg__avatar" />
+            <div className="settings-discord-msg__body">
+              <div className="settings-discord-msg__header">
+                Krystal <span className="settings-discord-msg__badge">BOT</span>
+                <span className="settings-discord-msg__time">Today at 07:35</span>
               </div>
-              <div style={{
-                marginTop: 8, padding: "8px 12px",
-                borderLeft: "4px solid var(--krystal-teal)", background: "#2b2d31",
-                borderRadius: "0 4px 4px 0", color: "#dbdee1", fontSize: 14, lineHeight: 1.4,
-              }}>
-                <div style={{ fontWeight: 600, color: "#fff", marginBottom: 2 }}>MyValheimServer is online</div>
-                <div>4 of 10 slots · uptime <code style={{ fontFamily: "var(--font-mono)", fontSize: 12.5 }}>0h 0m 12s</code></div>
-                <div style={{ marginTop: 6, color: "#949ba4", fontSize: 12.5 }}>Connect: <code style={{ fontFamily: "var(--font-mono)", color: "#dbdee1" }}>50.20.248.138:2456</code></div>
+              <div className="settings-discord-msg__embed">
+                <div className="settings-discord-msg__embed-title">MyValheimServer is online</div>
+                <div>4 of 10 slots · uptime <code>0h 0m 12s</code></div>
+                <div className="settings-discord-msg__embed-detail">Connect: <code>50.20.248.138:2456</code></div>
               </div>
             </div>
           </div>
-        </div>
       </SettingsSection>
     </div>
   );
