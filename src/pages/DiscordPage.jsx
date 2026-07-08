@@ -2,8 +2,6 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { api } from "../lib/apiClient.js";
-import { hostsStore } from "../lib/stores.js";
-import { useStore } from "../lib/store.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // Discord integration — webhook config + per-event notification toggles + a real
@@ -37,9 +35,7 @@ function buildIntegrationPatch({ webhook, webhookDirty, clearWebhook, channelLab
 }
 
 // ---------- config (wired to kgsm-api /integrations/discord) ----------
-function DiscordLiveConfig() {
-  const hosts = useStore(hostsStore, s => s.list);
-  const hostId = hosts[0]?.id ?? null;
+function DiscordLiveConfig({ hostId }) {
   // Tier is read once (non-reactive) — fine because Settings is opened well after the
   // session resolves. Edge: a deep-link straight to settings before /me lands reads
   // tier:null → controls stay disabled until an unrelated re-render. Acceptable.
@@ -152,7 +148,7 @@ function DiscordLiveConfig() {
   );
 }
 
-function DiscordPage() {
+function DiscordPage({ hostId }) {
   return (
     <div className="settings-discord-page">
       <div className="settings-discord-header">
@@ -162,7 +158,7 @@ function DiscordPage() {
         </p>
       </div>
 
-      <DiscordLiveConfig />
+      <DiscordLiveConfig hostId={hostId} />
 
       {/* Slash commands preview — illustrative; control commands are kgsm-bot's
           surface, not this webhook (the integration's `bot` block is honestly null). */}
@@ -226,5 +222,5 @@ function DiscordPage() {
   );
 }
 
-export { DiscordPage, buildIntegrationPatch };
+export { DiscordPage, DiscordLiveConfig, buildIntegrationPatch };
 export default DiscordPage;

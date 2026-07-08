@@ -70,7 +70,6 @@ import { hostsStore } from "./stores.js";
     attention: CAP.NAV_ALERTS,
     audit:     CAP.NAV_AUDIT,
     fleet:     CAP.NAV_FLEET,
-    discord:   CAP.NAV_DISCORD,
     settings:  CAP.NAV_SETTINGS,
     addHost:   CAP.HOST_MANAGE,
   };

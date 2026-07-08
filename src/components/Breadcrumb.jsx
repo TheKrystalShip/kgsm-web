@@ -19,10 +19,9 @@ function breadcrumbTrail(route, ctx) {
                         ? trail.push({ label: "Fleet", kind: "fleet" }, { label: ctx.hostName || "Host" })
                         : trail.push({ label: "Fleet" });
                       break;
-    case "discord":   trail.push({ label: "Discord" }); break;
     case "settings":  trail.push({ label: "Settings", kind: "settings" });
                       if (route.tab && route.tab !== "account") {
-                        var tabLabels = { connections: "Connections", discord: "Discord", danger: "Danger zone" };
+                        var tabLabels = { connections: "Connections" };
                         trail.push({ label: tabLabels[route.tab] || route.tab });
                       }
                       break;

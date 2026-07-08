@@ -234,11 +234,11 @@ function AppInner({ user, route, setRoute }) {
 
   const deniedHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
   const scopedDenied = !!(deniedHost && sessionStore.isDenied(selectedHostId));
-  const denyGate = scopedDenied && !["fleet", "settings", "discord", "addHost"].includes(route.kind);
+  const denyGate = scopedDenied && !["fleet", "settings", "addHost"].includes(route.kind);
 
   const expiredHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
   const scopedExpired = !!(expiredHost && sessionStore.needsReauth(selectedHostId));
-  const expiredGate = scopedExpired && !["fleet", "settings", "discord", "addHost"].includes(route.kind);
+  const expiredGate = scopedExpired && !["fleet", "settings", "addHost"].includes(route.kind);
 
   const sidebarCollapsed = desktop ? collapsed : false;
   const railReserve = railMode && !assistantOpen ? 56 : 0;

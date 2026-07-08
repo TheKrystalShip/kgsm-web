@@ -16,7 +16,6 @@ const AlertsPage = React.lazy(() => import("../pages/AlertsPage.jsx"));
 const AuditLogPage = React.lazy(() => import("../pages/AuditLogPage.jsx"));
 const DashboardPage = React.lazy(() => import("../pages/DashboardPage.jsx"));
 const FleetPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
-const DiscordPage = React.lazy(() => import("../pages/DiscordPage.jsx"));
 const GamePage = React.lazy(() => import("../pages/GamePage.jsx"));
 const Library = React.lazy(() => import("../pages/LibraryPage.jsx"));
 const ServerDetailPage = React.lazy(() => import("../pages/ServerDetailPage.jsx"));
@@ -90,7 +89,6 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       : <div style={{ padding: "60px 0", textAlign: "center", color: "var(--fg-3)" }}>
           That game isn’t in the library. <button className="dash-servers-empty__link" onClick={() => setRoute({ kind: "library" })}>Back to the library</button>
         </div>)}
-    {route.kind === "discord" && <DiscordPage />}
     {route.kind === "audit"   && <AuditLogPage key={(route.severity || "all") + "|" + (route.serverId || "all")} initialSeverity={route.severity} initialServer={route.serverId} />}
     {route.kind === "fleet" && <FleetPage
       focusHostId={route.hostId}

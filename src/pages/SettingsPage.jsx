@@ -4,9 +4,8 @@ import { themeStore, useThemePref } from "../lib/theme.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
-import { DiscordPage } from "./DiscordPage.jsx";
 import { HostAuthBadge } from "../components/host-helpers.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 
 // SettingsPage — account- and website-level settings (distinct from the
@@ -54,16 +53,10 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
     display: user?.display || user?.name || "",
     handle: user?.name || "",
   });
-  const [prefs, setPrefs] = React.useState({
-    compactDensity: false,
-  });
-  const setP = (k, v) => setPrefs(prev => ({ ...prev, [k]: v }));
 
   const tabs = [
     { id: "account",      label: "Account",        icon: "user" },
     { id: "connections",  label: "Connections",    icon: "link-2" },
-    { id: "discord",      label: "Discord",        icon: "message-circle" },
-    { id: "danger",       label: "Danger zone",    icon: "triangle-alert" },
   ];
 
   // Redirect to account tab if the current tab doesn't exist
@@ -91,36 +84,44 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
 
       <div className="settings-body">
         {validTab === "account" && (
-          <SettingsSection title="Profile">
-            <div className="settings-profile">
-              <span className="settings-profile__avatar">
-                {(profile.display || "?")[0].toUpperCase()}
-              </span>
-              <div className="settings-profile__info">
-                <span className="settings-profile__name">{profile.display}</span>
-                <span className="settings-profile__provider">via {user?.provider || "discord"}</span>
+          <>
+            <SettingsSection title="Profile">
+              <div className="settings-profile">
+                <span className="settings-profile__avatar">
+                  {(profile.display || "?")[0].toUpperCase()}
+                </span>
+                <div className="settings-profile__info">
+                  <span className="settings-profile__name">{profile.display}</span>
+                  <span className="settings-profile__provider">via {user?.provider || "discord"}</span>
+                </div>
               </div>
-            </div>
-            <SettingsRow icon="user" title="Display name" sub="Shown across Krystal and in Discord notifications.">
-              <input className="settings-input" value={profile.display}
-                onChange={e => setProfile(p => ({ ...p, display: e.target.value }))} />
-            </SettingsRow>
-            <SettingsRow icon="at-sign" title="Username" sub="Your unique handle.">
-              <input className="settings-input settings-input--mono" value={profile.handle}
-                onChange={e => setProfile(p => ({ ...p, handle: e.target.value }))} />
-            </SettingsRow>
-            <SettingsRow icon="languages" title="Density" sub="Compact trims padding across tables and lists.">
-              <Toggle on={prefs.compactDensity} onChange={v => setP("compactDensity", v)} />
-            </SettingsRow>
-            <SettingsRow icon="palette" title="Theme" sub="Auto follows your system. Saved on this device.">
-              <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
-                {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-            </SettingsRow>
-            <div className="settings-foot">
-              <button className="fb-editor__btn">Save changes</button>
-            </div>
-          </SettingsSection>
+              <SettingsRow icon="user" title="Display name" sub="Shown across Krystal and in Discord notifications.">
+                <input className="settings-input" value={profile.display}
+                  onChange={e => setProfile(p => ({ ...p, display: e.target.value }))} />
+              </SettingsRow>
+              <SettingsRow icon="at-sign" title="Username" sub="Your unique handle.">
+                <input className="settings-input settings-input--mono" value={profile.handle}
+                  onChange={e => setProfile(p => ({ ...p, handle: e.target.value }))} />
+              </SettingsRow>
+              <SettingsRow icon="palette" title="Theme" sub="Auto follows your system. Saved on this device.">
+                <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
+                  {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </Select>
+              </SettingsRow>
+              <div className="settings-foot">
+                <button className="fb-editor__btn">Save changes</button>
+              </div>
+            </SettingsSection>
+
+            <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
+              <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
+                <button className="settings-btn-ghost" onClick={onLogout}>Sign out</button>
+              </SettingsRow>
+              <SettingsRow icon="trash-2" title="Delete account" sub="Permanently remove your account and all servers. This cannot be undone.">
+                <button className="settings-btn-danger">Delete account</button>
+              </SettingsRow>
+            </SettingsSection>
+          </>
         )}
 
         {validTab === "connections" && (
@@ -137,19 +138,6 @@ function SettingsPage({ tab: tabProp, onTabChange, user, onLogout }) {
               ))}
             </SettingsSection>
           </>
-        )}
-
-        {validTab === "discord" && <DiscordPage />}
-
-        {validTab === "danger" && (
-          <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
-            <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
-              <button className="settings-btn-ghost" onClick={onLogout}>Sign out</button>
-            </SettingsRow>
-            <SettingsRow icon="trash-2" title="Delete account" sub="Permanently remove your account and all servers. This cannot be undone.">
-              <button className="settings-btn-danger">Delete account</button>
-            </SettingsRow>
-          </SettingsSection>
         )}
       </div>
     </>

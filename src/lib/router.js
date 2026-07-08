@@ -22,7 +22,6 @@
 //   #/fleet                  fleet grid
 //   #/fleet/<hostId>         a host's diagnostics deep-dive (overview)
 //   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
-//   #/discord                Discord integration
 //   #/settings               account settings (default: account tab)
 //   #/settings/<tab>         settings, a specific tab
 //
@@ -59,7 +58,6 @@
       }
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
-      case "discord":   return "#/discord";
       case "settings": {
         let h = "#/settings";
         if (route.tab && route.tab !== "account") h += "/" + enc(route.tab);
@@ -106,7 +104,6 @@
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
-      case "discord":   return { kind: "discord" };
       case "settings": {
         const r = { kind: "settings" };
         if (segs[1]) r.tab = dec(segs[1]);
