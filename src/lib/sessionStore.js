@@ -190,7 +190,14 @@ import { hostsStore, selectedHostStore } from "./stores.js";
         // for UI gating. Keep any prior tier if the backend omits it, never downgrade.
         const cur = getRec(id);
         const tier = (res && res.tier) || (cur && cur.tier) || "none";
-        setRec(id, { status: "live", token: (res && res.token) || null, refresh: refreshTok, tier, error: null }, true);
+        // ROLLING REFRESH (kgsm-api M4·c 4·b): the backend now ROTATES the refresh token on
+        // every rotate — the token we just sent is dead (reuse detection), and the response
+        // carries a fresh one in `res.refresh`. ADOPT it (persist to localStorage so a
+        // browser-close-then-return rotates the LIVE token, not the stale one that 401s). Fall
+        // back to the sent token only if an older backend omits `refresh` (non-rotating).
+        const newRefresh = (res && res.refresh) || refreshTok;
+        if (res && res.refresh) writeRefresh(id, res.refresh);
+        setRec(id, { status: "live", token: (res && res.token) || null, refresh: newRefresh, tier, error: null }, true);
         return "live";
       },
       () => {

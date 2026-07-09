@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.4.26)
+- **Adopt the rotated refresh token on session rotation.** kgsm-api now rotates the refresh
+  token on every `/auth/session/refresh` (rolling 30-day window + reuse detection, M4·c). The
+  SPA was re-persisting the token it *sent*, which is dead after one use — so a returning user's
+  second silent rotation would `401` and bounce to Discord re-login. `sessionStore.rotate()` now
+  adopts `res.refresh` from the response and writes it to localStorage (falling back to the sent
+  token only if an older non-rotating backend omits it). Restores the "stay signed in for weeks"
+  behaviour against the rotating backend.
+
 ### Changed (v1.4.25)
 - **Settings page tabs are now URL-routed.** Replaced the left sidebar nav with `<SubTabs>` (the same horizontal tab bar used by server detail and fleet pages). Each settings section (Account, Connections, Discord, API tokens, Danger zone) has a deep-linkable route (`#/settings/discord`, etc.). Back/Forward navigation, page refresh, and bookmarking all work. The default tab (Account) is omitted from the URL, matching the `overview` convention in other tabbed pages.
 
