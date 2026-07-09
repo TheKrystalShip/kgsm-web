@@ -301,7 +301,7 @@
   gap: 8px;
   background: rgba(0, 0, 0, 0.35);
   padding: 6px 12px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   width: fit-content;
   border: 1px solid var(--border-subtle);
 }
@@ -871,7 +871,7 @@
   flex: 1;
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 0 12px;
   height: 34px;
   color: var(--fg-1);
@@ -889,7 +889,7 @@
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 0 14px;
   height: 34px;
   font-weight: 600;
@@ -906,7 +906,7 @@
   color: var(--fg-3);
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 5px;
   display: inline-flex;
   align-items: center;
@@ -939,7 +939,7 @@
   background: transparent;
   color: var(--fg-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 6px 12px;
   font-family: var(--font-ui);
   font-weight: 600;
@@ -1020,7 +1020,7 @@
   background: transparent;
   border: none;
   padding: 7px 14px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
