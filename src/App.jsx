@@ -37,7 +37,7 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 // via useAssistantDock() throughout the tree.
 
 function App() {
-  const [user] = React.useState(() => readStoredUser());
+  const [user, setUser] = React.useState(() => readStoredUser());
   const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [route, setRouteRaw] = React.useState(() => {
@@ -49,13 +49,13 @@ function App() {
   }, []);
   return (
     <AssistantDockProvider hosts={hosts} selectedHostId={selectedHostId} setRoute={setRoute}>
-      <AppInner user={user} route={route} setRoute={setRoute} />
+      <AppInner user={user} setUser={setUser} route={route} setRoute={setRoute} />
     </AssistantDockProvider>
   );
 }
 
 // AppInner — the real app body. Consumes dock state from context.
-function AppInner({ user, route, setRoute }) {
+function AppInner({ user, setUser, route, setRoute }) {
   const dock = useAssistantDock();
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
@@ -127,6 +127,18 @@ function AppInner({ user, route, setRoute }) {
     setLandingResolved(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the async gate
   }, [authzReady, landingResolved]);
+
+  // Auto-logout: when hosts finished loading (or auth-blocked) and every known
+  // session is expired/denied, the user can't proceed — clear the stale credential
+  // so the auth gate (!user) renders LoginPage.
+  React.useEffect(() => {
+    if (!hostsLoaded || hosts.length > 0) return;
+    const sessions = Object.values(sessionsByHost);
+    if (!sessions.length) return;
+    if (!sessions.every(s => s && (s.status === "expired" || s.status === "denied"))) return;
+    writeStoredUser(null);
+    setUser(null);
+  }, [hostsLoaded, hosts, sessionsByHost, setUser]);
 
   const activeServer = route.kind === "server"
     ? servers.find(s => s.id === route.id) || null

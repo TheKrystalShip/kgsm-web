@@ -25,7 +25,12 @@ hostsStore.refresh = () => {
   hostsStore.setState(s => ({ ...s, status: "loading", error: null }));
   return api.fanOut("/hosts").then(results => {
     const okr = results.filter(r => r.ok);
-    if (results.length && !okr.length) { const err = results[0].err; hostsStore.setState(s => ({ ...s, status: "error", error: err })); throw err; }
+    if (results.length && !okr.length) {
+      const err = results[0].err;
+      const allAuthFailed = results.every(r => r.err && r.err.code === 401);
+      hostsStore.setState(s => ({ ...s, status: "error", error: err, everLoaded: allAuthFailed ? true : s.everLoaded }));
+      throw err;
+    }
     okr.forEach(r => { const h = (r.data || [])[0]; if (r.conn && h && h.id) reconcileConnectionId(r.conn.url, h.id); });
     const list = merge.mergeHosts(okr.map(r => r.data));
     hostsStore.setState(s => ({ ...s, list, status: "ready", error: null, everLoaded: true }));
