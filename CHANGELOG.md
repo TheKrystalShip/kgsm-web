@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.5.2)
+- **Settings rows stack on mobile.** On narrow screens each account-settings row now wraps: the icon +
+  label + description keep the first line to themselves (no more mid-word truncation like "Displ…"), and
+  the control (input / theme select / button) drops to a full-width second line indented under the
+  label — the same label→input rhythm the game-server install modal's `.k-field` uses.
+
 ### Fixed (v1.5.1)
 - **Sign-out now revokes server-side.** The app-level "Sign out" (sidebar / top-nav) previously only
   dropped the local tokens, leaving the session alive in the host's registry until it expired; it now

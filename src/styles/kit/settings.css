@@ -365,4 +365,39 @@
   .settings-cmd-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Stack each settings row on narrow screens: the icon + label/detail keep the
+     first line to themselves (no more mid-word truncation), and the control(s)
+     wrap onto a full-width second line — the same label→input rhythm the install
+     modal's .k-field uses. */
+  .settings-body .chat-brief__item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* With the controls gone to line 2 the text column owns the full width, so let
+     the title wrap instead of ellipsing. */
+  .settings-body .chat-brief__item-title,
+  .settings-body .chat-brief__titletext {
+    white-space: normal;
+  }
+
+  /* The control slot drops to its own line, indented under the label text
+     (28px icon + 10px gap) so it lines up with the field it belongs to. */
+  .settings-body .settings-row__controls {
+    width: 100%;
+    margin-left: 38px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Inputs and the theme <Select> fill the second line; buttons keep their
+     natural width and sit at the start of it. The inline-width admin lookup
+     input is overridden via flex-basis (wins over `width` in a flex row). */
+  .settings-body .settings-row__controls > .settings-input,
+  .settings-body .settings-row__controls > .k-select {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
 }
