@@ -567,8 +567,17 @@ import("./stores.js").then((m) => {
     }));
   }
 
+  // Server-side sign-out for a host: revoke the CALLING session in the registry
+  // (root-routed POST /auth/logout, funneled with the live bearer). Best-effort
+  // — the caller drops its local tokens regardless; a 401 (already gone) or a
+  // network error must never block the client-side logout.
+  function logout(id) {
+    if (!id) return Promise.resolve();
+    return rootPost("/auth/logout", {}, id).catch(() => {});
+  }
+
   const api = {
-    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost,
+    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout,
     host: hostScoped,
     sessions: sessionsScoped,
     reconnectHost, reconnectAll,

@@ -3,6 +3,9 @@ import { themeStore, useThemePref } from "../lib/theme.js";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
+import { api } from "../lib/apiClient.js";
+import { CONNECTIONS } from "../lib/config.js";
+import { useSelectedHostId } from "../lib/stores.js";
 
 // SettingsPage — account-level settings (distinct from the per-server Settings
 // sub-tab). A single flat page with no subtabs.
@@ -30,6 +33,20 @@ function SettingsPage({ user, onLogout }) {
     display: user?.display || user?.name || "",
     handle: user?.name || "",
   });
+
+  // "Sign out everywhere" — resolve the active host the same way SettingsSessions
+  // does, revoke EVERY session server-side, then drop the local session. Without
+  // the revoke this only cleared local tokens (the other devices stayed signed
+  // in); onLogout is still called on failure so the local sign-out never blocks.
+  const sel = useSelectedHostId();
+  const hostId = (sel && sel !== "all") ? sel : (CONNECTIONS[0] && CONNECTIONS[0].id) || null;
+  const [signingOutAll, setSigningOutAll] = React.useState(false);
+  const signOutEverywhere = async () => {
+    if (signingOutAll) return;
+    setSigningOutAll(true);
+    try { if (hostId) await api.sessions(hostId).revoke({ all: true }); } catch { /* still drop local session */ }
+    onLogout();
+  };
 
   return (
     <>
@@ -71,7 +88,9 @@ function SettingsPage({ user, onLogout }) {
 
         <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
           <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
-            <button className="settings-btn-ghost" onClick={onLogout}>Sign out</button>
+            <button className="settings-btn-ghost" onClick={signOutEverywhere} disabled={signingOutAll}>
+              {signingOutAll ? "Signing out…" : "Sign out"}
+            </button>
           </SettingsRow>
           <SettingsRow icon="trash-2" title="Delete account" sub="Permanently remove your account and all servers. This cannot be undone.">
             <button className="settings-btn-danger">Delete account</button>

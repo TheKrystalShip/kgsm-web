@@ -174,6 +174,11 @@ function SettingsSessions({ onLogout }) {
 
   const hasSessions = sessions.length > 0;
 
+  // A login row is only useful when it carries the device (user-agent) it was
+  // made from — a bare timestamp with no device tells the user nothing. Drop
+  // those rather than render an "Unknown device" placeholder for them.
+  const shownLogins = recentLogins.filter(r => r && r.device && String(r.device).trim());
+
   // Admin: look up another user's sessions by id. Trims + ignores empty —
   // never fires a lookup for a blank id.
   const runAdminLookup = () => {
@@ -267,12 +272,12 @@ function SettingsSessions({ onLogout }) {
       </SettingsSection>
 
       <SettingsSection icon="history" title="Recent logins">
-        {recentLogins.length === 0 && <div className="settings-notice">No recent logins.</div>}
-        {recentLogins.map((r, i) => (
+        {shownLogins.length === 0 && <div className="settings-notice">No recent logins.</div>}
+        {shownLogins.map((r, i) => (
           <SettingsRow
             key={(r && r.ts ? r.ts : "row") + "-" + i}
-            icon="log-in"
-            title={deviceLabel(r && r.device)}
+            icon={deviceIcon(r.device)}
+            title={<span className="settings-session__device">{r.device}</span>}
             sub={fmtGuard(r && r.ts, fmtTime) + " · " + fmtGuard(r && r.ts, d => fmtRelative(d))}
           />
         ))}

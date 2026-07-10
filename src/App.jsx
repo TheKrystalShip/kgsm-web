@@ -66,9 +66,15 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   // --- Auth ---
 
-  const handleLogout = React.useCallback(() => {
+  const handleLogout = React.useCallback(async () => {
+    // Revoke the current session SERVER-SIDE first (best-effort) so the token
+    // can't be replayed after we drop it locally — awaited so the request isn't
+    // aborted by the reload below. Needs the live bearer, so it runs before we
+    // forget the host's credentials.
+    const hostId = user && user.hostId;
+    if (hostId) await api.logout(hostId);
     writeStoredUser(null);
-    if (user && user.hostId) sessionStore.forget(user.hostId);
+    if (hostId) sessionStore.forget(hostId);
     window.location.reload();
   }, [user]);
 

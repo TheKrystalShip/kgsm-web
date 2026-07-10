@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.5.1)
+- **Sign-out now revokes server-side.** The app-level "Sign out" (sidebar / top-nav) previously only
+  dropped the local tokens, leaving the session alive in the host's registry until it expired; it now
+  calls `POST /auth/logout` first (best-effort, via a new root-routed `api.logout(hostId)` seam) so the
+  current session is genuinely revoked. The Settings → Danger zone **"Sign out everywhere"** button was
+  wired to the same local-only path despite its "End every active session on all devices" copy — it now
+  revokes **every** session server-side (`api.sessions(hostId).revoke({ all: true })`) before signing
+  out, matching the working "Log out all" control in the Active sessions card.
+- **Recent logins hides device-less rows.** The Settings → "Recent logins" list dropped rows that carry
+  no device/user-agent (a bare timestamp is not useful), and renders the remaining ones with the
+  device string + a per-device glyph rather than an "Unknown device" placeholder.
+
+### Changed (v1.5.1)
+- **Settings page spacing & buttons.** The account Settings cards now sit in a flex column with a
+  consistent 16px gap (they were cramped at the BriefCard's 4px margin). The ghost/danger action
+  buttons adopt the site button family's metrics (r-sm radius, icon flex-alignment, motion, and proper
+  disabled states) so they read consistently beside the primary "Save changes" button.
+
 ### Added (v1.5.0)
 - **Active sessions & revocation in Settings.** The account Settings page gains an "Active sessions"
   section: it lists every active session for the signed-in user across devices (device / user-agent,

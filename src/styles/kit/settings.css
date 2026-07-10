@@ -7,6 +7,16 @@
    =============================================================== */
 .settings-body {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The BriefCard carries a default 4px top-margin for stacked feeds; inside the
+   settings column the flex `gap` owns the vertical rhythm, so zero it here (the
+   same override .dash-feed applies to its cards). */
+.settings-body > .chat-brief {
+  margin-top: 0;
 }
 
 .settings-input {
@@ -39,36 +49,73 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* Ghost / danger action buttons — share the site button family's metrics
+   (r-sm radius, 34px, icon-flex, motion) so they sit consistently beside the
+   primary `.fb-editor__btn` (Save) and the modal `.host-btn` family. */
 .settings-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--fg-1);
-  border-radius: var(--r-md);
-  height: 32px;
+  border-radius: var(--r-sm);
+  height: 34px;
   padding: 0 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
   font-size: 13px;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out),
+    border-color var(--d-fast) var(--ease-out),
+    color var(--d-fast) var(--ease-out);
 }
 
 .settings-btn-ghost:hover {
   background: var(--surface-2);
 }
 
+.settings-btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-btn-ghost:disabled:hover {
+  background: transparent;
+}
+
 .settings-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   background: var(--danger);
-  border: none;
+  border: 1px solid transparent;
   color: #fff;
-  border-radius: var(--r-md);
-  height: 32px;
+  border-radius: var(--r-sm);
+  height: 34px;
   padding: 0 14px;
+  font-family: var(--font-ui);
   font-weight: 600;
   font-size: 13px;
+  white-space: nowrap;
   cursor: pointer;
+  transition: filter var(--d-fast) var(--ease-out);
 }
 
 .settings-btn-danger:hover {
   filter: brightness(1.08);
+}
+
+.settings-btn-danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-btn-danger:disabled:hover {
+  filter: none;
 }
 
 
