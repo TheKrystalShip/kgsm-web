@@ -289,6 +289,22 @@ import("./stores.js").then((m) => {
     return livedel(path, hostId);
   }
 
+  // Root-routed counterparts to get/post: the session endpoints
+  // (/auth/sessions, /auth/session/revoke, …) live at the bare origin, NOT
+  // under /api/v1 (like refreshSession), but — unlike refreshSession/meWith —
+  // callers here DO want the funnel: a live per-host bearer + the 401-heal in
+  // sessionsScoped's withRetry below. Leaving bearerOverride undefined routes
+  // liveFetch through authorizedBearer exactly like get/post do; only baseOverride
+  // changes.
+  async function rootGet(path, hostId) {
+    if (!CONNECTIONS.length) return Promise.reject(offlineError());
+    return liveFetch("GET", path, null, hostId, undefined, apiOriginOf(hostId));
+  }
+  async function rootPost(path, body, hostId) {
+    if (!CONNECTIONS.length) return Promise.reject(offlineError());
+    return liveFetch("POST", path, body, hostId, undefined, apiOriginOf(hostId));
+  }
+
   // ---- realtime transport (SSE streams, one primary + dynamic per host) ------
   // The primary stream carries a fixed global topic set and drives realtimeStore
   // mode + rehydrateAll on open. Resource-scoped topics (containing '/') get
@@ -509,6 +525,33 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // api.sessions(id) — the root-routed session-management surface (list/revoke
+  // active sessions; see kgsm-api/docs/session-management-plan.md). Root-routed
+  // because these auth endpoints live at the bare origin, not under /api/v1
+  // (rootGet/rootPost above); funneled (not the refreshSession/meWith bypass)
+  // because every other call site here wants the live per-host bearer plus the
+  // same 401→expire→replay heal hostScoped gives REST calls. Mirrors hostScoped's
+  // withRetry verbatim rather than sharing it, since hostScoped's closure is
+  // itself scoped to the get/post/patch/put/del/turn set.
+  function sessionsScoped(id) {
+    if (!id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
+    const withRetry = (call) => call().catch(err => {
+      if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
+      sessionStore.expire(id);
+      return call();
+    });
+    return {
+      // Self, or (admin) another user's sessions via ?userId=.
+      list: (userId) => withRetry(() => rootGet("/auth/sessions" + (userId ? "?userId=" + encodeURIComponent(userId) : ""), id)).then(adapt.adaptSessions),
+      // Self-revoke: {sid} one, {all:true} every session, {} the caller's own.
+      revoke: (body) => withRetry(() => rootPost("/auth/session/revoke", body || {}, id)),
+      // Admin: revoke any session cross-user.
+      revokeSid: (sid) => withRetry(() => rootPost("/auth/sessions/" + encodeURIComponent(sid) + "/revoke", {}, id)),
+      // Admin: log a user out everywhere.
+      revokeUser: (userId) => withRetry(() => rootPost("/auth/users/" + encodeURIComponent(userId) + "/sessions/revoke-all", {}, id)),
+    };
+  }
+
   // Fan a GET across EVERY connection (multi-host roll-up). Returns
   // [{ conn, ok, data, err }] — per-connection failures captured, so one host
   // being down doesn't fail the whole read. With no registered id (a lone seed
@@ -527,6 +570,7 @@ import("./stores.js").then((m) => {
   const api = {
     get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost,
     host: hostScoped,
+    sessions: sessionsScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,
     // Test/dev affordance: inject a RAW server→client frame through the full live

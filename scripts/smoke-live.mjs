@@ -255,6 +255,10 @@ try {
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
     { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
     { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
+    // Account settings renders the Active-sessions section unconditionally (the
+    // section title is present even before the /auth/sessions fetch resolves and
+    // even in the no-host branch), so the title is a stable render assertion.
+    { hash: "#/settings",      label: "Settings — sessions",  must: ["Active sessions"] },
   ];
   for (const c of GATED) {
     errors.length = 0;

@@ -497,7 +497,34 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }
 // tier falls back to "none" (secure-by-default), never a fabricated role.
 export function adaptMe(be) {
   if (!be) return be;
-  return { user: be.user || null, tier: be.tier || "none", scopes: be.scopes || [] };
+  return {
+    user: be.user || null,
+    tier: be.tier || "none",
+    scopes: be.scopes || [],
+    // Recent login history (device = user-agent, may be null). Honest empty
+    // default when the backend omits it — never fabricated.
+    recentLogins: Array.isArray(be.recentLogins) ? be.recentLogins : [],
+  };
+}
+
+// ---- Sessions (GET /auth/sessions, root-routed) ------------------------
+// A caller's (or, admin-scoped, another user's) active session list. Hardens
+// every row against a partial/missing field — honest null, never invented —
+// and guards the envelope itself so a malformed/empty response renders as no
+// sessions instead of crashing the settings UI.
+export function adaptSessions(json) {
+  const rows = json && Array.isArray(json.data) ? json.data : [];
+  return {
+    sessions: rows.map((r) => ({
+      sid: r.sid,
+      userId: r.userId,
+      created: r.created ?? null,
+      lastSeen: r.lastSeen ?? null,
+      expires: r.expires ?? null,
+      userAgent: r.userAgent ?? null,
+      current: !!r.current,
+    })),
+  };
 }
 
 // One integration provider's config (GET /integrations/{provider}). The API view

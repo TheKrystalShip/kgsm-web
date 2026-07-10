@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.5.0)
+- **Active sessions & revocation in Settings.** The account Settings page gains an "Active sessions"
+  section: it lists every active session for the signed-in user across devices (device / user-agent,
+  signed-in and last-active times, expiry, and a "This device" badge on the current one), with a
+  per-session "Log out" and a section-level "Log out all", each behind a destructive-action confirm.
+  Revoking the current session (or all) signs the user out and returns to the login gate. A read-only
+  "Recent logins" section shows the login history from `/me`. Admins get a "Manage user sessions"
+  section (hidden for everyone else): look up another user's active sessions by id and revoke one or
+  all of them — a security control. Wires to the kgsm-api session endpoints via a new root-routed
+  `api.sessions(hostId)` seam (`.list`/`.revoke`/`.revokeSid`/`.revokeUser`) that carries the per-host
+  bearer and the 401-heal, plus an `adaptSessions` adapter and `recentLogins` on `adaptMe`.
+
 ### Fixed (v1.4.26)
 - **Adopt the rotated refresh token on session rotation.** kgsm-api now rotates the refresh
   token on every `/auth/session/refresh` (rolling 30-day window + reuse detection, M4·c). The

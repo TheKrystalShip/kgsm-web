@@ -80,6 +80,36 @@
   flex-shrink: 0;
 }
 
+/* Active sessions (SettingsSessions.jsx) — device name + "this device" badge.
+   The device name is a raw user-agent string, which can run long; truncate it
+   with an ellipsis rather than let it blow out the row. */
+.settings-session__device {
+  display: inline-block;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.settings-session__current {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--krystal-teal-dim);
+  color: var(--krystal-teal);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: bottom;
+}
+
 /* Profile header — avatar + identity block */
 .settings-profile {
   display: flex;

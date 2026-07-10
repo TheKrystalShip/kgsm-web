@@ -2,6 +2,7 @@ import React from "react";
 import { themeStore, useThemePref } from "../lib/theme.js";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
+import { SettingsSessions } from "./SettingsSessions.jsx";
 
 // SettingsPage — account-level settings (distinct from the per-server Settings
 // sub-tab). A single flat page with no subtabs.
@@ -65,6 +66,8 @@ function SettingsPage({ user, onLogout }) {
             <button className="fb-editor__btn">Save changes</button>
           </div>
         </SettingsSection>
+
+        <SettingsSessions onLogout={onLogout} />
 
         <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
           <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
