@@ -15,9 +15,9 @@ function breadcrumbTrail(route, ctx) {
     case "game":      trail.push({ label: ctx.catalogLabel, kind: "library" }, { label: ctx.gameName || "Game" }); break;
     case "attention": trail.push({ label: "Alerts" }); break;
     case "audit":     trail.push({ label: "Audit log" }); break;
-    case "fleet":     route.hostId
-                        ? trail.push({ label: "Fleet", kind: "fleet" }, { label: ctx.hostName || "Host" })
-                        : trail.push({ label: "Fleet" });
+    case "cluster":     route.hostId
+                        ? trail.push({ label: "Cluster", kind: "cluster" }, { label: ctx.hostName || "Host" })
+                        : trail.push({ label: "Cluster" });
                       break;
     case "settings":  trail.push({ label: "Settings", kind: "settings" }); break;
     default:          break;

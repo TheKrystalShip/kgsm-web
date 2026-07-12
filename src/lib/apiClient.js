@@ -552,6 +552,34 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // api.peers(id) — the cluster peers surface (/api/v1/peers…): admin CRUD over
+  // this host's peer roster + the viewer-safe converged roster. v1-routed (get/
+  // post/patch/del, not rootGet/rootPost) because peers live under /api/v1, not
+  // at the bare origin. Mirrors sessionsScoped's withRetry verbatim (see its
+  // comment) rather than sharing it — each scoped surface owns its own closure.
+  function peersScoped(id) {
+    if (!id) throw new Error("api.peers() requires a concrete host id (got " + id + ")");
+    const withRetry = (call) => call().catch(err => {
+      if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
+      sessionStore.expire(id);
+      return call();
+    });
+    return {
+      // Admin: this host's full peer roster.
+      list: () => withRetry(() => get("/peers", id)).then(j => (j && j.peers) || []),
+      // Viewer-safe: the converged cluster node list (no peer-management fields).
+      roster: () => withRetry(() => get("/peers/roster", id)).then(j => (j && j.nodes) || []),
+      // Admin: add a peer by seed URL (+ optional nickname); returns the raw added row.
+      add: (url, nickname) => withRetry(() => post("/peers", { url, nickname: nickname || null }, id)),
+      // Admin: drop a peer from this host's roster.
+      remove: (peerId) => withRetry(() => del("/peers/" + encodeURIComponent(peerId), id)),
+      // Admin: enable/disable a peer (the trust gate), without removing it.
+      setEnabled: (peerId, enabled) => withRetry(() => patch("/peers/" + encodeURIComponent(peerId), { enabled: !!enabled }, id)),
+      // Admin: on-demand latency probe for one peer.
+      latency: (peerId) => withRetry(() => get("/peers/" + encodeURIComponent(peerId) + "/latency", id)),
+    };
+  }
+
   // Fan a GET across EVERY connection (multi-host roll-up). Returns
   // [{ conn, ok, data, err }] — per-connection failures captured, so one host
   // being down doesn't fail the whole read. With no registered id (a lone seed
@@ -580,6 +608,7 @@ import("./stores.js").then((m) => {
     get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout,
     host: hostScoped,
     sessions: sessionsScoped,
+    peers: peersScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,
     // Test/dev affordance: inject a RAW server→client frame through the full live

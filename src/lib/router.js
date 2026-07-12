@@ -19,14 +19,17 @@
 //   #/library                game library          (?filter=installed entry filter)
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
-//   #/fleet                  fleet grid
-//   #/fleet/<hostId>         a host's diagnostics deep-dive (overview)
-//   #/fleet/<hostId>/<tab>   a host's diagnostics, a specific tab
+//   #/cluster                cluster grid
+//   #/cluster/<hostId>       a node's diagnostics deep-dive (overview)
+//   #/cluster/<hostId>/<tab> a node's diagnostics, a specific tab
 //   #/settings               account settings
 //
+// The pre-cluster URL words #/diagnostics and #/hosts still resolve to #/cluster
+// so old links/bookmarks keep working.
+//
 // Internal route.kind names differ from a couple of URL words on purpose
-// (kind "attention" ↔ /alerts) — the URL speaks the
-// user's language, the code keeps its existing vocabulary.
+// (kind "attention" ↔ /alerts) — the URL speaks the user's language, the code
+// keeps its existing vocabulary.
 
   const enc = encodeURIComponent;
   const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
@@ -50,8 +53,8 @@
         if (route.serverId) p.push("serverId=" + enc(route.serverId));
         return "#/audit" + (p.length ? "?" + p.join("&") : "");
       }
-      case "fleet": {
-        let h = "#/fleet" + (route.hostId ? "/" + enc(route.hostId) : "");
+      case "cluster": {
+        let h = "#/cluster" + (route.hostId ? "/" + enc(route.hostId) : "");
         if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
         return h;
       }
@@ -92,18 +95,18 @@
         if (q.get("serverId")) r.serverId = q.get("serverId");
         return r;
       }
-      case "fleet": {
-        if (!segs[1]) return { kind: "fleet" };
-        const r = { kind: "fleet", hostId: dec(segs[1]) };
+      case "cluster": {
+        if (!segs[1]) return { kind: "cluster" };
+        const r = { kind: "cluster", hostId: dec(segs[1]) };
         if (segs[2]) r.tab = dec(segs[2]);
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
       case "settings":  return { kind: "settings" };
-      // Legacy/aliases so old links still resolve.
+      // Pre-cluster URL words still resolve so old links/bookmarks keep working.
       case "diagnostics":
-        return { kind: "fleet" };
-      case "hosts":     return segs[1] === "add" ? { kind: "addHost" } : { kind: "fleet" };
+        return { kind: "cluster" };
+      case "hosts":     return segs[1] === "add" ? { kind: "addHost" } : { kind: "cluster" };
       default:          return { kind: "home" };
     }
   }

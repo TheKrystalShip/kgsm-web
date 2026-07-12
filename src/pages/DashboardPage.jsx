@@ -25,7 +25,7 @@ import { DashFleetStrip } from "./dashboard/DashFleetStrip.jsx";
 // The dashboard KPI card lives in KPI.jsx (KPI) and is shared with the
 // host diagnostics overview and the server-detail overview stats.
 
-function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canFleet = true }) {
+function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canCluster = true }) {
   const selectedId = useSelectedHostId();
   const servers = scopeServers(useStore(serversStore, s => s.list), selectedId);
   const onlineCount = servers.filter(s => s.status === "online").length;
@@ -215,7 +215,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     )
   });
   // Fleet / host capacity is admin-only — operators see the dashboard without it.
-  if (capacityNode && canFleet) bands.push({ id: "capacity", label: "Capacity", node: capacityNode });
+  if (capacityNode && canCluster) bands.push({ id: "capacity", label: "Capacity", node: capacityNode });
   bands.push({
     id: "feed", label: "Alerts & activity",
     node: (

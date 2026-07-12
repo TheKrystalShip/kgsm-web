@@ -16,6 +16,7 @@ import { useStore } from "../lib/store.js";
 import { hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
 
 // Imports from extracted modules
+import { ClusterPanel } from "./diagnostics/ClusterPanel.jsx";
 import { makeHostSkeleton } from "./diagnostics/diagHelpers.js";
 import { FleetHostCard, HostEditorModal, RemoveHostDialog } from "./diagnostics/diagComponents.jsx";
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
@@ -27,7 +28,7 @@ import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
-function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit }) {
+function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit }) {
   useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
@@ -96,7 +97,7 @@ function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk,
       <>
         <div className="dash-head">
           <div className="dash-head__row">
-            <h1>Fleet</h1>
+            <h1>Cluster</h1>
             <button className="fb-editor__btn servers-toolbar__new" onClick={() => setEditing({})}>
               <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add host
             </button>
@@ -128,13 +129,15 @@ function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk,
       <>
         <div className="dash-head">
           <div className="dash-head__row">
-            <h1>Fleet</h1>
+            <h1>Cluster</h1>
             <button className="fb-editor__btn servers-toolbar__new" onClick={() => setEditing({})}>
               <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add host
             </button>
           </div>
-          <div className="dash-head__sub">Every host this panel aggregates — health, diagnostics and management in one place.</div>
+          <div className="dash-head__sub">Every node this panel federates — the cluster, its peers, health and diagnostics in one place.</div>
         </div>
+
+        <ClusterPanel hostId={activeId !== "all" ? activeId : (hosts[0] && hosts[0].id)} />
 
         {dataLoading ? <FleetSkeleton /> : (<>
         <div className="dash-summary">
@@ -151,7 +154,7 @@ function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk,
           <KPI
             icon="box" label="Servers"
             value={servers.length}
-            sub="across the fleet"
+            sub="across the cluster"
             tone="muted" />
           <KPI
             icon="triangle-alert" label="Host alerts"
@@ -289,5 +292,5 @@ function FleetPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk,
   );
 }
 
-export { FleetPage };
-export default FleetPage;
+export { ClusterPage };
+export default ClusterPage;

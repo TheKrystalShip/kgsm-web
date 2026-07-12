@@ -250,8 +250,8 @@ try {
   w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "dev", provider: "discord", stay: true, id: "u_dev" }));
   const FAB = /0 cores|load 0\.0|CPU 0%/;          // fabricated zero readouts must NOT appear
   const GATED = [
-    { hash: "#/fleet",         label: "Fleet (admin)",        must: ["Fleet"] },
-    { hash: "#/fleet/hotrod",  label: "Host deep-dive (admin)", must: ["hotrod"], noFab: true },
+    { hash: "#/cluster",       label: "Cluster (admin)",      must: ["Cluster"] },
+    { hash: "#/cluster/hotrod",  label: "Node deep-dive (admin)", must: ["hotrod"], noFab: true },
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
     { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
     { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
@@ -286,7 +286,7 @@ try {
   // Diagnostics: the htop-style Processes tab (which never had an honest source) was replaced by the
   // Services leaf control center. The deep-dive must now surface the "Services" tab/summary and NO LONGER
   // the old fabricated-zeros guard text ("expose a process list") — proving the swap landed cleanly.
-  const deepHtml = await nav("#/fleet/hotrod");
+  const deepHtml = await nav("#/cluster/hotrod");
   assert(deepHtml.includes("Services") && !deepHtml.includes("expose a process list"),
     "host deep-dive: the Overview surfaces the new Services tab/summary (the old htop process card is gone)");
 
@@ -483,7 +483,7 @@ try {
   // then push a tick through the dispatch seam. It merges ONLY if the deep-dive's effect
   // subscribed hosts/{id}/metrics (there is no module-level listener for this topic). The
   // value read is synchronous (race-free vs the real monitor's own ~1s ticks).
-  await nav("#/fleet/" + hmId);
+  await nav("#/cluster/" + hmId);
   st.hostsStore.clearMetricsStamp(hmId);
   api.__dispatch({ topic: "hosts/" + hmId + "/metrics", type: "host.metrics", data: synthSnap(91) });
   const tick = st.hostsStore.find(hmId);
@@ -496,7 +496,7 @@ try {
   // (g3) DISPOSER lifecycle — leaving the deep-dive unsubscribes the socket topic AND clears
   // the stamp, so the WS-frozen treatment never leaks to the per-server surfaces that share
   // hostMetricsFreshness once you stop inspecting the host.
-  await nav("#/fleet");
+  await nav("#/cluster");
   await sleep(150);
   assert((st.hostsStore.find(hmId).capabilities.metrics || {}).last_sample_at == null,
     "host.metrics: leaving the deep-dive clears the freshness stamp (disposer ran)");
@@ -533,7 +533,7 @@ try {
     const ovHtml = w.document.getElementById("root").innerHTML;
     assert(ovHtml.includes("Couldn't load the roster"),
       "players: LIVE (endpoint not deployed here yet) shows an honest error, never a fixture roster or a fabricated count");
-    await nav("#/fleet");
+    await nav("#/cluster");
   }
 
   // (i) per-server LIVE metrics (Performance deep-dive) ---------------------
@@ -594,7 +594,7 @@ try {
       await sleep(150);
     }
     assert(grew, "performance: a REAL monitor metrics.tick grew the live window (subscribe → WS → render)");
-    await nav("#/fleet");
+    await nav("#/cluster");
   } else {
     console.log("  ⚠ skip performance (i3): no running server on this backend to prove live ticks");
   }
@@ -1387,7 +1387,7 @@ try {
     assert(!unknownHtml.includes("No players online"),
       "players: 'unknown' is never conflated with a real configured-and-empty roster");
 
-    await nav("#/fleet");   // force a remount so the next canned response actually re-fetches
+    await nav("#/cluster");   // force a remount so the next canned response actually re-fetches
 
     mockPlayers({ detection: "configured", players: [
       { sessionKey: "sk-1", name: "Alice",    id: "76561198000000001", addr: null,               since: "2026-07-01T00:00:00Z" },
@@ -1437,7 +1437,7 @@ try {
     assert(w.document.getElementById("root").innerHTML.includes("SMOKE_POST_RESET_PLAYER"),
       "players: a rejoin after reset renders normally (reset doesn't wedge the roster)");
 
-    await nav("#/fleet");
+    await nav("#/cluster");
   } else {
     console.log("  ⚠ skip players roster (no server on this backend)");
   }

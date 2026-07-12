@@ -40,12 +40,12 @@ import { hostsStore } from "./stores.js";
     NAV_LIBRARY:   "nav.library",     // the install catalog
     NAV_ALERTS:    "nav.alerts",      // the alerts board
     NAV_AUDIT:     "nav.audit",       // the audit log
-    NAV_FLEET:     "nav.fleet",       // the fleet grid + host deep-dive
+    NAV_CLUSTER:   "nav.cluster",     // the cluster grid + node deep-dive
     NAV_DISCORD:   "nav.discord",     // Discord integration config
     NAV_SETTINGS:  "nav.settings",    // account settings
     SERVER_OPERATE: "server.operate", // lifecycle, files, backups, settings, MOTD, moderation
     SERVER_CREATE:  "server.create",  // install/create a NEW game server (distinct from operating one)
-    HOST_MANAGE:    "host.manage",    // add/forget hosts, fleet management
+    HOST_MANAGE:    "host.manage",    // add/forget hosts, cluster management
   };
 
   // ── Role → capability matrix (explicit; each set audits at a glance) ────────
@@ -53,10 +53,10 @@ import { hostsStore } from "./stores.js";
   //           no operating — it can browse the catalog but not deploy from it.
   // Operator— + dashboard, alerts, audit, Discord config, SERVER_CREATE and
   //           SERVER_OPERATE.
-  // Admin   — + fleet and host management.
+  // Admin   — + cluster and host management.
   var VIEWER = [CAP.NAV_SERVERS, CAP.NAV_LIBRARY, CAP.NAV_SETTINGS];
   var OPERATOR = VIEWER.concat([CAP.NAV_DASHBOARD, CAP.NAV_ALERTS, CAP.NAV_AUDIT, CAP.NAV_DISCORD, CAP.SERVER_CREATE, CAP.SERVER_OPERATE]);
-  var ADMIN = OPERATOR.concat([CAP.NAV_FLEET, CAP.HOST_MANAGE]);
+  var ADMIN = OPERATOR.concat([CAP.NAV_CLUSTER, CAP.HOST_MANAGE]);
   var ROLE_CAPS = { none: [], viewer: VIEWER, operator: OPERATOR, admin: ADMIN };
   // Pre-resolved Sets for O(1) lookup.
   var ROLE_SET = {};
@@ -69,7 +69,7 @@ import { hostsStore } from "./stores.js";
     home:      CAP.NAV_DASHBOARD,
     attention: CAP.NAV_ALERTS,
     audit:     CAP.NAV_AUDIT,
-    fleet:     CAP.NAV_FLEET,
+    cluster:   CAP.NAV_CLUSTER,
     settings:  CAP.NAV_SETTINGS,
     addHost:   CAP.HOST_MANAGE,
   };
@@ -140,7 +140,7 @@ import { hostsStore } from "./stores.js";
   function serverOperable(server) { return server ? canOperate(server.hostId) : false; }
   function isAdmin(hostId) { return roleOn(hostId) === "admin"; }
   function isOperatorAnywhere() { return can(CAP.NAV_DASHBOARD); }
-  function isAdminAnywhere() { return can(CAP.NAV_FLEET); }
+  function isAdminAnywhere() { return can(CAP.NAV_CLUSTER); }
 
   // ---- Steam connect ------------------------------------------------------
   // Identity comes from the backend, NOT a hardcoded table: each server carries

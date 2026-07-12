@@ -17,9 +17,9 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "performance") return <EvidencePerformance key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "performance")} />;
         if (c.kind === "console")     return <EvidenceConsole     key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "console")} />;
         if (c.kind === "config")      return <EvidenceConfig      key={i} c={c} onOpen={() => onOpenServer && onOpenServer(c.serverId, "files")} />;
-        if (c.kind === "host")        return <EvidenceHost        key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
+        if (c.kind === "host")        return <EvidenceHost        key={i} c={c} onOpen={() => onOpenView && onOpenView("cluster")} />;
         if (c.kind === "fleet")       return <EvidenceFleet       key={i} c={c} />;
-        if (c.kind === "network")     return <EvidenceNetwork     key={i} c={c} onOpen={() => onOpenView && onOpenView("fleet")} />;
+        if (c.kind === "network")     return <EvidenceNetwork     key={i} c={c} onOpen={() => onOpenView && onOpenView("cluster")} />;
         if (c.kind === "health")      return <EvidenceHealth      key={i} c={c} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
@@ -227,7 +227,7 @@ function EvidenceFleet({ c }) {
     unknown: { icon: "alert-triangle", label: "Status unavailable" },
   };
   return (
-    <EvidenceCardShell icon="layout-grid" title="Fleet status" sub={c.summary}
+    <EvidenceCardShell icon="layout-grid" title="Cluster status" sub={c.summary}
       confidence={c.confidence}>
       <div className="ev-fleet">
         {c.servers.map((s, i) => {

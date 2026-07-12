@@ -590,7 +590,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
 7. **Assistant** — ✅ **9a + 9b done** (streaming turn through the seam + the command-confirm half: `command.proposed`→fork (a)→SPA-composed `command.verified`).
-8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, fleet rollup.
+8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, cluster rollup. **Cluster federation** (the "add one, see all" + one-login-across-the-cluster build that completes this slice) lives in **`docs/cluster-plan.md`** (SPA-C0…C5, aligned to `kgsm-api/PLAN-peers.md`). **SPA-C0 built** (the Cluster page: `api.peers`/`clusterStore`/`ClusterPanel` over the real `/peers` roster, and the Fleet→Cluster canon rename). Both SPA-facing API deps are built: G1 (viewer node list `GET /peers/roster`, client seam wired) and G2 (vouch initiator `POST /auth/cluster-session/request`). Still to wire: SPA-C1 SSO (lazy vouch-on-401 — per-host auth is single-host today) and the C0.5 roster→registry mirror.
 9. **Integrations + settings** — ✅ **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, admin-gated, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
 

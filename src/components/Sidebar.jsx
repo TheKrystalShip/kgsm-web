@@ -190,7 +190,7 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
   );
 }
 
-function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info", fleetCount = 0, fleetTone = "info", attentionCount = 0, attentionTone = "info", user, onLogout, hosts = [], selectedHostId = "all", onSelectHost, open, collapsed, onToggleCollapse }) {
+function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info", clusterCount = 0, clusterTone = "info", attentionCount = 0, attentionTone = "info", user, onLogout, hosts = [], selectedHostId = "all", onSelectHost, open, collapsed, onToggleCollapse }) {
   // Routing is the ONE contract from App: `route` (the current route) in, a single
   // `onNavigate({ kind })` out. Active state derives from route.kind here rather
   // than a bespoke boolean per entry plumbed down from App.
@@ -204,8 +204,8 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
   const canDashboard = can("nav.dashboard");
   const canAlerts = can("nav.alerts");
   const canAudit = can("nav.audit");
-  const canFleet = can("nav.fleet");
-  const showMonitoring = canAlerts || canAudit || canFleet;
+  const canCluster = can("nav.cluster");
+  const showMonitoring = canAlerts || canAudit || canCluster;
   return (
     <aside className={"sidebar" + (open ? " sidebar--open" : "") + (collapsed ? " sidebar--rail" : "")}>
       <div className="sidebar__brand">
@@ -220,7 +220,7 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
           <Icon name={collapsed ? "panel-left-open" : "panel-left-close"} size={16} />
         </button>
       </div>
-      <HostSwitcher hosts={hosts} selectedId={selectedHostId} onSelect={onSelectHost} onManage={go("fleet")} collapsed={collapsed} />
+      <HostSwitcher hosts={hosts} selectedId={selectedHostId} onSelect={onSelectHost} onManage={go("cluster")} collapsed={collapsed} />
       <nav className="sidebar__nav">
         <div className="sidebar__group">
           <div className="sidebar__group-label">Workspace</div>
@@ -250,11 +250,11 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             {attentionCount > 0 && <span className={"nav-item__badge nav-item__badge--" + attentionTone}>{attentionCount}</span>}
           </div>
           )}
-          {canFleet && (
-          <div className={"nav-item" + (isActive("fleet") ? " nav-item--active" : "")} onClick={go("fleet")} data-tip={"Fleet" + (fleetCount > 0 ? " · " + fleetCount : "")} aria-label="Fleet">
+          {canCluster && (
+          <div className={"nav-item" + (isActive("cluster") ? " nav-item--active" : "")} onClick={go("cluster")} data-tip={"Cluster" + (clusterCount > 0 ? " · " + clusterCount : "")} aria-label="Cluster">
             <Icon name="server-cog" size={16} />
-            <span className="nav-item__label">Fleet</span>
-            {fleetCount > 0 && <span className={"nav-item__badge nav-item__badge--" + fleetTone}>{fleetCount}</span>}
+            <span className="nav-item__label">Cluster</span>
+            {clusterCount > 0 && <span className={"nav-item__badge nav-item__badge--" + clusterTone}>{clusterCount}</span>}
           </div>
           )}
           {canAudit && (

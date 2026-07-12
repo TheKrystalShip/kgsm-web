@@ -1,0 +1,289 @@
+/* ============================================================================
+   kit/cluster.css — Cluster page federation panel (local node + peer roster)
+   Split out under kit/; imported by kit.css in cascade order.
+   ============================================================================ */
+
+.cluster-panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.cluster-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cluster-panel__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-1);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.cluster-panel__sub {
+  font-size: 12.5px;
+  color: var(--fg-3);
+  margin: 3px 0 0;
+}
+
+.cluster-panel__loading,
+.cluster-panel__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg-3);
+  padding: 10px 0;
+}
+
+.cluster-panel__error {
+  color: var(--danger-fg);
+}
+
+.cluster-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.cluster-panel__empty > svg {
+  color: var(--fg-4);
+}
+
+.cluster-panel__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cluster-spin {
+  animation: cluster-spin var(--d-slow, 900ms) linear infinite;
+}
+
+@keyframes cluster-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- rows: local node + peers share the same grid idiom ---- */
+.cluster-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) auto auto auto minmax(120px, 1.6fr) auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+}
+
+.cluster-row--local {
+  grid-template-columns: minmax(140px, 1.4fr) auto;
+  background: var(--surface-3);
+  border-color: var(--border-accent);
+}
+
+.cluster-row__id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cluster-row__label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-row__nodeid {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-row__latency {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.cluster-row__url {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cluster-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+
+/* ---- membership badge (gossip liveness axis) ---- */
+.cluster-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.cluster-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.cluster-badge--ok {
+  color: var(--success-fg);
+  background: var(--success-bg);
+}
+.cluster-badge--ok .cluster-badge__dot {
+  background: var(--success);
+}
+
+.cluster-badge--provisional {
+  color: var(--warning-fg);
+  background: var(--warning-bg);
+}
+.cluster-badge--provisional .cluster-badge__dot {
+  background: var(--warning);
+  animation: kr-pulse 1.4s ease-in-out infinite;
+}
+
+.cluster-badge--warn {
+  color: var(--warning-fg);
+  background: var(--warning-bg);
+}
+.cluster-badge--warn .cluster-badge__dot {
+  background: var(--warning);
+}
+
+.cluster-badge--danger {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+.cluster-badge--danger .cluster-badge__dot {
+  background: var(--danger);
+}
+
+.cluster-badge--muted {
+  color: var(--fg-3);
+  background: var(--veil-1);
+}
+.cluster-badge--muted .cluster-badge__dot {
+  background: var(--fg-4);
+}
+
+/* ---- status / disabled / local chips (reachability axis, separate from membership) ---- */
+.cluster-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.cluster-chip--ok {
+  color: var(--success-fg);
+  background: var(--success-bg);
+}
+
+.cluster-chip--danger {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.cluster-chip--muted {
+  color: var(--fg-3);
+  background: var(--veil-1);
+}
+
+.cluster-chip--disabled {
+  color: var(--fg-4);
+  background: var(--surface-3);
+}
+
+.cluster-chip--local {
+  color: var(--krystal-teal);
+  background: var(--krystal-teal-dim);
+}
+
+/* ---- add-peer inline form ---- */
+.cluster-addform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 14px;
+}
+
+.cluster-addform .host-field {
+  min-width: 200px;
+}
+
+.cluster-addform__err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--danger-fg);
+  flex-basis: 100%;
+}
+
+.cluster-addform__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .cluster-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .cluster-row--local {
+    grid-template-columns: 1fr auto;
+  }
+  .cluster-row__actions {
+    justify-self: start;
+  }
+}

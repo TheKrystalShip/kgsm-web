@@ -15,7 +15,7 @@ import { ServerGate } from "../pages/ServerGate.jsx";
 const AlertsPage = React.lazy(() => import("../pages/AlertsPage.jsx"));
 const AuditLogPage = React.lazy(() => import("../pages/AuditLogPage.jsx"));
 const DashboardPage = React.lazy(() => import("../pages/DashboardPage.jsx"));
-const FleetPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
+const ClusterPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
 const GamePage = React.lazy(() => import("../pages/GamePage.jsx"));
 const Library = React.lazy(() => import("../pages/LibraryPage.jsx"));
 const ServerDetailPage = React.lazy(() => import("../pages/ServerDetailPage.jsx"));
@@ -40,7 +40,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     {denyGate ? (
       <HostDeniedNotice host={deniedHost}
         onBack={() => selectedHostStore.set("all")}
-        onManage={() => setRoute({ kind: "fleet", hostId: deniedHost.id })} />
+        onManage={() => setRoute({ kind: "cluster", hostId: deniedHost.id })} />
     ) : expiredGate ? (
       <HostExpiredNotice host={expiredHost}
         onReauth={() => setReauthHostId(expiredHost.id)}
@@ -50,14 +50,14 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     <div className="page" key={KrystalRouter.routeToHash(route)}>
     {route.kind === "home" && <DashboardPage
       user={user}
-      canFleet={can("nav.fleet")}
+      canCluster={can("nav.cluster")}
       onOpenServer={(id) => setRoute({ kind: "server", id })}
       onAction={(id, action) => handleAction(action, id)}
       onLibrary={(filter) => setRoute({ kind: "library", filter })}
       onInstall={openGame}
       onAudit={() => setRoute({ kind: "audit" })}
-      onDiagnostics={() => setRoute({ kind: "fleet" })}
-      onOpenHostDiagnostics={(id) => setRoute({ kind: "fleet", hostId: id })}
+      onDiagnostics={() => setRoute({ kind: "cluster" })}
+      onOpenHostDiagnostics={(id) => setRoute({ kind: "cluster", hostId: id })}
       onServers={(status) => setRoute({ kind: "servers", status })}
       onViewAlerts={() => setRoute({ kind: "attention" })}
       onAttention={askAboutAlert}
@@ -66,7 +66,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       key={route.serverId || "all"}
       initialServerId={route.serverId}
       onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
-      onOpenHost={(hostId) => setRoute({ kind: "fleet", hostId })}
+      onOpenHost={(hostId) => setRoute({ kind: "cluster", hostId })}
       onOpenAudit={() => setRoute({ kind: "audit" })}
       onAsk={askAboutAlert}
     />}
@@ -90,11 +90,11 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
           That game isn’t in the library. <button className="dash-servers-empty__link" onClick={() => setRoute({ kind: "library" })}>Back to the library</button>
         </div>)}
     {route.kind === "audit"   && <AuditLogPage key={(route.severity || "all") + "|" + (route.serverId || "all")} initialSeverity={route.severity} initialServer={route.serverId} />}
-    {route.kind === "fleet" && <FleetPage
+    {route.kind === "cluster" && <ClusterPage
       focusHostId={route.hostId}
       tab={route.tab || "overview"}
-      onTabChange={(t) => setRoute({ kind: "fleet", hostId: route.hostId, tab: t === "overview" ? undefined : t })}
-      onFocusHost={(id) => setRoute({ kind: "fleet", hostId: id || undefined })}
+      onTabChange={(t) => setRoute({ kind: "cluster", hostId: route.hostId, tab: t === "overview" ? undefined : t })}
+      onFocusHost={(id) => setRoute({ kind: "cluster", hostId: id || undefined })}
       onAsk={askAboutAlert}
       onOpenServer={(id) => setRoute({ kind: "server", id })}
       onOpenServerSettings={(id) => setRoute({ kind: "server", id, tab: "settings" })}

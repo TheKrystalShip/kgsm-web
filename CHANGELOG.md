@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.6.0) — Cluster page + peer roster (SPA-C0)
+- **Fleet → Cluster (canon).** Cluster is now the canonical vocabulary end to end: the nav entry, page
+  header, and breadcrumb read **Cluster**; `#/cluster` is the route hash; the internal `route.kind` is
+  `"cluster"` and the capability is `nav.cluster`. The pre-cluster `#/diagnostics`/`#/hosts` URL words
+  still resolve for old links; the host registry key is unchanged. (The assistant's `fleet` evidence-card
+  kind is a separate kgsm-llm wire contract and is untouched.)
+- **The Cluster panel** on the Cluster overview lists the local node plus this node's backend peer roster
+  with honest **membership** (alive/joining/suspect/dead/left/unknown), **status** (reachable/unreachable/
+  unknown, or *disabled*), and **latency** badges — never fabricated; missing values render `—`/`unknown`.
+  Admins get add-peer / enable-disable / remove controls wired to the real `POST`/`PATCH`/`DELETE
+  /api/v1/peers` surface (replacing the old in-memory host skeleton stub). An unfederated node honestly
+  shows *"This node isn't federated with any peers yet."*
+- **Data layer:** a host-scoped `api.peers(id)` client (`list`/`roster`/`add`/`remove`/`setEnabled`/
+  `latency`, 401-heal like the other scoped surfaces) and a `clusterStore` domain store that reads the
+  admin `GET /peers` roster and transparently falls back to the viewer-tier `GET /peers/roster` on a 403.
+- **Smoke:** a gated `#/cluster` render case (plus the `#/fleet` legacy-alias case) in `smoke-live.mjs`.
+
 ### Changed (v1.5.2)
 - **Settings rows stack on mobile.** On narrow screens each account-settings row now wraps: the icon +
   label + description keep the first line to themselves (no more mid-word truncation like "Displ…"), and

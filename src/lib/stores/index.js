@@ -12,6 +12,7 @@ export { selectedHostStore, useSelectedHostId, scopeServers, serverHostId, audit
 export { libraryStore } from "./library.js";
 export { logsStore, logSourcesStore, servicesStore, subscribeHostLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig } from "./diagnostics.js";
 export { favoritesStore, useIsFavorite, pingStore, startPingLoop } from "./ui.js";
+export { clusterStore } from "./cluster.js";
 
 // Boot hydrate — side effect on import
 import "./boot.js";

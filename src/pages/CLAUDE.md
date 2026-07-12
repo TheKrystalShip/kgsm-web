@@ -16,9 +16,9 @@ AppRouter: route.kind ──▶ the matching lazy <Page/>
 ```
 
 - **`route.kind` is the internal vocabulary; the URL word can differ on purpose**
-  — `kind:"attention"` ↔ `#/alerts`, `kind:"chat"` ↔ `#/assistant`,
-  `kind:"fleet"` ↔ `#/fleet` (legacy `#/diagnostics` still resolves). Keep both
-  sides in sync in `router.js` when you add a route.
+  — `kind:"attention"` ↔ `#/alerts`, `kind:"chat"` ↔ `#/assistant`
+  (`kind:"cluster"` ↔ `#/cluster`, with the pre-cluster `#/diagnostics`/`#/hosts`
+  words still resolving). Keep both sides in sync in `router.js` when you add a route.
 - **`persona.resolveRoute()` is the routing chokepoint** (`../lib/persona.js`): a
   forbidden route is remapped to the persona's home *before* it enters state or
   mounts. `App.setRoute` runs every route through it. Don't bypass it.
