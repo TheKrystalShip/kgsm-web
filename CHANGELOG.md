@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.7.0) — cluster lazy-vouch engine (SPA-C1, foundation)
+- **Lazy cluster SSO engine.** On a `401` for a node the SPA holds no session on, `sessionStore.vouch`
+  asks a **live sibling** node (same cluster) to vouch the user onto the target
+  (`api.vouch` → `POST /auth/cluster-session/request { nodeId }`), adopts the minted
+  `{accessToken, refreshToken}`, resolves the tier from the target's `/me`, then the `hostScoped`
+  `withRetry` replays once. Loop-safe (mints only on a fresh, non-live target) and storm-bounded (one
+  in-flight vouch per target). **Dormant at N=1** — no live sibling → fast `false`, so single-host auth
+  is byte-for-byte unchanged (build + N=1 render verified). The roster→registry mirror + N≥2 unblock that
+  make this observable ride on a two-node validation (see `docs/cluster-plan.md` SPA-C1).
+
 ### Added (v1.6.0) — Cluster page + peer roster (SPA-C0)
 - **Fleet → Cluster (canon).** Cluster is now the canonical vocabulary end to end: the nav entry, page
   header, and breadcrumb read **Cluster**; `#/cluster` is the route hash; the internal `route.kind` is

@@ -168,6 +168,39 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     return getRec(id);
   }
 
+  // ---- vouch (lazy cluster SSO — mint a session on a sibling node) -------
+  // SPA-C1: the SPA holds no session on `targetId`, but it IS logged into another node
+  // in the same cluster. Ask that live sibling to vouch the user onto the target
+  // (api.vouch → POST /auth/cluster-session/request); adopt the minted tokens, then
+  // resolve the tier from the target's /me (the vouch result carries no tier). Returns
+  // true ONLY when a fresh session was minted — so apiClient's withRetry replays exactly
+  // once and never loops (a target that is already live, or has no live sibling, gets a
+  // fast `false`, leaving the ordinary rotate/expired path untouched). Concurrent callers
+  // for the same target share one in-flight vouch, so a fan-out of 401s mints one session.
+  const vouchInflight = {};
+  function vouch(targetId) {
+    if (!targetId || statusOf(targetId) === "live") return Promise.resolve(false);
+    if (vouchInflight[targetId]) return vouchInflight[targetId];
+    // The voucher is any OTHER node we already hold a live session on (same trust domain).
+    const source = readRegistry().map(h => h && h.id).filter(Boolean)
+      .find(sid => sid !== targetId && isLive(sid));
+    if (!source) return Promise.resolve(false);
+    const p = api.vouch(source, targetId).then(res => {
+      if (!res || !res.accessToken) return false;
+      adoptSession(targetId, { token: res.accessToken, refresh: res.refreshToken || null });
+      // Tier isn't in the vouch result — resolve it from the target's /me with the
+      // freshly-adopted bearer (un-funneled: pass the token explicitly, like bootstrap).
+      return api.meWith(res.accessToken, targetId).then(
+        me => { setRec(targetId, { tier: (me && me.tier) || "none" }, true); return true; },
+        () => true,   // the session is live even if the tier probe hiccups; gating heals later
+      );
+    }, () => false);
+    vouchInflight[targetId] = p;
+    p.then(() => { if (vouchInflight[targetId] === p) delete vouchInflight[targetId]; },
+           () => { if (vouchInflight[targetId] === p) delete vouchInflight[targetId]; });
+    return p;
+  }
+
   // ---- rotate (exchange the refresh token for a fresh access token) ------
   // The ONLY renewal path. Reactive: called when the API rejects the current token
   // (HTTP 401 → withRetry) or when the WS pre-dial gate finds the token's own exp has
@@ -302,6 +335,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.tokenOf = tokenOf;
   store.bootstrap = bootstrap;
   store.adoptSession = adoptSession;
+  store.vouch = vouch;
   store.rotate = rotate;
   store.authorize = authorize;
   store.reauthorize = reauthorize;

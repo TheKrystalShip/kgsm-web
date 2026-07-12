@@ -504,8 +504,21 @@ import("./stores.js").then((m) => {
     // Replay-on-401 is safe because every gated verb below is idempotent in effect at the kgsm layer for a
     // retry that only fires when the FIRST attempt was rejected unauthenticated; the SSE turn (not
     // idempotent) deliberately skips the replay.
-    const withRetry = (call) => call().catch(err => {
-      if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
+    const withRetry = (call) => call().catch(async err => {
+      if (!err || err.code !== 401 || !sessionStore) throw err;
+      // Lazy cluster vouch (SPA-C1): this node has no session of its own, but the SPA
+      // IS logged into a sibling in the same cluster — ask the sibling to vouch the user
+      // onto this node, adopt the minted session, then retry ONCE. sessionStore.vouch
+      // returns false fast when it can't (no live sibling / already live), so this is a
+      // pure no-op at N=1 and can't loop (it only mints on a fresh, non-live target).
+      if (sessionStore.vouch) {
+        let vouched = false;
+        try { vouched = await sessionStore.vouch(id); } catch { vouched = false; }
+        if (vouched) return call();
+      }
+      // A funnel PRE-FLIGHT 401 (rotate already failed → session dead) isn't replayed —
+      // re-running it just fails again; it propagates to the UI's re-auth.
+      if (err.preflight) throw err;
       sessionStore.expire(id);
       return call();
     });
@@ -604,8 +617,22 @@ import("./stores.js").then((m) => {
     return rootPost("/auth/logout", {}, id).catch(() => {});
   }
 
+  // Cluster SSO vouch initiator (SPA-C1): ask a node the SPA IS logged into (sourceId)
+  // to vouch the user onto another cluster node (targetNodeId). The source relays to the
+  // target's node-to-node receiver and returns the target's freshly-minted session tokens
+  // ({ accessToken, refreshToken, sid, expiresAt } — no tier; the caller resolves it via
+  // /me on the target). Root-routed (/auth/cluster-session/request), funneled with the
+  // source's live bearer; a lapsed source token heals with a single expire+replay.
+  function vouch(sourceId, targetNodeId) {
+    const call = () => rootPost("/auth/cluster-session/request", { nodeId: targetNodeId }, sourceId);
+    return call().catch(err => {
+      if (err && err.code === 401 && !err.preflight && sessionStore) { sessionStore.expire(sourceId); return call(); }
+      throw err;
+    });
+  }
+
   const api = {
-    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout,
+    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout, vouch,
     host: hostScoped,
     sessions: sessionsScoped,
     peers: peersScoped,

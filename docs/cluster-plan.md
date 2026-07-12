@@ -157,9 +157,32 @@ add nodes the SPA can't yet authenticate to.
 - **Validation:** a two-node live check (connect to A, assert B appears in the registry via its
   advertised URL); a peer with a mismatched CORS origin surfaces the warning.
 
-### SPA-C1 — Single sign-on (the N≥2 unblock) · `planned` (API **G2** `built`)
-Rides on API **P1** (`built` — vouch receiver + bus logout). G2 (vouch initiator) is `built`; the
-SPA-side lazy-vouch + session aggregation below is the work left.
+### SPA-C1 — Single sign-on (the N≥2 unblock) · `partial` (API **G2** `built`)
+Rides on API **P1** (`built` — vouch receiver + bus logout). G2 (vouch initiator) is `built`.
+
+**The vouch ENGINE is `built`** (dormant at N=1, verified no-regression): a loop-safe, deduped,
+tier-resolving `sessionStore.vouch(targetId)` + `api.vouch(sourceId, targetNodeId)` + a hook in
+`apiClient.js` `hostScoped().withRetry`. On a 401 for a node with no session, it asks a **live sibling**
+(any registry node the SPA already holds a session on) to vouch the user onto the target
+(`POST /auth/cluster-session/request { nodeId }`), adopts the minted `{accessToken, refreshToken}`,
+resolves the tier via the target's `/me` (the vouch result carries no tier), then retries once.
+`vouch()` returns `true` only on a *fresh* mint — an already-live target or a missing live sibling
+returns `false` fast, so at N=1 the path is a pure no-op and it can never loop. Vouch storm is bounded
+by a per-target in-flight map (`vouchInflight`).
+
+> **C0.5 ⊕ C1 are one unit — the `nodeId` dependency.** Lazy-vouch keys on the target's **`nodeId`**,
+> but a *manually*-added auth-enabled peer can't surface its `nodeId` before it has a session (the
+> `GET /api/v1` handshake doesn't carry it). The `nodeId` arrives via the **C0.5 roster mirror** (each
+> roster row carries `nodeId` + advertised `clientUrl`). So the roster mirror populates vouchable
+> targets and lazy-vouch authenticates them: neither delivers "add one, see all, one login" alone.
+
+**Still to wire (needs a two-node auth-enabled rig to validate):**
+- **Roster→registry mirror (C0.5):** on connect+auth, `addConnection` each peer from `GET /peers/roster`
+  keyed by `nodeId`, addressed by advertised `clientUrl`.
+- **Drop the N≥2 guard** in `AddHostPage` (`HostAccess.jsx`) — sequence it with the mirror so a second
+  node is a vouchable peer, not an id-less unauthable entry.
+- **Per-device session aggregation** in `SettingsSessions.jsx` + **sign-out-everywhere** (fix the latent
+  `App.jsx` `sessionStore.forget` bug on the way — see `sessions-ui-plan.md §2`).
 - **Unblock N≥2:** remove the second-host guard in `AddHostPage` (`HostAccess.jsx:32-33,87-92`).
 - **Lazy vouch-on-401** at the one seam that already sees `(hostId, 401)` — `apiClient.js`
   `hostScoped().withRetry` (`:507-511`). On a `401` for a node with no live session, call the vouch
