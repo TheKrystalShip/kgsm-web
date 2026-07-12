@@ -1,24 +1,25 @@
 import React from "react";
-import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
+import { anchoredAlerts, alertsTone } from "../components/ContextualAlerts.jsx";
 import { HostConnection } from "../components/ErrorBoundary.jsx";
 import { hostMetricsFreshness } from "../components/HostCardBody.jsx";
 import { HostDeniedNotice } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { KPI } from "../components/KPI.jsx";
-import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { useAlerts } from "../components/NeedsAttention.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
-import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { api } from "../lib/apiClient.js";
+import { canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { clusterStore, hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { pingStore, startPingLoop } from "../lib/stores/ui.js";
 
 // Imports from extracted modules
-import { ClusterPanel } from "./diagnostics/ClusterPanel.jsx";
-import { makeHostSkeleton } from "./diagnostics/diagHelpers.js";
-import { FleetHostCard, HostEditorModal, RemoveHostDialog } from "./diagnostics/diagComponents.jsx";
+import { AddNodeModal } from "./diagnostics/AddNodeModal.jsx";
+import { ClusterConstellation } from "./diagnostics/ClusterConstellation.jsx";
+import { ClusterNodeList } from "./diagnostics/ClusterNodeList.jsx";
+import { buildClusterNodes } from "./diagnostics/clusterNodes.js";
+import { HostEditorModal, RemoveHostDialog } from "./diagnostics/diagComponents.jsx";
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
 import { DiagResources } from "./diagnostics/DiagResources.jsx";
 import { DiagServices } from "./diagnostics/DiagServices.jsx";
@@ -45,30 +46,45 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   React.useEffect(() => subscribeHostMetrics(focusHostId), [focusHostId]);
   const [editing, setEditing] = React.useState(null);
   const [removing, setRemoving] = React.useState(null);
-  const [hostQuery, setHostQuery] = React.useState("");
-  const [hostPage, setHostPage] = React.useState(0);
-  const dq = useDebouncedValue(hostQuery, 250);
-  const searchPending = hostQuery.trim() !== dq.trim();
-  const hostQ = dq.trim().toLowerCase();
-  React.useEffect(() => { setHostPage(0); }, [hostQ]);
+  const [addingNode, setAddingNode] = React.useState(false);
+
+  // Constellation + node list: the local node is the active scope (or the
+  // first connected node under "all"), federation data enriches it, ping
+  // gives the link-latency radius. All read here once and threaded to both
+  // BriefCards so they render from the exact same merged node array.
+  const [hoveredNode, setHoveredNode] = React.useState(null);
+  const localHostId = activeId !== "all" ? activeId : (hosts[0] && hosts[0].id);
+  const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
+  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const clusterErrored = useStore(clusterStore, s => s.status === "error");
+  // "Add node" federates the local node's peer roster (admin-only) as part of
+  // the unified add flow — scoped the same way ClusterNodeList gates its own
+  // per-row peer actions.
+  const canFederate = !!localHostId && canOn("host.manage", localHostId) && !!clusterAdmin;
+  const pingByHost = useStore(pingStore, s => s.byHost);
+  React.useEffect(() => { startPingLoop(); }, []);
+  React.useEffect(() => { if (localHostId) clusterStore.refresh(localHostId); }, [localHostId]);
+  const clusterNodes = React.useMemo(
+    () => buildClusterNodes(hosts, clusterNodesRaw, pingByHost, localHostId),
+    [hosts, clusterNodesRaw, pingByHost, localHostId]);
+  const selectNode = (key) => onFocusHost(key);
 
   const countFor = (hostId) => servers.filter(s => s.hostId === hostId).length;
 
+  // Editing an existing node's name/region — the only path left through
+  // HostEditorModal (bringing a NEW node in goes through AddNodeModal, which
+  // federates + connects for real rather than dropping a client-side skeleton).
   const saveHost = (fields) => {
-    if (editing && editing.id) {
-      const id = editing.id;
-      hostsStore.update(id, { name: fields.label, region: fields.region || "\u2014" });
-      setEditing(null);
-      const client = api.host ? api.host(id) : api;
-      Promise.resolve(client.patch("/hosts/" + id, { label: fields.label, region: fields.region }))
-        .then((updated) => {
-          if (updated && updated.id) hostsStore.update(id, { name: updated.name, region: updated.region });
-        })
-        .catch(() => {});
-    } else {
-      hostsStore.add(makeHostSkeleton(fields));
-      setEditing(null);
-    }
+    const id = editing && editing.id;
+    if (!id) { setEditing(null); return; }
+    hostsStore.update(id, { name: fields.label, region: fields.region || "\u2014" });
+    setEditing(null);
+    const client = api.host ? api.host(id) : api;
+    Promise.resolve(client.patch("/hosts/" + id, { label: fields.label, region: fields.region }))
+      .then((updated) => {
+        if (updated && updated.id) hostsStore.update(id, { name: updated.name, region: updated.region });
+      })
+      .catch(() => {});
   };
   const toggleHost = (host) => hostsStore.update(host.id, { online: !host.online, _pending: false });
   const confirmRemove = () => {
@@ -87,8 +103,9 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   };
   const modals = (
     <>
-      {editing && <HostEditorModal host={editing.id ? editing : null} onSave={saveHost} onClose={() => setEditing(null)} />}
+      {editing && <HostEditorModal host={editing} onSave={saveHost} onClose={() => setEditing(null)} />}
       {removing && <RemoveHostDialog host={removing} serverCount={countFor(removing.id)} onConfirm={confirmRemove} onClose={() => setRemoving(null)} />}
+      {addingNode && <AddNodeModal localHostId={localHostId} canFederate={canFederate} onClose={() => setAddingNode(false)} />}
     </>
   );
 
@@ -98,16 +115,16 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
         <div className="dash-head">
           <div className="dash-head__row">
             <h1>Cluster</h1>
-            <button className="fb-editor__btn servers-toolbar__new" onClick={() => setEditing({})}>
-              <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add host
+            <button className="fb-editor__btn servers-toolbar__new" onClick={() => setAddingNode(true)}>
+              <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add node
             </button>
           </div>
-          <div className="dash-head__sub">No hosts connected yet.</div>
+          <div className="dash-head__sub">No nodes connected yet.</div>
         </div>
         <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-lg)", padding: 60, textAlign: "center", color: "var(--fg-3)" }}>
           <Icon name="server-off" size={28} />
-          <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>No hosts configured</div>
-          <div style={{ marginTop: 4, fontSize: 13 }}>Add a host to start aggregating servers and diagnostics.</div>
+          <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>No nodes configured</div>
+          <div style={{ marginTop: 4, fontSize: 13 }}>Add a node to start aggregating servers and diagnostics.</div>
         </div>
         {modals}
       </>
@@ -115,97 +132,40 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   }
 
   if (!focusHostId || !hosts.find(h => h.id === focusHostId)) {
-    const fleetAlerts = anchoredAlerts(an => an.surface === "diagnostics");
-    const PAGE_SIZE = 25;
-    const matched = hosts.filter(h =>
-      !hostQ || (h.name + " " + h.hostname + " " + (h.region || "")).toLowerCase().includes(hostQ));
-    const onlineHosts = hosts.filter(h => h.online).length;
-    const offlineCount = hosts.length - onlineHosts;
-    const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
-    const safePage = Math.min(hostPage, pageCount - 1);
-    const pageHosts = matched.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-    const onLastPage = safePage === pageCount - 1;
     return (
       <>
         <div className="dash-head">
           <div className="dash-head__row">
             <h1>Cluster</h1>
-            <button className="fb-editor__btn servers-toolbar__new" onClick={() => setEditing({})}>
-              <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add host
+            <button className="fb-editor__btn servers-toolbar__new" onClick={() => setAddingNode(true)}>
+              <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add node
             </button>
           </div>
-          <div className="dash-head__sub">Every node this panel federates — the cluster, its peers, health and diagnostics in one place.</div>
+          <div className="dash-head__sub">Every node this panel talks to — latency topology, capacity and federation health in one place.</div>
         </div>
 
-        <ClusterPanel hostId={activeId !== "all" ? activeId : (hosts[0] && hosts[0].id)} />
-
-        {dataLoading ? <FleetSkeleton /> : (<>
-        <div className="dash-summary">
-          <KPI
-            icon="server" label="Hosts"
-            value={hosts.length}
-            sub={hosts.length === 1 ? "machine aggregated" : "machines aggregated"}
-            tone="muted" />
-          <KPI
-            icon="circle-check" label="Online"
-            value={onlineHosts}
-            sub={offlineCount ? offlineCount + (offlineCount === 1 ? " offline" : " offline") : "all reachable"}
-            tone={onlineHosts ? "ok" : "muted"} />
-          <KPI
-            icon="box" label="Servers"
-            value={servers.length}
-            sub="across the cluster"
-            tone="muted" />
-          <KPI
-            icon="triangle-alert" label="Host alerts"
-            value={fleetAlerts.length}
-            sub={fleetAlerts.length ? "need attention" : "all clear"}
-            tone={fleetAlerts.length ? "warn" : "muted"}
-            onView={fleetAlerts.length ? onViewAlerts : null} />
-        </div>
-
-        <Toolbar>
-          <ToolbarSearch
-            value={hostQuery}
-            onChange={setHostQuery}
-            pending={searchPending}
-            placeholder="Search hosts…" />
-          <ToolbarSpacer />
-          <ToolbarCount shown={matched.length} total={hosts.length} unit="hosts" />
-        </Toolbar>
-
-        <div className="fleet-grid">
-          {pageHosts.map(h => (
-            <FleetHostCard
-              key={h.id}
-              host={h}
-              serverCount={countFor(h.id)}
-              alerts={anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id)}
-              isActive={activeId === h.id}
-              onInspect={onFocusHost}
+        {dataLoading ? <FleetSkeleton /> : (
+          <>
+            <ClusterConstellation
+              nodes={clusterNodes}
+              hovered={hoveredNode}
+              onHover={setHoveredNode}
+              onSelect={selectNode}
+            />
+            <ClusterNodeList
+              nodes={clusterNodes}
+              hovered={hoveredNode}
+              onHover={setHoveredNode}
+              onSelect={selectNode}
+              hostId={localHostId}
+              canManage={!!localHostId && canOn("host.manage", localHostId)}
+              admin={clusterAdmin}
+              clusterError={clusterErrored}
+              activeId={activeId}
               menuProps={menuProps}
             />
-          ))}
-          {!hostQ && onLastPage && (
-            <button className="host-card host-card--add" onClick={() => setEditing({})}>
-              <span className="host-card__add-icon"><Icon name="plus" size={22} /></span>
-              <span className="host-card__add-title">Add a host</span>
-              <span className="host-card__add-sub">Register another machine to aggregate here</span>
-            </button>
-          )}
-        </div>
-        {matched.length === 0 && (
-          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-3)" }}>No hosts match “{hostQuery.trim()}”.</div>
+          </>
         )}
-        <Pagination
-          page={safePage}
-          pageCount={pageCount}
-          total={matched.length}
-          pageSize={PAGE_SIZE}
-          onPage={setHostPage}
-          unit="hosts"
-        />
-        </>)}
         {modals}
       </>
     );

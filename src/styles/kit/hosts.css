@@ -1368,6 +1368,19 @@
   transition: color var(--d-fast) var(--ease-out);
 }
 
+/* ---- Ghost row: a federation peer with no connected host (Cluster node list
+   + the dashboard's Cluster capacity card). No capacity to show — the meter
+   area reads "discovered, not connected" instead, and the row itself is
+   visibly secondary (dashed, dimmed) next to a connected node's solid row. ---- */
+.dash-fleet-row--ghost {
+  opacity: 0.82;
+  border-top-style: dashed;
+}
+
+.dash-fleet-row__offline--ghost {
+  color: var(--fg-3);
+}
+
 @media (max-width: 760px) {
 
   /* Keep each host on a SINGLE row — name, meters and chevron squish to fit

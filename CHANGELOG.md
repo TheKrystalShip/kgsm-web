@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.11.0) — a real "Add node" flow: federate + connect in one step
+- **The Cluster page's "Add node" button now does the actual work.** It used to open
+  `HostEditorModal` in "add" mode, which just dropped a fake, disconnected client-side host
+  skeleton into the list — no URL, no auth, no federation. It now opens `AddNodeModal`
+  (`pages/diagnostics/AddNodeModal.jsx`), which brings a node in for real: **federate** the
+  backends (`POST /peers` on the local node, so the two kgsm-api nodes join one gossip mesh —
+  admin-only, a "Join my cluster" checkbox defaulted on) and **connect** this browser to it
+  (the same registry-write + session resolution `AddHostPage` already uses for the first host).
+- **Federate and connect are independent and each reports its own honest outcome.** A federation
+  failure never blocks the connect attempt that follows; a node that federates but can't be
+  reached from this browser right now is shown as exactly that (federated, not yet connected —
+  it'll surface as a discovered peer via gossip) rather than silently dropped or faked as
+  connected. Non-admins get a connect-only flow — no federate checkbox, an inline note explains
+  why.
+- **`HostEditorModal`'s edit mode is unchanged** (still how you rename a node or change its
+  region) — only the add-a-new-node path moved off it. `makeHostSkeleton`/`slugify`
+  (the client-side fake-host generator the old add path used) are removed as dead code.
+
+### Changed (v1.10.1) — Cluster page CTA + topology scale cleanup
+- **One "Add node" CTA.** The Nodes card's header "Add peer" affordance is gone; the page-level
+  "Add node" button is the single primary call to action. Per-row admin peer actions
+  (enable/disable/remove) are unchanged.
+- **The topology dial no longer labels each ring inline.** The latency scale is named once in a
+  caption beneath the dial (`latency rings · 10ms · 40ms · 150ms · dashed = unmeasured`), so a
+  node's own label can never collide with a ring tick near the top — the outer rings are radially
+  compressed by the log scale, which crowded per-ring labels stacked at 12 o'clock. Each node
+  still shows its own measured latency.
+
+### Added (v1.10.0) — ghost peers, a tighter topology card, and a cluster-wide dashboard
+- **The topology card is tighter.** The constellation's SVG box is capped (max 300px, 240px on
+  mobile — was 380px/280px) so the card reads as a compact instrument instead of a tall, mostly
+  empty radar; the viewBox itself is unchanged, only the on-screen scale shrinks.
+- **Single-digit-ms nodes are now visibly distinct from each other.** `latencyRadius` used one
+  log1p curve across 0–250ms, which put every same-subnet node within a few px of the local
+  marker. It's now two honest segments: a **linear** stretch across 0–10ms (`R_MIN` 56 → `R_LOW`
+  110, up from a single `R_MIN` 46) — where most LAN peers actually land — then a log curve from
+  10ms out to the 250ms cap (`R_MAX` 140, was 128). The ring gridlines move with it (10/40/150ms,
+  was 20/60/150ms). A 4ms and an 8ms node are now ~20px apart in radius instead of ~5px.
+- **"Ghost" nodes: a federation peer this browser holds no connected-host session for now
+  renders**, on both the constellation and the node list, instead of silently vanishing.
+  `buildClusterNodes` (`clusterNodes.js`) appends one ghost entry per federation node that
+  matched no connected host (`key: "fed:"+nodeId`, deduped against matched nodes so the same peer
+  is never both an enrichment and a ghost) and resolves a single honest `entry.latencyMs` per
+  node — the client-measured ping for a connected node, the federation-reported latency for a
+  ghost — which the constellation's placement now reads instead of `entry.ping.ms`, so a ghost is
+  placed by its own reported latency. A ghost renders as a hollow dashed-outline dot (never a
+  fabricated health tone — there's no host to derive one from, so membership color is the only
+  honest axis) and, in the node list, a dashed row whose meter slot reads "Discovered · not
+  connected" instead of synthesizing capacity. Admins still get enable/disable/remove.
+- **The dashboard's capacity card is now "Cluster capacity"**, sourced from the same
+  `buildClusterNodes` merge the Cluster page renders from (was raw `hostsStore.list`) — one row
+  per cluster node, connected nodes keeping their mini-meters unchanged, ghosts showing the same
+  compact "discovered, not connected" treatment. A ghost row drills to the Cluster page (there's
+  no host detail to open) instead of a broken per-host route. At N=1 with no federation peers the
+  card is visually identical to before — it's just sourced through the merge now.
+- `clusterBadges.jsx` gains `membershipRowTone`, mapping the membership badge's tone vocabulary
+  onto the `dash-fleet-row`/`-dot` modifier vocabulary, so a ghost row's status dot on either
+  surface reads from the same federation-membership axis a connected row's dot reads from host
+  health.
+
+### Added (v1.9.0) — Cluster page constellation redesign
+- **The Cluster page unifies onto one primitive: the node.** The body is now two stacked
+  `BriefCard`s — a latency-topology **constellation** (`ClusterConstellation`) above a
+  Fleet-Capacity-style **node list** (`ClusterNodeList`) — replacing the old KPI row +
+  search/pagination + `FleetHostCard` grid. Every connected node (`hostsStore`) is enriched
+  with federation data (`clusterStore`) by a best-effort hostname/name ↔ nodeId/label/
+  clientUrl match; a node with no confident federation match still renders fully (capacity,
+  health, deep-dive), just without a membership/status badge — federation data is
+  enrichment, never a gate.
+- **Constellation placement is two honest axes only.** Radius comes from measured link
+  latency (`pingStore`, log-scaled with 20/60/150ms ring gridlines); angle comes from a
+  stable hash of the node's id, so a node never reshuffles position when peers join or
+  leave. A node with no latency sample yet parks on an outer dashed "unmeasured" ring
+  instead of a guessed distance. Dot color follows federation membership where matched,
+  else the node's own health tone; edge style follows federation reachability status (or
+  reads as honestly "unknown" with no federation match). The local node is pinned at
+  center; at N=1 (no peers) it shows a quiet "No peers yet — add a node" state instead of
+  an empty radar. Dots/edges ease to new positions on each latency poll rather than snap.
+- **The two cards hover-sync.** Hovering a node-list row highlights its constellation dot
+  (and vice versa); clicking either opens the existing per-node deep-dive tabs unchanged.
+- `MembershipBadge`/`StatusChip` (membership/status tone mapping) move to a shared
+  `clusterBadges.jsx` so the constellation, the node list, and `ClusterPanel` read the same
+  vocabulary. `ClusterPanel` (and the retired `FleetHostCard` fleet-grid) are no longer
+  rendered on the Cluster page but remain in the tree.
+
 ### Fixed (v1.8.0)
 - **App-level "Sign out" now actually signs out.** It previously revoked nothing server-side and left the
   long-lived refresh token in localStorage (`user.hostId` was never set, so the revoke/forget was dead

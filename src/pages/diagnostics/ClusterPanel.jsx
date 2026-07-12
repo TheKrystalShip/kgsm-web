@@ -17,62 +17,7 @@ import { api } from "../../lib/apiClient.js";
 import { canOn } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
-
-// membership (a gossip/liveness axis) -> badge tone + label. Never invented —
-// an unrecognized/missing value falls back to the honest "unknown" tone.
-const MEMBERSHIP_META = {
-  alive:   { tone: "ok",          label: "alive" },
-  joining: { tone: "provisional", label: "joining" },
-  suspect: { tone: "warn",        label: "suspect" },
-  dead:    { tone: "danger",      label: "dead" },
-  left:    { tone: "muted",       label: "left" },
-  unknown: { tone: "muted",       label: "unknown" },
-};
-
-function membershipMeta(membership) {
-  return MEMBERSHIP_META[membership] || MEMBERSHIP_META.unknown;
-}
-
-function MembershipBadge({ membership }) {
-  const meta = membershipMeta(membership);
-  return (
-    <span className={"cluster-badge cluster-badge--" + meta.tone}>
-      <span className="cluster-badge__dot"></span>
-      {meta.label}
-    </span>
-  );
-}
-
-// status (a separate reachability axis) -> chip. `enabled === false` wins over
-// status — a disabled peer is shown as disabled regardless of reachability.
-function StatusChip({ status, enabled }) {
-  if (enabled === false) {
-    return (
-      <span className="cluster-chip cluster-chip--disabled">
-        <Icon name="power-off" size={11} strokeWidth={2.2} />disabled
-      </span>
-    );
-  }
-  if (status === "reachable") {
-    return (
-      <span className="cluster-chip cluster-chip--ok">
-        <Icon name="wifi" size={11} strokeWidth={2.2} />reachable
-      </span>
-    );
-  }
-  if (status === "unreachable") {
-    return (
-      <span className="cluster-chip cluster-chip--danger">
-        <Icon name="wifi-off" size={11} strokeWidth={2.2} />unreachable
-      </span>
-    );
-  }
-  return (
-    <span className="cluster-chip cluster-chip--muted">
-      <Icon name="circle-help" size={11} strokeWidth={2.2} />unknown
-    </span>
-  );
-}
+import { MembershipBadge, StatusChip } from "./clusterBadges.jsx";
 
 // probeReachability — can THIS BROWSER reach the peer directly? A network or
 // CORS failure throws (the common case for a misconfigured peer) and is

@@ -11,8 +11,10 @@ import { capUsable } from "../lib/capabilities.js";
 import { parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, favoritesStore, hostsStore, libraryStore, pingStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditInScope, auditStore, clusterStore, favoritesStore, hostsStore, libraryStore, pingStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { startPingLoop } from "../lib/stores/ui.js";
 import { DashFleetStrip } from "./dashboard/DashFleetStrip.jsx";
+import { buildClusterNodes } from "./diagnostics/clusterNodes.js";
 
 // DashboardPage — the post-login home. Aggregate stats, a server grid,
 // and a recent-activity feed. Designed to answer "what should I care about
@@ -110,9 +112,20 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     return () => ro.disconnect();
   }, [dataLoading]);
   const featuredVisible = featuredServers.slice(0, serverFit);
-  // Fleet capacity strip — one mini-meter row per host (capacity can't be
-  // averaged). Always shows the fleet view regardless of host selection.
+  // Fleet capacity strip — one mini-meter row per CLUSTER NODE (connected host
+  // + federation "ghost" peers), built from the same merge the Cluster page
+  // renders from (buildClusterNodes) so the two surfaces never drift. Capacity
+  // can't be averaged across machines, so it's always one row per node,
+  // regardless of host selection. The "local" node is the active scope (or
+  // the first connected host under "all") — same convention ClusterPage uses.
   const scopedHost = selectedId !== "all" ? (hosts.find(h => h.id === selectedId) || hosts[0] || null) : null;
+  const localHostId = selectedId !== "all" ? selectedId : (hosts[0] && hosts[0].id);
+  const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
+  React.useEffect(() => { startPingLoop(); }, []);
+  React.useEffect(() => { if (localHostId) clusterStore.refresh(localHostId); }, [localHostId]);
+  const clusterNodes = React.useMemo(
+    () => buildClusterNodes(hosts, clusterNodesRaw, pings, localHostId),
+    [hosts, clusterNodesRaw, pings, localHostId]);
   const now = auditScoped.length ? parseTs(auditScoped[0].ts) : new Date();
 
   // ---- KPIs ---------------------------------------------------------------
@@ -177,7 +190,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   // The reorderable bands in their natural (default) order. Each carries a
   // stable id so a saved order survives content changes; conditional bands are
   // simply omitted when empty and the saved order absorbs the gap (merge-safe).
-  const capacityNode = <DashFleetStrip hosts={hosts} onOpenDiagnostics={onDiagnostics} onOpenHost={onOpenHostDiagnostics} />;
+  const capacityNode = <DashFleetStrip nodes={clusterNodes} onOpenDiagnostics={onDiagnostics} onOpenHost={onOpenHostDiagnostics} />;
 
   const bands = [];
   bands.push({

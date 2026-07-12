@@ -300,6 +300,52 @@
   margin-left: auto;
 }
 
+/* ---- Add-node modal: federate checkbox + honest connect/ghost notes ---- */
+.cluster-addnode-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+
+.cluster-addnode-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--krystal-teal);
+  cursor: pointer;
+}
+
+.cluster-addnode-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+
+.cluster-addnode-note svg {
+  color: var(--info-fg);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cluster-addnode-note--warn {
+  background: var(--warning-bg);
+  border-color: var(--warning-fg);
+  color: var(--fg-2);
+}
+
+.cluster-addnode-note--warn svg {
+  color: var(--warning-fg);
+}
+
 @media (max-width: 720px) {
   .cluster-row {
     grid-template-columns: 1fr;
@@ -312,4 +358,260 @@
   .cluster-row__actions {
     justify-self: start;
   }
+}
+
+/* ============================================================================
+   Cluster page unification — the constellation centerpiece + the node-list
+   BriefCard that replaced the fleet-grid. Two stacked BriefCards, hover-synced
+   by the page (hoveredNode state); the node list reuses dash-fleet-row* from
+   kit/hosts.css so it stays pixel-consistent with the dashboard's Fleet
+   capacity card, extended here only with the federation badges/actions strip
+   and the hover-highlight it needs that DashFleetStrip doesn't.
+   ============================================================================ */
+
+/* ---- constellation ---- */
+/* Capped so the card reads as a compact instrument, not a tall empty radar —
+   on a LAN every node pings within a few ms, so the dots cluster well inside
+   the box; a smaller box keeps that cluster looking intentional rather than
+   lost in a big empty band. preserveAspectRatio="xMidYMid meet" on the <svg>
+   means capping ITS box (not just the viewBox) is what actually shrinks the
+   rendered art — the viewBox stays 320×320 so hashAngle/latencyRadius math is
+   unaffected, only the on-screen scale changes. */
+.cluster-constellation {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.cluster-constellation__svg {
+  width: 100%;
+  max-width: 300px;
+  max-height: 300px;
+  aspect-ratio: 1 / 1;
+  display: block;
+  overflow: visible;
+}
+
+.cluster-constellation--empty {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0 10px;
+}
+
+.cluster-constellation--empty .cluster-constellation__svg {
+  max-width: 120px;
+}
+
+.cluster-constellation__empty-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.cluster-constellation__empty-copy > svg {
+  color: var(--fg-4);
+}
+
+.cluster-constellation__ring {
+  fill: none;
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.cluster-constellation__ring--unmeasured {
+  stroke: var(--fg-4);
+  stroke-dasharray: 3 5;
+  opacity: 0.7;
+}
+
+/* The ring scale, named once beneath the dial (see ClusterConstellation.jsx) —
+   replaces per-ring tick labels so nothing stacks against a node's own label. */
+.cluster-constellation__scale {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-4);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.cluster-constellation__scale-muted {
+  opacity: 0.75;
+}
+
+.cluster-constellation__local-ring {
+  fill: none;
+  stroke: var(--krystal-teal);
+  stroke-width: 1.4;
+  opacity: 0.35;
+}
+
+.cluster-constellation__edge {
+  fill: none;
+  stroke-width: 1.3;
+  transition: x2 var(--d-slow, 480ms) var(--ease-out), y2 var(--d-slow, 480ms) var(--ease-out),
+    opacity var(--d-fast) var(--ease-out), stroke var(--d-base) var(--ease-out);
+}
+
+.cluster-constellation__node {
+  cursor: pointer;
+  outline: none;
+  transition: opacity var(--d-fast) var(--ease-out);
+}
+
+.cluster-constellation__node--dimmed {
+  opacity: 0.4;
+}
+
+.cluster-constellation__node:focus-visible .cluster-constellation__dot {
+  stroke: var(--krystal-teal);
+  stroke-width: 2;
+}
+
+.cluster-constellation__node--local:focus-visible .cluster-constellation__local-ring,
+.cluster-constellation__node--local.cluster-constellation__node--hovered .cluster-constellation__local-ring {
+  stroke-width: 2.4;
+  opacity: 0.8;
+}
+
+.cluster-constellation__dot {
+  stroke: var(--surface-1);
+  stroke-width: 2;
+  transition: cx var(--d-slow, 480ms) var(--ease-out), cy var(--d-slow, 480ms) var(--ease-out),
+    r 150ms var(--ease-out), fill var(--d-base) var(--ease-out);
+}
+
+.cluster-constellation__dot--pulse {
+  animation: kr-pulse 1.4s ease-in-out infinite;
+}
+
+.cluster-constellation__label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--fg-2);
+  pointer-events: none;
+  transition: fill var(--d-fast) var(--ease-out);
+}
+
+.cluster-constellation__label--local {
+  fill: var(--krystal-teal);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.cluster-constellation__node--hovered .cluster-constellation__label {
+  fill: var(--fg-1);
+}
+
+.cluster-constellation__latency {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--fg-4);
+  pointer-events: none;
+  transition: fill var(--d-fast) var(--ease-out);
+}
+
+.cluster-constellation__latency--emphasis {
+  fill: var(--fg-1);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .cluster-constellation__svg {
+    max-width: 240px;
+    max-height: 240px;
+  }
+}
+
+/* ---- ghost peers: discovered by federation gossip, no connected host — the
+   dot itself goes hollow/dashed (see the inline stroke override in
+   ClusterConstellation.jsx, which needs the live membership color); the label
+   and latency text just dim slightly so a ghost reads as secondary next to a
+   connected node's solid dot. ---- */
+.cluster-constellation__dot--ghost {
+  stroke-width: 2;
+}
+
+.cluster-constellation__node--ghost .cluster-constellation__label,
+.cluster-constellation__node--ghost .cluster-constellation__latency {
+  opacity: 0.75;
+}
+
+/* ---- node list rows: wraps dash-fleet-row (kit/hosts.css) with a federation
+   badge strip + hover-highlight; the wrapper (not the inner button) owns the
+   row separator, so dash-fleet-row's own :first-child border-top rule (always
+   true here, since the button is always its wrapper's only child) quietly
+   disables the inner border and this one takes over. ---- */
+.cluster-node-row {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cluster-node-row:first-child {
+  border-top: none;
+}
+
+.cluster-node-row--hovered .dash-fleet-row {
+  background: var(--surface-2);
+}
+
+.cluster-node-row--hovered .dash-fleet-row__go {
+  color: var(--krystal-teal);
+}
+
+.cluster-node-row .dash-fleet-row {
+  border-top: none;
+}
+
+.cluster-node-row .dash-fleet-row__end {
+  gap: 10px;
+}
+
+.cluster-node-row__latency {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.cluster-node-row__badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+
+.cluster-node-row__spacer {
+  flex: 1;
+}
+
+.cluster-node-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- ghost row (federation peer, no connected host): reads as secondary
+   next to the connected rows above it ---- */
+.cluster-node-row--ghost {
+  border-top-style: dashed;
+}
+
+.cluster-node-row__url {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
 }
