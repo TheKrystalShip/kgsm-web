@@ -3,6 +3,13 @@
 // status/latency badges and admin peer CRUD. Pure presentational + narrow
 // local state (add-form open/busy, per-row busy/confirm flags); all truth
 // comes from clusterStore/hostsStore — nothing here is fabricated.
+//
+// Browser reachability is a SEPARATE, purely local axis: `node.status` is the
+// backend's node-to-node reachability, but a cross-node action runs in THIS
+// browser and needs the peer directly reachable *from here* — which also
+// needs the peer's KGSM_API_CORS_ORIGINS to allow this SPA's origin. That can
+// fail independently of backend-reported status, so it's probed client-side
+// and held in component-local state, never written into clusterStore.
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
@@ -67,6 +74,38 @@ function StatusChip({ status, enabled }) {
   );
 }
 
+// probeReachability — can THIS BROWSER reach the peer directly? A network or
+// CORS failure throws (the common case for a misconfigured peer) and is
+// treated the same as a non-2xx response: both mean "not usable from here",
+// never "the node is down" (that's `node.status`, a different axis).
+function probeReachability(clientUrl) {
+  const base = clientUrl.replace(/\/+$/, "");
+  return fetch(base + "/api/v1", { method: "GET", mode: "cors" })
+    .then((res) => (res.ok ? "ok" : "warn"))
+    .catch(() => "warn");
+}
+
+// ReachWarn — inline, honest indicator for the browser-reachability probe.
+// "checking" renders a subtle muted dot, "ok"/undefined render nothing, and
+// only "warn" shows the amber flag — distinct from (and shown alongside)
+// StatusChip's node-to-node axis.
+function ReachWarn({ reach }) {
+  if (reach === "warn") {
+    return (
+      <span
+        className="cluster-reach cluster-reach--warn"
+        title="Your browser can't reach this peer directly — check the peer allows this origin (KGSM_API_CORS_ORIGINS) and is reachable."
+      >
+        <Icon name="shield-alert" size={12} strokeWidth={2.2} />
+      </span>
+    );
+  }
+  if (reach === "checking") {
+    return <span className="cluster-reach cluster-reach--checking" title="Checking browser reachability…"></span>;
+  }
+  return null;
+}
+
 function AddPeerForm({ hostId, onDone, onCancel }) {
   const [url, setUrl] = React.useState("");
   const [nickname, setNickname] = React.useState("");
@@ -124,7 +163,7 @@ function AddPeerForm({ hostId, onDone, onCancel }) {
   );
 }
 
-function PeerRow({ node, hostId, canManage }) {
+function PeerRow({ node, hostId, canManage, reach }) {
   const [busy, setBusy] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const canAct = canManage && !!node.peerId;
@@ -153,7 +192,10 @@ function PeerRow({ node, hostId, canManage }) {
         <span className="cluster-row__nodeid">{node.nodeId}</span>
       </div>
       <MembershipBadge membership={node.membership} />
-      <StatusChip status={node.status} enabled={node.enabled} />
+      <span className="cluster-row__status">
+        <StatusChip status={node.status} enabled={node.enabled} />
+        <ReachWarn reach={reach} />
+      </span>
       <span className="cluster-row__latency">{node.latencyMs != null ? node.latencyMs + " ms" : "—"}</span>
       <span className="cluster-row__url" title={node.clientUrl || ""}>{node.clientUrl || "—"}</span>
       {canAct && (
@@ -195,10 +237,40 @@ function ClusterPanel({ hostId }) {
   const st = useStore(clusterStore, (s) => s);
   const localHost = useStore(hostsStore, (s) => s.list).find((h) => h.id === hostId);
   const [adding, setAdding] = React.useState(false);
+  // reach: nodeId -> "checking"|"ok"|"warn" — purely local, browser-side probe
+  // state. NOT clusterStore: it reflects THIS browser's environment (CORS/
+  // network), not backend truth, so it never belongs in the shared store.
+  const [reach, setReach] = React.useState({});
 
   React.useEffect(() => {
     if (hostId) clusterStore.refresh(hostId);
   }, [hostId]);
+
+  const nodeIds = st.nodes.map((n) => n.nodeId).join(",");
+
+  // Probe each peer's clientUrl directly from the browser, keyed on the
+  // roster's node-id set (not the array reference, which churns every poll).
+  // `live` guards every setState against a race with unmount or a roster
+  // change firing a new effect before a stale probe resolves.
+  React.useEffect(() => {
+    let live = true;
+    const targets = st.nodes.filter((n) => n.clientUrl);
+    if (targets.length > 0) {
+      setReach((prev) => {
+        const next = { ...prev };
+        targets.forEach((n) => { next[n.nodeId] = "checking"; });
+        return next;
+      });
+      targets.forEach((n) => {
+        probeReachability(n.clientUrl).then((result) => {
+          if (!live) return;
+          setReach((prev) => ({ ...prev, [n.nodeId]: result }));
+        });
+      });
+    }
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the nodeIds string on purpose; st.nodes is read fresh from closure, not tracked by identity
+  }, [nodeIds]);
 
   if (!hostId) return null;
 
@@ -259,7 +331,7 @@ function ClusterPanel({ hostId }) {
       {st.status === "ready" && st.nodes.length > 0 && (
         <div className="cluster-panel__rows">
           {st.nodes.map((n) => (
-            <PeerRow key={n.nodeId} node={n} hostId={hostId} canManage={canManage} />
+            <PeerRow key={n.nodeId} node={n} hostId={hostId} canManage={canManage} reach={reach[n.nodeId]} />
           ))}
         </div>
       )}

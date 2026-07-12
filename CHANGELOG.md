@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.8.0)
+- **App-level "Sign out" now actually signs out.** It previously revoked nothing server-side and left the
+  long-lived refresh token in localStorage (`user.hostId` was never set, so the revoke/forget was dead
+  code — and it called a non-existent `sessionStore.forget`). It now revokes this device's session on
+  every node the SPA holds one (best-effort, awaited before reload) and clears **all** per-host
+  credentials (access + refresh) via `sessionStore.signOut()`, so a reload can't silently rotate back in.
+
+### Added (v1.8.0)
+- **Per-peer CORS / reachability warning on the Cluster page (SPA-C0.5).** Each peer is probed from the
+  browser (`fetch(clientUrl + "/api/v1", { mode: "cors" })`); a network/CORS failure shows an amber
+  warning on the row — *your browser can't reach this peer directly (check its `KGSM_API_CORS_ORIGINS`)* —
+  distinct from and shown alongside the backend node-to-node status chip. Honest two-axis rendering:
+  browser-reachability ≠ node-to-node reachability.
+- **Cross-node "Active sessions" (SPA-C1).** The Settings session list fans across every node the SPA
+  holds a live session on; this browser's own sessions collapse into one "This device" row (logging it
+  out revokes on each node), other devices show per-node rows tagged with their node, and a per-node fetch
+  failure degrades to an honest partial-results note. At N=1 the render and revoke behavior are identical
+  to before.
+
 ### Added (v1.7.0) — cluster lazy-vouch engine (SPA-C1, foundation)
 - **Lazy cluster SSO engine.** On a `401` for a node the SPA holds no session on, `sessionStore.vouch`
   asks a **live sibling** node (same cluster) to vouch the user onto the target

@@ -67,16 +67,22 @@ function AppInner({ user, setUser, route, setRoute }) {
   // --- Auth ---
 
   const handleLogout = React.useCallback(async () => {
-    // Revoke the current session SERVER-SIDE first (best-effort) so the token
-    // can't be replayed after we drop it locally — awaited so the request isn't
-    // aborted by the reload below. Needs the live bearer, so it runs before we
-    // forget the host's credentials.
-    const hostId = user && user.hostId;
-    if (hostId) await api.logout(hostId);
+    // Revoke this device's session SERVER-SIDE on every node the SPA holds one
+    // (best-effort, awaited so the reload below doesn't abort the requests) — this
+    // needs the live bearer, so it runs BEFORE we drop the local credentials. At
+    // N=1 that's just the one host; at N≥2 each connected node's calling session is
+    // revoked. (The Settings → "Log out everywhere" path additionally revokes {all}
+    // on a node, which fans session.revoke to peers over the cluster bus.)
+    const ids = sessionStore.readRegistry().map(h => h && h.id).filter(Boolean);
+    await Promise.all(ids.map(id => api.logout(id).catch(() => {})));
     writeStoredUser(null);
-    if (hostId) sessionStore.forget(hostId);
+    // Drop EVERY per-host credential — the access token (sessionStorage) AND the
+    // long-lived refresh token (localStorage) — so a reload can't silently rotate a
+    // fresh session back in. The host registry stays, so the user lands on the
+    // host's login rather than the add-host screen.
+    sessionStore.signOut();
     window.location.reload();
-  }, [user]);
+  }, []);
 
   // --- Data stores ---
   const servers = useStore(serversStore, s => s.list);

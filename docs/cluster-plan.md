@@ -150,10 +150,11 @@ add nodes the SPA can't yet authenticate to.
 - **Honest membership rendering:** a gossip-learned `joining`/hearsay peer renders provisional
   (not a plain "online"); `suspect`/`dead`/`left` render as such. Never fabricate a node's liveness
   (the [no-hardcoded-backend-data] principle — the SPA shows what the roster says, or "unknown").
-- **CORS preflight-warn:** for the browser to call a peer directly, that peer's
-  `KGSM_API_CORS_ORIGINS` must list the SPA origin. The Cluster page runs a browser-side preflight
-  probe per peer and **warns** on a CORS/reachability mismatch (rather than failing opaquely later,
-  e.g. mid-install).
+- **CORS preflight-warn — `built`.** For the browser to call a peer directly, that peer's
+  `KGSM_API_CORS_ORIGINS` must list the SPA origin. `ClusterPanel` probes each peer from the browser
+  (`fetch(clientUrl + "/api/v1", { mode: "cors" })`) and shows an amber warning on the row on a
+  CORS/reachability failure — a browser-reachability axis rendered *alongside* the backend node-to-node
+  status chip, never conflated with it (validated against seeded unreachable peers).
 - **Validation:** a two-node live check (connect to A, assert B appears in the registry via its
   advertised URL); a peer with a mismatched CORS origin surfaces the warning.
 
@@ -176,30 +177,22 @@ by a per-target in-flight map (`vouchInflight`).
 > roster row carries `nodeId` + advertised `clientUrl`). So the roster mirror populates vouchable
 > targets and lazy-vouch authenticates them: neither delivers "add one, see all, one login" alone.
 
+**`built` (verified at N=1, degrade-safe):**
+- **Sign-out fixed** — app-level "Sign out" now revokes this device's session on every node the SPA
+  holds one and clears all per-host credentials (closed a real gap: it used to revoke nothing and leave
+  the refresh token behind; it also called the non-existent `sessionStore.forget`).
+- **Cross-node "Active sessions"** in `SettingsSessions.jsx` — fans the list across every node the SPA
+  holds a live session on; this browser's own sessions collapse into one "This device" row, other devices
+  render per-node, partial fetch failures degrade to an honest note. Identical to today at N=1.
+
 **Still to wire (needs a two-node auth-enabled rig to validate):**
 - **Roster→registry mirror (C0.5):** on connect+auth, `addConnection` each peer from `GET /peers/roster`
   keyed by `nodeId`, addressed by advertised `clientUrl`.
 - **Drop the N≥2 guard** in `AddHostPage` (`HostAccess.jsx`) — sequence it with the mirror so a second
   node is a vouchable peer, not an id-less unauthable entry.
-- **Per-device session aggregation** in `SettingsSessions.jsx` + **sign-out-everywhere** (fix the latent
-  `App.jsx` `sessionStore.forget` bug on the way — see `sessions-ui-plan.md §2`).
-- **Unblock N≥2:** remove the second-host guard in `AddHostPage` (`HostAccess.jsx:32-33,87-92`).
-- **Lazy vouch-on-401** at the one seam that already sees `(hostId, 401)` — `apiClient.js`
-  `hostScoped().withRetry` (`:507-511`). On a `401` for a node with no live session, call the vouch
-  initiator (G2) on a node the SPA **is** logged into, `sessionStore.adoptSession(targetId, tokens)`
-  with the returned tokens, then retry the original call. One Discord login → the whole cluster,
-  provisioned on demand.
-- **Per-device session aggregation** in `SettingsSessions.jsx`: fan `api.sessions(id).list()` across
-  `CONNECTIONS` and present the SPA's own sessions as **one row = "this browser, cluster-wide"**
-  (the SPA knows which nodes it holds tokens for); other devices show per-node rows from each node's
-  `/auth/sessions`.
-- **Sign out everywhere:** call `api.sessions(current).revoke({ all:true })` (the bus fans
-  `session.revoke` to alive peers server-side) **and** clear the SPA's local tokens across all nodes
-  (`sessionStore.signOut()`). Fix the latent shell-logout bug on the way (`App.jsx:77` calls a
-  non-existent `sessionStore.forget`; `user.hostId` is never set — see `sessions-ui-plan.md §2`).
-- **Validation:** log into A, navigate to a B-scoped view → transparent vouch → B session minted,
-  view renders; "sign out everywhere" clears A and B locally and the peer session is revoked over
-  the bus; N≥2 connect works end-to-end.
+- **Validation (two-node):** log into A, navigate to a B-scoped view → transparent vouch (the engine)
+  → B session minted, view renders; "sign out everywhere" clears A and B locally and the peer session is
+  revoked over the bus; N≥2 connect works end-to-end. The roster mirror + guard drop close this loop.
 
 ### SPA-C2 — Cross-node resource visibility + cross-node install · `planned`
 Rides on API **P2** (`planned`). Largely automatic once C1 gives the SPA a session per node.

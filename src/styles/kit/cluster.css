@@ -205,6 +205,32 @@
   background: var(--fg-4);
 }
 
+/* ---- status cell: StatusChip (node-to-node axis) + ReachWarn (this-browser
+   axis) share one grid cell so they can both show at once without shifting
+   the row's column count ---- */
+.cluster-row__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---- browser reachability probe: purely local, distinct from StatusChip ---- */
+.cluster-reach {
+  display: inline-flex;
+  align-items: center;
+}
+
+.cluster-reach--warn {
+  color: var(--warning-fg);
+}
+
+.cluster-reach--checking {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fg-4);
+}
+
 /* ---- status / disabled / local chips (reachability axis, separate from membership) ---- */
 .cluster-chip {
   display: inline-flex;

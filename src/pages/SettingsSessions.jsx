@@ -22,11 +22,21 @@ import { useSelectedHostId } from "../lib/stores.js";
 // revoked server-side, so the app clears its local session and returns to the
 // login gate instead of sitting on a now-dead token.
 //
+// "Active sessions" is cross-node aware (SPA-C1): it fans its session list
+// across every node this browser holds a LIVE session on (sessionStore's
+// registry + isLive), not just the selected/default host. Every current:true
+// row across those nodes is the SAME browser, so they collapse into one "This
+// device" row whose "Log out" revokes the caller's own session on each node.
+// A device with only one live connection sees exactly the single-host list
+// this page always rendered — the fan-out only changes anything at N>=2.
+// "Log out all" still only targets the primary node; the backend fans
+// session.revoke to peers server-side.
+//
 // The admin section (tier-gated, sessionStore.tierOf(hostId) === "admin")
-// looks up ANOTHER user's sessions by id and can revoke one or all of them.
-// It never touches onLogout — an admin revoking someone else's session never
-// signs the admin out; the backend enforces the tier check server-side, this
-// gate is UX only.
+// looks up ANOTHER user's sessions by id and can revoke one or all of them,
+// scoped to the selected/primary host only — not fanned. It never touches
+// onLogout — an admin revoking someone else's session never signs the admin
+// out; the backend enforces the tier check server-side, this gate is UX only.
 
 // Guard timestamp formatting against null/unparsable values — never throw,
 // never fabricate a value; render the honest placeholder instead.
@@ -99,12 +109,23 @@ function SettingsSessions({ onLogout }) {
   const sel = useSelectedHostId();
   const hostId = (sel && sel !== "all") ? sel : (CONNECTIONS[0] && CONNECTIONS[0].id) || null;
 
-  const [sessions, setSessions] = React.useState([]);
+  // Active-sessions state is split by node: `primarySessions` is the
+  // selected/default host, fetched exactly the way the single-host path
+  // always has; `otherSessions` is every OTHER node the SPA holds a live
+  // session on (SPA-C1 cluster fan-out — see the effect below). `sessions`
+  // (defined after the early-return, next to `runRevoke`) is just their
+  // union: at N=1 (no other live nodes) `otherSessions` stays `[]` forever,
+  // so `sessions` === `primarySessions` and every downstream read (revoke,
+  // rendering) behaves exactly as it did before this node was fanned.
+  const [primarySessions, setPrimarySessions] = React.useState([]);
+  const [otherSessions, setOtherSessions] = React.useState([]);
+  const [otherNote, setOtherNote] = React.useState(null); // honest partial-fan-out-failure note, or null
+  const [liveNodeCount, setLiveNodeCount] = React.useState(1); // nodes this browser fetched sessions from (primary + others)
   const [recentLogins, setRecentLogins] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState(null);
-  const [busy, setBusy] = React.useState(null);       // sid being revoked, "all", or null
-  const [confirm, setConfirm] = React.useState(null); // { mode: "one"|"all", sid? } | null
+  const [busy, setBusy] = React.useState(null);       // sid being revoked, "all", "aggregated", or null
+  const [confirm, setConfirm] = React.useState(null); // { mode: "one"|"all", sid?, nodeId?, aggregated?, nodeIds? } | null
 
   // Admin cross-user revoke — a distinct, tier-gated section with its own
   // state so it never interferes with the self-service list/dialog above.
@@ -124,13 +145,21 @@ function SettingsSessions({ onLogout }) {
     let live = true;
     setLoading(true);
     setErr(null);
+    setOtherNote(null);
+
+    const registry = sessionStore.readRegistry();
+    const nameOf = (id) => { const h = registry.find(r => r && r.id === id); return (h && h.name) || id; };
+
+    // Primary fetch — unchanged from the single-host path. Drives `err`,
+    // `loading` and `recentLogins`; at N=1 this is the ONLY fetch, so the
+    // row rendering below (liveNodeCount <= 1 branch) reads straight off it.
     Promise.all([
       api.sessions(hostId).list(),
       api.host(hostId).get("/me"),
     ]).then(
       ([s, me]) => {
         if (!live) return;
-        setSessions((s && s.sessions) || []);
+        setPrimarySessions(((s && s.sessions) || []).map(row => ({ ...row, nodeId: hostId, nodeName: nameOf(hostId) })));
         setRecentLogins((me && me.recentLogins) || []);
         setLoading(false);
       },
@@ -140,6 +169,36 @@ function SettingsSessions({ onLogout }) {
         setLoading(false);
       },
     );
+
+    // Cluster fan-out (SPA-C1): every OTHER node this browser holds a live
+    // session on (the primary is always covered above, regardless of its own
+    // live-ness, so it's excluded here to avoid double-fetching it). A
+    // per-node failure just drops that node's rows and adds an honest note —
+    // it never blanks the primary list. At N=1 `others` is empty, this block
+    // resolves synchronously, and liveNodeCount stays 1 — the untouched
+    // single-host row-rendering branch is what actually renders.
+    const others = registry.filter(h => h && h.id && h.id !== hostId && sessionStore.isLive(h.id));
+    setLiveNodeCount(1 + others.length);
+
+    if (others.length === 0) {
+      setOtherSessions([]);
+    } else {
+      Promise.allSettled(others.map(h =>
+        api.sessions(h.id).list().then(s => ({ node: h, rows: (s && s.sessions) || [] }))
+      )).then(results => {
+        if (!live) return;
+        const ok = [];
+        let failed = 0;
+        results.forEach(r => { if (r.status === "fulfilled") ok.push(r.value); else failed += 1; });
+        setOtherSessions(ok.flatMap(({ node, rows }) =>
+          rows.map(row => ({ ...row, nodeId: node.id, nodeName: node.name || node.id }))
+        ));
+        setOtherNote(failed > 0
+          ? failed + " of " + others.length + " other node" + (others.length > 1 ? "s" : "") + " didn't respond — showing partial results."
+          : null);
+      });
+    }
+
     return () => { live = false; };
   }, [hostId]);
 
@@ -151,19 +210,46 @@ function SettingsSessions({ onLogout }) {
     );
   }
 
+  // The union of every node's fetched rows. At N=1 `otherSessions` is always
+  // `[]`, so this is exactly `primarySessions` — identical to the old single
+  // `sessions` state.
+  const sessions = [...primarySessions, ...otherSessions];
+
   const runRevoke = () => {
     if (!confirm) return;
     const isAll = confirm.mode === "all";
+
+    if (confirm.aggregated) {
+      // The collapsed "This browser" row (only reachable when liveNodeCount >
+      // 1 — see the rendering below): log this device out of every node it's
+      // live on, one best-effort self-revoke per node, then the same
+      // proactive onLogout as any other current-session revoke.
+      const ids = (confirm.nodeIds && confirm.nodeIds.length) ? confirm.nodeIds : [hostId];
+      setBusy("aggregated");
+      Promise.allSettled(ids.map(id => api.sessions(id).revoke({}))).then(() => {
+        setConfirm(null);
+        setBusy(null);
+        onLogout();
+      });
+      return;
+    }
+
     // Log out all always includes the caller's own session; a single revoke
     // is "current" only when it targets the row marked current:true.
     const revokesCurrent = isAll || sessions.some(s => s.sid === confirm.sid && s.current);
+    // "Log out all" always targets the primary node (the backend fans
+    // session.revoke to peers server-side — no client-side fan-out here). A
+    // single-row revoke targets whichever node that row came from; at N=1
+    // that's always the primary, so this is unchanged.
+    const targetNode = isAll ? hostId : (confirm.nodeId || hostId);
     setBusy(isAll ? "all" : confirm.sid);
-    api.sessions(hostId).revoke(isAll ? { all: true } : { sid: confirm.sid }).then(
+    api.sessions(targetNode).revoke(isAll ? { all: true } : { sid: confirm.sid }).then(
       () => {
         setConfirm(null);
         setBusy(null);
         if (revokesCurrent) { onLogout(); return; }
-        setSessions(prev => prev.filter(s => s.sid !== confirm.sid));
+        if (targetNode === hostId) setPrimarySessions(prev => prev.filter(s => s.sid !== confirm.sid));
+        else setOtherSessions(prev => prev.filter(s => s.sid !== confirm.sid));
       },
       (e) => {
         setBusy(null);
@@ -173,6 +259,11 @@ function SettingsSessions({ onLogout }) {
   };
 
   const hasSessions = sessions.length > 0;
+  // Only meaningful when liveNodeCount > 1 (cheap to always compute).
+  const currentRows = sessions.filter(s => s.current);
+  const otherDeviceRows = sessions.filter(s => !s.current);
+  const currentNodeIds = [...new Set(currentRows.map(s => s.nodeId))];
+  const currentNodeNames = [...new Set(currentRows.map(s => s.nodeName || s.nodeId))];
 
   // A login row is only useful when it carries the device (user-agent) it was
   // made from — a bare timestamp with no device tells the user nothing. Drop
@@ -246,9 +337,18 @@ function SettingsSessions({ onLogout }) {
             <Icon name="alert-triangle" size={13} /> {err}
           </div>
         )}
+        {!loading && otherNote && (
+          <div className="settings-notice">
+            <Icon name="alert-triangle" size={13} /> {otherNote}
+          </div>
+        )}
         {loading && <div className="settings-notice">Loading…</div>}
         {!loading && !err && !hasSessions && <div className="settings-notice">No active sessions.</div>}
-        {!loading && sessions.map(s => (
+
+        {/* N=1 (no other live-session node): the exact single-host row list,
+            untouched — same order, same fields, same revoke wiring as before
+            this page was cluster-aware. */}
+        {!loading && liveNodeCount <= 1 && sessions.map(s => (
           <SettingsRow
             key={s.sid}
             icon={deviceIcon(s.userAgent)}
@@ -264,7 +364,61 @@ function SettingsSessions({ onLogout }) {
               " · expires " + fmtGuard(s.expires, fmtTime)
             }
           >
-            <button className="settings-btn-danger" onClick={() => setConfirm({ mode: "one", sid: s.sid })} disabled={busy != null}>
+            <button className="settings-btn-danger" onClick={() => setConfirm({ mode: "one", sid: s.sid, nodeId: s.nodeId })} disabled={busy != null}>
+              {busy === s.sid ? "Logging out…" : "Log out"}
+            </button>
+          </SettingsRow>
+        ))}
+
+        {/* N>=2: every current:true row across live nodes is this same
+            browser — collapsed into one row, revoked cluster-wide. Other
+            devices render per-node, tagged with their node's name. */}
+        {!loading && liveNodeCount > 1 && currentRows.length > 0 && (
+          <SettingsRow
+            key="__this-browser__"
+            icon={deviceIcon(currentRows[0].userAgent)}
+            title={
+              <>
+                <span className="settings-session__device">{deviceLabel(currentRows[0].userAgent)}</span>
+                <span className="settings-session__current">This device</span>
+              </>
+            }
+            sub={
+              "Active on " + (currentNodeNames.length <= 3
+                ? currentNodeNames.join(", ")
+                : currentNodeNames.length + " nodes")
+            }
+          >
+            <button
+              className="settings-btn-danger"
+              onClick={() => setConfirm({ mode: "one", aggregated: true, nodeIds: currentNodeIds })}
+              disabled={busy != null}
+            >
+              {busy === "aggregated" ? "Logging out…" : "Log out"}
+            </button>
+          </SettingsRow>
+        )}
+        {!loading && liveNodeCount > 1 && otherDeviceRows.map(s => (
+          <SettingsRow
+            key={s.nodeId + ":" + s.sid}
+            icon={deviceIcon(s.userAgent)}
+            title={
+              <>
+                <span className="settings-session__device">{deviceLabel(s.userAgent)}</span>
+                {/* No token/partial for a "node chip" exists yet (this file owns
+                    JSX only) — a minimal inline layout nudge, no hardcoded color. */}
+                <span className="settings-session__node" style={{ marginLeft: 8, opacity: 0.65, fontSize: "10.5px" }}>
+                  {s.nodeName || s.nodeId}
+                </span>
+              </>
+            }
+            sub={
+              "Signed in " + fmtGuard(s.created, d => fmtRelative(d)) +
+              " · last active " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
+              " · expires " + fmtGuard(s.expires, fmtTime)
+            }
+          >
+            <button className="settings-btn-danger" onClick={() => setConfirm({ mode: "one", sid: s.sid, nodeId: s.nodeId })} disabled={busy != null}>
               {busy === s.sid ? "Logging out…" : "Log out"}
             </button>
           </SettingsRow>
