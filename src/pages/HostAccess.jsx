@@ -1,7 +1,6 @@
 import React from "react";
 import { HostAuthBadge, HostDeniedNotice } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { CONNECTIONS } from "../lib/config.js";
 import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
 
 // HostAccess.jsx — UI for the per-host identity/session layer (Model A).
@@ -26,11 +25,6 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     /^localhost(:\d+)?$/i.test(normalized) ||
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(normalized);
   const busy = phase === "probing";
-
-  // Already connected → this is a SECOND host. Multi-host fan-out (Slice B) isn't
-  // wired yet, so a 2nd connection would silently show only the first host's
-  // data — be honest rather than pretend it worked.
-  const multiPending = CONNECTIONS.length > 0;
 
   // Real connect: probe the public handshake, resolve identity, register + reload.
   //   ok         → auth-disabled / already-authed: identity from /me, into the app.
@@ -84,13 +78,6 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
             A host runs the kgsm-api control panel. Enter its address — we’ll verify it’s a kgsm-api and connect.
           </div>
 
-          {multiPending ? (
-            <div className="add-host__note" style={{ marginTop: 14 }}>
-              <Icon name="info" size={14} />
-              <span>You’re connected to a host already. Viewing more than one host at once
-              (multi-host fan-out) isn’t wired up yet — it’s the next slice of work.</span>
-            </div>
-          ) : (<>
           <label className="add-host__field">
             <span className="add-host__label">Host address</span>
             <div className={"add-host__input" + (url && !valid ? " add-host__input--bad" : "")}>
@@ -125,7 +112,6 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
             <Icon name="shield-check" size={13} />
             <span>Each host issues its own session and checks your role independently — access can differ per host.</span>
           </div>
-          </>)}
         </div>
 
         <div className="add-host__foot">

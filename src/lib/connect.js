@@ -61,6 +61,42 @@ export function addConnection(entry) {
 }
 export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.stringify(user)); } catch {} }
 
+// Mirror the converged cluster roster (clusterStore.nodes) into the host
+// registry, keyed by nodeId, so a 401 against a federated peer has a routable
+// target for sessionStore.vouch() (cluster SSO — see apiClient.js hostScoped
+// .withRetry). Only enabled nodes that carry BOTH a nodeId and a clientUrl are
+// mirrored — honesty: a node missing either is simply skipped (stays a ghost
+// row in the Cluster page), never fabricated. Only a node that is BOTH alive
+// (gossip membership) AND reachable (status probe) is mirrored: that is the one
+// legitimate vouch target (a federated, running peer). A down/joining/unknown
+// peer is deliberately left as a ghost — registering an unreachable URL would
+// add a dead CONNECTIONS entry that trips the app-wide connection banner and
+// never self-heals, and there is nothing to vouch onto anyway. Idempotent:
+// dedupes by normalized origin AND by existing id, so repeated calls (e.g. on
+// every roster poll) only ever add genuinely-new entries. opts.localHostId is
+// the already-connected node — skipped, it's registered by definition.
+export function mirrorRosterToRegistry(nodes, opts = {}) {
+  const localHostId = (opts && opts.localHostId) || null;
+  const existing = readRegistry();
+  const knownOrigins = new Set(existing.map((h) => normalizeHostUrl(h && h.url)).filter(Boolean));
+  const knownIds = new Set(existing.map((h) => h && h.id).filter(Boolean));
+  let added = 0;
+  for (const node of (Array.isArray(nodes) ? nodes : [])) {
+    if (!node || typeof node !== "object") continue;
+    const { nodeId, label, clientUrl, enabled, membership, status } = node;
+    if (!nodeId || !clientUrl || enabled === false) continue;
+    if (membership !== "alive" || status !== "reachable") continue;
+    if (nodeId === localHostId || knownIds.has(nodeId)) continue;
+    const origin = normalizeHostUrl(clientUrl);
+    if (!origin || knownOrigins.has(origin)) continue;
+    addConnection(registryEntry(origin, label, nodeId));
+    knownOrigins.add(origin);
+    knownIds.add(nodeId);
+    added++;
+  }
+  return { added };
+}
+
 // ---- impure: probe a candidate host (fetch injectable for tests) --------
 // Returns { status, origin, name?, version?, user?, tier? } where status ∈
 //   "ok"          reachable kgsm-api, identity resolved (auth-disabled or already authed)

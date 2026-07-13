@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.12.0) — cluster SSO lazy-vouch loop closed
+- **The vouch loop had a dead link: a manually-added auth-enabled peer landed in the host
+  registry with `id: null`**, because `connectHost()` returns `needs_auth` from the `/me` 401
+  *before* the `/hosts` id-probe runs. With no id, `connOf(nodeId)` can't route to it at N≥2, so
+  `sessionStore.vouch(targetId)` (the 401 auto-vouch-via-a-live-sibling engine, `apiClient.js`
+  `hostScoped().withRetry`) never had a routable target — dormant even with two federated nodes.
+- **`connect.js` now mirrors the converged cluster roster into the host registry**, keyed by each
+  node's real `nodeId` (`mirrorRosterToRegistry`). The Cluster page runs it on every roster
+  refresh — idempotent, only genuinely new/enabled/`clientUrl`-bearing nodes get written, nothing
+  fabricated for a node still missing an id or URL — and reloads once (bounded to the first roster
+  change that actually adds an entry) so the new registry rows take effect. Only a node that is
+  **both alive (gossip membership) and reachable (status probe)** is mirrored — a down/joining/
+  unknown peer stays an honest ghost row rather than adding a dead registry entry that would trip
+  the app-wide connection banner and never self-heal.
+- **Dropped the stale "multi-host fan-out isn't wired up yet" guard** on the connect screen
+  (`HostAccess.jsx`) — it blocked adding a second host at all, which is exactly the case the vouch
+  loop now needs to close.
+
 ### Added (v1.11.0) — a real "Add node" flow: federate + connect in one step
 - **The Cluster page's "Add node" button now does the actual work.** It used to open
   `HostEditorModal` in "add" mode, which just dropped a fake, disconnected client-side host
