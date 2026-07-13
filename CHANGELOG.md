@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.13.0) — per-connection REST reachability (no more one-down-host takeover)
+- **The global connection banner was a single global flag**: `connectionStore.status` flipped to
+  `down` the instant *any* REST call transport-failed, so one unreachable host — a federated peer
+  that's offline, a background `/hosts` fan-out probe to a down node — dimmed the whole shell with
+  "Can't reach Krystal. Live updates are paused" and forced every host's `HostConnection` indicator
+  to "reconnecting", even though the host you were on was perfectly healthy. It also never
+  self-healed while that peer stayed down.
+- **Reachability is now tracked per connection** (`connectionStore.hosts` = `{ [hostId]: "live" |
+  "down" }`) and the global summary is aggregated from it: **`live` when any connection answers,
+  `down` only when every one is unreachable** — mirroring `realtimeStore`'s existing per-host model.
+  `markSuccess`/`markFailure` take the routed `hostId`; the cold-start takeover (`down && !everLoaded`)
+  and the warm banner are unchanged in behaviour for a true full outage. A single down peer now stays
+  contained to its own surfaces (its `StatusChip`/`HostConnection`), never the app-wide banner.
+
 ### Fixed (v1.12.0) — cluster SSO lazy-vouch loop closed
 - **The vouch loop had a dead link: a manually-added auth-enabled peer landed in the host
   registry with `id: null`**, because `connectHost()` returns `needs_auth` from the `/me` 401

@@ -41,11 +41,19 @@ import("./stores.js").then((m) => {
   // 'connecting' (booting), 'live' (reachable), 'down' (unreachable). `everLoaded`
   // separates a COLD start (never succeeded → full takeover) from a WARM drop
   // (succeeded before → non-blocking banner). Updated as a side effect of traffic.
+  //
+  // Reachability is tracked PER CONNECTION (the `hosts` map) and the global summary
+  // is AGGREGATED from it: 'live' when ANY connection answers, 'down' ONLY when every
+  // known connection is unreachable. This mirrors realtimeStore's per-host model —
+  // one down host (a federated peer that's offline, a background fan-out probe that
+  // fails) must never flip the whole shell to "Can't reach Krystal" while the host
+  // you're actually on is fine. Its own surfaces carry the per-host degraded state.
   const connectionStore = createStore({
     status: "connecting",
     everLoaded: false,
     failures: 0,
     retrying: false,
+    hosts: {},   // per-connection reachability: { [hostId]: "live" | "down" }
   });
 
   // ---- realtime channel health (PER-HOST WebSocket + the browser online state) --
@@ -65,14 +73,32 @@ import("./stores.js").then((m) => {
   let online = nav.onLine !== false;
   const realtimeStore = createStore({ online, hosts: {} });
 
-  function markSuccess() {
-    const s = connectionStore.getState();
-    if (s.status !== "live" || !s.everLoaded || s.failures || s.retrying) {
-      connectionStore.setState({ status: "live", everLoaded: true, failures: 0, retrying: false });
-    }
+  // The connection a call routed to; a falsy / aggregate ("all") id folds onto the
+  // sole-connection default key so N=1 (and unscoped calls) attribute consistently.
+  function connKey(hostId) { return (hostId && hostId !== "all") ? hostId : "_default"; }
+  function downCount(hosts) { let n = 0; for (const k in hosts) if (hosts[k] === "down") n++; return n; }
+  // 'live' if any connection is reachable, 'down' only when every one is, else the
+  // cold pre-first-response 'connecting'.
+  function aggregateStatus(hosts) {
+    let anyLive = false, anyDown = false;
+    for (const k in hosts) { if (hosts[k] === "live") anyLive = true; else if (hosts[k] === "down") anyDown = true; }
+    return anyLive ? "live" : (anyDown ? "down" : "connecting");
   }
-  function markFailure() {
-    connectionStore.setState(s => ({ ...s, status: "down", failures: s.failures + 1, retrying: false }));
+  function markSuccess(hostId) {
+    const key = connKey(hostId);
+    const s = connectionStore.getState();
+    // Hot path: this host already live on an already-live warm shell → nothing to change.
+    if (s.hosts[key] === "live" && s.status === "live" && s.everLoaded && !s.retrying) return;
+    const hosts = { ...s.hosts, [key]: "live" };
+    connectionStore.setState({ status: "live", everLoaded: true, failures: downCount(hosts), retrying: false, hosts });
+  }
+  function markFailure(hostId) {
+    const key = connKey(hostId);
+    const s = connectionStore.getState();
+    const hosts = { ...s.hosts, [key]: "down" };
+    // Global 'down' ONLY when no connection is reachable; one down host among healthy
+    // ones keeps the shell live (that host's own surfaces show its degraded state).
+    connectionStore.setState({ status: aggregateStatus(hosts), everLoaded: s.everLoaded, failures: downCount(hosts), retrying: false, hosts });
   }
   function netError() {
     const e = new Error("Can't reach the Krystal backend (network).");
@@ -158,8 +184,8 @@ import("./stores.js").then((m) => {
     let res;
     try {
       res = await fetch(base + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
-    } catch { markFailure(); throw netError(); }
-    markSuccess();                   // the host answered → reachable
+    } catch { markFailure(hostId); throw netError(); }
+    markSuccess(hostId);             // the host answered → reachable
     if (res.status === 204) return null;
     let json = null;
     try { json = await res.json(); } catch { json = null; }
@@ -241,9 +267,9 @@ import("./stores.js").then((m) => {
       res = await fetch(base + "/assistant/turn", { method: "POST", headers, body: JSON.stringify(body), signal });
     } catch (e) {
       if (e && e.name === "AbortError") throw e;
-      markFailure(); throw netError();
+      markFailure(hostId); throw netError();
     }
-    markSuccess();                          // the host answered → reachable
+    markSuccess(hostId);                     // the host answered → reachable
     if (!res.ok) {
       let json = null; try { json = await res.json(); } catch { json = null; }
       throw apiError(res.status, json);     // pre-stream degrade (404/503/502/400)
