@@ -21,6 +21,7 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "fleet")       return <EvidenceFleet       key={i} c={c} />;
         if (c.kind === "network")     return <EvidenceNetwork     key={i} c={c} onOpen={() => onOpenView && onOpenView("cluster")} />;
         if (c.kind === "health")      return <EvidenceHealth      key={i} c={c} />;
+        if (c.kind === "search")      return <EvidenceSearch      key={i} c={c} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
         return null;
@@ -215,6 +216,37 @@ function EvidenceHealth({ c }) {
             <span className="ev-health__detail">{ck.detail}</span>
           </div>
         ))}
+      </div>
+    </EvidenceCardShell>
+  );
+}
+
+function EvidenceSearch({ c }) {
+  const ORIGIN = { local: "file-text", web: "globe" };
+  const title = c.provenance === "web" ? "Web search"
+    : c.provenance === "mixed" ? "Docs & web"
+    : "Indexed docs";
+  const weak = c.state === "localWeak";
+  const q = c.query ? "“" + c.query + "”" : "";
+  return (
+    <EvidenceCardShell icon="search" title={title}
+      sub={weak ? "closest matches for " + q : q}
+      confidence={c.confidence}>
+      <div className="ev-search">
+        {c.passages.map((p, i) => {
+          const label = p.title || p.source || "source";
+          return (
+            <div className={"ev-search__row ev-search__row--" + p.origin} key={i}>
+              <span className="ev-search__icon"><Icon name={ORIGIN[p.origin] || "file-text"} size={11} /></span>
+              <div className="ev-search__body">
+                {p.origin === "web" && p.source
+                  ? <a className="ev-search__src" href={p.source} target="_blank" rel="noopener noreferrer">{label}</a>
+                  : <span className="ev-search__src" title={p.source}>{label}</span>}
+                {p.text && <span className="ev-search__snippet">{p.text}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </EvidenceCardShell>
   );

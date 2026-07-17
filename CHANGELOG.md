@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.15.0) — search results card in chat
+- The assistant's `search` tool now renders a **cited-passages card** in the chat instead of a bare
+  "searching" pill. When a search finds something, the reply carries a `search` Evidence card listing
+  each passage's source (doc path or clickable URL), title, and snippet, with a provenance icon
+  (indexed docs vs web) and a title that reflects where it answered (Indexed docs / Web search /
+  Docs & web). A weak-local answer is labelled "closest matches". An empty / "couldn't search"
+  result surfaces no card (summary-only — honest, never fabricated).
+
 ### Added (v1.14.0) — chat-driven install / uninstall
 - The assistant chat now **runs** an `install` or `uninstall` it proposes, instead of rendering a
   disabled "Not available from the panel yet" card. Confirming an install routes to `POST /servers`

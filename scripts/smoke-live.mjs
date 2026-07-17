@@ -779,6 +779,24 @@ try {
     && fcard.servers[2].reason === "Could not read run-state.",
     "reduceTurnFrame: get_status fleet result → a `fleet` card (running=success, stopped=idle, unreadable=warn+reason)");
 
+  // search (SearchData) → a `search` Evidence card with cited passages + provenance (local vs web).
+  let sm = [{ role: "user", content: "how do I port-forward?" }, { role: "assistant", content: "" }];
+  sm = R(sm, { type: "tool.start", id: "tc_0_0", tool: "search" });
+  sm = R(sm, { type: "tool.result", id: "tc_0_0", summary: "From the operator's indexed docs …",
+    result: { tool: "search", confidence: "confirmed", subject: { resource: "search", id: "port forward" },
+      data: { query: "port forward", state: "localStrong", passages: [
+        { provenance: "local", source: "docs/networking.md", title: "Networking > Ports", text: "Open UDP 2456…", score: 0.82 },
+        { provenance: "web", source: "https://example.org/ports", title: "Port forwarding guide", text: "Forward the port…", score: 0.6 },
+      ] } } });
+  const scard = sm.find((x) => x.role === "assistant").cards[0];
+  assert(scard && scard.kind === "search" && scard.confidence === "confirmed" && scard.query === "port forward"
+    && scard.provenance === "mixed" && scard.state === "localStrong" && scard.passages.length === 2
+    && scard.passages[0].origin === "local" && scard.passages[0].source === "docs/networking.md"
+    && scard.passages[1].origin === "web" && scard.passages[1].source === "https://example.org/ports",
+    "reduceTurnFrame: search result → a `search` card (cited passages, local+web provenance = mixed)");
+  assert(A({ tool: "search", subject: { id: "q" }, data: { query: "q", state: "empty", passages: [] } }) === null,
+    "adaptResultCard: an empty search (no passages) surfaces no card — summary-only, honest");
+
   // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
   // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
   // (origin:"assistant", NO double-write/fabricated audit); the SPA composes the

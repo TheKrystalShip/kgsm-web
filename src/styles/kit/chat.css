@@ -1412,6 +1412,78 @@
   text-overflow: ellipsis;
 }
 
+/* search evidence — cited passages from the indexed docs and/or the web */
+.ev-search {
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ev-search__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 0;
+}
+
+.ev-search__row+.ev-search__row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ev-search__icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  background: var(--surface-3);
+  color: var(--fg-4);
+}
+
+.ev-search__row--web .ev-search__icon {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+.ev-search__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ev-search__src {
+  color: var(--fg-1);
+  font-weight: 600;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+a.ev-search__src {
+  color: var(--info-fg);
+  text-decoration: none;
+}
+
+a.ev-search__src:hover {
+  text-decoration: underline;
+}
+
+.ev-search__snippet {
+  color: var(--fg-3);
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* root-cause chain evidence */
 .ev-chain {
   padding: 8px 12px 12px;

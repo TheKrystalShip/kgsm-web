@@ -49,6 +49,7 @@ const TOOL_LABELS = {
   get_host_diagnostics:"Checking host health",
   trace_root_cause:    "Tracing the root cause",
   server_command:      "Running command",
+  search:              "Searching docs & web",
 };
 function toolLabel(tool) {
   if (!tool) return "Working";
@@ -138,6 +139,28 @@ function adaptResultCard(card) {
         confidence: card.confidence || null,
         summary: parts.join(" \u00b7 ") || (servers.length + " server" + (servers.length === 1 ? "" : "s")),
         servers,
+      };
+    }
+    case "search": {
+      const d = card.data;
+      // A card is only surfaced when the search has passages to cite; empty/failed stays summary-only.
+      if (!d || !Array.isArray(d.passages) || d.passages.length === 0) return null;
+      const passages = d.passages.map(p => ({
+        origin: p.provenance === "web" ? "web" : "local",
+        source: p.source || "",
+        title: p.title || null,
+        text: p.text || "",
+        score: typeof p.score === "number" ? p.score : null,
+      }));
+      const anyLocal = passages.some(p => p.origin === "local");
+      const anyWeb = passages.some(p => p.origin === "web");
+      return {
+        kind: "search",
+        confidence: card.confidence || null,
+        query: d.query || id || "",
+        state: d.state || null,      // "localStrong" | "localWeak" | "web"
+        provenance: anyLocal && anyWeb ? "mixed" : anyWeb ? "web" : "local",
+        passages,
       };
     }
     default:
