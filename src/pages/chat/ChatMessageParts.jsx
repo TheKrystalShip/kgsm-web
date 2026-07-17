@@ -70,7 +70,8 @@ function ChatCommand({ msg, onRun }) {
   const [armed, setArmed] = React.useState(false);
   const meta = commandMeta(msg.verb);
   const apiBacked = API_COMMAND_VERBS.has(msg.verb);
-  const target = msg.subjectId || "this server";
+  // Install's subject is the blueprint; prefer the custom instance name the user asked for when set.
+  const target = msg.instanceName || msg.subjectId || "this server";
 
   if (msg.state === "confirmed") {
     return (

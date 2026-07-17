@@ -802,9 +802,25 @@ try {
     "reduceTurnFrame: done moves the command card BELOW the reply (reply → action)");
 
   // (2) verb gating — API-backed vs proposed-but-not-executable (spec §6 matrix).
-  assert(["start", "stop", "restart", "open_ports"].every((v) => AV.has(v))
-    && !AV.has("update") && !AV.has("install") && !AV.has("backup") && !AV.has("set_config"),
-    "command verbs: start/stop/restart/open_ports are API-backed; update/install/backup/set_config are not");
+  assert(["start", "stop", "restart", "open_ports", "install", "uninstall"].every((v) => AV.has(v))
+    && !AV.has("update") && !AV.has("backup") && !AV.has("set_config"),
+    "command verbs: start/stop/restart/open_ports/install/uninstall are API-backed; update/backup/set_config are not");
+
+  // (2b) install proposal — subject is a BLUEPRINT and the custom name rides its own field.
+  let im = [{ role: "user", content: "install factorio called mybase" }, { role: "assistant", content: "" }];
+  im = R(im, { type: "command.proposed", id: "cmd_i", verb: "install",
+    subject: { resource: "blueprint", id: "factorio" }, instanceName: "mybase",
+    confirm: "Install factorio?", token: "tok_inert" });
+  const icard = im.find((x) => x.role === "command");
+  assert(icard && icard.verb === "install" && icard.subjectId === "factorio" && icard.instanceName === "mybase",
+    "reduceTurnFrame: install proposal keeps the blueprint as subject and the custom name in instanceName");
+
+  const okI = CV("install", "mybase", { status: "succeeded" });
+  assert(okI.ok === true && /Installed mybase/.test(okI.headline),
+    "composeVerified: install succeeded → 'Installed mybase' (no fabricated id)");
+  const okU = CV("uninstall", "factorio-test", { status: "succeeded" });
+  assert(okU.ok === true && /Uninstalled factorio-test/.test(okU.headline),
+    "composeVerified: uninstall succeeded → 'Uninstalled factorio-test'");
 
   // (3) command.verified composition (SPA-side, honest).
   const okV = CV("start", "factorio-test", { status: "succeeded" });
@@ -851,6 +867,44 @@ try {
     "confirmCommand: WS job.patch (succeeded) resolves the verify via awaitJob (job-id correlation)");
   assert(st.auditStore.getState().list.length === auditLenBefore,
     "LIVE confirm does NOT fabricate an audit row (backend writes it from the kgsm echo — no double-write)");
+
+  // (4b) install / uninstall glue — the two verbs that ride their own REST endpoints
+  // (POST /servers, DELETE /servers/{id}) rather than /servers/{id}/commands, both
+  // stamped origin:"assistant" and awaited to a terminal outcome like any other verb.
+  let instCap = null, unCap = null;
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    const method = (opts && opts.method) || "GET";
+    if (method === "POST" && /\/api\/v1\/servers$/.test(u)) {
+      instCap = { url: u, body: JSON.parse(opts.body || "null") };
+      return new Response(JSON.stringify({ job: { id: "job_inst", serverId: "mybase", verb: "install", state: "queued", error: null } }),
+        { status: 202, headers: { "content-type": "application/json" } });
+    }
+    if (method === "DELETE" && /\/api\/v1\/servers\/factorio-test(\?|$)/.test(u)) {
+      unCap = { url: u };
+      return new Response(JSON.stringify({ job: { id: "job_un", serverId: "factorio-test", verb: "uninstall", state: "queued", error: null } }),
+        { status: 202, headers: { "content-type": "application/json" } });
+    }
+    return realFetch(url, opts);
+  };
+  const instP = st.confirmInstall({ game: { id: "factorio" }, name: "mybase", hostId: hmId });
+  await sleep(20);
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_inst", serverId: "mybase", verb: "install", state: "succeeded", error: null } });
+  const instSettled = await instP;
+  const unP = st.confirmUninstall(hmId, "factorio-test");
+  await sleep(20);
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_un", serverId: "factorio-test", verb: "uninstall", state: "succeeded", error: null } });
+  const unSettled = await unP;
+  globalThis.fetch = realFetch;
+  assert(instCap && instCap.url.endsWith("/api/v1/servers")
+    && instCap.body.blueprint === "factorio" && instCap.body.name === "mybase" && instCap.body.origin === "assistant",
+    "confirmInstall → POST /servers { blueprint, name, origin:'assistant' } and awaits the job");
+  assert(instSettled.status === "succeeded" && instSettled.jobId === "job_inst",
+    "confirmInstall: WS job.patch (succeeded) resolves the verify via awaitJob");
+  assert(unCap && /\/api\/v1\/servers\/factorio-test\?origin=assistant$/.test(unCap.url),
+    "confirmUninstall → DELETE /servers/{id}?origin=assistant and awaits the job");
+  assert(unSettled.status === "succeeded" && unSettled.jobId === "job_un",
+    "confirmUninstall: WS job.patch (succeeded) resolves the verify via awaitJob");
 
   // (5) awaitJob race-free — a terminal frame already in the store before we await
   // still resolves (check-current-then-subscribe; no missed-frame window).

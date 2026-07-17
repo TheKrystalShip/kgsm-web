@@ -4,7 +4,7 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
-import { confirmCommand, serversStore } from "../lib/stores.js";
+import { confirmCommand, confirmInstall, confirmUninstall, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 
 // Imports from extracted modules
@@ -288,10 +288,15 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
 
   const runLiveCommand = (card) => {
     if (!API_COMMAND_VERBS.has(card.verb)) return;
-    const found = serversStore.getState().list.find(s => s.id === card.subjectId) || null;
+    const isInstall = card.verb === "install";
+    // Install targets a blueprint (subject.id is the blueprint, not an existing instance); the rest
+    // target an existing server. Resolve the host from the instance where there is one, else the
+    // host the assistant is running on (install always lands on the assistant's own host).
+    const found = isInstall ? null : (serversStore.getState().list.find(s => s.id === card.subjectId) || null);
     const hostId = (found && found.hostId) || (assistantHost && assistantHost.id) || null;
-    const server = { id: card.subjectId, hostId };
-    const serverName = (found && found.name) || card.subjectId;
+    const serverName = isInstall
+      ? (card.instanceName || card.subjectId)
+      : (found && found.name) || card.subjectId;
     const meta = commandMeta(card.verb);
     const verifyId = uid();
     setMessages(msgs => {
@@ -302,7 +307,15 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     });
     const resolveVerify = (result) =>
       setMessages(msgs => msgs.map(m => (m.role === "verify" && m.id === verifyId) ? { ...m, state: "done", result } : m));
-    confirmCommand(server, card.verb).then(
+    // install → POST /servers, uninstall → DELETE /servers/{id}, everything else → the M3 command
+    // path. All three return a job the SPA awaits to a terminal outcome, then composes the same
+    // client-side command.verified block (never fabricating success from the 202 alone).
+    const run = isInstall
+      ? confirmInstall({ game: { id: card.subjectId }, name: card.instanceName || undefined, hostId })
+      : card.verb === "uninstall"
+        ? confirmUninstall(hostId, card.subjectId)
+        : confirmCommand({ id: card.subjectId, hostId }, card.verb);
+    run.then(
       settled => resolveVerify(composeVerified(card.verb, serverName, settled)),
       err => {
         const expired = err && err.code === 401;

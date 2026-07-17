@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.14.0) — chat-driven install / uninstall
+- The assistant chat now **runs** an `install` or `uninstall` it proposes, instead of rendering a
+  disabled "Not available from the panel yet" card. Confirming an install routes to `POST /servers`
+  (`confirmInstall`), an uninstall to `DELETE /servers/{id}` (`confirmUninstall`), both stamped
+  `origin:"assistant"` and awaited to a terminal outcome — the same confirm-then-verify flow as the
+  lifecycle verbs. `install`/`uninstall` join `API_COMMAND_VERBS`.
+- A **named install** lands the name the user asked for. `command.proposed`'s `subject.id` is the
+  blueprint for an install, so the custom instance name rides its own `instanceName` field (added to
+  the assistant SSE contract) and is passed through to `POST /servers { name }`; the proposal card and
+  verify block surface it. An unnamed install falls back to kgsm's auto-naming.
+
 ### Fixed (v1.13.2) — two more call-site prop mismatches (same class as the install-modal bug)
 - **Host re-authorize modal was inert.** `App.jsx` mounted `<HostReauthModal>` with `hostId=` (a
   string) and `onExpired=`, but the component's contract is `host=` (an object) and `onDone=`. So

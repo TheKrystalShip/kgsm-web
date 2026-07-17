@@ -223,10 +223,30 @@ function confirmCommand(server, verb) {
 function installServer(cfg) {
   const hostId = (cfg && cfg.hostId) || (hostsStore.getState().list[0] || {}).id || null;
   if (!hostId) return Promise.reject(new Error("installServer: hostId required"));
-  const body = { blueprint: cfg.game.id, name: cfg.name, origin: "ui" };
+  const body = { blueprint: cfg.game.id, name: cfg.name, origin: (cfg && cfg.origin) || "ui" };
   const port = Number(cfg.port);
   if (Number.isInteger(port) && port >= 1 && port <= 65535) body.port = port;
   return api.host(hostId).post("/servers", body);
+}
+
+// Assistant-driven create/delete: POST /servers (install) or DELETE /servers/{id} (uninstall),
+// then await the returned job to a terminal outcome — the confirmCommand shape for the two verbs
+// that ride their own REST endpoints rather than /servers/{id}/commands. Both endpoints are async
+// (202 + a job); a missing job degrades to a "sent" outcome, never a fabricated success.
+function confirmInstall(cfg) {
+  return installServer({ ...cfg, origin: "assistant" }).then(resp => {
+    const job = resp && resp.job;
+    if (!job || !job.id) return { status: "sent", jobId: null };
+    return awaitJob(job.id, cfg && cfg.hostId).then(r => ({ ...r, jobId: job.id }));
+  });
+}
+
+function confirmUninstall(hostId, serverId) {
+  return deleteServer(hostId, serverId, "assistant").then(resp => {
+    const job = resp && resp.job;
+    if (!job || !job.id) return { status: "sent", jobId: null };
+    return awaitJob(job.id, hostId).then(r => ({ ...r, jobId: job.id }));
+  });
 }
 
 // ---- Settings (Phase 0) -------------------------------------------------
@@ -244,5 +264,6 @@ function deleteServer(hostId, serverId, origin) {
 export {
   __setJobTiming, serversStore, jobsStore, resolveGameNames,
   commandServer, sendConsoleInput, awaitJob, confirmCommand, installServer,
+  confirmInstall, confirmUninstall,
   fetchSettings, patchSettings, deleteServer,
 };

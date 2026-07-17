@@ -56,7 +56,7 @@ function toolLabel(tool) {
 }
 
 // ---------- command verified (compose client-side from M3 job outcome) ----------
-const VERB_PAST = { start: "Started", stop: "Stopped", restart: "Restarted" };
+const VERB_PAST = { start: "Started", stop: "Stopped", restart: "Restarted", install: "Installed", uninstall: "Uninstalled" };
 function composeVerified(verb, serverName, settled) {
   const s = settled || {};
   if (s.status === "unknown") {
@@ -193,6 +193,9 @@ function reduceTurnFrame(messages, ev) {
         verb: ev.verb,
         subjectId: ev.subject ? ev.subject.id : null,
         subjectResource: (ev.subject && ev.subject.resource) || "server",
+        // Install targets a blueprint (subject.id is the blueprint); the optional custom instance
+        // name the user asked for rides its own field so a named install lands the name.
+        instanceName: ev.instanceName || null,
         confirm: ev.confirm || (commandMeta(ev.verb).label + "?"),
         reason: ev.reason || null,
         state: "proposed",

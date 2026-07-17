@@ -2,7 +2,7 @@
 // Separated from chatUtils.js so components can import constants without
 // pulling in the heavier pure functions.
 
-const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports"]);
+const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports", "install", "uninstall"]);
 const COMMAND_META = {
   start:      { label: "Start",         icon: "play",      tone: "success" },
   stop:       { label: "Stop",          icon: "square",    tone: "danger" },
