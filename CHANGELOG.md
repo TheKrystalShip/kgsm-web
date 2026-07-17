@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.13.2) — two more call-site prop mismatches (same class as the install-modal bug)
+- **Host re-authorize modal was inert.** `App.jsx` mounted `<HostReauthModal>` with `hostId=` (a
+  string) and `onExpired=`, but the component's contract is `host=` (an object) and `onDone=`. So
+  `host.id` was `undefined`, the Re-authorize button's handler early-returned (`if (…|| !id …) return`)
+  and did nothing, and the dialog showed the generic "this host" instead of the host's name. Now
+  resolves the host object from the store and wires `onDone` to reload (the app's session-change
+  convention), so a lapsed per-host session can actually be renewed.
+- **Docked assistant evidence links were dead.** The docked `<ChatPage>` omitted `onOpenServer`/
+  `onOpenView` (the full-screen instance passes them), so clicking "Open server"/"Open" on an
+  assistant evidence card in the dock did nothing (silently guarded, no crash). Now threaded through
+  to match the full-screen assistant.
+
 ### Fixed (v1.13.1) — install modal Confirm did nothing
 - **Clicking Install in the game-server install modal silently failed** with a `TypeError` in the
   console and no visible effect. `App.jsx` mounted `<InstallModal>` with `onConfirm=`/`defaultHost=`,

@@ -343,6 +343,8 @@ function AppInner({ user, setUser, route, setRoute }) {
             onClose={() => setAssistantOpen(false)}
             onExpand={desktop ? () => { setAssistantOpen(false); setChatFullscreen(true); } : undefined}
             onNavigate={handleAssistantNavigate}
+            onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
+            onOpenView={openView}
             getServerState={dock.getServerState}
             assistantHost={assistantHost}
             assistantHosts={assistantHostList}
@@ -385,9 +387,9 @@ function AppInner({ user, setUser, route, setRoute }) {
 
       {reauthHostId && (
         <HostReauthModal
-          hostId={reauthHostId}
+          host={hosts.find(h => h.id === reauthHostId) || { id: reauthHostId }}
           onClose={() => setReauthHostId(null)}
-          onExpired={() => { handleLogout(); setReauthHostId(null); }}
+          onDone={() => window.location.reload()}
         />
       )}
 
