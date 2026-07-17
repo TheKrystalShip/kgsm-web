@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.13.1) — install modal Confirm did nothing
+- **Clicking Install in the game-server install modal silently failed** with a `TypeError` in the
+  console and no visible effect. `App.jsx` mounted `<InstallModal>` with `onConfirm=`/`defaultHost=`,
+  but the component's contract is `onInstall=`/`defaultHostId=` — so on submit it called an
+  `undefined` handler (`onInstall is not a function`) and the install never fired. Renamed the two
+  props at the call site to match the component; the requested-host default now threads through too.
+
 ### Fixed (v1.13.0) — per-connection REST reachability (no more one-down-host takeover)
 - **The global connection banner was a single global flag**: `connectionStore.status` flipped to
   `down` the instant *any* REST call transport-failed, so one unreachable host — a federated peer

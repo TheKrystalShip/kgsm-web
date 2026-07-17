@@ -398,8 +398,8 @@ function AppInner({ user, setUser, route, setRoute }) {
             const s = sessionsByHost[h.id];
             return h.online && canOn("server.manage", h.id) && (!s || !s.denied);
           })}
-          defaultHost={selectedHostId !== "all" ? selectedHostId : (hosts[0] && hosts[0].id)}
-          onConfirm={confirmInstall}
+          defaultHostId={selectedHostId !== "all" ? selectedHostId : (hosts[0] && hosts[0].id)}
+          onInstall={confirmInstall}
           onClose={() => setInstalling(null)}
         />
       )}
