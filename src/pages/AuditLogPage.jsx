@@ -1,12 +1,12 @@
 import React from "react";
-import { AuditActor } from "../components/AuditActor.jsx";
+import { AuditEventRow } from "../components/AuditEventRow.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
-import { auditEventHost, auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // AuditLogPage — searchable, filterable timeline of every action taken on
 // Krystal. Same data feeds the small "Recent activity" panel on the
@@ -71,50 +71,6 @@ function auditServerParams({ severity, server, actor, range, category } = {}, no
 }
 
 // ---------- Components ----------
-
-function AuditEventRow({ ev, now, hosts }) {
-  const meta = ACTION_META[ev.action] || { label: ev.action, icon: "circle-dot", tone: "info" };
-  const date = parseTs(ev.ts);
-  // Render meta dictionary as compact "key=value" chips, but skip a few
-  // ones already covered in the summary so we don't double-print.
-  const metaEntries = Object.entries(ev.meta || {});
-  // Host provenance: explicit hostId / derived from server / null = panel-wide.
-  const hostId = auditEventHost(ev);
-  const host = hostId ? (hosts || []).find(h => h.id === hostId) : null;
-
-  return (
-    <div className="audit-row">
-      <AuditActor actor={ev.actor} />
-      <div className="audit-row__main">
-        <div className="audit-row__line">
-          <span className="audit-row__actor">{ev.actor.name}</span>
-          {" "}
-          <span className="audit-row__summary">{ev.summary}</span>
-        </div>
-        <div className="audit-row__meta">
-          <span className={"audit-pill audit-pill--" + meta.tone}>
-            <Icon name={meta.icon} size={11} strokeWidth={2.2} className="audit-pill__icon" />
-            {ev.action}
-          </span>
-          <span className={"audit-row__host" + (hostId ? "" : " audit-row__host--panel")} title={hostId ? "Host: " + (host ? host.name : hostId) : "Panel-wide event"}>
-            <Icon name={hostId ? "server" : "layers"} size={10} strokeWidth={2.2} />
-            {hostId ? (host ? host.name : hostId) : "panel"}
-          </span>
-          {metaEntries.map(([k, v]) => (
-            <span key={k} className="audit-row__chip"><b>{k}:</b> {String(v)}</span>
-          ))}
-          {ev.origin && (
-            <span className="audit-row__origin"><Icon name="circle-arrow-out-up-right" size={10} strokeWidth={2.2} /> {ev.origin}</span>
-          )}
-        </div>
-      </div>
-      <div className="audit-row__when" title={date.toLocaleString()}>
-        <span className="audit-row__time">{fmtTime(date)}</span>
-        <span className="audit-row__rel">{fmtRelative(date, now)}</span>
-      </div>
-    </div>
-  );
-}
 
 // "Load older events" — shown only when the keyset cursor has rows older than
 // the loaded window (auditStore.nextCursor != null). It discloses that the loaded

@@ -152,6 +152,77 @@ function auditEventRow(e, fleetWide) {
     rel: ts && !isNaN(ts.getTime()) ? fmtRelative(ts) : "",
   };
 }
+
+// The raw kgsm engine event-type → the dotted audit action + summary wording kgsm-api's read-time
+// shaping (MonitorEventShaping.Shape) emits for the SAME event. Mirroring it here lets the chat
+// "Recent events" card render each event as the exact shared `.audit-row` the Audit page and
+// dashboard show — one consistent activity design across the app. The assistant reads the monitor's
+// raw engine store directly (leaf independence — it never runs kgsm-api's shaping), so the mapping
+// has to live on this side too. An unmapped type falls back to `engine.<type>` (kgsm-api's own
+// GenericShape fallback), which ACTION_META renders with the neutral circle-dot pill exactly as the
+// audit page does — so a future kgsm event still shows up, never guessed into a wrong meaning.
+const RAW_EVENT_ACTION = {
+  instance_started:         { action: "server.start",       summary: (i) => "started " + i },
+  instance_stopped:         { action: "server.stop",        summary: (i) => "stopped " + i },
+  instance_restarted:       { action: "server.restart",     summary: (i) => "restarted " + i },
+  instance_uninstalled:     { action: "server.uninstall",   summary: (i) => "uninstalled " + i },
+  instance_version_updated: { action: "server.update",      summary: (i) => "updated " + i },
+  instance_installed:       { action: "server.install",     summary: (i) => "installed " + i },
+  instance_backup_created:  { action: "backup.create",      summary: (i) => "backed up " + i },
+  instance_backup_restored: { action: "backup.restore",     summary: (i) => "restored backup for " + i },
+  instance_crashed:         { action: "server.crash",       summary: (i) => i + " crashed — auto-restarting" },
+  instance_failed:          { action: "server.crash",       summary: (i) => i + " crashed — supervisor gave up" },
+  instance_ports_opened:    { action: "network.ports.open", summary: (i) => "opened ports for " + i },
+  instance_ports_closed:    { action: "network.ports.close",summary: (i) => "closed ports for " + i },
+  instance_upnp_opened:     { action: "network.upnp.open",  summary: (i) => "forwarded router ports for " + i },
+  instance_upnp_closed:     { action: "network.upnp.close", summary: (i) => "removed router forwards for " + i },
+  instance_player_joined:   { action: "player.join",        summary: (i) => "a player joined " + i },
+  instance_player_left:     { action: "player.leave",       summary: (i) => "a player left " + i },
+  instance_config_changed:  { action: "config.set",         summary: (i) => "changed config for " + i },
+  instance_input_sent:      { action: "console.input",      summary: (i) => "sent a console command to " + i },
+};
+
+// Mirror of kgsm-api ParseActor so the same event resolves the same actor on both surfaces:
+// `provider:name` → discord=user, api=token, system=system, an unrecognized provider keeps the name
+// as a user; a bare "system" (or a null actor — kgsm's defensive default) is the autonomous engine;
+// any other bare string is the local OS user. Never fabricated beyond that defensive default.
+function parseAuditActor(flat) {
+  const s = (flat || "").trim();
+  if (!s) return { name: "system", kind: "system" };
+  const colon = s.indexOf(":");
+  if (colon > 0 && colon < s.length - 1) {
+    const provider = s.slice(0, colon).toLowerCase();
+    const name = s.slice(colon + 1);
+    if (provider === "discord") return { name, kind: "user" };
+    if (provider === "api")     return { name, kind: "token" };
+    if (provider === "system")  return { name, kind: "system" };
+    return { name, kind: "user" };
+  }
+  return s.toLowerCase() === "system" ? { name: "system", kind: "system" } : { name: s, kind: "user" };
+}
+
+// One raw engine event (the monitor's GET /events row, relayed verbatim by the assistant as
+// { id, ts, type, instance, actor, origin }) → the standard `ev` audit-record shape the shared
+// AuditEventRow renders, shaped to match kgsm-api's /audit output for the same event. `id` is the
+// deterministic AuditId the monitor stores (== the id /audit returns), so it's a stable React key.
+function auditEventToRecord(e) {
+  const instance = (e && e.instance) || null;
+  const shape = (e && RAW_EVENT_ACTION[e.type]) || null;
+  const action = shape ? shape.action : "engine." + String((e && e.type) || "event");
+  const summary = shape
+    ? shape.summary(instance || "a server")
+    : String((e && e.type) || "event").replace(/_/g, " ");
+  return {
+    id: (e && e.id) || (action + ":" + (e && e.ts)),
+    ts: e && e.ts ? String(e.ts) : "",
+    action,
+    actor: parseAuditActor(e && e.actor),
+    summary,
+    origin: (e && e.origin) || null,
+    serverId: instance,
+    meta: {},
+  };
+}
 function adaptResultCard(card) {
   if (!card || !card.tool) return null;
   const id = (card.subject && card.subject.id) || null;
@@ -249,7 +320,9 @@ function adaptResultCard(card) {
     case "get_audit_log": {
       const d = card.data;
       if (!d) return null;
-      const fleetWide = !d.instance;
+      // Normalize each raw engine event into the standard `ev` audit shape so the card renders the
+      // shared AuditEventRow — the same row the Audit page and dashboard use (host chip resolves
+      // itself off serverId, so no fleet-wide flag is threaded here).
       return {
         kind: "audit",
         serverId: d.instance || null,
@@ -257,7 +330,7 @@ function adaptResultCard(card) {
         confidence: card.confidence || null,
         windowLabel: typeof d.window === "string" ? "last " + d.window : "",
         available: d.state === "available",
-        events: Array.isArray(d.events) ? d.events.map((e) => auditEventRow(e, fleetWide)) : [],
+        events: Array.isArray(d.events) ? d.events.map(auditEventToRecord) : [],
       };
     }
     case "get_change_timeline": {

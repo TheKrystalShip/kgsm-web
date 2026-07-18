@@ -1695,6 +1695,14 @@ a.ev-search__src:hover {
   align-self: center;
 }
 
+/* "Recent events" (get_audit_log) reuses the shared .audit-row so chat activity matches the Audit
+   page and dashboard. The rows bring their own padding + dividers; this wrapper just stacks them
+   flush to the card edges (the .ev-card clips its rounded corners). */
+.ev-audit {
+  display: flex;
+  flex-direction: column;
+}
+
 /* honest empty / monitor-unavailable state for get_audit_log / get_change_timeline —
    a real "nothing recorded" or "couldn't read" message, never a blank card. */
 .ev-changes__empty {

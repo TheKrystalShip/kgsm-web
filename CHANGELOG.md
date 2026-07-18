@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.20.0) — assistant "Recent events" card reuses the shared audit row
+- The assistant chat's **"Recent events"** evidence card (`get_audit_log`) now renders the same
+  `AuditEventRow` the full Audit page and the dashboard "Recent activity" panel use — actor avatar,
+  actor + summary line, severity-toned action pill, host-provenance chip, origin, and time/relative
+  columns — instead of a bespoke compact list. One activity design across the whole app.
+- Extracted that row into a shared `components/AuditEventRow.jsx`, collapsing the near-duplicate
+  copies that lived inside `AuditLogPage` and `RecentActivity`. It takes the standard `ev` audit
+  shape plus `avatarSize` / `showMeta` / `onClick` so the full-page (28px avatar + meta chips) and
+  compact (24px, no chips, click-through) variants share one implementation.
+- The chat card normalizes each raw kgsm engine event (`instance_started`, …) into that `ev` shape,
+  mirroring kgsm-api's read-time shaping (`MonitorEventShaping` raw→dotted action + `ParseActor`
+  actor kind) so the same underlying event renders identically on both surfaces; an unmapped type
+  falls back to `engine.<type>` with the neutral pill, exactly as `/audit` does. The two honest
+  non-list states (monitor-unreachable, measured-empty) are preserved.
+
 ### Added (v1.19.0) — root-cause card in chat (the capstone aggregator)
 - The assistant's `trace_root_cause` tool — a deterministic aggregator that composes one server's
   event timeline, resource-usage window, and health snapshot against a rules table of known KGSM
