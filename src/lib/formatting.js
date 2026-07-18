@@ -98,6 +98,28 @@ const CATEGORY_LABEL = {
   host:     "Hosts",
 };
 
+// ---------- Byte & rate formatting ----------
+
+// Binary units for live resource readouts. Null / non-finite → an em-dash;
+// callers that want a distinct "not measured" treatment check for null first
+// and never let these coerce a missing metric into "0 B".
+const KIB = 1024, MIB = 1024 * 1024, GIB = 1024 * 1024 * 1024;
+
+function formatBytes(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n >= GIB) return (n / GIB).toFixed(2) + " GiB";
+  if (n >= MIB) return (n / MIB).toFixed(1) + " MiB";
+  if (n >= KIB) return (n / KIB).toFixed(0) + " KiB";
+  return Math.round(n) + " B";
+}
+
+function formatBps(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n >= MIB) return (n / MIB).toFixed(1) + " MiB/s";
+  if (n >= KIB) return (n / KIB).toFixed(0) + " KiB/s";
+  return Math.round(n) + " B/s";
+}
+
 // ---------- Footprint ----------
 
 function fmtFootprintMb(mb) {
@@ -113,6 +135,8 @@ export {
   ACTION_META,
   CATEGORY_LABEL,
   actionCategory,
+  formatBytes,
+  formatBps,
   fmtFootprintMb,
   fmtRelative,
   fmtTime,

@@ -141,6 +141,47 @@ function adaptResultCard(card) {
         servers,
       };
     }
+    case "get_performance": {
+      // Two shapes from the same tool: a live SNAPSHOT (current values, no time-series)
+      // or a windowed TREND (a per-metric series → a chart). The presence of a non-empty
+      // `series` is what distinguishes them. Either way an unmeasured field is null and
+      // stays null (never coerced to 0).
+      const d = card.data;
+      if (!d) return null;
+      const num = (v) => (typeof v === "number" ? v : null);
+
+      // Trend: the card carries a per-metric time series over `range` → render a chart.
+      const series = d.series && typeof d.series === "object" ? d.series : null;
+      const hasSeries = series && Object.values(series).some(
+        (pts) => Array.isArray(pts) && pts.length > 0);
+      if (hasSeries) {
+        return {
+          kind: "performance",
+          mode: "trend",
+          serverId: id,
+          serverName: id || "this server",
+          confidence: card.confidence || null,
+          range: typeof d.range === "string" ? d.range : null,
+          series,
+        };
+      }
+
+      return {
+        kind: "performance",
+        mode: "snapshot",
+        serverId: id,
+        serverName: id || "this server",
+        confidence: card.confidence || null,
+        cpuPctCore: num(d.cpuPctCore),
+        memBytes:   num(d.memBytes),
+        rxBps:      num(d.rxBps),
+        txBps:      num(d.txBps),
+        ioReadBps:  num(d.ioReadBps),
+        ioWriteBps: num(d.ioWriteBps),
+        diskBytes:  num(d.diskBytes),
+        pids:       num(d.pids),
+      };
+    }
     case "search": {
       const d = card.data;
       // A card is only surfaced when the search has passages to cite; empty/failed stays summary-only.

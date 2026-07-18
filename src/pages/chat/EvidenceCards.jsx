@@ -4,7 +4,7 @@
 
 import { Icon } from "../../components/Icon.jsx";
 import { TimeSeriesChart } from "../../components/TimeSeriesChart.jsx";
-import { ACTION_META } from "../../lib/formatting.js";
+import { formatBytes, formatBps } from "../../lib/formatting.js";
 
 function ChatEvidence({ cards, onOpenServer, onOpenView }) {
   if (!cards || !cards.length) return null;
@@ -68,33 +68,77 @@ function EvidenceCardShell({ icon, title, sub, onOpen, openLabel, children, conf
   );
 }
 
+// The primary axes worth charting on a trend card, in display order. Keyed by the
+// monitor's metric names; each gets a label, a token color, and a value formatter.
+const PERF_TREND_METRICS = [
+  { metric: "cpuPctCore", icon: "cpu",          label: "CPU",    color: "var(--krystal-teal)", fmt: (v) => (v == null || !isFinite(v) ? "\u2014" : v.toFixed(1) + "%") },
+  { metric: "memBytes",   icon: "memory-stick", label: "Memory", color: "var(--info)",         fmt: (v) => (v == null || !isFinite(v) ? "\u2014" : formatBytes(v)) },
+];
+
 function EvidencePerformance({ c, onOpen }) {
-  return (
-    <EvidenceCardShell icon="line-chart" title={c.metric.label + " \u00b7 " + c.serverName} sub={c.caption}
-      confidence={c.confidence} onOpen={onOpen} openLabel="Open Performance">
-      <div className="ev-chart">
-        <TimeSeriesChart
-          range="1h"
-          height={96}
-          yMin={0}
-          yMax={c.yMax || undefined}
-          series={[{ key: c.metric.key, color: c.metric.color, fill: true, values: c.values }]}
-          anomalies={[c.anomaly]} />
-      </div>
-      {c.correlated && (
-        <div className="ev-correlate">
-          <Icon name="link-2" size={11} />
-          <span className="ev-correlate__text">
-            Lines up with <b>{c.correlated.summary}</b>
-          </span>
-          {ACTION_META[c.correlated.action] && (
-            <span className={"audit-pill audit-pill--" + ACTION_META[c.correlated.action].tone}>
-              <Icon name={ACTION_META[c.correlated.action].icon} size={10} strokeWidth={2.2} className="audit-pill__icon" />
-              {c.correlated.action}
-            </span>
-          )}
+  // Trend read: the card carries a per-metric time series \u2192 render a chart per
+  // primary axis (honest now that the monitor owns history). A metric with no
+  // points is simply omitted (never a fabricated flat line).
+  if (c.mode === "trend") {
+    const charts = PERF_TREND_METRICS
+      .map((m) => ({ ...m, points: Array.isArray(c.series?.[m.metric]) ? c.series[m.metric] : [] }))
+      .filter((m) => m.points.length > 0);
+    return (
+      <EvidenceCardShell icon="activity" title={"Resource trend \u00b7 " + c.serverName}
+        sub={c.range ? "last " + c.range : "trend"}
+        confidence={c.confidence} onOpen={onOpen} openLabel="Open Performance">
+        <div className="ev-perf-trend">
+          {charts.length === 0 ? (
+            <div className="ev-perf__na">no trend recorded for this window</div>
+          ) : charts.map((ch) => (
+            <div className="ev-perf-trend__chart" key={ch.metric}>
+              <div className="ev-perf-trend__head">
+                <Icon name={ch.icon} size={12} /> <span>{ch.label}</span>
+              </div>
+              <TimeSeriesChart
+                series={[{ key: ch.metric, color: ch.color, fill: true, label: ch.label, fmt: ch.fmt,
+                           values: ch.points.map((p) => p.value) }]}
+                times={ch.points.map((p) => Date.parse(p.ts))}
+                range={c.range || "24h"}
+                height={90} />
+            </div>
+          ))}
         </div>
-      )}
+      </EvidenceCardShell>
+    );
+  }
+
+  // A live snapshot readout. A null field is "not measured" (muted), never rendered as 0.
+  const na = <span className="ev-perf__na">not measured</span>;
+  const pair = (a, b) => {
+    if (a == null && b == null) return na;
+    return (
+      <span className="ev-perf__pair">
+        <Icon name="arrow-down" size={10} strokeWidth={2.2} /> {a == null ? "\u2014" : formatBps(a)}
+        <Icon name="arrow-up" size={10} strokeWidth={2.2} style={{ marginLeft: 4 }} /> {b == null ? "\u2014" : formatBps(b)}
+      </span>
+    );
+  };
+  const rows = [
+    { icon: "cpu",          label: "CPU",            value: c.cpuPctCore == null ? na : c.cpuPctCore + "% of one core" },
+    { icon: "memory-stick", label: "Memory",         value: c.memBytes == null ? na : formatBytes(c.memBytes) },
+    { icon: "arrow-down-up",label: "Network",        value: pair(c.rxBps, c.txBps) },
+    { icon: "hard-drive",   label: "Disk I/O",       value: pair(c.ioReadBps, c.ioWriteBps) },
+    { icon: "list",         label: "Processes",      value: c.pids == null ? na : String(c.pids) },
+  ];
+  if (c.diskBytes != null) rows.push({ icon: "database", label: "Disk footprint", value: formatBytes(c.diskBytes) });
+  return (
+    <EvidenceCardShell icon="activity" title={"Resource usage \u00b7 " + c.serverName} sub="live snapshot"
+      confidence={c.confidence} onOpen={onOpen} openLabel="Open Performance">
+      <div className="ev-perf">
+        {rows.map((r, i) => (
+          <div className="ev-perf__row" key={i}>
+            <span className="ev-perf__icon"><Icon name={r.icon} size={12} /></span>
+            <span className="ev-perf__label">{r.label}</span>
+            <span className="ev-perf__value">{r.value}</span>
+          </div>
+        ))}
+      </div>
     </EvidenceCardShell>
   );
 }

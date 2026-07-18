@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.17.0) — resource-usage card in chat (snapshot + trend chart)
+- The assistant's `get_performance` tool renders a **resource-usage card** in the chat in one of two
+  shapes, chosen by the tool result:
+  - **Snapshot** (a point-in-time question) — a compact readout of one server's CPU (% of one core),
+    memory, network (↓ rx / ↑ tx), disk I/O (↓ read / ↑ write), process count, and — when reported —
+    disk footprint. Each value is in binary units; an unmeasured field renders a muted "not measured",
+    never `0`.
+  - **Trend** (a "how has X been doing over the last …?" question) — a **chart** per primary axis
+    (CPU, memory) drawn with `TimeSeriesChart` from the windowed history the card carries. Honest now
+    that kgsm-monitor owns metrics history: an empty window renders "no trend recorded" rather than a
+    fabricated flat line.
+  The card deep-links to the server's Performance tab.
+
 ### Added (v1.15.0) — search results card in chat
 - The assistant's `search` tool now renders a **cited-passages card** in the chat instead of a bare
   "searching" pill. When a search finds something, the reply carries a `search` Evidence card listing

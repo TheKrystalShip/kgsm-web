@@ -1484,6 +1484,91 @@ a.ev-search__src:hover {
   overflow: hidden;
 }
 
+/* resource-usage snapshot evidence — the latest live metrics frame, no history */
+.ev-perf {
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ev-perf__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12.5px;
+}
+
+.ev-perf__row+.ev-perf__row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ev-perf__icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--fg-4);
+}
+
+.ev-perf__label {
+  color: var(--fg-1);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ev-perf__value {
+  color: var(--fg-2);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ev-perf__pair {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ev-perf__na {
+  color: var(--fg-4);
+  font-style: italic;
+}
+
+/* performance TREND card — one small chart per primary axis (CPU, memory) */
+.ev-perf-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px 12px;
+}
+
+.ev-perf-trend__chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ev-perf-trend__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--fg-3);
+}
+
+.ev-perf-trend__head svg {
+  color: var(--fg-4);
+}
+
 /* root-cause chain evidence */
 .ev-chain {
   padding: 8px 12px 12px;
