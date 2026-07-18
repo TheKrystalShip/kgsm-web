@@ -20,7 +20,9 @@ import { ACTION_META, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js
 //   onClick    optional row click (the compact panels deep-link to the audit log)
 function AuditEventRow({ ev, now, hosts, avatarSize, showMeta = true, onClick }) {
   const meta = ACTION_META[ev.action] || { label: ev.action, icon: "circle-dot", tone: "info" };
-  const date = parseTs(ev.ts);
+  // Defensive: a well-formed audit record always has a string ts, but degrade to an em-dash rather
+  // than crash if one is ever missing/malformed (an evidence card must never white-screen the app).
+  const date = typeof ev.ts === "string" ? parseTs(ev.ts) : null;
   // Render the meta dictionary as compact "key=value" chips (full page only).
   const metaEntries = showMeta ? Object.entries(ev.meta || {}) : [];
   // Host provenance: explicit hostId / derived from server / null = panel-wide.
@@ -54,9 +56,9 @@ function AuditEventRow({ ev, now, hosts, avatarSize, showMeta = true, onClick })
           )}
         </div>
       </div>
-      <div className="audit-row__when" title={date.toLocaleString()}>
-        <span className="audit-row__time">{fmtTime(date)}</span>
-        <span className="audit-row__rel">{fmtRelative(date, now)}</span>
+      <div className="audit-row__when" title={date ? date.toLocaleString() : undefined}>
+        <span className="audit-row__time">{date ? fmtTime(date) : "—"}</span>
+        <span className="audit-row__rel">{date ? fmtRelative(date, now) : ""}</span>
       </div>
     </div>
   );
