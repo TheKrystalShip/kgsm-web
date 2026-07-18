@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.19.0) — root-cause card in chat (the capstone aggregator)
+- The assistant's `trace_root_cause` tool — a deterministic aggregator that composes one server's
+  event timeline, resource-usage window, and health snapshot against a rules table of known KGSM
+  failure signatures — renders a **"Root cause"** Evidence card. The card shows the top (best-
+  confidence) finding's headline and confidence badge (`Confirmed`/`Likely`/`Possible` — reusing the
+  existing `ConfidenceBadge`, unmodified), then its evidence chain: the specific events that matched
+  (same icon/tone/actor/relative-time treatment as the audit/timeline cards), the metric-window facts
+  that backed it (CPU/memory avg-peak), and the health checks it drew on (disk, updates, liveness) —
+  reusing the existing `.ev-chain` rail layout the card shape already had a renderer for
+  (`EvidenceRootCause`, previously unwired). When multiple findings matched, the rest are folded into
+  one trailing "N other lead(s) considered" line rather than dropped. When nothing matched, the card
+  still renders honestly: the deterministic layer's "no known failure signature — most notable recent
+  activity" correlation at `Possible` confidence, never a guessed cause; when a source (the event
+  timeline, the health snapshot) was unreachable, the affected evidence is simply absent, and an
+  entirely empty chain renders "No supporting evidence to show." rather than a blank card. `chatUtils`'
+  shared `EVENT_TYPE_META` gained entries for the event types root-cause evidence actually cites
+  (`instance_restarted`/`instance_ready`/`instance_failed`/`instance_update_finished`/
+  `instance_deploy_failed`/`instance_download_failed`/`instance_uninstall_failed`), which also sharpens
+  their display on the existing `get_audit_log`/`get_change_timeline` cards.
+
 ### Added (v1.18.0) — event-history cards in chat (recent events + what-changed timeline)
 - The assistant's two new engine-event-history tools render chat cards: `get_audit_log` → a
   **"Recent events"** card (every engine event in the window, most-recent-first) and

@@ -90,6 +90,16 @@ const HEALTH_CHECK_LABELS = {
   updates:  "Updates",
   disk:     "Disk space",
 };
+const HEALTH_CHECK_ICONS = {
+  liveness: "server",
+  logs:     "terminal-square",
+  updates:  "download",
+  disk:     "hard-drive",
+};
+// CheckState → chain tone, same 5-tone vocabulary as EVENT_TYPE_META (danger/warn/update/
+// info/success). "skip" (source unavailable / not applicable) reads as neutral info — never a
+// fabricated pass or fail.
+const CHECK_STATE_TONE = { pass: "success", warn: "warn", fail: "danger", skip: "info" };
 
 // Icon/tone/label for the RAW kgsm engine event-type vocabulary (get_audit_log /
 // get_change_timeline). Deliberately separate from formatting.js's ACTION_META: that map is
@@ -100,13 +110,20 @@ const HEALTH_CHECK_LABELS = {
 // event) falls back to a plain formatting of the raw string — never a guessed meaning.
 const EVENT_TYPE_META = {
   instance_started:         { icon: "play",             tone: "success", label: "Started" },
+  instance_restarted:       { icon: "rotate-cw",         tone: "info",    label: "Restarted" },
   instance_stopped:         { icon: "square",            tone: "info",    label: "Stopped" },
+  instance_ready:           { icon: "circle-check",      tone: "success", label: "Ready" },
   instance_crashed:         { icon: "alert-triangle",     tone: "danger",  label: "Crashed" },
+  instance_failed:          { icon: "octagon-x",          tone: "danger",  label: "Failed (gave up restarting)" },
   instance_installed:       { icon: "package-plus",       tone: "success", label: "Installed" },
   instance_uninstalled:     { icon: "trash-2",            tone: "danger",  label: "Uninstalled" },
   instance_updated:         { icon: "download",           tone: "update",  label: "Updated" },
+  instance_update_finished: { icon: "download",           tone: "update",  label: "Update finished" },
   instance_version_updated: { icon: "circle-arrow-up",    tone: "update",  label: "Version updated" },
   instance_backup_created:  { icon: "database",           tone: "success", label: "Backup created" },
+  instance_deploy_failed:   { icon: "octagon-alert",       tone: "danger",  label: "Deploy failed" },
+  instance_download_failed: { icon: "octagon-alert",       tone: "danger",  label: "Download failed" },
+  instance_uninstall_failed:{ icon: "octagon-alert",       tone: "danger",  label: "Uninstall failed" },
   instance_ports_opened:    { icon: "lock-open",          tone: "info",    label: "Ports opened" },
   instance_ports_closed:    { icon: "lock",               tone: "warn",    label: "Ports closed" },
   instance_player_joined:   { icon: "log-in",             tone: "info",    label: "Player joined" },
@@ -255,6 +272,54 @@ function adaptResultCard(card) {
         windowLabel: typeof d.window === "string" ? "last " + d.window : "",
         available: d.state === "available",
         changes: Array.isArray(d.events) ? d.events.map((e) => auditEventRow(e, fleetWide)) : [],
+      };
+    }
+    case "trace_root_cause": {
+      // The capstone aggregator (event-history-plan.md Phase E): a RANKED list of findings, each
+      // a deterministic pattern match (or, when nothing matched, an honest correlation) with its
+      // own evidence chain. The card shows the TOP (best-confidence) finding's evidence in full —
+      // its matched events, metric-window facts, and health checks, each carrying its own
+      // provenance/tone — and folds any remaining findings into one trailing summary line so a
+      // secondary lead is never silently dropped.
+      const d = card.data;
+      if (!d || !Array.isArray(d.findings) || d.findings.length === 0) return null;
+      const [top, ...rest] = d.findings;
+      const fleetWide = false; // trace_root_cause is always single-instance
+
+      const steps = [];
+      (Array.isArray(top.events) ? top.events : []).forEach((e) => {
+        const row = auditEventRow(e, fleetWide);
+        steps.push({ tone: row.tone, icon: row.icon, label: row.label, detail: [row.by, row.rel].filter(Boolean).join(" · ") });
+      });
+      (Array.isArray(top.metrics) ? top.metrics : []).forEach((m) => {
+        const label = m.metric === "cpuPctCore" ? "CPU" : m.metric === "memBytes" ? "Memory" : (m.metric || "Metric");
+        steps.push({ tone: "info", icon: "activity", label, detail: m.detail || "" });
+      });
+      (Array.isArray(top.healthChecks) ? top.healthChecks : []).forEach((h) => {
+        steps.push({
+          tone: CHECK_STATE_TONE[h.state] || "info",
+          icon: HEALTH_CHECK_ICONS[h.name] || "stethoscope",
+          label: HEALTH_CHECK_LABELS[h.name] || h.name || "check",
+          detail: h.detail || "",
+        });
+      });
+      if (rest.length) {
+        steps.push({
+          tone: "info",
+          icon: "list",
+          label: rest.length + " other lead" + (rest.length === 1 ? "" : "s") + " considered",
+          detail: rest.map((f) => f.label).filter(Boolean).join(" · "),
+        });
+      }
+
+      return {
+        kind: "rootcause",
+        serverId: d.instance || id,
+        serverName: d.instance || id || "this server",
+        confidence: card.confidence || top.confidence || null,
+        signature: top.signature || "none",
+        headline: top.explanation || "",
+        steps,
       };
     }
     case "search": {

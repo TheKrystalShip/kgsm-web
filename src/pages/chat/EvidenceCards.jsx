@@ -291,24 +291,31 @@ function EvidenceChangeTimeline({ c, onOpenServer }) {
 
 function EvidenceRootCause({ c, onOpenServer }) {
   const TONE_DOT = { danger: "var(--danger)", warn: "var(--warning)", update: "var(--update)", info: "var(--info)", success: "var(--success)" };
+  const steps = Array.isArray(c.steps) ? c.steps : [];
   return (
     <EvidenceCardShell icon="git-merge" title={"Root cause \u00b7 " + c.serverName} sub={c.headline}
       confidence={c.confidence} onOpen={() => onOpenServer && onOpenServer(c.serverId, "overview")} openLabel="Open server">
-      <div className="ev-chain">
-        {c.steps.map((s, i) => (
-          <div className={"ev-chain__step ev-chain__step--" + s.tone} key={i}>
-            <span className="ev-chain__rail">
-              <span className="ev-chain__dot" style={{ background: TONE_DOT[s.tone] || "var(--fg-3)" }}></span>
-              {i < c.steps.length - 1 && <span className="ev-chain__line"></span>}
-            </span>
-            <span className="ev-chain__icon"><Icon name={s.icon} size={12} /></span>
-            <div className="ev-chain__body">
-              <span className="ev-chain__label">{s.label}</span>
-              <span className="ev-chain__detail">{s.detail}</span>
+      {steps.length === 0 ? (
+        // Honest: no matched signature AND nothing to correlate (or every source was
+        // unavailable) \u2014 the headline already says so; there is no evidence chain to draw.
+        <div className="ev-changes__empty">No supporting evidence to show.</div>
+      ) : (
+        <div className="ev-chain">
+          {steps.map((s, i) => (
+            <div className={"ev-chain__step ev-chain__step--" + s.tone} key={i}>
+              <span className="ev-chain__rail">
+                <span className="ev-chain__dot" style={{ background: TONE_DOT[s.tone] || "var(--fg-3)" }}></span>
+                {i < steps.length - 1 && <span className="ev-chain__line"></span>}
+              </span>
+              <span className="ev-chain__icon"><Icon name={s.icon} size={12} /></span>
+              <div className="ev-chain__body">
+                <span className="ev-chain__label">{s.label}</span>
+                <span className="ev-chain__detail">{s.detail}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </EvidenceCardShell>
   );
 }
