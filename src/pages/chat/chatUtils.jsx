@@ -3,6 +3,7 @@
 // which returns JSX from plain data).
 
 import { commandMeta } from "./chatConstants.js";
+import { fmtRelative } from "../../lib/formatting.js";
 
 const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ACTIONS_LS  = "krystal:chat:actions";
@@ -44,6 +45,7 @@ const TOOL_LABELS = {
   get_status:          "Checking status",
   get_performance:     "Reading metrics",
   get_audit_log:       "Reading recent events",
+  get_change_timeline: "Checking what changed",
   get_console:         "Reading console output",
   get_config:          "Reading config",
   get_host_diagnostics:"Checking host health",
@@ -88,6 +90,51 @@ const HEALTH_CHECK_LABELS = {
   updates:  "Updates",
   disk:     "Disk space",
 };
+
+// Icon/tone/label for the RAW kgsm engine event-type vocabulary (get_audit_log /
+// get_change_timeline). Deliberately separate from formatting.js's ACTION_META: that map is
+// keyed by kgsm-api's dotted, shaped audit vocabulary (server.start, …) applied at ITS read
+// time; the assistant reads the monitor's engine-event store directly and never runs that
+// shaping (event-history-plan.md §"raw enriched events, neutral"), so the wire `type` here is
+// always the unshaped kgsm name (instance_started, …). An unrecognized type (a future kgsm
+// event) falls back to a plain formatting of the raw string — never a guessed meaning.
+const EVENT_TYPE_META = {
+  instance_started:         { icon: "play",             tone: "success", label: "Started" },
+  instance_stopped:         { icon: "square",            tone: "info",    label: "Stopped" },
+  instance_crashed:         { icon: "alert-triangle",     tone: "danger",  label: "Crashed" },
+  instance_installed:       { icon: "package-plus",       tone: "success", label: "Installed" },
+  instance_uninstalled:     { icon: "trash-2",            tone: "danger",  label: "Uninstalled" },
+  instance_updated:         { icon: "download",           tone: "update",  label: "Updated" },
+  instance_version_updated: { icon: "circle-arrow-up",    tone: "update",  label: "Version updated" },
+  instance_backup_created:  { icon: "database",           tone: "success", label: "Backup created" },
+  instance_ports_opened:    { icon: "lock-open",          tone: "info",    label: "Ports opened" },
+  instance_ports_closed:    { icon: "lock",               tone: "warn",    label: "Ports closed" },
+  instance_player_joined:   { icon: "log-in",             tone: "info",    label: "Player joined" },
+  instance_player_left:     { icon: "log-out",            tone: "info",    label: "Player left" },
+};
+function eventTypeMeta(type) {
+  return EVENT_TYPE_META[type] || {
+    icon: "circle",
+    tone: "info",
+    label: String(type || "event").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()),
+  };
+}
+// One raw event/change row → the flat display shape EvidenceAudit/EvidenceChangeTimeline
+// render. `by` is honestly "unknown actor" for a null actor (a bare CLI call) — never
+// defaulted to a fabricated "system". `detail` names the owning instance only in a fleet-wide
+// read (redundant once the card is already scoped to one server).
+function auditEventRow(e, fleetWide) {
+  const meta = eventTypeMeta(e && e.type);
+  const ts = e && e.ts ? new Date(e.ts) : null;
+  return {
+    icon: meta.icon,
+    tone: meta.tone,
+    label: meta.label,
+    by: (e && e.actor) || "unknown actor",
+    detail: fleetWide ? ((e && e.instance) || "host-level") : "",
+    rel: ts && !isNaN(ts.getTime()) ? fmtRelative(ts) : "",
+  };
+}
 function adaptResultCard(card) {
   if (!card || !card.tool) return null;
   const id = (card.subject && card.subject.id) || null;
@@ -180,6 +227,34 @@ function adaptResultCard(card) {
         ioWriteBps: num(d.ioWriteBps),
         diskBytes:  num(d.diskBytes),
         pids:       num(d.pids),
+      };
+    }
+    case "get_audit_log": {
+      const d = card.data;
+      if (!d) return null;
+      const fleetWide = !d.instance;
+      return {
+        kind: "audit",
+        serverId: d.instance || null,
+        serverName: d.instance || "all servers",
+        confidence: card.confidence || null,
+        windowLabel: typeof d.window === "string" ? "last " + d.window : "",
+        available: d.state === "available",
+        events: Array.isArray(d.events) ? d.events.map((e) => auditEventRow(e, fleetWide)) : [],
+      };
+    }
+    case "get_change_timeline": {
+      const d = card.data;
+      if (!d) return null;
+      const fleetWide = !d.instance;
+      return {
+        kind: "timeline",
+        serverId: d.instance || null,
+        serverName: d.instance || "all servers",
+        confidence: card.confidence || null,
+        windowLabel: typeof d.window === "string" ? "last " + d.window : "",
+        available: d.state === "available",
+        changes: Array.isArray(d.events) ? d.events.map((e) => auditEventRow(e, fleetWide)) : [],
       };
     }
     case "search": {

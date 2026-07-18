@@ -1695,6 +1695,16 @@ a.ev-search__src:hover {
   align-self: center;
 }
 
+/* honest empty / monitor-unavailable state for get_audit_log / get_change_timeline —
+   a real "nothing recorded" or "couldn't read" message, never a blank card. */
+.ev-changes__empty {
+  padding: 10px 12px 12px;
+  color: var(--fg-4);
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 /* ---------- action proposals ---------- */
 .chat-actions {
   display: flex;

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.18.0) — event-history cards in chat (recent events + what-changed timeline)
+- The assistant's two new engine-event-history tools render chat cards: `get_audit_log` → a
+  **"Recent events"** card (every engine event in the window, most-recent-first) and
+  `get_change_timeline` → a **"What changed"** card (the same source narrowed to durable state
+  changes — install/uninstall/update/version-update/backup/port-open/port-close; routine
+  start/stop and player join/leave are excluded). Each row shows a type icon, the actor (an
+  unattributed event reads "unknown actor", never a fabricated "system"), a relative timestamp,
+  and — on a fleet-wide read (no server specified) — which server the event belongs to. Both
+  cards render an HONEST non-list state instead of an empty shell: a real empty window says "no
+  events/changes recorded"; an unreachable monitor says so explicitly ("couldn't be read"),
+  never narrated as "nothing happened"/"nothing changed". Reuses the existing what-changed row
+  layout (`.ev-changes*`) and the shared `EvidenceCardShell`/`ConfidenceBadge` chrome — no new
+  card chrome, just two new `adaptResultCard` projections + renderers.
+
 ### Added (v1.17.0) — resource-usage card in chat (snapshot + trend chart)
 - The assistant's `get_performance` tool renders a **resource-usage card** in the chat in one of two
   shapes, chosen by the tool result:

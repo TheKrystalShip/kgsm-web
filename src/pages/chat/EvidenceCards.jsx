@@ -24,6 +24,8 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "search")      return <EvidenceSearch      key={i} c={c} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
+        if (c.kind === "audit")       return <EvidenceAudit          key={i} c={c} onOpenServer={onOpenServer} />;
+        if (c.kind === "timeline")    return <EvidenceChangeTimeline key={i} c={c} onOpenServer={onOpenServer} />;
         return null;
       })}
     </div>
@@ -210,6 +212,79 @@ function EvidenceChanges({ c, onOpenServer }) {
           </div>
         ))}
       </div>
+    </EvidenceCardShell>
+  );
+}
+
+// Shared dot color for get_audit_log / get_change_timeline rows — same 5-tone vocabulary as
+// EvidenceRootCause's TONE_DOT (danger/warn/update/info/success), driven by chatUtils'
+// EVENT_TYPE_META rather than a health-check verdict.
+const EVENT_TONE_DOT = { danger: "var(--danger)", warn: "var(--warning)", update: "var(--update)", info: "var(--info)", success: "var(--success)" };
+
+// The row list both get_audit_log and get_change_timeline render, plus the two HONEST
+// non-list states: the monitor couldn't be read (never narrated as "nothing happened"/
+// "nothing changed"), and a real empty read (a measured "nothing recorded" — reuses the
+// existing `.ev-changes` row layout, just with nothing to show).
+function EventTimelineBody({ available, rows, emptyLabel, unavailableLabel }) {
+  if (!available) {
+    return <div className="ev-changes__empty">{unavailableLabel}</div>;
+  }
+  if (!rows.length) {
+    return <div className="ev-changes__empty">{emptyLabel}</div>;
+  }
+  return (
+    <div className="ev-changes">
+      {rows.map((r, i) => (
+        <div className="ev-changes__row" key={i}>
+          <span className="ev-changes__icon" style={{ color: EVENT_TONE_DOT[r.tone] || "var(--fg-3)" }}>
+            <Icon name={r.icon} size={12} />
+          </span>
+          <div className="ev-changes__body">
+            <span className="ev-changes__label">{r.label}<span className="ev-changes__by"> · {r.by}</span></span>
+            {r.detail && <span className="ev-changes__detail">{r.detail}</span>}
+          </div>
+          <span className="ev-changes__rel">{r.rel}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceAudit({ c, onOpenServer }) {
+  const scope = c.serverId ? "for " + c.serverName + " " : "";
+  return (
+    <EvidenceCardShell icon="history" title={"Recent events" + (c.serverId ? " · " + c.serverName : "")}
+      sub={[c.windowLabel, c.available && c.events.length ? c.events.length + " event" + (c.events.length === 1 ? "" : "s") : null]
+        .filter(Boolean).join(" · ")}
+      confidence={c.confidence}
+      onOpen={c.serverId ? () => onOpenServer && onOpenServer(c.serverId, "overview") : undefined}
+      openLabel="Open server">
+      <EventTimelineBody
+        available={c.available}
+        rows={c.events}
+        emptyLabel={"No events recorded " + scope + c.windowLabel + "."}
+        unavailableLabel={"Event history is unavailable right now — the metrics monitor isn’t reachable. " +
+          "That isn’t a sign nothing happened; the events just couldn’t be read."} />
+    </EvidenceCardShell>
+  );
+}
+
+function EvidenceChangeTimeline({ c, onOpenServer }) {
+  const scope = c.serverId ? "for " + c.serverName + " " : "";
+  return (
+    <EvidenceCardShell icon="git-commit-vertical" title={"What changed" + (c.serverId ? " · " + c.serverName : "")}
+      sub={[c.windowLabel, c.available && c.changes.length ? c.changes.length + " change" + (c.changes.length === 1 ? "" : "s") : null]
+        .filter(Boolean).join(" · ")}
+      confidence={c.confidence}
+      onOpen={c.serverId ? () => onOpenServer && onOpenServer(c.serverId, "overview") : undefined}
+      openLabel="Open server">
+      <EventTimelineBody
+        available={c.available}
+        rows={c.changes}
+        emptyLabel={"No changes recorded " + scope + c.windowLabel +
+          " (routine starts/stops and player activity don’t count as changes)."}
+        unavailableLabel={"The change timeline is unavailable right now — the metrics monitor isn’t reachable. " +
+          "That isn’t a sign nothing changed; the timeline just couldn’t be read."} />
     </EvidenceCardShell>
   );
 }
