@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.20.3) — live smoke cleans up its own synthetic audit rows
+- `scripts/smoke-live.mjs` now purges the synthetic `__smoke_probe__` `server.start` events it
+  emits to exercise the audit/realtime pipeline. The rows must exist in the backend during the run
+  (Phase 8 walks them back through the real keyset pager), so a teardown step deletes only those
+  probe rows from kgsm-monitor's `events.db` when the run ends — the smoke no longer leaves
+  synthetic events accumulating in the operator's audit trail. Best-effort and safe: WAL-mode
+  concurrent `DELETE` alongside the running daemon, scoped strictly to the probe instance name, and
+  a missing db / no `sqlite3` just no-ops (`KGSM_EVENTS_DB` overrides the path).
+
 ### Changed (v1.20.0) — assistant "Recent events" card reuses the shared audit row
 - The assistant chat's **"Recent events"** evidence card (`get_audit_log`) now renders the same
   `AuditEventRow` the full Audit page and the dashboard "Recent activity" panel use — actor avatar,

@@ -14,13 +14,38 @@ import { writeFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
 const API = process.env.KGSM_API || "http://127.0.0.1:8097";
 
 // The instance name this smoke emits SYNTHETIC `instance-started` events for, to drive
-// the live audit/realtime checks below. The audit log is append-only and persistent, so
-// these rows outlive the run — they MUST NOT masquerade as a real game-server start.
-// Using an obviously-synthetic name (not a real instance like factorio-test) keeps the
-// pipeline test honest: a `server.start` row for "__smoke_probe__" reads as test data,
-// never a phantom factorio-test start in the operator's audit trail. kgsm `events emit`
-// does not validate the name, so no such instance need exist.
+// the live audit/realtime checks below. The rows must exist in the backend during the run
+// (Phase 8 walks them back through the real keyset pager), so they are real persisted
+// events — but teardown purges them (see purgeProbeEvents) so a run leaves nothing behind.
+// The name is deliberately synthetic (not a real instance like factorio-test) as a second
+// layer of safety: should a purge ever be skipped, a `server.start` row for
+// "__smoke_probe__" reads as test data, never a phantom factorio-test start in the
+// operator's audit trail. kgsm `events emit` does not validate the name, so no such
+// instance need exist.
 const AUDIT_PROBE = "__smoke_probe__";
+
+// kgsm-monitor's append-only engine-event store, where the AUDIT_PROBE rows come to rest
+// (kgsm emit → monitor persists). Teardown deletes them from here — override the path if
+// the monitor keeps its db elsewhere.
+const EVENTS_DB = process.env.KGSM_EVENTS_DB || "/var/lib/kgsm-monitor/events.db";
+
+// Best-effort teardown: delete ONLY the synthetic probe rows this smoke emitted, so they
+// don't accumulate in the operator's audit trail. WAL mode → a concurrent DELETE is safe
+// alongside the running daemon (busy_timeout rides out a mid-write lock). A remote/missing
+// db or no sqlite3 CLI just no-ops — cleanup must never fail the smoke. Co-located with the
+// engine, the same assumption the `kgsm.sh events emit` seeding already makes.
+const purgeProbeEvents = async () => {
+  try {
+    const { execSync } = await import("node:child_process");
+    const out = execSync(
+      `sqlite3 ${EVENTS_DB} "PRAGMA busy_timeout=3000; DELETE FROM event WHERE instance='${AUDIT_PROBE}'; SELECT changes();"`,
+      { encoding: "utf8" }
+    );
+    // busy_timeout echoes its value as a row before SELECT changes() — take the last line.
+    const n = parseInt(out.trim().split("\n").pop(), 10) || 0;
+    if (n) console.log(`  ✓ teardown: purged ${n} synthetic ${AUDIT_PROBE} audit row(s) from ${EVENTS_DB}`);
+  } catch { /* remote/missing db or no sqlite3 — nothing to clean here */ }
+};
 
 // Preflight: the backend must be reachable, else this smoke is meaningless.
 try {
@@ -390,8 +415,8 @@ try {
   assert(rtMode === "live", `realtime WS connected (mode=${rtMode})`);
 
   // (b) audit.append end-to-end: a real kgsm event → WS → prepended row.
-  // Emitted for the synthetic AUDIT_PROBE, not a real instance, so this persistent
-  // append doesn't leave a phantom factorio-test start in the audit log.
+  // Emitted for the synthetic AUDIT_PROBE, not a real instance; teardown purges the
+  // persisted row so this append leaves nothing behind in the audit log.
   const beforeTop = (st.auditStore.getState().list[0] || {}).id;
   execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
   let appended = false;
@@ -1134,8 +1159,8 @@ try {
   // backend so the cursor walks the FILTERED log (old matching events stay
   // reachable behind newer noise). DB was wiped (Ts storage changed to ticks), so
   // seed it deterministically first.
-  // Seed against the synthetic AUDIT_PROBE (not a real instance): these rows persist in
-  // the append-only audit log, so they must read as test data, never phantom real starts.
+  // Seed against the synthetic AUDIT_PROBE (not a real instance): these rows must exist in
+  // the backend for the paging walk below, and teardown purges them when the run ends.
   for (let i = 0; i < 6; i++) execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
   let seeded = 0;
   for (let i = 0; i < 50; i++) {
@@ -1519,6 +1544,7 @@ try {
   console.error = origErr;
   await vite.close();
   restoreEnv();
+  await purgeProbeEvents();
 }
 console.log(fail ? `\n✗ ${fail} live check(s) failed` : `\n✓ live wiring verified against ${API}`);
 process.exit(fail ? 1 : 0);
