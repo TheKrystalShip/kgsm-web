@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.20.4) — assistant evidence cards wait for the streamed answer
+- An assistant chat evidence card (from a `tool.result`) no longer pops into view mid-turn while the
+  assistant is still streaming its text answer above it — which read as the answer being prepended on
+  top of an already-visible card. Cards gathered during a turn are now held on `bubble.pendingCards`
+  and promoted to `bubble.cards` only when the turn finishes (`done`), so each bubble renders
+  top-to-bottom in natural order: the finished answer, then its evidence below. The `error` frame and
+  the connection-drop path also promote any gathered cards, so evidence is never lost when a turn
+  fails mid-stream. Server-rebuilt history bubbles already carry final cards and are unaffected.
+
 ### Fixed (v1.20.3) — live smoke cleans up its own synthetic audit rows
 - `scripts/smoke-live.mjs` now purges the synthetic `__smoke_probe__` `server.start` events it
   emits to exercise the audit/realtime pipeline. The rows must exist in the backend during the run

@@ -11,7 +11,7 @@ import { api } from "../lib/apiClient.js";
 import {
   CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
-  uid, adaptResultCard, composeVerified, reduceTurnFrame, scaffoldHistory,
+  uid, adaptResultCard, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
   latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
 import { API_COMMAND_VERBS, commandMeta } from "./chat/chatConstants.js";
@@ -197,11 +197,13 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
         const lastIdx = msgs.length - 1;
         const bubble = msgs[lastIdx];
         if (!bubble || bubble.role !== "assistant") return c;
-        msgs[lastIdx] = aborted
+        const finalized = aborted
           ? { ...bubble, content: bubble.content || "_Stopped._" }
           : bubble.content
             ? { ...bubble, content: bubble.content + "\n\n_\u26a0 Interrupted \u2014 the assistant connection dropped._" }
             : { ...bubble, content: "\u26a0\ufe0f " + reason, error: true };
+        // The stream ended without a done frame \u2014 still surface any gathered evidence.
+        msgs[lastIdx] = promotePendingCards(finalized);
         return { ...c, messages: msgs };
       }));
     } finally {

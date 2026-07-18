@@ -422,6 +422,17 @@ function adaptResultCard(card) {
   }
 }
 
+// Evidence cards gathered from tool.result frames ride on `bubble.pendingCards`
+// while the assistant is still streaming its answer, then get promoted to
+// `bubble.cards` when the turn ends (done/error/dropped). This keeps the card
+// hidden until the streamed text is complete, so the thread reads top-to-bottom
+// (answer, then evidence) instead of the card popping in above the growing text.
+function promotePendingCards(bubble) {
+  if (!bubble || !bubble.pendingCards || !bubble.pendingCards.length) return bubble;
+  const { pendingCards, ...rest } = bubble;
+  return { ...rest, cards: (bubble.cards || []).concat(pendingCards) };
+}
+
 // ---------- SSE frame reducer ----------
 function reduceTurnFrame(messages, ev) {
   const msgs = messages.slice();
@@ -451,16 +462,18 @@ function reduceTurnFrame(messages, ev) {
       let next = { ...bubble, tools: resTools };
       if (ev.result) {
         const card = adaptResultCard(ev.result);
-        if (card) next = { ...next, cards: (bubble.cards || []).concat(card) };
+        // Hold the card back until the turn finishes streaming (see promotePendingCards).
+        if (card) next = { ...next, pendingCards: (bubble.pendingCards || []).concat(card) };
       }
       msgs[lastIdx] = next;
       break;
     }
     case "error": {
       const note = "\u26a0\ufe0f " + (ev.message || "The assistant failed.");
-      msgs[lastIdx] = bubble.content
+      const errored = bubble.content
         ? { ...bubble, content: bubble.content + "\n\n_" + note + "_" }
         : { ...bubble, content: note, error: true };
+      msgs[lastIdx] = promotePendingCards(errored);
       break;
     }
     case "command.proposed":
@@ -479,12 +492,11 @@ function reduceTurnFrame(messages, ev) {
       });
       break;
     case "done": {
-      if (ev.text || ev.usage) {
-        let done = bubble;
-        if (ev.text) done = { ...done, content: ev.text };
-        if (ev.usage) done = { ...done, usage: ev.usage };
-        msgs[lastIdx] = done;
-      }
+      let done = bubble;
+      if (ev.text) done = { ...done, content: ev.text };
+      if (ev.usage) done = { ...done, usage: ev.usage };
+      // Streaming is over — reveal the evidence cards below the finished answer.
+      msgs[lastIdx] = promotePendingCards(done);
       let start = lastIdx;
       while (start > 0 && msgs[start - 1].role === "command") start--;
       if (start < lastIdx) {
@@ -609,6 +621,6 @@ export {
   CHAT_LS_KEY, CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
   uid, toolLabel, composeVerified, adaptResultCard,
-  reduceTurnFrame, scaffoldHistory, latestUsage, mergeServerConversations,
+  reduceTurnFrame, promotePendingCards, scaffoldHistory, latestUsage, mergeServerConversations,
   renderMarkdown,
 };
