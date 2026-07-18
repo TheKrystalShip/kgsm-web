@@ -7,14 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed (v1.20.1) — old "Recent events" cards in saved conversations
-- A conversation persisted before v1.20.0 stored the old flat event row shape inside its `get_audit_log`
-  card; the new shared-row renderer crashed on it (`can't access property "replace"` — a missing `ts`
-  hit `parseTs`), white-screening the assistant dock when such a conversation was opened. `EvidenceAudit`
-  now detects the legacy shape (no `action` field) and renders those historical cards through the
-  original timeline body, and `AuditEventRow` degrades a missing/malformed `ts` to an em-dash instead
-  of throwing.
-
 ### Changed (v1.20.0) — assistant "Recent events" card reuses the shared audit row
 - The assistant chat's **"Recent events"** evidence card (`get_audit_log`) now renders the same
   `AuditEventRow` the full Audit page and the dashboard "Recent activity" panel use — actor avatar,

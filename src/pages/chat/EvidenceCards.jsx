@@ -258,38 +258,32 @@ function EventTimelineBody({ available, rows, emptyLabel, unavailableLabel }) {
 // non-list states are kept: the monitor couldn't be read (never narrated as "nothing happened"), and
 // a measured empty read ("nothing recorded"). `now` is a static snapshot — an evidence card is a
 // point-in-time record in the conversation, so relative times don't tick (matching the other cards).
+// "Recent events" renders the SAME shared AuditEventRow the Audit page and dashboard use, so chat
+// activity is visually consistent with the rest of the app — not a bespoke list. The two honest
+// non-list states are kept: the monitor couldn't be read (never narrated as "nothing happened"), and
+// a measured empty read ("nothing recorded"). `now` is a static snapshot — an evidence card is a
+// point-in-time record in the conversation, so relative times don't tick (matching the other cards).
 function EvidenceAudit({ c, onOpenServer }) {
   const hosts = useStore(hostsStore, s => s.list);
   const scope = c.serverId ? "for " + c.serverName + " " : "";
   const now = new Date();
-  const events = Array.isArray(c.events) ? c.events : [];
-  const unavailableLabel = "Event history is unavailable right now — the metrics monitor isn’t " +
-    "reachable. That isn’t a sign nothing happened; the events just couldn’t be read.";
-  // Back-compat: conversations persisted BEFORE this card adopted the shared row stored the old flat
-  // event shape ({icon,tone,label,by,detail,rel}) with no `action`/`ts`. Detect it and render those
-  // historical cards through the original timeline body (which AuditEventRow can't consume — it would
-  // crash on the missing ts). New cards carry the `ev` audit shape and get the shared row.
-  const legacy = events.length > 0 && !("action" in events[0]);
   return (
     <EvidenceCardShell icon="history" title={"Recent events" + (c.serverId ? " · " + c.serverName : "")}
-      sub={[c.windowLabel, c.available && events.length ? events.length + " event" + (events.length === 1 ? "" : "s") : null]
+      sub={[c.windowLabel, c.available && c.events.length ? c.events.length + " event" + (c.events.length === 1 ? "" : "s") : null]
         .filter(Boolean).join(" · ")}
       confidence={c.confidence}
       onOpen={c.serverId ? () => onOpenServer && onOpenServer(c.serverId, "overview") : undefined}
       openLabel="Open server">
-      {legacy ? (
-        <EventTimelineBody
-          available={c.available}
-          rows={events}
-          emptyLabel={"No events recorded " + scope + c.windowLabel + "."}
-          unavailableLabel={unavailableLabel} />
-      ) : !c.available ? (
-        <div className="ev-changes__empty">{unavailableLabel}</div>
-      ) : !events.length ? (
+      {!c.available ? (
+        <div className="ev-changes__empty">
+          Event history is unavailable right now — the metrics monitor isn’t reachable. That isn’t a
+          sign nothing happened; the events just couldn’t be read.
+        </div>
+      ) : !c.events.length ? (
         <div className="ev-changes__empty">{"No events recorded " + scope + c.windowLabel + "."}</div>
       ) : (
         <div className="ev-audit">
-          {events.map((ev) => (
+          {c.events.map((ev) => (
             <AuditEventRow key={ev.id} ev={ev} now={now} hosts={hosts} avatarSize={24} showMeta={false} />
           ))}
         </div>
