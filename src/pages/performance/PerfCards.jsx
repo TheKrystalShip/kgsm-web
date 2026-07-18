@@ -42,6 +42,7 @@ function AnomalyBadge({ count }) {
 function MetricChartCard({
   icon, title, anomalyCount = 0, value, stats, series, unit, legendNote, empty,
   allowLog = false, range, times, domain, events, stepSec, anomalies, band, yMin = 0,
+  chartHeight = 120,
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const [logScale, setLogScale] = React.useState(false);
@@ -80,7 +81,7 @@ function MetricChartCard({
           <StatStrip items={stats} />
           <TimeSeriesChart range={range} times={times} domain={domain} events={events} stepSec={stepSec}
             series={visible} anomalies={anomalies} band={band} yMin={yMin}
-            yScale={logScale ? "log" : "linear"} height={big ? 380 : 120} />
+            yScale={logScale ? "log" : "linear"} height={big ? 380 : chartHeight} />
           {multi ? (
             <div className="chart-card__legend">
               {series.map(s => (

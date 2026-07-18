@@ -1543,30 +1543,17 @@ a.ev-search__src:hover {
   font-style: italic;
 }
 
-/* performance TREND card — one small chart per primary axis (CPU, memory) */
-.ev-perf-trend {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* performance TREND card — reuses the server Performance tab's MetricChartCard
+   grid (compact), so the charts hover, pop out full-screen, and show per-window
+   stats exactly like the real Performance tab. This wrapper just supplies the
+   card-body padding around that grid. */
+.ev-perf-charts {
   padding: 10px 12px 12px;
 }
 
-.ev-perf-trend__chart {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ev-perf-trend__head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-xs);
-  color: var(--fg-3);
-}
-
-.ev-perf-trend__head svg {
-  color: var(--fg-4);
+/* Empty-window fallback keeps the old trend-card spacing. */
+.ev-perf-trend {
+  padding: 10px 12px 12px;
 }
 
 /* root-cause chain evidence */

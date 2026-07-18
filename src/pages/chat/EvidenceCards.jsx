@@ -4,7 +4,8 @@
 
 import { Icon } from "../../components/Icon.jsx";
 import { AuditEventRow } from "../../components/AuditEventRow.jsx";
-import { TimeSeriesChart } from "../../components/TimeSeriesChart.jsx";
+import { ChartHoverProvider } from "../../components/TimeSeriesChart.jsx";
+import { MetricsChartGrid } from "../performance/MetricsChartGrid.jsx";
 import { useStore } from "../../lib/store.js";
 import { hostsStore } from "../../lib/stores.js";
 import { formatBytes, formatBps } from "../../lib/formatting.js";
@@ -73,42 +74,35 @@ function EvidenceCardShell({ icon, title, sub, onOpen, openLabel, children, conf
   );
 }
 
-// The primary axes worth charting on a trend card, in display order. Keyed by the
-// monitor's metric names; each gets a label, a token color, and a value formatter.
-const PERF_TREND_METRICS = [
-  { metric: "cpuPctCore", icon: "cpu",          label: "CPU",    color: "var(--krystal-teal)", fmt: (v) => (v == null || !isFinite(v) ? "\u2014" : v.toFixed(1) + "%") },
-  { metric: "memBytes",   icon: "memory-stick", label: "Memory", color: "var(--info)",         fmt: (v) => (v == null || !isFinite(v) ? "\u2014" : formatBytes(v)) },
-];
-
 function EvidencePerformance({ c, onOpen }) {
-  // Trend read: the card carries a per-metric time series \u2192 render a chart per
-  // primary axis (honest now that the monitor owns history). A metric with no
-  // points is simply omitted (never a fabricated flat line).
+  // Trend read: the card carries a per-metric time series \u2192 render it through the
+  // very same MetricsChartGrid the server Performance tab uses, so the chart cards
+  // look and behave identically here (hover crosshair, full-screen pop-out,
+  // per-window stats, log toggle). `compact` trims them for the chat column. A
+  // metric with no points is simply omitted (never a fabricated flat line).
   if (c.mode === "trend") {
-    const charts = PERF_TREND_METRICS
-      .map((m) => ({ ...m, points: Array.isArray(c.series?.[m.metric]) ? c.series[m.metric] : [] }))
-      .filter((m) => m.points.length > 0);
+    const series = c.series && typeof c.series === "object" ? c.series : {};
+    const hasData = Object.values(series).some((pts) => Array.isArray(pts) && pts.length > 0);
+    // A shared wall-clock domain across every axis, so the synced crosshair lines
+    // up CPU/memory/\u2026 by time even when they carry different sample counts.
+    const allTs = Object.values(series)
+      .flatMap((pts) => (Array.isArray(pts) ? pts : []))
+      .map((p) => Date.parse(p.ts))
+      .filter((n) => isFinite(n));
+    const domain = allTs.length ? [Math.min(...allTs), Math.max(...allTs)] : undefined;
     return (
       <EvidenceCardShell icon="activity" title={"Resource trend \u00b7 " + c.serverName}
         sub={c.range ? "last " + c.range : "trend"}
         confidence={c.confidence} onOpen={onOpen} openLabel="Open Performance">
-        <div className="ev-perf-trend">
-          {charts.length === 0 ? (
-            <div className="ev-perf__na">no trend recorded for this window</div>
-          ) : charts.map((ch) => (
-            <div className="ev-perf-trend__chart" key={ch.metric}>
-              <div className="ev-perf-trend__head">
-                <Icon name={ch.icon} size={12} /> <span>{ch.label}</span>
-              </div>
-              <TimeSeriesChart
-                series={[{ key: ch.metric, color: ch.color, fill: true, label: ch.label, fmt: ch.fmt,
-                           values: ch.points.map((p) => p.value) }]}
-                times={ch.points.map((p) => Date.parse(p.ts))}
-                range={c.range || "24h"}
-                height={90} />
-            </div>
-          ))}
-        </div>
+        {hasData ? (
+          <div className="ev-perf-charts">
+            <ChartHoverProvider>
+              <MetricsChartGrid series={series} range={c.range || "24h"} domain={domain} compact />
+            </ChartHoverProvider>
+          </div>
+        ) : (
+          <div className="ev-perf-trend"><div className="ev-perf__na">no trend recorded for this window</div></div>
+        )}
       </EvidenceCardShell>
     );
   }

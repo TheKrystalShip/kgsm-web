@@ -4,6 +4,7 @@ import { detectAnomalies, ChartHoverProvider } from "../components/TimeSeriesCha
 import { adaptServerMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents } from "../lib/stores.js";
 import { BUFFER_CAP, STALE_MS, NO_SOURCE_MS, RANGE_MS, KiB, MiB, GiB, rowsToEvents, fmtBytes, fmtBps, seriesStats, fmtZoomRange } from "./performance/perfHelpers.js";
 import { MetricChartCard, RangeSelector, EmptyPerf } from "./performance/PerfCards.jsx";
+import { MetricsChartGrid } from "./performance/MetricsChartGrid.jsx";
 
 // PerformanceTab — per-server resource metrics with live + historical ranges.
 // Pure helpers/constants live in performance/perfHelpers.js; the chart card + the
@@ -274,75 +275,15 @@ function HistoricalMetrics({ server, range }) {
       sub="The metrics history store has no data for this server in this range. Data accumulates over time as the server runs." />;
   }
 
-  const tier = data.tier;
-  const isRollup = tier === "rollup";
   const step = data.step;
-
-  const cpuSeries = data.series.cpuPctCore || [];
-  const memSeries = data.series.memBytes || [];
-  const ioReadSeries = data.series.ioReadBps || [];
-  const ioWriteSeries = data.series.ioWriteBps || [];
-  const netRxSeries = data.series.rxBps || [];
-  const netTxSeries = data.series.txBps || [];
-
-  const cpuVals = cpuSeries.map(p => p.value);
-  const cpuMin = isRollup ? cpuSeries.map(p => p.min ?? p.value) : null;
-  const cpuMax = isRollup ? cpuSeries.map(p => p.max ?? p.value) : null;
-
-  const memVals = memSeries.map(p => p.value);
-  const memPeak = memVals.length ? Math.max(...memVals) : 0;
-  const memUseGiB = memPeak >= GiB;
-  const memDiv = memUseGiB ? GiB : MiB;
-  const memUnit = memUseGiB ? "GiB" : "MiB";
-  const mem = memVals.map(v => v / memDiv);
-  const memMinBand = isRollup ? memSeries.map(p => (p.min ?? p.value) / memDiv) : null;
-  const memMaxBand = isRollup ? memSeries.map(p => (p.max ?? p.value) / memDiv) : null;
-
-  const ioAvail = ioReadSeries.length > 0 || ioWriteSeries.length > 0;
-  const ioPeak = ioAvail
-    ? Math.max(1, ...ioReadSeries.map(p => p.value || 0), ...ioWriteSeries.map(p => p.value || 0))
-    : 1;
-  const ioUseMiB = ioPeak >= MiB;
-  const ioDiv = ioUseMiB ? MiB : KiB;
-  const ioUnit = ioUseMiB ? "MiB/s" : "KiB/s";
-  const ioRead = ioReadSeries.map(p => (p.value || 0) / ioDiv);
-  const ioWrite = ioWriteSeries.map(p => (p.value || 0) / ioDiv);
-
-  // Network rx/tx — same shape as Disk I/O. Absent when the server has no
-  // per-instance meter (container / un-metered host) or history hasn't accrued;
-  // the card still renders an honest empty state (never vanishes → no empty cell).
-  const netAvail = netRxSeries.length > 0 || netTxSeries.length > 0;
-  const netPeak = netAvail
-    ? Math.max(1, ...netRxSeries.map(p => p.value || 0), ...netTxSeries.map(p => p.value || 0))
-    : 1;
-  const netUseMiB = netPeak >= MiB;
-  const netDiv = netUseMiB ? MiB : KiB;
-  const netUnit = netUseMiB ? "MiB/s" : "KiB/s";
-  const netRx = netRxSeries.map(p => (p.value || 0) / netDiv);
-  const netTx = netTxSeries.map(p => (p.value || 0) / netDiv);
-  const netTimes = (netRxSeries.length ? netRxSeries : netTxSeries).map(p => p.ts);
-  const netRxStats = netRxSeries.length ? seriesStats(netRxSeries.map(p => p.value)) : null;
-  const netTxStats = netTxSeries.length ? seriesStats(netTxSeries.map(p => p.value)) : null;
-
-  const cpuAnoms = detectAnomalies(cpuVals);
-  const memAnoms = detectAnomalies(mem);
-
-  // Real per-bucket timestamps (kept from the backend `ts`) for the hover tooltip,
-  // and per-window stats (#2) over the raw values.
-  const cpuTimes = cpuSeries.map(p => p.ts);
-  const memTimes = memSeries.map(p => p.ts);
-  const ioTimes  = (ioReadSeries.length ? ioReadSeries : ioWriteSeries).map(p => p.ts);
-  const cpuStats = seriesStats(cpuVals);
-  const memStats = seriesStats(memVals);
-  const ioReadStats  = ioReadSeries.length ? seriesStats(ioReadSeries.map(p => p.value)) : null;
-  const ioWriteStats = ioWriteSeries.length ? seriesStats(ioWriteSeries.map(p => p.value)) : null;
+  const pointCount = (data.series.cpuPctCore || []).length;
 
   return (
     <>
       <div className="players-toolbar" style={{ marginTop: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--fg-3)" }}>
           <Icon name="clock" size={14} strokeWidth={1.8} />
-          {tier === "rollup" ? `${step / 60}min avg` : `~${step}s samples`} · {range}
+          {data.tier === "rollup" ? `${step / 60}min avg` : `~${step}s samples`} · {range}
         </span>
         {zoom && (
           <button className="perf-zoom-pill" onClick={() => setZoom(null)} title="Reset zoom (or double-click a chart)">
@@ -353,78 +294,13 @@ function HistoricalMetrics({ server, range }) {
         )}
         <span style={{ flex: 1 }}></span>
         <span style={{ color: "var(--fg-3)", fontSize: 12.5, fontFamily: "var(--font-mono)" }}>
-          {cpuSeries.length} point{cpuSeries.length === 1 ? "" : "s"}
+          {pointCount} point{pointCount === 1 ? "" : "s"}
         </span>
       </div>
 
       <ChartHoverProvider zoom={zoom} onZoom={setZoom}>
-      <div className="chart-grid">
-        {cpuVals.length > 0 && (
-          <MetricChartCard icon="cpu" title="CPU" anomalyCount={cpuAnoms.length}
-            value={<span className="chart-card__val">{cpuVals[cpuVals.length - 1].toFixed(0)}<small>% core</small></span>}
-            stats={cpuStats && [
-              { label: "avg", value: cpuStats.avg.toFixed(0) + "%" },
-              { label: "peak", value: cpuStats.max.toFixed(0) + "%" },
-              { label: "min", value: cpuStats.min.toFixed(0) + "%" },
-            ]}
-            series={[{ key: "cpu", label: "CPU", color: "var(--krystal-teal)", fill: true, values: cpuVals, fmt: v => v.toFixed(0) + "% core" }]}
-            anomalies={cpuAnoms} range={range} times={cpuTimes} domain={domain} events={events} stepSec={step}
-            band={cpuMin && cpuMax ? { min: cpuMin, max: cpuMax, color: "var(--krystal-teal)" } : undefined}
-            legendNote={isRollup ? "shaded band = min/max per bucket" : undefined} />
-        )}
-
-        {mem.length > 0 && (
-          <MetricChartCard icon="hard-drive" title="Memory" anomalyCount={memAnoms.length}
-            value={<span className="chart-card__val">{fmtBytes(memVals[memVals.length - 1])}</span>}
-            stats={memStats && [
-              { label: "avg", value: fmtBytes(memStats.avg) },
-              { label: "peak", value: fmtBytes(memStats.max) },
-              { label: "min", value: fmtBytes(memStats.min) },
-            ]}
-            series={[{ key: "mem", label: "Memory", color: "#FBBF24", fill: true, values: mem, fmt: v => fmtBytes(v * memDiv) }]}
-            anomalies={memAnoms} range={range} times={memTimes} domain={domain} events={events} stepSec={step}
-            band={memMinBand && memMaxBand ? { min: memMinBand, max: memMaxBand, color: "#FBBF24" } : undefined}
-            legendNote={`${memUnit} used${isRollup ? " · band = min/max" : ""}`} />
-        )}
-
-        {ioAvail && (
-          <MetricChartCard icon="network" title="Disk I/O" allowLog unit={ioUnit}
-            value={<span className="chart-card__val">
-              <small style={{ marginRight: 6 }}>r</small>{fmtBps(ioReadSeries.length ? ioReadSeries[ioReadSeries.length - 1].value : null)}
-              <small> / </small>
-              <small style={{ marginRight: 6 }}>w</small>{fmtBps(ioWriteSeries.length ? ioWriteSeries[ioWriteSeries.length - 1].value : null)}
-            </span>}
-            stats={[
-              ...(ioReadStats ? [{ label: "r peak", value: fmtBps(ioReadStats.max) }] : []),
-              ...(ioWriteStats ? [{ label: "w peak", value: fmtBps(ioWriteStats.max) }] : []),
-            ]}
-            series={[
-              { key: "r", label: "Read", color: "var(--info)", fill: false, values: ioRead, fmt: v => fmtBps(v * ioDiv) },
-              { key: "w", label: "Write", color: "var(--krystal-teal)", fill: false, values: ioWrite, fmt: v => fmtBps(v * ioDiv) },
-            ]}
-            range={range} times={ioTimes} domain={domain} events={events} stepSec={step} />
-        )}
-
-        <MetricChartCard icon="arrow-down-up" title="Network" allowLog unit={netUnit}
-          value={netAvail
-            ? <span className="chart-card__val"><small style={{ marginRight: 6 }}>rx</small>{fmtBps(netRxSeries.length ? netRxSeries[netRxSeries.length - 1].value : null)}<small> / </small><small style={{ marginRight: 6 }}>tx</small>{fmtBps(netTxSeries.length ? netTxSeries[netTxSeries.length - 1].value : null)}</span>
-            : <span className="chart-card__val" style={{ color: "var(--fg-3)" }}>—</span>}
-          stats={[
-            ...(netRxStats ? [{ label: "rx peak", value: fmtBps(netRxStats.max) }] : []),
-            ...(netTxStats ? [{ label: "tx peak", value: fmtBps(netTxStats.max) }] : []),
-          ]}
-          series={[
-            { key: "rx", label: "Receive", color: "var(--info)", fill: false, values: netRx, fmt: v => fmtBps(v * netDiv) },
-            { key: "tx", label: "Transmit", color: "var(--krystal-teal)", fill: false, values: netTx, fmt: v => fmtBps(v * netDiv) },
-          ]}
-          range={range} times={netTimes} domain={domain} events={events} stepSec={step}
-          empty={netAvail ? null : (
-            <div className="perf-nochart">
-              <Icon name="info" size={16} strokeWidth={1.8} />
-              <span>No network history for this range — recorded only while the server runs with a per-instance meter (native eBPF); a container or un-metered host has none, and data accrues over time.</span>
-            </div>
-          )} />
-      </div>
+        <MetricsChartGrid series={data.series} tier={data.tier} step={step}
+          range={range} events={events} domain={domain} />
       </ChartHoverProvider>
     </>
   );

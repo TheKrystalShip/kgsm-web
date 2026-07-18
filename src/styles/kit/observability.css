@@ -91,6 +91,14 @@
   gap: 12px;
 }
 
+/* Compact variant for the narrow chat column (assistant resource-trend evidence
+   card): the same MetricChartCards, stacked one-up so each chart keeps a usable
+   width. */
+.chart-grid--compact {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
 .chart-card {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);

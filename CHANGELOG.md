@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.21.0) — assistant resource-trend evidence card reuses the Performance tab charts
+- The assistant chat's "resource trend" evidence card now renders through the **same**
+  `MetricChartCard` grid the server Performance tab uses, so its charts look and behave identically:
+  a synced hover crosshair, the full-screen pop-out, per-window avg/peak/min stats, the log-scale
+  toggle, and the series-mute legend. It previously drew bare per-axis `TimeSeriesChart`s with no card
+  chrome or hover parity.
+- Extracted that grid into a reusable `pages/performance/MetricsChartGrid.jsx` (CPU / Memory /
+  Disk I/O / Network from the monitor's `{metric: [{ts, value, min?, max?}]}` history shape). The
+  Performance tab's Historical view and the evidence card both feed it; `MetricChartCard` gained an
+  optional `chartHeight`, and a `.chart-grid--compact` variant stacks the cards one-up (shorter,
+  no always-on empty Network card) for the narrow chat column.
+- The live snapshot evidence card (single measured frame, no time-series) is unchanged — there is no
+  chart to reuse for a one-point reading.
+
 ### Fixed (v1.20.4) — assistant evidence cards wait for the streamed answer
 - An assistant chat evidence card (from a `tool.result`) no longer pops into view mid-turn while the
   assistant is still streaming its text answer above it — which read as the answer being prepended on
