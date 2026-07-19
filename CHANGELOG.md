@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.22.0) — assistant `get_network` evidence card
+- The assistant chat now renders a **Network** evidence card when it checks a server's reachability
+  (`get_network`), matching the pattern of the performance and recent-activity cards (it wraps the shared
+  `EvidenceCardShell` with a confidence badge and an "Open Diagnostics" deep-link). The card shows the two
+  independent network layers the tool measures: the **host firewall** (the active backend, whether it's
+  enforcing, and the open port ranges KGSM has opened) and the **router's UPnP forwards** (what's
+  reachable from the internet, each `external → internalClient:internalPort`).
+- Each layer honors its own honest-unknown states rather than fabricating a measured result: an
+  unreadable firewall, un-enumerable rules, an unreachable router, and an unreachable watchdog each render
+  as their own "couldn't read" note — never as a false "nothing open / nothing forwarded". A firewall
+  that's up but not filtering shows a "not enforcing" flag. This closes the last wire-to-card gap: the
+  `get_network` tool result was arriving but the chat reducer had no case to project it, so the card
+  (whose component and styles already existed) never appeared.
+
 ### Changed (v1.21.0) — assistant resource-trend evidence card reuses the Performance tab charts
 - The assistant chat's "resource trend" evidence card now renders through the **same**
   `MetricChartCard` grid the server Performance tab uses, so its charts look and behave identically:

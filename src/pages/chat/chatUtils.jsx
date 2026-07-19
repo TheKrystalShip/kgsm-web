@@ -46,6 +46,7 @@ const TOOL_LABELS = {
   get_performance:     "Reading metrics",
   get_audit_log:       "Reading recent events",
   get_change_timeline: "Checking what changed",
+  get_network:         "Checking network",
   get_console:         "Reading console output",
   get_config:          "Reading config",
   get_host_diagnostics:"Checking host health",
@@ -415,6 +416,44 @@ function adaptResultCard(card) {
         state: d.state || null,      // "localStrong" | "localWeak" | "web"
         provenance: anyLocal && anyWeb ? "mixed" : anyWeb ? "web" : "local",
         passages,
+      };
+    }
+    case "get_network": {
+      // Two independent axes, each with its own honest-unknown states that must NEVER read
+      // as "nothing open / nothing forwarded": the HOST FIREWALL (state / listState /
+      // enforcement / open port ranges) and the ROUTER's UPnP forwards (upnpState / forwards).
+      // The card is only attached when at least one axis has real structure, but the OTHER
+      // axis may be unreadable — carry its state through verbatim so the card can say so.
+      const d = card.data;
+      if (!d) return null;
+      const proto = (p) => (p ? String(p).toLowerCase() : "");
+      const ports = Array.isArray(d.ports) ? d.ports.map((p) => ({
+        start: typeof p.start === "number" ? p.start : null,
+        end: typeof p.end === "number" ? p.end : null,
+        protocol: proto(p.protocol),
+      })) : [];
+      const forwards = Array.isArray(d.forwards) ? d.forwards.map((f) => ({
+        externalPort: typeof f.externalPort === "number" ? f.externalPort : null,
+        internalPort: typeof f.internalPort === "number" ? f.internalPort : null,
+        protocol: proto(f.protocol),
+        internalClient: f.internalClient || null,
+      })) : [];
+      return {
+        kind: "network",
+        serverId: id,
+        serverName: id || "this server",
+        confidence: card.confidence || null,
+        firewall: {
+          state: d.state || "firewallUnavailable",   // "available" | "firewallUnavailable"
+          backend: d.backend || null,
+          listState: d.listState || "unknown",         // "enumerated" | "unknown" | "unsupported"
+          enforcement: d.enforcement || "unknown",     // "enforcing" | "inactive" | "unknown"
+          ports,
+        },
+        router: {
+          state: d.upnpState || "daemonUnavailable",   // "queried" | "routerUnavailable" | "daemonUnavailable"
+          forwards,
+        },
       };
     }
     default:

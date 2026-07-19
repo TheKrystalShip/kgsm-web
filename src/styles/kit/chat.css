@@ -1215,7 +1215,60 @@
   padding: 8px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+/* one layer = the host firewall, or the router/UPnP forwards */
+.ev-net__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ev-net__layer + .ev-net__layer {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ev-net__layer-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.ev-net__backend {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: var(--veil-2);
+  color: var(--fg-2);
+}
+
+.ev-net__flag {
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+}
+
+.ev-net__flag--warn {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.ev-net__note {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  line-height: 1.45;
 }
 
 .ev-net__ports {
@@ -1243,24 +1296,22 @@
   color: var(--success-fg);
 }
 
-.ev-net__port--closed {
-  background: var(--danger-bg);
-  color: var(--danger-fg);
+.ev-net__forwards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.ev-net__traffic {
+.ev-net__forward {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
   font-size: 11.5px;
-  font-family: var(--font-mono);
-  color: var(--fg-3);
-  padding-top: 6px;
-  border-top: 1px solid var(--border-subtle);
+  color: var(--fg-2);
 }
 
-.ev-net__err--bad {
-  color: var(--danger-fg);
+.ev-net__forward code {
+  font-family: var(--font-mono);
 }
 
 /* health-check evidence */

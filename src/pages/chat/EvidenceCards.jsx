@@ -420,31 +420,102 @@ function EvidenceFleet({ c }) {
   );
 }
 
+// A firewall port rule is a range; a single port collapses start==end. Protocol trails.
+function fmtPortRange(p) {
+  const span = p.start == null ? "\u2014"
+    : (p.end != null && p.end !== p.start ? p.start + "\u2013" + p.end : String(p.start));
+  return p.protocol ? span + "/" + p.protocol : span;
+}
+
+// get_network \u2014 the two-layer reachability picture for one server: the HOST FIREWALL
+// (which ports KGSM has opened, the active backend, whether it's enforcing) and the
+// ROUTER's UPnP forwards (what's reachable from the internet). The two axes are separate
+// authorities that fail independently; each honest-unknown state renders as its own
+// "couldn't read" note, NEVER as a measured "nothing open / nothing forwarded".
 function EvidenceNetwork({ c, onOpen }) {
-  const closed = c.closedCount > 0;
+  const fw = c.firewall || {};
+  const rt = c.router || {};
+  const fwPorts = fw.ports || [];
+  const rtForwards = rt.forwards || [];
+
+  const fwAvailable = fw.state === "available";
+  const fwUnsupported = fw.listState === "unsupported";
+  const fwUnknownList = fw.listState === "unknown";
+  const rtQueried = rt.state === "queried";
+
+  const fwSummary = !fwAvailable ? "firewall unreadable"
+    : fwUnsupported ? "no firewall backend"
+    : fwPorts.length ? fwPorts.length + " firewall port" + (fwPorts.length === 1 ? "" : "s") + " open"
+    : fwUnknownList ? "firewall rules unreadable"
+    : "no firewall ports open";
+  const rtSummary = rtQueried
+    ? (rtForwards.length ? rtForwards.length + " router forward" + (rtForwards.length === 1 ? "" : "s") : "no router forwards")
+    : rt.state === "routerUnavailable" ? "router unreachable"
+    : "watchdog unreachable";
+
   return (
     <EvidenceCardShell icon="network" title={"Network \u00b7 " + c.serverName}
-      sub={closed ? c.closedCount + " required port" + (c.closedCount === 1 ? "" : "s") + " closed" : "all required ports open"}
+      sub={fwSummary + " \u00b7 " + rtSummary}
       confidence={c.confidence} onOpen={onOpen} openLabel="Open Diagnostics">
       <div className="ev-net">
-        <div className="ev-net__ports">
-          {c.rows.map((r, i) => (
-            <div className={"ev-net__port ev-net__port--" + (r.open ? "open" : "closed")} key={i}>
-              <Icon name={r.open ? "check" : "x"} size={11} strokeWidth={2.6} />
-              <code>{r.port}/{r.proto}</code>
-              <span>{r.open ? "open" : "closed"}</span>
-            </div>
-          ))}
-        </div>
-        {c.iface && (
-          <div className="ev-net__traffic">
-            <Icon name="arrow-down" size={11} /> {c.iface.rx} kbps
-            <Icon name="arrow-up" size={11} style={{ marginLeft: 10 }} /> {c.iface.tx} kbps
-            <span className={"ev-net__err" + (c.iface.errors > 0 ? " ev-net__err--bad" : "")} style={{ marginLeft: 10 }}>
-              {c.iface.errors} errors
-            </span>
+        {/* Host firewall layer */}
+        <div className="ev-net__layer">
+          <div className="ev-net__layer-head">
+            <Icon name="shield" size={11} strokeWidth={2.2} />
+            <span>Host firewall</span>
+            {fwAvailable && fw.backend && <code className="ev-net__backend">{fw.backend}</code>}
+            {fwAvailable && fw.enforcement === "inactive" && (
+              <span className="ev-net__flag ev-net__flag--warn">not enforcing</span>
+            )}
           </div>
-        )}
+          {!fwAvailable ? (
+            <div className="ev-net__note">
+              {"Couldn\u2019t read the firewall \u2014 that isn\u2019t a sign nothing is open; it just couldn\u2019t be checked."}
+            </div>
+          ) : fwUnsupported ? (
+            <div className="ev-net__note">No firewall backend is active on this host.</div>
+          ) : fwPorts.length ? (
+            <div className="ev-net__ports">
+              {fwPorts.map((p, i) => (
+                <span className="ev-net__port ev-net__port--open" key={i}>
+                  <Icon name="check" size={11} strokeWidth={2.6} />
+                  <code>{fmtPortRange(p)}</code>
+                </span>
+              ))}
+            </div>
+          ) : fwUnknownList ? (
+            <div className="ev-net__note">{"The firewall is up, but its rules couldn\u2019t be enumerated."}</div>
+          ) : (
+            <div className="ev-net__note">No ports opened for this server.</div>
+          )}
+        </div>
+
+        {/* Router / UPnP layer */}
+        <div className="ev-net__layer">
+          <div className="ev-net__layer-head">
+            <Icon name="globe" size={11} strokeWidth={2.2} />
+            <span>Router forwards (UPnP)</span>
+          </div>
+          {rtQueried ? (
+            rtForwards.length ? (
+              <div className="ev-net__forwards">
+                {rtForwards.map((f, i) => (
+                  <div className="ev-net__forward" key={i}>
+                    <code>{(f.externalPort == null ? "\u2014" : f.externalPort) + (f.protocol ? "/" + f.protocol : "")}</code>
+                    <Icon name="arrow-right" size={11} strokeWidth={2.2} />
+                    <code>{[f.internalClient, f.internalPort].filter((v) => v != null).join(":") || "\u2014"}</code>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="ev-net__note">{"No forwards on the router \u2014 this server isn\u2019t reachable from the internet."}</div>
+            )
+          ) : rt.state === "routerUnavailable" ? (
+            <div className="ev-net__note">{"The router couldn\u2019t be queried, so its forwards are unknown."}</div>
+          ) : (
+            <div className="ev-net__note">{"The watchdog isn\u2019t reachable, so router forwards couldn\u2019t be read."}</div>
+          )}
+        </div>
       </div>
     </EvidenceCardShell>
   );
