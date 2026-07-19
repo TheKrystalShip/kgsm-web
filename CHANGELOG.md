@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.23.0) — assistant `write_file` config-edit preview + confirm
+- When the assistant proposes editing a game server's own config file (the new `write_file` verb — e.g.
+  populating Palworld's `PalWorldSettings.ini`), the chat's suggested-action card now shows a **preview of
+  the exact change**: the file path plus a scrollable, read-only view of the full proposed content, so the
+  change is visible before it's accepted. The preview reads the `file` block (`{ path, proposedContent }`)
+  the assistant's `command.proposed` frame now carries — nothing is fabricated client-side.
+- **Accept** writes the proposed content through the existing jailed, operator-gated file-content endpoint
+  (`filesStore.saveFile`), the same path the file editor uses, then reports the result inline ("Updated
+  &lt;path&gt; … takes effect on the next restart"); **Cancel** dismisses it. Confirmation is required —
+  the content is never written without an explicit accept.
+
 ### Added (v1.22.0) — assistant `get_network` evidence card
 - The assistant chat now renders a **Network** evidence card when it checks a server's reachability
   (`get_network`), matching the pattern of the performance and recent-activity cards (it wraps the shared

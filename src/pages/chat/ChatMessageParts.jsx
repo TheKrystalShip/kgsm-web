@@ -88,6 +88,15 @@ function ChatCommand({ msg, onRun }) {
       <div className="chat-actions__label">
         <Icon name="zap" size={12} /> Suggested action
       </div>
+      {msg.verb === "write_file" && msg.file && (
+        <div className="chat-filepreview">
+          <div className="chat-filepreview__path">
+            <Icon name="file-pen" size={11} strokeWidth={2.2} />
+            <code>{msg.file.path}</code>
+          </div>
+          <pre className="chat-filepreview__body">{msg.file.proposedContent}</pre>
+        </div>
+      )}
       <div className="chat-actions__row">
         {!apiBacked ? (
           <button className="chat-action chat-action--disabled" disabled

@@ -1776,6 +1776,44 @@ a.ev-search__src:hover {
   gap: 8px;
 }
 
+/* write_file proposal: the path + a scrollable preview of the exact content to be written */
+.chat-filepreview {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--veil-1);
+}
+
+.chat-filepreview__path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-2);
+}
+
+.chat-filepreview__path code {
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.chat-filepreview__body {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  white-space: pre;
+  tab-size: 2;
+}
+
 .chat-action {
   display: inline-flex;
   align-items: center;

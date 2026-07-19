@@ -2,7 +2,7 @@
 // Separated from chatUtils.js so components can import constants without
 // pulling in the heavier pure functions.
 
-const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports", "install", "uninstall"]);
+const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports", "install", "uninstall", "write_file"]);
 const COMMAND_META = {
   start:      { label: "Start",         icon: "play",      tone: "success" },
   stop:       { label: "Stop",          icon: "square",    tone: "danger" },
@@ -13,6 +13,7 @@ const COMMAND_META = {
   uninstall:  { label: "Uninstall",     icon: "trash-2",   tone: "danger" },
   backup:     { label: "Back up",       icon: "database",  tone: "info" },
   set_config: { label: "Update config", icon: "settings",  tone: "info" },
+  write_file: { label: "Update config file", icon: "file-pen", tone: "info" },
 };
 function commandMeta(verb) {
   return COMMAND_META[verb] || { label: (verb || "Run").replace(/_/g, " "), icon: "zap", tone: "info" };

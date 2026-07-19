@@ -527,6 +527,9 @@ function reduceTurnFrame(messages, ev) {
         instanceName: ev.instanceName || null,
         confirm: ev.confirm || (commandMeta(ev.verb).label + "?"),
         reason: ev.reason || null,
+        // write_file carries a { path, proposedContent } preview so the card can show the exact
+        // change before the user accepts it; null for every other verb.
+        file: ev.file || null,
         state: "proposed",
       });
       break;

@@ -4,7 +4,7 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
-import { confirmCommand, confirmInstall, confirmUninstall, serversStore } from "../lib/stores.js";
+import { confirmCommand, confirmInstall, confirmUninstall, filesStore, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 
 // Imports from extracted modules
@@ -309,6 +309,24 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     });
     const resolveVerify = (result) =>
       setMessages(msgs => msgs.map(m => (m.role === "verify" && m.id === verifyId) ? { ...m, state: "done", result } : m));
+    // write_file writes the assistant's proposed content through the file-content endpoint (the same
+    // jailed, operator-gated path the file editor uses) — it returns the saved file, not a job, so its
+    // verified block is composed here rather than through composeVerified.
+    if (card.verb === "write_file") {
+      if (!card.file || !card.file.path) {
+        resolveVerify({ ok: false, headline: "Couldn’t update the file — no change was proposed.", lines: [] });
+        return;
+      }
+      filesStore.saveFile(hostId, card.subjectId, card.file.path, card.file.proposedContent).then(
+        () => resolveVerify({ ok: true, headline: "Updated " + card.file.path + " on " + serverName + ". It takes effect on the next restart.", lines: [] }),
+        err => {
+          const expired = err && err.code === 401;
+          resolveVerify(expired
+            ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "’s session expired — re-authorize this host to run commands.", lines: [] }
+            : { ok: false, headline: "Couldn’t update " + card.file.path + " — " + ((err && err.userMessage) || "the write failed."), lines: [] });
+        });
+      return;
+    }
     // install → POST /servers, uninstall → DELETE /servers/{id}, everything else → the M3 command
     // path. All three return a job the SPA awaits to a terminal outcome, then composes the same
     // client-side command.verified block (never fabricating success from the 202 alone).
