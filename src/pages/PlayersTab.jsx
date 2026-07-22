@@ -2,7 +2,7 @@ import React from "react";
 import { CardTable } from "../components/CardTable.jsx";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { api } from "../lib/apiClient.js";
+import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 
 // PlayersTab — the permanent player roster for one server, wired to
 // player-presence-contract.md §5:
@@ -73,71 +73,6 @@ function StatusDot({ status }) {
   );
 }
 
-// Pure join/leave/reset/ban reducer over a Map keyed by playerIdentity.
-// Join/ban: upsert (never delete). Leave: update status to offline (never delete).
-// Reset: mark all players for that server as offline.
-function applyPlayerFrame(roster, type, player, serverId) {
-  if (type === "players.reset") {
-    // Mark all players for this server as offline.
-    const next = new Map(roster);
-    for (const [key, p] of next) {
-      if (p._serverId === serverId) {
-        next.set(key, { ...p, status: "offline" });
-      }
-    }
-    return next;
-  }
-  if (!player || !player.playerIdentity) return roster;
-  const next = new Map(roster);
-  if (type === "players.join" || type === "players.leave" || type === "players.ban") {
-    // Upsert with the status from the frame.
-    next.set(player.playerIdentity, { ...player, _serverId: serverId });
-  }
-  return next;
-}
-
-// Live roster hook: REST hydrate then WS follow. Returns one of:
-//   { status: "loading" }
-//   { status: "error", error }
-//   { status: "ready", detection, players: [Player] }
-function usePlayerRoster(server) {
-  const [state, setState] = React.useState({ status: "loading" });
-  React.useEffect(() => {
-    if (!server) return;
-    if (!server.hostId) return;
-    setState({ status: "loading" });
-    let alive = true, hydrated = false, broken = false, detection = "unknown";
-    let roster = new Map();     // playerIdentity -> player row
-    const buffered = [];
-
-    const flush = () => { if (alive) setState({ status: "ready", detection, players: [...roster.values()] }); };
-
-    // Subscribe FIRST so frames during the REST round-trip are buffered.
-    const dispose = api.stream.subscribe(["players"], (m) => {
-      if (!alive || broken || !m || !m.data || m.data.serverId !== server.id) return;
-      if (m.type !== "players.join" && m.type !== "players.leave" && m.type !== "players.reset" && m.type !== "players.ban") return;
-      if (hydrated) { roster = applyPlayerFrame(roster, m.type, m.data.player, m.data.serverId); flush(); }
-      else buffered.push([m.type, m.data.player, m.data.serverId]);
-    });
-
-    api.host(server.hostId).get("/servers/" + server.id + "/players").then(
-      (res) => {
-        detection = (res && res.detection) || "unknown";
-        ((res && res.players) || []).forEach((p) => {
-          if (p && p.playerIdentity) roster.set(p.playerIdentity, { ...p, _serverId: server.id });
-        });
-        buffered.forEach(([type, player, serverId]) => { roster = applyPlayerFrame(roster, type, player, serverId); });
-        hydrated = true;
-        flush();
-      },
-      (err) => { broken = true; hydrated = true; if (alive) setState({ status: "error", error: err }); }
-    );
-    return () => { alive = false; dispose(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the full object churns each render
-  }, [server && server.id, server && server.hostId]);
-  return state;
-}
-
 function PlayersEmpty({ icon, title, sub }) {
   return (
     <div className="chat-brief__empty chat-brief__empty--neutral">
@@ -148,8 +83,9 @@ function PlayersEmpty({ icon, title, sub }) {
   );
 }
 
-function PlayersTab({ server, readOnly }) {
-  const state = usePlayerRoster(server);
+function PlayersTab({ server, readOnly, roster }) {
+  const internalRoster = usePlayerRoster(server);
+  const state = roster || internalRoster;
 
   if (state.status === "loading") {
     return (
@@ -225,4 +161,5 @@ function PlayersTab({ server, readOnly }) {
   );
 }
 
-export { PlayersTab, playerLabel, playerSecondary, applyPlayerFrame };
+export { PlayersTab, playerLabel, playerSecondary };
+export { applyPlayerFrame } from "../lib/hooks/usePlayerRoster.js";

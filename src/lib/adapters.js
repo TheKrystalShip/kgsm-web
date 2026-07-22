@@ -38,8 +38,11 @@ export function adaptServer(be) {
     // id (enriched from /library by id in a later slice).
     game: be.blueprint,
     status: SERVER_STATUS[be.status] || "unknown",
-    // honest-unknown — no backend source today (presence tracking is WIP):
-    players: null,                 // unknown now, wired later
+    // honest-unknown — no backend source on the server DTO; player counts
+    // are derived client-side from the /servers/{id}/players endpoint via
+    // usePlayerRoster (src/lib/hooks/usePlayerRoster.js). `max` is still
+    // unsourced (no capacity field on the server DTO).
+    players: null,
     uptime: null,                  // not exposed by kgsm
     ip: null,                      // not exposed by kgsm
     last_backup: null,

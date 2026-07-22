@@ -16,6 +16,7 @@ import { FileBrowser } from "./FileBrowser.jsx";
 import { PerformanceTab } from "./PerformanceTab.jsx";
 import { PlayersTab } from "./PlayersTab.jsx";
 import { ServerSettings } from "./ServerSettings.jsx";
+import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 
 function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, onOpenServer, onViewServerAlerts, onViewServerAudit, onDeleted }) {
   useAlerts();
@@ -29,6 +30,18 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   React.useEffect(() => {
     if (_srvId) serversStore.fetchDetail(_srvId, _srvHost);
   }, [_srvId, _srvHost]);
+  // Player roster — hydrate then follow live. Derive online/offline counts
+  // for StatTiles and pass the full roster state to PlayersTab so it doesn't
+  // duplicate the REST fetch + SSE subscription.
+  const roster = usePlayerRoster(server);
+  const playerCounts = roster.status === "ready"
+    ? (() => {
+        const online = roster.players.filter(p => p.status === "online").length;
+        const offline = roster.players.filter(p => p.status === "offline").length;
+        return { current: online, offline, total: roster.players.length };
+      })()
+    : null;
+
   // Controlled by the route so the tab lives in the URL (#/servers/<id>/<tab>):
   // clicking a sub-tab navigates, and Back/Forward move between tabs.
   const tab = tabProp || "overview";
@@ -106,8 +119,8 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
           return (
             <>
               {notice}
-              <StatTiles server={server} />
-              <PlayersTab server={server} readOnly />
+              <StatTiles server={server} playerCounts={playerCounts} />
+              <PlayersTab server={server} readOnly roster={roster.status === "ready" ? roster : undefined} />
               <ConsolePanel server={server} readOnly />
             </>
           );
@@ -116,7 +129,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         // the dashboard's: { id, label, node }. Ids are stable so a saved order
         // survives content changes (merge-safe restore in DashLayout).
         const ovBands = [
-          { id: "stats", label: "Stats", node: <StatTiles server={server} /> },
+          { id: "stats", label: "Stats", node: <StatTiles server={server} playerCounts={playerCounts} /> },
           {
             id: "feed", label: "Alerts & activity",
             node: (
@@ -128,7 +141,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
               </div>
             )
           },
-          { id: "players", label: "Players", node: <PlayersTab server={server} /> },
+          { id: "players", label: "Players", node: <PlayersTab server={server} roster={roster.status === "ready" ? roster : undefined} /> },
           { id: "console", label: "Console", node: <ConsolePanel server={server} /> },
         ];
         return (

@@ -13,7 +13,7 @@ import { parseTs } from "../lib/formatting.js";
 // backup KPI) so the relative durations read sensibly against the freshest known
 // event rather than drifting from wall-clock when the feed is quiet.
 
-function StatTiles({ server }) {
+function StatTiles({ server, playerCounts }) {
   const auditList = useStore(auditStore, s => s.list);
   const now = auditList.length ? parseTs(auditList[0].ts) : new Date();
 
@@ -27,10 +27,14 @@ function StatTiles({ server }) {
     return rh ? `${d}d ${rh}h` : `${d}d`;
   };
 
-  // Player count has no honest backend source yet (presence tracking is WIP) →
-  // render "unknown" rather than a fabricated 0.
-  const hasPlayers = !!(server.players && server.players.max != null);
-  const playerPct = hasPlayers ? (server.players.current / server.players.max) * 100 : 0;
+  // Player count — sourced from the roster hook (playerCounts prop) when
+  // available, falling back to server.players for backward compat.
+  const hasPlayers = playerCounts != null;
+  const playerSub = hasPlayers
+    ? (playerCounts.offline > 0
+        ? playerCounts.offline + " offline" + (playerCounts.total > 0 ? " · " + playerCounts.total + " total" : "")
+        : playerCounts.total + " total")
+    : null;
 
   // Update available — server.update_available holds the target version string
   // when one is waiting, and is absent when up to date.
@@ -44,9 +48,8 @@ function StatTiles({ server }) {
   return (
     <div className="stats">
       <KPI icon="users" label="Players" tone="info"
-        value={hasPlayers ? server.players.current : "—"}
-        unit={hasPlayers ? "/ " + server.players.max : null}
-        barPct={playerPct} barColor="var(--krystal-teal)" />
+        value={hasPlayers ? playerCounts.current : "—"}
+        sub={playerSub} />
       <KPI icon="tag" label="Version" tone="muted"
         value={server.version || "—"} />
       <KPI icon="circle-arrow-up" label="Update available"

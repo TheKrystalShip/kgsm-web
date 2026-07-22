@@ -6,6 +6,7 @@ import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
 import { favoritesStore, hostsStore, serversStore, useIsFavorite } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
+import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 
 // ServerCard — the reusable game-server tile (art header, live metrics,
 // quick start/restart/stop). Shared by the Dashboard (online
@@ -66,6 +67,12 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // Servers page without moving it out of its host group. Read before any early
   // return so the hook order is stable (Rules of Hooks).
   const isFav = useIsFavorite(server.id);
+  // Player roster — hydrate then follow live. Derive online count for the meta
+  // row. Read before the phantom early return so hook order is stable.
+  const roster = usePlayerRoster(server);
+  const playerCurrent = roster.status === "ready"
+    ? roster.players.filter(p => p.status === "online").length
+    : null;
   if (server._phantom) return <ServerPhantomTile server={server} />;
   // kgsm-api serves cover/hero directly (the old client-side RAWG hook is gone).
   // Prefers landscape hero, then portrait cover, then themed gradient placeholder.
@@ -122,7 +129,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
           ? <div className="server-tile__notice" onClick={open}>{server.notice}</div>
           : <div className="server-tile__notice server-tile__notice--empty" onClick={open}>No server note</div>}
         <div className="server-tile__meta">
-          <span><Icon name="users" size={11} /> {server.players ? server.players.current + "/" + server.players.max : "—"}</span>
+          <span><Icon name="users" size={11} /> {playerCurrent != null ? playerCurrent : (server.players ? server.players.current : "—")}</span>
           <span className={"server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "")}><Icon name="cpu" size={11} /> {server.cpu == null ? "—" : server.cpu + "%"}</span>
           <span className={"server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "")}><Icon name="hard-drive" size={11} /> {server.ram ? (server.ram.used + (server.ram.max != null ? "/" + server.ram.max : "") + " GB") : "—"}</span>
           {metricsOff && (
