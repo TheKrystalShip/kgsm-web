@@ -20,7 +20,7 @@ function SettingsRow({ icon, title, sub, children }) {
 
 function Toggle({ on, onChange }) {
   return (
-    <button onClick={() => onChange(!on)} style={{
+    <button type="button" onClick={() => onChange(!on)} style={{
       width: 38, height: 22, borderRadius: 999,
       background: on ? "var(--krystal-teal)" : "var(--surface-3)",
       border: "1px solid " + (on ? "transparent" : "var(--border-subtle)"),
