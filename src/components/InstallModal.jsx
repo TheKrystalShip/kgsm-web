@@ -50,7 +50,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
     query:   "",
     slots:   defaultSlots,
     password: "",
-    autostart: true,
+    autostart: false,
   });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   // Reveal-password toggle for the (optional) server password field.

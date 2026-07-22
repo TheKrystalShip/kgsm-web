@@ -226,6 +226,7 @@ function installServer(cfg) {
   const body = { blueprint: cfg.game.id, name: cfg.name, origin: (cfg && cfg.origin) || "ui" };
   const port = Number(cfg.port);
   if (Number.isInteger(port) && port >= 1 && port <= 65535) body.port = port;
+  body.autostart = !!cfg.autostart;
   return api.host(hostId).post("/servers", body);
 }
 
