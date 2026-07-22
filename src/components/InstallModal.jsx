@@ -29,9 +29,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   // Seed the form from the backend blueprint DTO — never a hardcoded per-game
   // map. `ports` is served today so the game port pre-fills for real; the query
   // port has no honest blueprint designation (left blank/optional) and max
-  // players comes from `specs.maxPlayers` (null today → blank). The install dir
-  // is just a suggested name derived from the blueprint id. (kgsm assigns the
-  // real ports/dir at install time — only `blueprint`+`name` reach the API.)
+  // players comes from `specs.maxPlayers` (null today → blank).
   const defaultPort = (game.ports && game.ports[0] && game.ports[0].start) || "";
   const defaultSlots = (game.specs && game.specs.maxPlayers != null) ? game.specs.maxPlayers : "";
   // Only hosts that OFFER this blueprint can install it. Absent game.hosts =
@@ -56,11 +54,6 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   // Reveal-password toggle for the (optional) server password field.
   const [showPw, setShowPw] = React.useState(false);
 
-  // The install directory is PER HOST — each box runs its own KGSM with its own config. Derive it from the
-  // currently-selected host so switching host in a multi-host setup instantly reflects that host's default
-  // (the value is already on the host object — no extra fetch). null when the host didn't report one.
-  const selectedHost = offered.find(h => h.id === form.hostId) || null;
-  const installDir = (selectedHost && selectedHost.installDirectory) || null;
 
   // If the offering changes while the modal is open (a host syncs its catalog)
   // and the picked host no longer offers the game, fall back to a valid one.
@@ -160,16 +153,6 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="k-field">
-            <label>Install directory</label>
-            <input className="mono" value={installDir || ""} placeholder="Set by this host's KGSM config" readOnly />
-            <span className="k-field__help">
-              {installDir
-                ? <>From {selectedHost ? selectedHost.name : "the host"}'s KGSM config. Installs under <code style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>{installDir}/{game.id}/</code>.</>
-                : "This host's KGSM hasn't reported a default install directory."}
-            </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0 6px" }}>

@@ -477,6 +477,7 @@
 .gbtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   height: 34px;
   padding: 0 13px;
@@ -544,6 +545,13 @@
 .gbtn.is-pending {
   cursor: progress;
   opacity: 0.92;
+}
+
+/* Desktop: fixed-width buttons so confirm/pending text changes don't shift siblings */
+@media (min-width: 681px) {
+  .gbtn {
+    width: 136px;
+  }
 }
 
 @media (max-width: 680px) {
