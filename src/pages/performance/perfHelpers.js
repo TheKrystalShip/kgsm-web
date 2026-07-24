@@ -25,8 +25,8 @@ export const EVENT_META = {
   "server.crash":   { label: "Crashed",   tone: "danger"  },
   "server.update":  { label: "Updated",   tone: "info"    },
   "server.install": { label: "Installed", tone: "success" },
-  "player.joined":  { label: "Player Joined", tone: "info" },
-  "player.left":    { label: "Player Left",   tone: "info" },
+  "player.join":    { label: "Player joined", tone: "info" },
+  "player.leave":   { label: "Player left",   tone: "info" },
 };
 export function rowsToEvents(rows) {
   if (!Array.isArray(rows)) return [];
