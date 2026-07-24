@@ -5,10 +5,10 @@ import { Icon } from "../../components/Icon.jsx";
 import { AccountAvatar } from "../../components/Sidebar.jsx";
 import { VoiceNoteBubble } from "../../components/VoiceNote.jsx";
 import { renderMarkdown } from "./chatUtils.jsx";
-import { ChatThinking, ChatContextPill, ChatPending } from "./ChatMessageParts.jsx";
+import { ChatThinking, ChatContextPill, ChatSteps, ChatPending } from "./ChatMessageParts.jsx";
 import { ChatEvidence } from "./EvidenceCards.jsx";
 
-function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
+function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun }) {
   const isUser = msg.role === "user";
   return (
     <div className={"chat-msg" + (isUser ? " chat-msg--user" : " chat-msg--assistant")}>
@@ -25,6 +25,7 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
         {msg.voice && <VoiceNoteBubble voice={msg.voice} />}
         {!isUser && msg.thinking && <ChatThinking text={msg.thinking} streaming={!msg.content} />}
         {!isUser && msg.tools && msg.tools.map((t, i) => <ChatContextPill key={(t.id || "t") + ":" + i} msg={t} />)}
+        {!isUser && msg.steps && msg.steps.length > 0 && <ChatSteps steps={msg.steps} />}
         <div className="chat-msg__content">
           {msg.content
             ? renderMarkdown(msg.content)
@@ -33,7 +34,7 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView }) {
               : <ChatPending />}
         </div>
         {!isUser && msg.cards && msg.cards.length > 0 && (
-          <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
+          <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
         )}
       </div>
     </div>

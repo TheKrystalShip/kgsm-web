@@ -25,12 +25,12 @@ function ChatThread({ messages, user, onOpenServer, onOpenView, onRun }) {
           : m.role === "toggle"
             ? <ChatToggleNotice key={i} msg={m} />
             : m.role === "evidence"
-              ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} />
+              ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
               : m.role === "command"
                 ? <ChatCommand key={i} msg={m} onRun={onRun} />
                 : m.role === "verify"
                   ? <ChatVerify key={i} msg={m} />
-                  : <ChatMessage key={i} msg={m} user={user} onOpenServer={onOpenServer} onOpenView={onOpenView} />
+                  : <ChatMessage key={i} msg={m} user={user} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
       )}
     </div>
   );

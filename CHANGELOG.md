@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.24.0) — assistant `create_blueprint` progress stepper + outcome card
+- When the assistant researches, drafts, and empirically test-installs a blueprint for a
+  game the catalog is missing (`create_blueprint`), the chat now shows a **live progress
+  stepper** in the assistant's bubble — a check-them-off list built from streamed
+  `progress` frames ("Looking it up… ✓ Building a config… Booting it up… Cleaning up…").
+  The stepper renders inline next to the tool pill and updates live while the tool is
+  still running (it is not gated behind the evidence-card promotion that waits for the
+  turn to finish streaming).
+- The tool's terminal result now renders a **two-outcome evidence card**: on success, a
+  plain-language summary plus the one proof line the pipeline measured (e.g. "booted and
+  answered on port 8211") and a **"Make me a server"** button; on failure, an honest,
+  specific reason — no YAML, no mention of the disposable test host either way. The
+  success button hands off into the **existing** chat-driven install path (the same
+  `confirmInstall`/`runLiveCommand` flow a proposed `install` command already uses) —
+  no new API surface.
+
 ### Added (v1.23.0) — assistant `write_file` config-edit preview + confirm
 - When the assistant proposes editing a game server's own config file (the new `write_file` verb — e.g.
   populating Palworld's `PalWorldSettings.ini`), the chat's suggested-action card now shows a **preview of

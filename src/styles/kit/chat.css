@@ -3251,3 +3251,128 @@ a.ev-search__src:hover {
     height: 38px;
   }
 }
+
+/* ---------- blueprint-authoring progress stepper ----------
+   Live check-them-off narration for a long-running autonomous tool call
+   (create_blueprint): "Looking it up… ✓ Building a config… Booting it up…".
+   Sits in the assistant bubble next to the tool pills, NOT gated behind the
+   pendingCards promotion — it has to update live while the tool is still
+   running. Reuses the pill's spinner language (.chat-context__spinner). */
+.chat-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px;
+}
+
+.chat-steps__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--fg-4);
+  animation: chat-ctx-in var(--d-base) var(--ease-out);
+}
+
+.chat-steps__step--active {
+  color: var(--krystal-teal);
+}
+
+.chat-steps__step--done {
+  color: var(--fg-3);
+}
+
+.chat-steps__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.chat-steps__step--done .chat-steps__mark {
+  color: var(--success-fg);
+}
+
+.chat-steps__spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--krystal-teal-dim);
+  border-top-color: var(--krystal-teal);
+  border-radius: 999px;
+  animation: chat-ctx-spin 0.7s linear infinite;
+}
+
+.chat-steps__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- blueprint-authoring outcome card ----------
+   create_blueprint's terminal two-way fork: verified (kept in the catalog,
+   with a "Make me a server" handoff) or honestly couldn't. No YAML, no
+   mention of the disposable test host — see EvidenceBlueprintOutcome. */
+.ev-bp {
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ev-bp__verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ev-bp__verdict b {
+  font-weight: 600;
+}
+
+.ev-bp--ok .ev-bp__verdict {
+  color: var(--fg-2);
+}
+
+.ev-bp--ok .ev-bp__verdict>svg {
+  color: var(--success-fg);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ev-bp--fail .ev-bp__verdict {
+  color: var(--fg-2);
+}
+
+.ev-bp--fail .ev-bp__verdict>svg {
+  color: var(--warning-fg);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ev-bp__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  align-self: flex-start;
+  background: var(--krystal-teal);
+  color: var(--fg-inverse);
+  border: none;
+  border-radius: var(--r-md);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.ev-bp__cta:hover {
+  background: var(--krystal-teal-hover);
+}

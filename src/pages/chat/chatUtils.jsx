@@ -53,6 +53,7 @@ const TOOL_LABELS = {
   trace_root_cause:    "Tracing the root cause",
   server_command:      "Running command",
   search:              "Searching docs & web",
+  create_blueprint:    "Setting up a new game",
 };
 function toolLabel(tool) {
   if (!tool) return "Working";
@@ -456,6 +457,28 @@ function adaptResultCard(card) {
         },
       };
     }
+    case "create_blueprint": {
+      // The terminal outcome of the blueprint-authoring pipeline: either the game is now
+      // in the catalog (empirically boots + listens) or it honestly couldn't be. `ok` is
+      // derived from whichever discriminator the backend ships (`outcome` string or a
+      // plain `ok` bool); an absent/unrecognized outcome stays the honest "couldn't" side
+      // rather than being read as success — never claim success we can't back up.
+      const d = card.data;
+      if (!d) return null;
+      const ok = d.outcome === "verified" ? true
+        : d.outcome === "failed" ? false
+        : typeof d.ok === "boolean" ? d.ok
+        : false;
+      return {
+        kind: "blueprintOutcome",
+        confidence: card.confidence || null,
+        ok,
+        slug: id,
+        displayName: d.displayName || id || "",
+        proof: d.proof || null,
+        reason: d.reason || null,
+      };
+    }
     default:
       return null;
   }
@@ -490,6 +513,21 @@ function reduceTurnFrame(messages, ev) {
       msgs[lastIdx] = { ...bubble, tools: startTools };
       break;
     }
+    case "progress": {
+      // A long-running tool (create_blueprint) narrates its own sub-steps before its
+      // tool.result lands. Keyed by {id, key}: a fresh key for this id is appended as
+      // "active" after every OTHER active step for that same id is checked off "done" —
+      // that's what gives the live check-them-off effect. A repeat of the same {id, key}
+      // (the bounded self-repair loop re-entering a step) re-activates it in place rather
+      // than duplicating the row.
+      const prevSteps = bubble.steps || [];
+      const steps = prevSteps.map(s => (s.id === ev.id && s.status === "active") ? { ...s, status: "done" } : s);
+      const idx = steps.findIndex(s => s.id === ev.id && s.key === ev.key);
+      const entry = { id: ev.id, key: ev.key, label: ev.label || "", status: "active" };
+      if (idx >= 0) steps[idx] = entry; else steps.push(entry);
+      msgs[lastIdx] = { ...bubble, steps };
+      break;
+    }
     case "tool.result": {
       const resTools = (bubble.tools || []).slice();
       for (let k = resTools.length - 1; k >= 0; k--) {
@@ -499,6 +537,10 @@ function reduceTurnFrame(messages, ev) {
         }
       }
       let next = { ...bubble, tools: resTools };
+      // The tool call that owned any still-active progress steps is finished — check them off.
+      if (bubble.steps && bubble.steps.some(s => s.id === ev.id && s.status === "active")) {
+        next = { ...next, steps: bubble.steps.map(s => (s.id === ev.id && s.status === "active") ? { ...s, status: "done" } : s) };
+      }
       if (ev.result) {
         const card = adaptResultCard(ev.result);
         // Hold the card back until the turn finishes streaming (see promotePendingCards).
@@ -509,9 +551,15 @@ function reduceTurnFrame(messages, ev) {
     }
     case "error": {
       const note = "\u26a0\ufe0f " + (ev.message || "The assistant failed.");
-      const errored = bubble.content
-        ? { ...bubble, content: bubble.content + "\n\n_" + note + "_" }
-        : { ...bubble, content: note, error: true };
+      // A turn-ending error strands any still-active progress steps \u2014 check them off so
+      // the stepper doesn't sit spinning forever.
+      let base = bubble;
+      if (bubble.steps && bubble.steps.some(s => s.status === "active")) {
+        base = { ...base, steps: bubble.steps.map(s => s.status === "active" ? { ...s, status: "done" } : s) };
+      }
+      const errored = base.content
+        ? { ...base, content: base.content + "\n\n_" + note + "_" }
+        : { ...base, content: note, error: true };
       msgs[lastIdx] = promotePendingCards(errored);
       break;
     }
@@ -535,6 +583,11 @@ function reduceTurnFrame(messages, ev) {
       break;
     case "done": {
       let done = bubble;
+      // Safety net: the turn ended without every progress step's owning tool.result
+      // arriving in band (a dropped frame) — check off whatever is still active.
+      if (bubble.steps && bubble.steps.some(s => s.status === "active")) {
+        done = { ...done, steps: bubble.steps.map(s => s.status === "active" ? { ...s, status: "done" } : s) };
+      }
       if (ev.text) done = { ...done, content: ev.text };
       if (ev.usage) done = { ...done, usage: ev.usage };
       // Streaming is over — reveal the evidence cards below the finished answer.

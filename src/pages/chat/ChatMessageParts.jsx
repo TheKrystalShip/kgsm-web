@@ -47,6 +47,28 @@ function ChatContextPill({ msg }) {
   );
 }
 
+// Live progress stepper for a long-running autonomous tool call (create_blueprint):
+// a check-them-off list built from `progress` SSE frames (see chatUtils' reduceTurnFrame
+// "progress" case). Renders inline in the assistant bubble, next to the tool pills — it
+// is NOT gated behind pendingCards, so it updates live while the tool is still running.
+function ChatSteps({ steps }) {
+  if (!steps || !steps.length) return null;
+  return (
+    <div className="chat-steps">
+      {steps.map((s, i) => (
+        <div key={s.id + ":" + s.key + ":" + i} className={"chat-steps__step chat-steps__step--" + s.status}>
+          <span className="chat-steps__mark">
+            {s.status === "active"
+              ? <span className="chat-steps__spinner"></span>
+              : <Icon name="check" size={11} strokeWidth={2.6} />}
+          </span>
+          <span className="chat-steps__label">{s.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ChatThinking({ text, streaming }) {
   const [open, setOpen] = React.useState(false);
   return (
@@ -218,6 +240,6 @@ function ChatSystemNotice({ msg }) {
 }
 
 export {
-  ChatContextPill, ChatThinking, ChatCommand, ChatScopeNotice,
+  ChatContextPill, ChatSteps, ChatThinking, ChatCommand, ChatScopeNotice,
   ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatPending, ChatSystemNotice,
 };

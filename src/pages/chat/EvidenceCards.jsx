@@ -10,7 +10,7 @@ import { useStore } from "../../lib/store.js";
 import { hostsStore } from "../../lib/stores.js";
 import { formatBytes, formatBps } from "../../lib/formatting.js";
 
-function ChatEvidence({ cards, onOpenServer, onOpenView }) {
+function ChatEvidence({ cards, onOpenServer, onOpenView, onRun }) {
   if (!cards || !cards.length) return null;
   return (
     <div className="chat-evidence">
@@ -30,6 +30,7 @@ function ChatEvidence({ cards, onOpenServer, onOpenView }) {
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "audit")       return <EvidenceAudit          key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "timeline")    return <EvidenceChangeTimeline key={i} c={c} onOpenServer={onOpenServer} />;
+        if (c.kind === "blueprintOutcome") return <EvidenceBlueprintOutcome key={i} c={c} onRun={onRun} />;
         return null;
       })}
     </div>
@@ -515,6 +516,51 @@ function EvidenceNetwork({ c, onOpen }) {
           ) : (
             <div className="ev-net__note">{"The watchdog isn\u2019t reachable, so router forwards couldn\u2019t be read."}</div>
           )}
+        </div>
+      </div>
+    </EvidenceCardShell>
+  );
+}
+
+// create_blueprint's terminal outcome — the ONLY two-way fork in the chat: either the
+// missing game is now empirically proven in the catalog, or it honestly couldn't be
+// added automatically. No YAML, no mention of the disposable test host — the user gets
+// a plain-language result and, on success, one decision ("Make me a server"), which
+// hands off into the SAME install path a proposed `install` command already uses
+// (`onRun` here is ChatPage's `runLiveCommand` — no new API, no new confirm flow).
+function EvidenceBlueprintOutcome({ c, onRun }) {
+  const name = c.displayName || c.slug || "this game";
+  const handleMakeServer = () => {
+    if (!onRun || !c.slug) return;
+    onRun({ verb: "install", subjectId: c.slug, instanceName: null, cmdId: null });
+  };
+  if (c.ok) {
+    return (
+      <EvidenceCardShell icon="package-plus" title={"Added to the catalog · " + name}
+        sub={c.proof || undefined} confidence={c.confidence}>
+        <div className="ev-bp ev-bp--ok">
+          <div className="ev-bp__verdict">
+            <Icon name="circle-check-big" size={13} />
+            <span>
+              {"I didn’t have " + name + ", so I researched it, built a config, and test-ran it"}
+              {c.proof ? " — it " + c.proof + "." : "."}
+              {" "}<b>{name + " is now in the catalog."}</b>
+            </span>
+          </div>
+          <button type="button" className="ev-bp__cta" onClick={handleMakeServer}>
+            <Icon name="server" size={13} strokeWidth={2.2} />
+            Make me a server
+          </button>
+        </div>
+      </EvidenceCardShell>
+    );
+  }
+  return (
+    <EvidenceCardShell icon="octagon-x" title={"Couldn’t add " + name} confidence={c.confidence}>
+      <div className="ev-bp ev-bp--fail">
+        <div className="ev-bp__verdict">
+          <Icon name="alert-triangle" size={13} />
+          <span>{c.reason || (name + " needs something beyond what I can set up automatically.")}</span>
         </div>
       </div>
     </EvidenceCardShell>
