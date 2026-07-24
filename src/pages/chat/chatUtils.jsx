@@ -458,24 +458,20 @@ function adaptResultCard(card) {
       };
     }
     case "create_blueprint": {
-      // The terminal outcome of the blueprint-authoring pipeline: either the game is now
-      // in the catalog (empirically boots + listens) or it honestly couldn't be. `ok` is
-      // derived from whichever discriminator the backend ships (`outcome` string or a
-      // plain `ok` bool); an absent/unrecognized outcome stays the honest "couldn't" side
-      // rather than being read as success — never claim success we can't back up.
-      const d = card.data;
-      if (!d) return null;
-      const ok = d.outcome === "verified" ? true
-        : d.outcome === "failed" ? false
-        : typeof d.ok === "boolean" ? d.ok
-        : false;
+      // The terminal outcome of the blueprint-authoring pipeline: `outcome` is a 5-value
+      // enum ("disabled" | "alreadyExists" | "notFeasible" | "failed" | "verified") — ONLY
+      // "verified" is a real success; every other value (including an absent/unrecognized
+      // one) renders the honest "couldn't" side, never a claimed success we can't back up.
+      // `subject.id` is the canonical blueprint slug on every outcome (the install-handoff
+      // key); `d.blueprintName` is a defensive fallback if it's ever missing.
+      const d = card.data || {};
       return {
         kind: "blueprintOutcome",
         confidence: card.confidence || null,
-        ok,
-        slug: id,
-        displayName: d.displayName || id || "",
-        proof: d.proof || null,
+        ok: d.outcome === "verified",
+        slug: id || d.blueprintName || null,
+        displayName: d.game || null,
+        proof: d.proofLine || null,
         reason: d.reason || null,
       };
     }
@@ -514,16 +510,17 @@ function reduceTurnFrame(messages, ev) {
       break;
     }
     case "progress": {
-      // A long-running tool (create_blueprint) narrates its own sub-steps before its
-      // tool.result lands. Keyed by {id, key}: a fresh key for this id is appended as
-      // "active" after every OTHER active step for that same id is checked off "done" —
-      // that's what gives the live check-them-off effect. A repeat of the same {id, key}
-      // (the bounded self-repair loop re-entering a step) re-activates it in place rather
-      // than duplicating the row.
+      // create_blueprint narrates its own sub-steps before its tool.result lands. The wire
+      // carries NO tool-call id on a progress frame (it can't thread one through the
+      // frozen generic SSE package) — steps are keyed by `key` ALONE, which is safe
+      // because a turn calls create_blueprint at most once. A fresh key is appended as
+      // "active" after every OTHER active step is checked off "done" — that's what gives
+      // the live check-them-off effect. A repeat of the same key (the bounded self-repair
+      // loop re-entering a step) re-activates it in place rather than duplicating the row.
       const prevSteps = bubble.steps || [];
-      const steps = prevSteps.map(s => (s.id === ev.id && s.status === "active") ? { ...s, status: "done" } : s);
-      const idx = steps.findIndex(s => s.id === ev.id && s.key === ev.key);
-      const entry = { id: ev.id, key: ev.key, label: ev.label || "", status: "active" };
+      const steps = prevSteps.map(s => s.status === "active" ? { ...s, status: "done" } : s);
+      const idx = steps.findIndex(s => s.key === ev.key);
+      const entry = { key: ev.key, label: ev.label || "", status: "active" };
       if (idx >= 0) steps[idx] = entry; else steps.push(entry);
       msgs[lastIdx] = { ...bubble, steps };
       break;
@@ -537,9 +534,11 @@ function reduceTurnFrame(messages, ev) {
         }
       }
       let next = { ...bubble, tools: resTools };
-      // The tool call that owned any still-active progress steps is finished — check them off.
-      if (bubble.steps && bubble.steps.some(s => s.id === ev.id && s.status === "active")) {
-        next = { ...next, steps: bubble.steps.map(s => (s.id === ev.id && s.status === "active") ? { ...s, status: "done" } : s) };
+      // Progress steps carry no id to match against ev.id — identify create_blueprint's
+      // own tool.result by the result card's `tool` field instead, and check off whatever
+      // is still active (normally just the last step, e.g. teardown).
+      if (bubble.steps && bubble.steps.length && ev.result && ev.result.tool === "create_blueprint") {
+        next = { ...next, steps: bubble.steps.map(s => s.status === "active" ? { ...s, status: "done" } : s) };
       }
       if (ev.result) {
         const card = adaptResultCard(ev.result);
