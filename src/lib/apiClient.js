@@ -277,6 +277,33 @@ import("./stores.js").then((m) => {
     await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
   }
 
+  // ---- assistant blueprint finalize (blocking JSON) ------------------------
+  // The "Save" on an in-chat blueprint-review card. Unlike a turn (SSE) this is a
+  // single blocking POST: the assistant re-validates the edited YAML, test-installs,
+  // boots + verifies, and runs its bounded repair loop before answering — MINUTES,
+  // not milliseconds. It returns the ConfirmResponse { text, success, card,
+  // confirmations }: `success` ⇒ verified (the card is the catalog outcome); a
+  // DraftReady comes back with a fresh Blueprint token in `confirmations[0]` + boot
+  // evidence on the card for a second edit (the re-edit loop). The confirmation token
+  // is single-use and finalize isn't idempotent, so — like `turn` — this deliberately
+  // does NOT replay on 401 (an expired token just surfaces re-auth on the next call).
+  async function liveConfirm(bearer, body, hostId, signal) {
+    const headers = { "Content-Type": "application/json", Accept: "application/json" };
+    if (bearer) headers.Authorization = "Bearer " + bearer;
+    const base = apiV1Of(hostId) || API_V1;
+    let res;
+    try {
+      res = await fetch(base + "/assistant/confirm", { method: "POST", headers, body: JSON.stringify(body), signal });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      markFailure(hostId); throw netError();
+    }
+    markSuccess(hostId);                     // the host answered → reachable
+    let json = null; try { json = await res.json(); } catch { json = null; }
+    if (!res.ok) throw apiError(res.status, json);   // pre/at-relay degrade or an honest 400
+    return json;
+  }
+
   // ---- latency probe (the dashboard Ping KPI) -----------------------------
   // Measure the CLIENT-side round trip via a REST GET to /health on the host.
   // Returns the RTT in ms, or null on any failure → the KPI honestly reads "no
@@ -561,6 +588,9 @@ import("./stores.js").then((m) => {
       // state surfaces on the next call. authorizedBearer throws on a dead session → the turn rejects
       // with authError (the chat surfaces re-auth). Null token under auth-disabled.
       turn: (b, o) => authorizedBearer(id).then(tok => liveTurn(tok, b, o, id)),
+      // Blueprint-review "Save": blocking finalize (test-install + verify + repair). Like turn,
+      // NO withRetry — the confirmation token is single-use and finalize isn't idempotent.
+      confirmBlueprint: (b, o) => authorizedBearer(id).then(tok => liveConfirm(tok, b, id, o && o.signal)),
     };
   }
 

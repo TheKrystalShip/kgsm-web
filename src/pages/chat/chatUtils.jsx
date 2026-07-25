@@ -458,13 +458,18 @@ function adaptResultCard(card) {
       };
     }
     case "create_blueprint": {
-      // The terminal outcome of the blueprint-authoring pipeline: `outcome` is a 5-value
-      // enum ("disabled" | "alreadyExists" | "notFeasible" | "failed" | "verified") — ONLY
-      // "verified" is a real success; every other value (including an absent/unrecognized
-      // one) renders the honest "couldn't" side, never a claimed success we can't back up.
-      // `subject.id` is the canonical blueprint slug on every outcome (the install-handoff
-      // key); `d.blueprintName` is a defensive fallback if it's ever missing.
+      // The terminal outcome of the blueprint-authoring pipeline: `outcome` is a 6-value
+      // enum ("disabled" | "alreadyExists" | "notFeasible" | "failed" | "draftReady" |
+      // "verified") — ONLY "verified" is a real success; every other value (including an
+      // absent/unrecognized one) renders the honest "couldn't" side, never a claimed
+      // success we can't back up. `subject.id` is the canonical blueprint slug on every
+      // outcome (the install-handoff key); `d.blueprintName` is a defensive fallback.
       const d = card.data || {};
+      // "draftReady" is the mandatory-review checkpoint, NOT a terminal card: the editable
+      // Monaco card is driven by the sibling command.proposed frame (verb "blueprint"), which
+      // alone carries the confirmation token Save needs. Suppress the tool.result twin here so
+      // the draft renders once, as the interactive card — never as a dead "couldn't add" card.
+      if (d.outcome === "draftReady") return null;
       return {
         kind: "blueprintOutcome",
         confidence: card.confidence || null,
@@ -478,6 +483,44 @@ function adaptResultCard(card) {
     default:
       return null;
   }
+}
+
+// The assistant's /confirm response for a blueprint finalize (Save on the review card) →
+// the patch the ChatBlueprintDraft state machine applies. Read the RICH card's `data.outcome`,
+// never the prose: "verified" (with success) is the only real catalog win; a "draftReady" comes
+// back with a FRESH token (resp.confirmations[0]) + boot `evidence` for a second edit — the
+// re-edit loop; anything else (or an unparseable/absent outcome) is an honest terminal failure,
+// never a fabricated success. Slug/proof/reason are carried verbatim or left null.
+function adaptBlueprintConfirm(resp) {
+  const r = resp || {};
+  const card = r.card || {};
+  const d = (card && card.data) || {};
+  const reToken = Array.isArray(r.confirmations) && r.confirmations[0] ? r.confirmations[0].token : null;
+
+  if (d.outcome === "verified" && r.success) {
+    return {
+      state: "verified",
+      slug: (card.subject && card.subject.id) || d.blueprintName || null,
+      displayName: d.game || null,
+      proof: d.proofLine || null,
+    };
+  }
+  // Repair exhausted / invalid edit came back for another pass — only a real re-edit if the
+  // draft AND a fresh token both arrived; otherwise it degrades to the honest failure below.
+  if (d.outcome === "draftReady" && reToken && d.draftYaml) {
+    return {
+      state: "proposed",
+      token: reToken,
+      draftYaml: d.draftYaml,
+      evidence: d.evidence || null,
+      displayName: d.game || null,
+    };
+  }
+  return {
+    state: "failed",
+    displayName: d.game || null,
+    reason: d.reason || r.text || null,
+  };
 }
 
 // Evidence cards gathered from tool.result frames ride on `bubble.pendingCards`
@@ -577,6 +620,16 @@ function reduceTurnFrame(messages, ev) {
         // write_file carries a { path, proposedContent } preview so the card can show the exact
         // change before the user accepts it; null for every other verb.
         file: ev.file || null,
+        // The host-minted confirmation token + the staged body. Only the blueprint-review card
+        // (verb "blueprint") uses them: `token` authorizes the finalize Save, `draftYaml` is the
+        // editor's starting content (the frame's `configValue`). Null/harmless for other verbs —
+        // the M3 command path routes those through kgsm-api endpoints, not the assistant token.
+        token: ev.token || null,
+        draftYaml: ev.configValue ?? null,
+        // The blueprint-review card is a small state machine (proposed → verifying → verified|
+        // failed, looping back to proposed on repair exhaustion); ChatPage patches bpState onto
+        // this message as the Save round-trip resolves. It starts at the review checkpoint.
+        bpState: ev.verb === "blueprint" ? "proposed" : undefined,
         state: "proposed",
       });
       break;
@@ -714,7 +767,7 @@ function renderMarkdown(text) {
 export {
   CHAT_LS_KEY, CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
-  uid, toolLabel, composeVerified, adaptResultCard,
+  uid, toolLabel, composeVerified, adaptResultCard, adaptBlueprintConfirm,
   reduceTurnFrame, promotePendingCards, scaffoldHistory, latestUsage, mergeServerConversations,
   renderMarkdown,
 };

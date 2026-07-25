@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.25.0) — in-chat blueprint-review checkpoint (editable Monaco card)
+- `create_blueprint` no longer test-installs unattended. When the assistant finishes drafting
+  a config for a missing game, the chat now shows an **editable review card**: the drafted
+  blueprint YAML in the **same Monaco editor** the file browser uses (yaml mode, theme-aware,
+  lazy-loaded so its chunk only downloads when a card mounts). The human edits anything, then
+  **Save & test-install** hands the edited YAML back to the assistant, which re-validates it,
+  test-installs, boots, and verifies before anything lands in the catalog — **Restore** reverts
+  to the drafted config and **Give up** dismisses the draft. Nothing is added without a real
+  verified boot; the card never fabricates success from the accept.
+- The card is **double duty**: when the assistant's autonomous repair loop exhausts (a draft the
+  local model can't fix on its own), the same card comes back **editable again** with the failed
+  attempt's **boot log** attached and a fresh token, so a human can close the gap and re-save
+  (the re-edit loop). A **verifying** state covers the minutes-long finalize; a verified result
+  flips to the catalog outcome with the measured proof line and a **"Make me a server"** button.
+- New apiClient seam `api.host(id).confirmBlueprint({ token, editedContent })` — a blocking
+  finalize POST to `/assistant/confirm` (relayed by kgsm-api). Like the SSE turn it does not
+  replay on 401 (the confirmation token is single-use and finalize isn't idempotent).
+
 ### Added (v1.24.0) — assistant `create_blueprint` progress stepper + outcome card
 - When the assistant researches, drafts, and empirically test-installs a blueprint for a
   game the catalog is missing (`create_blueprint`), the chat now shows a **live progress

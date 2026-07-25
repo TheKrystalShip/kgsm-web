@@ -149,6 +149,109 @@ function ChatCommand({ msg, onRun }) {
   );
 }
 
+// Monaco is heavy (editor core + workers) — lazy-load it so the chunk only downloads
+// when a blueprint-review card actually mounts, never on first paint. Same instance the
+// file browser uses, so the yaml highlighting + theming come for free.
+const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));
+
+// The in-chat blueprint-review checkpoint (assistant-blueprint-review-plan.md P2). One card,
+// double duty: the mandatory pre-test review of the assistant's drafted config, AND the
+// recovery surface when the autonomous repair loop exhausts (it comes back editable with the
+// boot log attached for a second pass). It renders raw YAML in Monaco, re-validated server-side
+// on Save; nothing lands in the catalog without a real verified boot. The state machine —
+// proposed → verifying → verified｜failed, looping back to proposed on a re-edit — lives on the
+// message (msg.bpState), driven by ChatPage's confirm round-trip; this component is presentational.
+function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
+  const state = msg.bpState || "proposed";
+  const game = msg.instanceName || msg.subjectId || "this game";
+  const busy = state === "verifying";
+  // Local editor buffer. Re-seed whenever a new draft arrives — the token changes on the
+  // re-edit loop, so keying the reset on it (plus the draft text) refreshes the editor cleanly.
+  const [text, setText] = React.useState(msg.draftYaml || "");
+  React.useEffect(() => { setText(msg.draftYaml || ""); }, [msg.token, msg.draftYaml]);
+  const dirty = text !== (msg.draftYaml || "");
+
+  if (state === "verified") {
+    const name = msg.bpDisplayName || game;
+    return (
+      <div className="chat-bp chat-bp--ok">
+        <div className="chat-bp__head">
+          <span className="chat-bp__icon chat-bp__icon--ok"><Icon name="package-plus" size={14} /></span>
+          <div className="chat-bp__titles">
+            <span className="chat-bp__title">Added to the catalog · {name}</span>
+            {msg.bpProof && <span className="chat-bp__sub">it {msg.bpProof}</span>}
+          </div>
+        </div>
+        {msg.bpSlug && (
+          <button type="button" className="chat-bp__cta"
+            onClick={() => onRun && onRun({ verb: "install", subjectId: msg.bpSlug, instanceName: null, cmdId: null })}>
+            <Icon name="server" size={13} strokeWidth={2.2} /> Make me a server
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <div className="chat-bp chat-bp--fail">
+        <div className="chat-bp__head">
+          <span className="chat-bp__icon chat-bp__icon--fail"><Icon name="octagon-x" size={14} /></span>
+          <div className="chat-bp__titles">
+            <span className="chat-bp__title">Didn’t add {msg.bpDisplayName || game}</span>
+            {msg.bpReason && <span className="chat-bp__sub">{msg.bpReason}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // proposed (initial review or a re-edit) — the editor, optionally with the last boot log.
+  return (
+    <div className={"chat-bp" + (busy ? " chat-bp--busy" : "")}>
+      <div className="chat-bp__head">
+        <span className="chat-bp__icon"><Icon name="file-pen" size={14} /></span>
+        <div className="chat-bp__titles">
+          <span className="chat-bp__title">Review the {game} config</span>
+          <span className="chat-bp__sub">Edit anything below, then save — I’ll test-install it and verify it boots before adding it.</span>
+        </div>
+      </div>
+      {msg.evidence && (
+        <div className="chat-bp__evidence">
+          <div className="chat-bp__evidence-label">
+            <Icon name="terminal-square" size={11} /> Last attempt didn’t boot — here’s what it logged
+          </div>
+          <pre className="chat-bp__evidence-body">{msg.evidence}</pre>
+        </div>
+      )}
+      <div className="chat-bp__editor">
+        <React.Suspense fallback={<div className="fb-editor__empty"><span className="oauth-spinner" /> Loading editor…</div>}>
+          <CodeEditor value={text} onChange={setText} path="draft.bp.yaml" readOnly={busy} />
+        </React.Suspense>
+      </div>
+      {busy ? (
+        <div className="chat-bp__verifying">
+          <span className="oauth-spinner" />
+          <span>Test-installing and verifying {game}… this can take a few minutes.</span>
+        </div>
+      ) : (
+        <div className="chat-bp__actions">
+          <button type="button" className="chat-bp__btn chat-bp__btn--primary" onClick={() => onSave && onSave(msg, text)}>
+            <Icon name="check" size={13} strokeWidth={2.4} /> Save &amp; test-install
+          </button>
+          <button type="button" className="chat-bp__btn" onClick={() => setText(msg.draftYaml || "")} disabled={!dirty}
+            title={dirty ? "Revert your edits to the drafted config" : "No edits to revert"}>
+            <Icon name="rotate-cw" size={13} /> Restore
+          </button>
+          <button type="button" className="chat-bp__btn chat-bp__btn--ghost" onClick={() => onGiveUp && onGiveUp(msg)}>
+            Give up
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ChatScopeNotice({ msg }) {
   return (
     <div className="chat-scope-notice">
@@ -240,6 +343,6 @@ function ChatSystemNotice({ msg }) {
 }
 
 export {
-  ChatContextPill, ChatSteps, ChatThinking, ChatCommand, ChatScopeNotice,
+  ChatContextPill, ChatSteps, ChatThinking, ChatCommand, ChatBlueprintDraft, ChatScopeNotice,
   ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatPending, ChatSystemNotice,
 };

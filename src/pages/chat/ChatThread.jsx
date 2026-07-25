@@ -5,12 +5,12 @@
 
 import { ChatEvidence } from "./EvidenceCards.jsx";
 import {
-  ChatContextPill, ChatCommand, ChatScopeNotice,
+  ChatContextPill, ChatCommand, ChatBlueprintDraft, ChatScopeNotice,
   ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatSystemNotice,
 } from "./ChatMessageParts.jsx";
 import { ChatMessage } from "./ChatMessage.jsx";
 
-function ChatThread({ messages, user, onOpenServer, onOpenView, onRun }) {
+function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlueprint, onGiveUpBlueprint }) {
   return (
     <div className="chat-thread">
       {messages.map((m, i) =>
@@ -27,7 +27,9 @@ function ChatThread({ messages, user, onOpenServer, onOpenView, onRun }) {
             : m.role === "evidence"
               ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
               : m.role === "command"
-                ? <ChatCommand key={i} msg={m} onRun={onRun} />
+                ? (m.verb === "blueprint"
+                    ? <ChatBlueprintDraft key={i} msg={m} onSave={onSaveBlueprint} onGiveUp={onGiveUpBlueprint} onRun={onRun} />
+                    : <ChatCommand key={i} msg={m} onRun={onRun} />)
                 : m.role === "verify"
                   ? <ChatVerify key={i} msg={m} />
                   : <ChatMessage key={i} msg={m} user={user} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />

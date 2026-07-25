@@ -11,7 +11,7 @@ import { api } from "../lib/apiClient.js";
 import {
   CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
-  uid, adaptResultCard, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
+  uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
   latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
 import { API_COMMAND_VERBS, commandMeta } from "./chat/chatConstants.js";
@@ -345,6 +345,52 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       });
   };
 
+  // ---- blueprint-review checkpoint (assistant-blueprint-review-plan.md P2) ----
+  // Patch bpState (+ any outcome fields) onto the one blueprint command message being reviewed.
+  const patchBlueprintMsg = (cmdId, patch) =>
+    setMessages(msgs => msgs.map(m =>
+      (m.role === "command" && m.verb === "blueprint" && m.cmdId === cmdId) ? { ...m, ...patch } : m));
+
+  // Save = finalize: send the (possibly edited) YAML to the assistant, which re-validates,
+  // test-installs, boots + verifies, and runs its repair loop before answering (minutes). The
+  // card sits in a "verifying" state meanwhile. On a verified win it flips to the catalog outcome;
+  // on repair exhaustion / an invalid edit it comes back editable with a fresh token + boot log
+  // (the re-edit loop); anything else is an honest failure. Never fabricates success from the 202.
+  const onSaveBlueprint = (msg, editedYaml) => {
+    const hostId = (assistantHost && assistantHost.id) || null;
+    if (!hostId || !msg.token) {
+      patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpReason: "This draft has expired — ask the assistant to draft it again." });
+      return;
+    }
+    patchBlueprintMsg(msg.cmdId, { bpState: "verifying" });
+    api.host(hostId).confirmBlueprint({ token: msg.token, editedContent: editedYaml }).then(
+      resp => {
+        const r = adaptBlueprintConfirm(resp);
+        if (r.state === "verified") {
+          patchBlueprintMsg(msg.cmdId, { bpState: "verified", bpSlug: r.slug, bpDisplayName: r.displayName, bpProof: r.proof });
+        } else if (r.state === "proposed") {
+          // Re-edit loop: adopt the returned draft + fresh token + boot evidence, back to editable.
+          patchBlueprintMsg(msg.cmdId, { bpState: "proposed", token: r.token, draftYaml: r.draftYaml, evidence: r.evidence, bpDisplayName: r.displayName });
+        } else {
+          patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpDisplayName: r.displayName, bpReason: r.reason });
+        }
+      },
+      err => {
+        const expired = err && err.code === 401;
+        patchBlueprintMsg(msg.cmdId, {
+          bpState: "failed",
+          bpReason: expired
+            ? ((assistantHost && assistantHost.name) || "This host") + "’s session expired — re-authorize this host to continue."
+            : (err && err.userMessage) || "The test-install couldn’t run — try saving again.",
+        });
+      });
+  };
+
+  // Abandon is the only terminal Failed a user can reach directly — always offered so a draft can't
+  // get stuck in an un-closable loop. Client-side only: the token simply expires unused server-side.
+  const onGiveUpBlueprint = (msg) =>
+    patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpReason: "You dismissed this draft — nothing was added." });
+
   const onKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
@@ -466,7 +512,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             </div>
           ) : (
             <ChatThread messages={active.messages} user={user}
-              onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={runLiveCommand} />
+              onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={runLiveCommand}
+              onSaveBlueprint={onSaveBlueprint} onGiveUpBlueprint={onGiveUpBlueprint} />
           )}
         </div>
 
