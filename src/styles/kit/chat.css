@@ -1840,13 +1840,29 @@ a.ev-search__src:hover {
 }
 .chat-bp__icon--ok { color: var(--success-fg); }
 .chat-bp__icon--fail { color: var(--danger-fg); }
+.chat-bp__icon--muted { color: var(--fg-3); }
 
 .chat-bp__titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .chat-bp__title { font-weight: 600; font-size: 13px; color: var(--fg-1); }
 .chat-bp__sub { font-size: 11.5px; color: var(--fg-3); line-height: 1.4; }
 
 .chat-bp--ok .chat-bp__head,
-.chat-bp--fail .chat-bp__head { border-bottom: 0; }
+.chat-bp--fail .chat-bp__head,
+.chat-bp--superseded .chat-bp__head { border-bottom: 0; }
+
+/* Superseded: a newer draft replaced this one. Read-only and visibly retired — dimmed, dashed border,
+   muted title — so it reads as "no longer usable" at a glance; it carries no editor and no buttons. */
+.chat-bp--superseded {
+  opacity: 0.6;
+  background: transparent;
+  border-style: dashed;
+}
+.chat-bp--superseded .chat-bp__title {
+  font-weight: 500;
+  color: var(--fg-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--fg-4, var(--fg-3));
+}
 
 /* Boot-log evidence on the failure-recovery pass (reuses the log-console look). */
 .chat-bp__evidence {

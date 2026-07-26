@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.27.1) — a superseded blueprint draft is clearly retired
+- When a revision (or re-draft) produces a new draft card, the earlier draft card is now retired to a
+  read-only **"superseded"** state — dimmed, dashed border, struck-through title ("Replaced by an updated
+  draft"), and its editor and Save/Reset/Give-up buttons removed — so the stale token/content can't be
+  acted on and it's unmistakable which card is live. Only an editable ("proposed") draft is retired; a
+  draft mid-finalize ("verifying") is left alone.
+
 ### Added (v1.27.0) — the assistant can revise an open blueprint draft from chat
 - When a blueprint draft card is open in the chat, a chat turn now carries the draft's **current editor
   content** (manual edits included) to the assistant, so asking it to change or populate the draft

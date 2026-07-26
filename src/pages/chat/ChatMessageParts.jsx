@@ -223,6 +223,22 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraft
     );
   }
 
+  // Superseded: a newer draft replaced this one (a revise or a re-draft). Read-only, no editor and no
+  // action buttons — the stale token/content here is no longer usable; the user works the newer card below.
+  if (state === "superseded") {
+    return (
+      <div className="chat-bp chat-bp--superseded" aria-disabled="true">
+        <div className="chat-bp__head">
+          <span className="chat-bp__icon chat-bp__icon--muted"><Icon name="history" size={14} /></span>
+          <div className="chat-bp__titles">
+            <span className="chat-bp__title">Replaced by an updated draft for {game}</span>
+            <span className="chat-bp__sub">This version is no longer editable — review and save the newer draft below.</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // proposed (initial review or a re-edit) — the editor, optionally with the last boot log.
   // The whole card is built once as `body` and rendered either inline or inside a full-screen
   // Modal, so the pop-out reuses the exact same editor + actions (mirrors FileBrowser's cardBody).

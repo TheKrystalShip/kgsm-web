@@ -84,6 +84,23 @@ try {
   assert((adaptResultCard({ tool: "create_blueprint", subject: { id: "x" }, data: { outcome: "verified", game: "X", proofLine: "booted" } }) || {}).kind === "blueprintOutcome",
     "adaptResultCard: a terminal 'verified' still maps to a blueprintOutcome card (regression)");
 
+  // ---------- 1b) A revise_blueprint draft supersedes the prior open draft ----------
+  console.log("\n→ A new draft (revise) retires the earlier one to read-only 'superseded'\n");
+  const revisedFrames = [
+    { type: "command.proposed", id: "cmd_1", verb: "blueprint",
+      subject: { resource: "server", id: "mindustry" }, instanceName: "Mindustry",
+      token: "tok-draft-2", configValue: DRAFT_YAML + "\nmetadata:\n  max_players: 8\n" },
+    { type: "done", text: "Updated the draft with max players." },
+  ];
+  // A real second turn appends a fresh user + assistant bubble before the frames stream in (sendLive).
+  const revisedMsgs = feed([...draftMsgs, { role: "user", content: "set max players to 8" }, { role: "assistant", content: "" }], revisedFrames);
+  const bpCards = revisedMsgs.filter(m => m.role === "command" && m.verb === "blueprint");
+  assert(bpCards.length === 2, "the revised draft is a NEW card (two blueprint cards now)");
+  const oldCard = bpCards.find(m => m.token === "tok-draft-1");
+  const newCard = bpCards.find(m => m.token === "tok-draft-2");
+  assert(oldCard && oldCard.bpState === "superseded", "the earlier draft is retired to 'superseded' (read-only, no buttons)");
+  assert(newCard && newCard.bpState === "proposed", "the new draft is the live editable one ('proposed')");
+
   // ---------- 2) Save → verified (the happy path) ----------
   console.log("\n→ Save finalizes to a verified catalog win\n");
   const verifiedResp = {

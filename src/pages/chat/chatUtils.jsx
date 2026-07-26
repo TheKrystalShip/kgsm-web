@@ -606,6 +606,17 @@ function reduceTurnFrame(messages, ev) {
       break;
     }
     case "command.proposed":
+      // A new blueprint draft (initial or a revise_blueprint refinement) supersedes any earlier draft
+      // still open for review — that older card's token/content is stale, so retire it to a read-only
+      // "superseded" state (no editor, no Save/Reset) rather than leave two live editors that could both
+      // be saved. Only editable ("proposed") drafts are retired; a mid-finalize ("verifying") one is left
+      // alone. A verify still in flight is left alone.
+      if (ev.verb === "blueprint") {
+        for (let k = 0; k < msgs.length; k++) {
+          if (msgs[k].role === "command" && msgs[k].verb === "blueprint" && msgs[k].bpState === "proposed")
+            msgs[k] = { ...msgs[k], bpState: "superseded" };
+        }
+      }
       msgs.splice(lastIdx, 0, {
         role: "command",
         cmdId: ev.id,
