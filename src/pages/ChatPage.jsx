@@ -59,6 +59,16 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
 
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
+  // The OPEN blueprint draft's live content, so a chat turn can carry it to the assistant (which lets it
+  // revise the draft via revise_blueprint). draftEditsRef maps a draft's cmdId → its current editor text
+  // (manual edits included); activeDraftRef is the cmdId of the draft currently being reviewed.
+  const draftEditsRef  = React.useRef({});
+  const activeDraftRef = React.useRef(null);
+  const onDraftEdit   = React.useCallback((cmdId, text) => { if (cmdId) draftEditsRef.current[cmdId] = text; }, []);
+  const onDraftActive = React.useCallback((cmdId, active) => {
+    if (active) activeDraftRef.current = cmdId;
+    else if (activeDraftRef.current === cmdId) activeDraftRef.current = null;
+  }, []);
   const taRef     = React.useRef(null);
   const pinnedRef = React.useRef(true);
 
@@ -184,7 +194,12 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
 
     try {
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
-      await api.host(assistantHost.id).turn({ prompt, actions: autoAcceptActive, think: thinkOn, conversationId: convId }, { onEvent: applyFrame, signal: ctrl.signal });
+      // If a blueprint draft is open, carry its CURRENT content so the assistant can revise it from chat.
+      const openCmdId = activeDraftRef.current;
+      const draftYaml = openCmdId ? draftEditsRef.current[openCmdId] : undefined;
+      await api.host(assistantHost.id).turn(
+        { prompt, actions: autoAcceptActive, think: thinkOn, conversationId: convId, draftYaml },
+        { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
       const reason = e && e.code === 503 ? assistantHost.name + "\u2019s assistant is currently unavailable."
@@ -513,7 +528,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           ) : (
             <ChatThread messages={active.messages} user={user}
               onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={runLiveCommand}
-              onSaveBlueprint={onSaveBlueprint} onGiveUpBlueprint={onGiveUpBlueprint} />
+              onSaveBlueprint={onSaveBlueprint} onGiveUpBlueprint={onGiveUpBlueprint}
+              onDraftEdit={onDraftEdit} onDraftActive={onDraftActive} />
           )}
         </div>
 

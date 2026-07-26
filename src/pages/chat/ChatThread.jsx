@@ -10,7 +10,7 @@ import {
 } from "./ChatMessageParts.jsx";
 import { ChatMessage } from "./ChatMessage.jsx";
 
-function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlueprint, onGiveUpBlueprint }) {
+function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlueprint, onGiveUpBlueprint, onDraftEdit, onDraftActive }) {
   return (
     <div className="chat-thread">
       {messages.map((m, i) =>
@@ -28,7 +28,7 @@ function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlu
               ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
               : m.role === "command"
                 ? (m.verb === "blueprint"
-                    ? <ChatBlueprintDraft key={i} msg={m} onSave={onSaveBlueprint} onGiveUp={onGiveUpBlueprint} onRun={onRun} />
+                    ? <ChatBlueprintDraft key={i} msg={m} onSave={onSaveBlueprint} onGiveUp={onGiveUpBlueprint} onRun={onRun} onDraftEdit={onDraftEdit} onDraftActive={onDraftActive} />
                     : <ChatCommand key={i} msg={m} onRun={onRun} />)
                 : m.role === "verify"
                   ? <ChatVerify key={i} msg={m} />

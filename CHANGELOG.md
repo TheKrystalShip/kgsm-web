@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.27.0) — the assistant can revise an open blueprint draft from chat
+- When a blueprint draft card is open in the chat, a chat turn now carries the draft's **current editor
+  content** (manual edits included) to the assistant, so asking it to change or populate the draft
+  ("populate the metadata with RAM and max players") actually updates the draft via its new
+  `revise_blueprint` tool — instead of the assistant falsely claiming it did. The open draft's live content
+  is tracked per card (`onDraftEdit`/`onDraftActive`) and attached to the turn body as `draftYaml`; a
+  successful revision comes back as a fresh editable draft card to review and save. Ordinary turns (no open
+  draft) are unaffected.
+
 ### Fixed (v1.26.1) — the chat never shows "session expired" during normal use
 - The two chat calls that can't lean on the reactive 401-heal — the **SSE assistant turn** and the
   **single-use blueprint finalize (Save)** — now resolve their bearer through a new **expiry-aware**

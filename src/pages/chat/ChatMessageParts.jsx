@@ -162,7 +162,7 @@ const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));
 // on Save; nothing lands in the catalog without a real verified boot. The state machine —
 // proposed → verifying → verified｜failed, looping back to proposed on a re-edit — lives on the
 // message (msg.bpState), driven by ChatPage's confirm round-trip; this component is presentational.
-function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
+function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraftActive }) {
   const state = msg.bpState || "proposed";
   const game = msg.instanceName || msg.subjectId || "this game";
   const busy = state === "verifying";
@@ -171,6 +171,17 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
   const [text, setText] = React.useState(msg.draftYaml || "");
   React.useEffect(() => { setText(msg.draftYaml || ""); }, [msg.token, msg.draftYaml]);
   const dirty = text !== (msg.draftYaml || "");
+  // Expose this draft's CURRENT content (manual edits included) to ChatPage, so a chat message asking
+  // the assistant to revise it can carry the exact content the user sees — that's what lets the assistant
+  // actually change the draft from chat (via revise_blueprint) instead of pretending it did. While this
+  // draft is the OPEN (editable) one, register it as active and keep its live content in sync.
+  React.useEffect(() => {
+    if (state === "proposed" && onDraftEdit) onDraftEdit(msg.cmdId, text);
+  }, [text, state, msg.cmdId, onDraftEdit]);
+  React.useEffect(() => {
+    if (state === "proposed" && onDraftActive) onDraftActive(msg.cmdId, true);
+    return () => { if (onDraftActive) onDraftActive(msg.cmdId, false); };
+  }, [state, msg.cmdId, onDraftActive]);
   // Full-screen pop-out (same behaviour as the Files editor + console + charts): the whole
   // review card lifts into a portaled Modal so a long config isn't capped at the inline height.
   const [expanded, setExpanded] = React.useState(false);
