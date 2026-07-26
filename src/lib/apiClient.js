@@ -2,7 +2,7 @@ import { createStore } from "./store.js";
 import { API_V1, apiV1Of, apiOriginOf, streamUrlOf, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createSseStream } from "./liveStream.js";
-import { readSseStream } from "./sse.js";
+import { readSseStream, parseSseEvent } from "./sse.js";
 
 // alertsStore + sessionStore are used only inside request methods (deferred,
 // `?`-guarded). Static imports would put this base module in init cycles
@@ -35,6 +35,12 @@ import("./stores.js").then((m) => {
 // (translated by adapters.js) and realtime over one WebSocket per connected host
 // (liveStream.js). The call sites (the domain stores) only ever see `api`. See
 // architecture.html (§3, §3·b).
+
+// The blueprint-finalize idle-watchdog window (see liveConfirm). The server streams a
+// keep-alive heartbeat every ~15s during the minutes-long finalize; this is ≫ that, so a
+// live-but-slow finalize is never killed — only a genuinely dead socket (no bytes at all)
+// trips it, converting an otherwise-infinite "verifying" spinner into a retryable failure.
+const FINALIZE_IDLE_MS = 60000;
 
   // ---- connection health (drives the resilience layer) -------------------
   // connectionStore is REST reachability, the reactive signal the shell reads:
@@ -293,31 +299,99 @@ import("./stores.js").then((m) => {
     await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
   }
 
-  // ---- assistant blueprint finalize (blocking JSON) ------------------------
-  // The "Save" on an in-chat blueprint-review card. Unlike a turn (SSE) this is a
-  // single blocking POST: the assistant re-validates the edited YAML, test-installs,
-  // boots + verifies, and runs its bounded repair loop before answering — MINUTES,
-  // not milliseconds. It returns the ConfirmResponse { text, success, card,
-  // confirmations }: `success` ⇒ verified (the card is the catalog outcome); a
-  // DraftReady comes back with a fresh Blueprint token in `confirmations[0]` + boot
-  // evidence on the card for a second edit (the re-edit loop). The confirmation token
-  // is single-use and finalize isn't idempotent, so — like `turn` — this deliberately
-  // does NOT replay on 401 (an expired token just surfaces re-auth on the next call).
-  async function liveConfirm(bearer, body, hostId, signal) {
-    const headers = { "Content-Type": "application/json", Accept: "application/json" };
+  // ---- assistant blueprint finalize (SSE — streamed) -----------------------
+  // The "Save" on an in-chat blueprint-review card. The assistant re-validates the
+  // edited YAML, test-installs, boots + verifies, and runs its bounded repair loop —
+  // MINUTES, with long SILENT stretches (a SteamCMD download, a boot-log poll).
+  //
+  // It is STREAMED (text/event-stream), exactly like a turn, for two reasons: (1) the
+  // pipeline's own `progress` steps drive a live stepper so the user sees it advancing
+  // instead of a dead spinner; (2) keep-alive heartbeats keep the socket warm through
+  // the silent stretches — a minutes-long buffered response with no bytes flowing gets
+  // its idle socket dropped on a remote path (NAT/middlebox/browser), which used to
+  // leave the card spinning forever. The terminal `result` frame carries the whole
+  // ConfirmResponse { text, success, card, confirmations } — the SAME shape the old
+  // buffered path returned — so this resolves with it and onSaveBlueprint is unchanged:
+  // `success` ⇒ verified; a DraftReady comes back with a fresh Blueprint token in
+  // `confirmations[0]` + boot evidence for the re-edit loop.
+  //
+  // An IDLE WATCHDOG resets on every received byte (heartbeats included) and aborts if
+  // the stream goes quiet for FINALIZE_IDLE_MS — so even a silently half-dead socket
+  // surfaces as a failure the user can retry, NEVER an infinite spinner. The token is
+  // single-use and finalize isn't idempotent, so — like `turn` — this does NOT replay
+  // on 401 (an expired token surfaces re-auth on the next call).
+  async function liveConfirm(bearer, body, hostId, opts) {
+    const { onProgress, signal } = opts || {};
+    const headers = { "Content-Type": "application/json", Accept: "text/event-stream" };
     if (bearer) headers.Authorization = "Bearer " + bearer;
     const base = apiV1Of(hostId) || API_V1;
+
+    // Idle watchdog: abort if no bytes arrive for FINALIZE_IDLE_MS (≫ the server's 15s
+    // heartbeat, so a live-but-slow finalize is never killed — only a truly dead socket).
+    const ctrl = new AbortController();
+    let idleTimer = null;
+    const armIdle = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => ctrl.abort(new DOMException("finalize idle timeout", "TimeoutError")), FINALIZE_IDLE_MS);
+    };
+    const onAbort = () => ctrl.abort(signal.reason);
+    if (signal) { if (signal.aborted) ctrl.abort(signal.reason); else signal.addEventListener("abort", onAbort); }
+
     let res;
     try {
-      res = await fetch(base + "/assistant/confirm", { method: "POST", headers, body: JSON.stringify(body), signal });
+      res = await fetch(base + "/assistant/confirm", { method: "POST", headers, body: JSON.stringify(body), signal: ctrl.signal });
     } catch (e) {
-      if (e && e.name === "AbortError") throw e;
+      if (signal) signal.removeEventListener("abort", onAbort);
+      if (idleTimer) clearTimeout(idleTimer);
+      if (signal && signal.aborted) throw e;             // caller cancelled
       markFailure(hostId); throw netError();
     }
     markSuccess(hostId);                     // the host answered → reachable
-    let json = null; try { json = await res.json(); } catch { json = null; }
-    if (!res.ok) throw apiError(res.status, json);   // pre/at-relay degrade or an honest 400
-    return json;
+    if (!res.ok) {
+      if (signal) signal.removeEventListener("abort", onAbort);
+      let json = null; try { json = await res.json(); } catch { json = null; }
+      throw apiError(res.status, json);      // pre-stream degrade (404/503/502/400)
+    }
+
+    // Drain the SSE body: reset the idle watchdog on every chunk (raw bytes → catches
+    // heartbeats too), relay `progress` steps, capture the terminal `result`, and treat
+    // an in-band `error` frame as a failure.
+    let result = null, streamErr = null;
+    try {
+      armIdle();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const chunk = await reader.read();
+        armIdle();                            // any byte (data OR heartbeat) → still alive
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const block = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const evt = parseSseEvent(block);   // heartbeats (comment-only) → null, skipped
+          if (!evt) continue;
+          if (evt.type === "result") result = evt;
+          else if (evt.type === "progress" && onProgress) onProgress(evt);
+          else if (evt.type === "error") streamErr = evt.message || "The finalize failed.";
+        }
+      }
+    } catch (e) {
+      if (e && (e.name === "TimeoutError")) {
+        throw apiError(0, { error: { message: "The verification stream went quiet — it may still be running on the host. Check the catalog, or try saving again." } });
+      }
+      if (signal && signal.aborted) throw e;  // caller cancelled
+      markFailure(hostId); throw netError();
+    } finally {
+      if (idleTimer) clearTimeout(idleTimer);
+      if (signal) signal.removeEventListener("abort", onAbort);
+    }
+
+    if (streamErr) throw apiError(0, { error: { message: streamErr } });
+    if (!result) throw apiError(0, { error: { message: "The verification ended without a result — it may still be running on the host. Check the catalog, or try saving again." } });
+    return result;
   }
 
   // ---- latency probe (the dashboard Ping KPI) -----------------------------
@@ -605,12 +679,13 @@ import("./stores.js").then((m) => {
       // BEFORE the POST, so a normal-use turn after a pause just works. Only a genuinely dead refresh token
       // throws authError → the chat surfaces re-auth. Null token under auth-disabled.
       turn: (b, o) => freshBearer(id).then(tok => liveTurn(tok, b, o, id)),
-      // Blueprint-review "Save": blocking finalize (test-install + verify + repair) — MINUTES, and the
-      // confirmation token is single-use, so it can't be blindly replayed. The common failure was leaving
-      // the draft open past the short access-token lifetime, then Save 401ing with "session expired".
-      // freshBearer rotates a lapsed token before the finalize (the single-use blueprint token rides the
-      // body untouched), so Save after a long review self-heals; only a dead refresh token surfaces re-auth.
-      confirmBlueprint: (b, o) => freshBearer(id).then(tok => liveConfirm(tok, b, id, o && o.signal)),
+      // Blueprint-review "Save": STREAMED finalize (test-install + verify + repair) — MINUTES, surfaced as
+      // SSE (progress steps + heartbeats + terminal result; see liveConfirm). The confirmation token is
+      // single-use, so it can't be blindly replayed. The common failure was leaving the draft open past the
+      // short access-token lifetime, then Save 401ing with "session expired". freshBearer rotates a lapsed
+      // token before the finalize (the single-use blueprint token rides the body untouched), so Save after a
+      // long review self-heals; only a dead refresh token surfaces re-auth. `o` = { onProgress?, signal? }.
+      confirmBlueprint: (b, o) => freshBearer(id).then(tok => liveConfirm(tok, b, id, o)),
     };
   }
 

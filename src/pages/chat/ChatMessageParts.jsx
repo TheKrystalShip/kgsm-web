@@ -272,7 +272,10 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraft
       {busy ? (
         <div className="chat-bp__verifying">
           <span className="oauth-spinner" />
-          <span>Test-installing and verifying {game}… this can take a few minutes.</span>
+          <span>
+            Test-installing and verifying {game}… this can take a few minutes.
+            {msg.bpProgress && <span className="chat-bp__verify-step"> · {msg.bpProgress}</span>}
+          </span>
         </div>
       ) : (
         // Give up far left · Reset then Save pinned far right (Save is the primary teal CTA).

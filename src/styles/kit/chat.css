@@ -1929,6 +1929,9 @@ a.ev-search__src:hover {
   font-size: 12px;
   color: var(--fg-2);
 }
+/* The live finalize step (research/install/verify/repair) streamed under the spinner —
+   dimmer than the standing "this can take a few minutes" line so it reads as a sub-status. */
+.chat-bp__verify-step { color: var(--fg-3); }
 /* Pushes Give up to the far left and the Reset+Save pair to the far right. */
 .chat-bp__spacer { flex: 1 1 auto; }
 

@@ -377,23 +377,28 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpReason: "This draft has expired — ask the assistant to draft it again." });
       return;
     }
-    patchBlueprintMsg(msg.cmdId, { bpState: "verifying" });
-    api.host(hostId).confirmBlueprint({ token: msg.token, editedContent: editedYaml }).then(
+    patchBlueprintMsg(msg.cmdId, { bpState: "verifying", bpProgress: null });
+    // The finalize streams its own steps (research/install/verify/repair) — surface the latest as a live
+    // sub-label under the "verifying" spinner so the user sees it advancing, not a dead wait. Cleared on
+    // every terminal branch below.
+    const onProgress = (evt) => patchBlueprintMsg(msg.cmdId, { bpProgress: evt && evt.label ? evt.label : null });
+    api.host(hostId).confirmBlueprint({ token: msg.token, editedContent: editedYaml }, { onProgress }).then(
       resp => {
         const r = adaptBlueprintConfirm(resp);
         if (r.state === "verified") {
-          patchBlueprintMsg(msg.cmdId, { bpState: "verified", bpSlug: r.slug, bpDisplayName: r.displayName, bpProof: r.proof });
+          patchBlueprintMsg(msg.cmdId, { bpState: "verified", bpSlug: r.slug, bpDisplayName: r.displayName, bpProof: r.proof, bpProgress: null });
         } else if (r.state === "proposed") {
           // Re-edit loop: adopt the returned draft + fresh token + boot evidence, back to editable.
-          patchBlueprintMsg(msg.cmdId, { bpState: "proposed", token: r.token, draftYaml: r.draftYaml, evidence: r.evidence, bpDisplayName: r.displayName });
+          patchBlueprintMsg(msg.cmdId, { bpState: "proposed", token: r.token, draftYaml: r.draftYaml, evidence: r.evidence, bpDisplayName: r.displayName, bpProgress: null });
         } else {
-          patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpDisplayName: r.displayName, bpReason: r.reason });
+          patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpDisplayName: r.displayName, bpReason: r.reason, bpProgress: null });
         }
       },
       err => {
         const expired = err && err.code === 401;
         patchBlueprintMsg(msg.cmdId, {
           bpState: "failed",
+          bpProgress: null,
           bpReason: expired
             ? ((assistantHost && assistantHost.name) || "This host") + "’s session expired — re-authorize this host to continue."
             : (err && err.userMessage) || "The test-install couldn’t run — try saving again.",

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.28.0) — the blueprint "verifying" card can no longer hang forever
+- **"Save" on a blueprint-review card now consumes a STREAMED finalize** instead of a single blocking POST.
+  A finalize is minutes of test-install → verify → repair with long silent stretches; the old buffered
+  request could sit with zero bytes flowing long enough for an idle-connection reaper (NAT / a middlebox /
+  the browser on a remote path) to silently drop the socket — after which the fetch never settled and the
+  "verifying" card spun **forever** with no result, even though the finalize had finished on the host.
+  `liveConfirm` now reads the assistant's SSE stream (via the api relay):
+  - **live progress** — each `progress` step (research / install / verify / repair) is surfaced as a sub-label
+    under the spinner, so the card visibly advances instead of dead-waiting;
+  - **an idle watchdog** — resets on every received byte (server heartbeats included) and aborts if the
+    stream goes quiet for 60s (≫ the 15s heartbeat), converting a genuinely dead socket into a retryable
+    failure ("the verification stream went quiet — it may still be running; check the catalog, or try
+    saving again") rather than an infinite spinner;
+  - **a terminal `result` frame** carries the same `ConfirmResponse` the buffered path returned, so the
+    verified / re-edit / failed outcomes are unchanged.
+
 ### Changed (v1.27.1) — a superseded blueprint draft is clearly retired
 - When a revision (or re-draft) produces a new draft card, the earlier draft card is now retired to a
   read-only **"superseded"** state — dimmed, dashed border, struck-through title ("Replaced by an updated
