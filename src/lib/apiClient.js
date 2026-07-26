@@ -166,6 +166,22 @@ import("./stores.js").then((m) => {
     if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
     return sessionStore.tokenOf(id);   // may be a lapsed JWT — REST heals it reactively on the 401
   }
+  // Like authorizedBearer, but PROACTIVELY freshens a lapsed access token before handing it back — for the
+  // two chat calls that can't lean on the reactive 401 heal (the SSE turn + the single-use blueprint
+  // finalize are NOT safely replayable through the expired-gate). authorizeFresh rotates via the refresh
+  // token when the access token's own exp has passed, so the call goes out once with a live token and the
+  // session never flashes "expired" in the chat. Only a genuinely dead refresh token throws authError
+  // (tagged preflight) → the UI's honest re-auth. Falls back to authorizedBearer when the session layer
+  // isn't the authority (auth-disabled / aggregate scope).
+  async function freshBearer(hostId) {
+    const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
+    if (!sessionStore) { try { await sessionReady; } catch {} }
+    if (!sessionStore || !sessionStore.authorizeFresh || !id || id === "all") return authorizedBearer(hostId);
+    const st = await sessionStore.authorizeFresh(id);
+    if (st === "denied") { const e = authError(403, id); e.preflight = true; throw e; }
+    if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
+    return sessionStore.tokenOf(id);
+  }
   // hostId routes the call to that host's base URL + bearer (multi-host). With a
   // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
   // is byte-identical to the old single global-API_V1 path.
@@ -583,14 +599,18 @@ import("./stores.js").then((m) => {
       patch: (p, b) => withRetry(() => patch(p, b, id)),
       put: (p, b) => withRetry(() => put(p, b, id)),
       del: (p) => withRetry(() => del(p, id)),
-      // Assistant turn (SSE). The funnel resolves + freshens the bearer; NO withRetry replay — a turn
-      // isn't idempotent, so an expired token mid-stream just ends the turn and the per-host expired
-      // state surfaces on the next call. authorizedBearer throws on a dead session → the turn rejects
-      // with authError (the chat surfaces re-auth). Null token under auth-disabled.
-      turn: (b, o) => authorizedBearer(id).then(tok => liveTurn(tok, b, o, id)),
-      // Blueprint-review "Save": blocking finalize (test-install + verify + repair). Like turn,
-      // NO withRetry — the confirmation token is single-use and finalize isn't idempotent.
-      confirmBlueprint: (b, o) => authorizedBearer(id).then(tok => liveConfirm(tok, b, id, o && o.signal)),
+      // Assistant turn (SSE). NO withRetry replay — a turn isn't idempotent, so an expired token mid-stream
+      // just ends the turn. But an access token that lapsed while the user sat idle must not fail the NEXT
+      // turn with "session expired": freshBearer proactively rotates a lapsed token (via the refresh token)
+      // BEFORE the POST, so a normal-use turn after a pause just works. Only a genuinely dead refresh token
+      // throws authError → the chat surfaces re-auth. Null token under auth-disabled.
+      turn: (b, o) => freshBearer(id).then(tok => liveTurn(tok, b, o, id)),
+      // Blueprint-review "Save": blocking finalize (test-install + verify + repair) — MINUTES, and the
+      // confirmation token is single-use, so it can't be blindly replayed. The common failure was leaving
+      // the draft open past the short access-token lifetime, then Save 401ing with "session expired".
+      // freshBearer rotates a lapsed token before the finalize (the single-use blueprint token rides the
+      // body untouched), so Save after a long review self-heals; only a dead refresh token surfaces re-auth.
+      confirmBlueprint: (b, o) => freshBearer(id).then(tok => liveConfirm(tok, b, id, o && o.signal)),
     };
   }
 

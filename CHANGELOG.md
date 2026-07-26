@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.26.1) — the chat never shows "session expired" during normal use
+- The two chat calls that can't lean on the reactive 401-heal — the **SSE assistant turn** and the
+  **single-use blueprint finalize (Save)** — now resolve their bearer through a new **expiry-aware**
+  path (`sessionStore.authorizeFresh` / `apiClient.freshBearer`). If the host's short-lived access token
+  has lapsed (its own JWT `exp` is past, within a 30s skew), it is **proactively rotated via the refresh
+  token before the request goes out**, so the call succeeds on the first try and the session never even
+  transiently flips to "expired". The frequent trigger was leaving a blueprint draft open in the editor
+  longer than the access-token lifetime, then clicking **Save** and getting "session expired — re-authorize"
+  with the edits stuck. Only a genuinely dead **refresh** token now surfaces re-auth (the honest case).
+  Every other call stays reactive (heals on the API's 401) — this adds proactive refresh **only** for the
+  two non-replayable calls, since a turn/finalize can't be safely replayed through the expired-gate.
+
 ### Changed (v1.26.0) — blueprint review card matches the file-browser editor + full-screen pop-out
 - The in-chat blueprint review card now uses the **same editor chrome as the Files tab**. Its
   action buttons reuse the shared `fb-editor__btn` family (identical Save/Reset styling

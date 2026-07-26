@@ -60,6 +60,27 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   // actually hold one — auth-disabled hosts are "live" with no token.
   const tokenOf = (id) => { const r = getRec(id); return r && r.status === "live" ? (r.token || null) : null; };
 
+  // Decode a JWT's `exp` (seconds → ms), library-free; null if the token isn't a parseable JWT (e.g. an
+  // opaque/auth-disabled bearer). Used ONLY to decide a PROACTIVE rotate for the two non-replayable chat
+  // calls (the SSE turn + the single-use blueprint finalize) — the rest of the app stays reactive (heals
+  // on the API's 401), so this is not general expiry prediction, just the edge those two calls can't reach.
+  function jwtExpMs(token) {
+    try {
+      const seg = token.split(".")[1];
+      const json = JSON.parse(atob(seg.replace(/-/g, "+").replace(/_/g, "/")));
+      return typeof json.exp === "number" ? json.exp * 1000 : null;
+    } catch { return null; }
+  }
+  // True when a live host's ACCESS token has lapsed (or is within a 30s skew of it) — the signal to
+  // rotate BEFORE a non-replayable call instead of letting it 401. An opaque/absent token → false (nothing
+  // to predict; fall back to the reactive path).
+  function accessTokenLapsed(id) {
+    const tok = tokenOf(id);
+    if (!tok) return false;
+    const expMs = jwtExpMs(tok);
+    return expMs != null && Date.now() >= expMs - 30000;
+  }
+
   function setRec(id, partial, persist) {
     store.setState(s => ({ byHost: { ...s.byHost, [id]: { ...(s.byHost[id] || {}), ...partial } } }));
     if (persist) writeSession(id);
@@ -278,6 +299,21 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     return p;
   }
 
+  // ---- authorizeFresh (expiry-AWARE authorize, for non-replayable calls) --
+  // authorize() is reactive: a "live" host is handed out AS-IS and only rotated once the API 401s. That's
+  // right for REST (it replays), but the SSE turn and the single-use blueprint finalize can't safely replay
+  // through the expired-gate — so THOSE resolve their bearer through here instead. A live session whose
+  // access token has lapsed is rotated (via the refresh token) BEFORE the call, so the request goes out once
+  // with a fresh token and the session never even transiently flips to "expired" (no re-auth flash in the
+  // chat). rotate() sets "expired" only when the refresh token is ALSO dead — the honest case that DOES need
+  // re-auth. Everything else is untouched and stays reactive.
+  function authorizeFresh(id) {
+    const st = statusOf(id);
+    if (st === "live") return accessTokenLapsed(id) ? rotate(id) : Promise.resolve("live");
+    if (st === "denied") return Promise.resolve("denied");
+    return authorize(id);   // not live yet → the ordinary bootstrap/rotate path
+  }
+
   // ---- reauthorize (interactive, gesture-bound — from HostReauthModal) ----
   // The user clicked "Re-authorize". Re-run identity resolution; an auth-enabled host
   // that still 401s drives the UI back to the Discord OAuth bounce.
@@ -338,6 +374,7 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   store.vouch = vouch;
   store.rotate = rotate;
   store.authorize = authorize;
+  store.authorizeFresh = authorizeFresh;
   store.reauthorize = reauthorize;
   store.needsReauth = needsReauth;
   store.register = register;
