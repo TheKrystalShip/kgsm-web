@@ -3,6 +3,7 @@
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
+import { Modal } from "../../components/Modal.jsx";
 import { commandMeta } from "./chatConstants.js";
 import { API_COMMAND_VERBS } from "./chatConstants.js";
 
@@ -170,6 +171,11 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
   const [text, setText] = React.useState(msg.draftYaml || "");
   React.useEffect(() => { setText(msg.draftYaml || ""); }, [msg.token, msg.draftYaml]);
   const dirty = text !== (msg.draftYaml || "");
+  // Full-screen pop-out (same behaviour as the Files editor + console + charts): the whole
+  // review card lifts into a portaled Modal so a long config isn't capped at the inline height.
+  const [expanded, setExpanded] = React.useState(false);
+  // Collapse if the card leaves the editable state (verified/failed have no editor to expand).
+  React.useEffect(() => { if (state !== "proposed" && state !== "verifying") setExpanded(false); }, [state]);
 
   if (state === "verified") {
     const name = msg.bpDisplayName || game;
@@ -207,14 +213,21 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
   }
 
   // proposed (initial review or a re-edit) — the editor, optionally with the last boot log.
-  return (
-    <div className={"chat-bp" + (busy ? " chat-bp--busy" : "")}>
+  // The whole card is built once as `body` and rendered either inline or inside a full-screen
+  // Modal, so the pop-out reuses the exact same editor + actions (mirrors FileBrowser's cardBody).
+  const body = (
+    <div className={"chat-bp" + (busy ? " chat-bp--busy" : "") + (expanded ? " chat-bp--full" : "")}>
       <div className="chat-bp__head">
         <span className="chat-bp__icon"><Icon name="file-pen" size={14} /></span>
         <div className="chat-bp__titles">
           <span className="chat-bp__title">Review the {game} config</span>
           <span className="chat-bp__sub">Edit anything below, then save — I’ll test-install it and verify it boots before adding it.</span>
         </div>
+        <button type="button" className="chat-bp__expand" onClick={() => setExpanded((v) => !v)}
+          title={expanded ? "Exit full screen (Esc)" : "Expand to full screen"}
+          aria-label={expanded ? "Exit full screen" : "Expand to full screen"}>
+          <Icon name={expanded ? "minimize-2" : "maximize-2"} size={14} />
+        </button>
       </div>
       {msg.evidence && (
         <div className="chat-bp__evidence">
@@ -235,21 +248,50 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun }) {
           <span>Test-installing and verifying {game}… this can take a few minutes.</span>
         </div>
       ) : (
+        // Give up far left · Reset then Save pinned far right (Save is the primary teal CTA).
+        // Buttons reuse the Files editor's fb-editor__btn family so they match app-wide.
         <div className="chat-bp__actions">
-          <button type="button" className="chat-bp__btn chat-bp__btn--primary" onClick={() => onSave && onSave(msg, text)}>
-            <Icon name="check" size={13} strokeWidth={2.4} /> Save &amp; test-install
-          </button>
-          <button type="button" className="chat-bp__btn" onClick={() => setText(msg.draftYaml || "")} disabled={!dirty}
-            title={dirty ? "Revert your edits to the drafted config" : "No edits to revert"}>
-            <Icon name="rotate-cw" size={13} /> Restore
-          </button>
-          <button type="button" className="chat-bp__btn chat-bp__btn--ghost" onClick={() => onGiveUp && onGiveUp(msg)}>
+          <button type="button" className="fb-editor__btn fb-editor__btn--ghost fb-editor__btn--sm"
+            onClick={() => onGiveUp && onGiveUp(msg)}>
             Give up
+          </button>
+          <span className="chat-bp__spacer" />
+          <button type="button" className="fb-editor__btn fb-editor__btn--secondary"
+            onClick={() => setText(msg.draftYaml || "")} disabled={!dirty}
+            title={dirty ? "Revert your edits to the drafted config" : "No edits to revert"}>
+            <Icon name="rotate-ccw" size={14} /> Reset
+          </button>
+          <button type="button" className="fb-editor__btn" onClick={() => onSave && onSave(msg, text)}>
+            <Icon name="check" size={14} strokeWidth={2.4} /> Save &amp; test-install
           </button>
         </div>
       )}
     </div>
   );
+
+  // Popped out: leave a quiet placeholder in the inline slot and mount the real card in a
+  // portaled Modal (portaled to <body> — .app__main is a container-type ancestor that would
+  // otherwise clip a fixed child). Same pattern as FileBrowser / ConsolePanel.
+  if (expanded) {
+    return (
+      <>
+        <div className="chat-bp chat-bp--placeholder">
+          <Icon name="maximize-2" size={22} strokeWidth={1.6} />
+          <div className="chat-bp__placeholder-text">Reviewing {game} in full screen.</div>
+          <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm"
+            onClick={() => setExpanded(false)}>
+            <Icon name="minimize-2" size={13} /> Restore
+          </button>
+        </div>
+        <Modal onClose={() => setExpanded(false)} scrimClassName="chat-bp-modal-scrim">
+          <div className="chat-bp-modal" role="dialog" aria-modal="true" aria-label={"Review the " + game + " config"}>
+            {body}
+          </div>
+        </Modal>
+      </>
+    );
+  }
+  return body;
 }
 
 function ChatScopeNotice({ msg }) {

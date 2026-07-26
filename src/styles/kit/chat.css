@@ -1874,9 +1874,31 @@ a.ev-search__src:hover {
   word-break: break-word;
 }
 
-/* Monaco fills its container — give the review editor a fixed viewport height. */
+/* Expand-to-full-screen toggle in the review head — a quiet ghost button pinned
+   to the far right of the title row; flips maximize⇄minimize with the popped
+   state. Mirrors the Files tab's .fb-editor__expand / .console-card__expand. */
+.chat-bp__expand {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: var(--r-sm);
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-bp__expand:hover {
+  background: var(--surface-2);
+  color: var(--fg-1);
+  border-color: var(--border-subtle);
+}
+
+/* Monaco fills its container — give the review editor a generous viewport height. */
 .chat-bp__editor {
-  height: 320px;
+  height: 420px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1891,32 +1913,60 @@ a.ev-search__src:hover {
   font-size: 12px;
   color: var(--fg-2);
 }
+/* Pushes Give up to the far left and the Reset+Save pair to the far right. */
+.chat-bp__spacer { flex: 1 1 auto; }
 
-.chat-bp__btn {
-  display: inline-flex;
+/* ---- Full-screen pop-out (portaled Modal; mirrors FileBrowser + ConsolePanel) ---- */
+
+/* Quiet stand-in left in the inline slot while the card is popped out. */
+.chat-bp--placeholder {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  color: var(--fg-1);
-  font-family: var(--font-ui);
-  font-weight: 600;
-  font-size: 12.5px;
-  padding: 7px 12px;
-  cursor: pointer;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 24px;
+  text-align: center;
+  color: var(--fg-3);
 }
-.chat-bp__btn:hover { border-color: var(--border-strong); background: var(--surface-3); }
-.chat-bp__btn:disabled { opacity: 0.5; cursor: default; }
-.chat-bp__btn:disabled:hover { border-color: var(--border-subtle); background: var(--surface-2); }
-.chat-bp__btn--primary {
-  background: var(--krystal-teal);
-  border-color: var(--krystal-teal);
-  color: var(--on-accent, #fff);
+.chat-bp__placeholder-text { font-size: 13px; }
+
+.chat-bp-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--scrim-base) 70%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  padding: 24px;
+  animation: k-fade var(--d-base) var(--ease-out);
 }
-.chat-bp__btn--primary:hover { background: var(--krystal-teal-hover); border-color: var(--krystal-teal-hover); }
-.chat-bp__btn--ghost { margin-left: auto; background: transparent; border-color: transparent; color: var(--fg-3); }
-.chat-bp__btn--ghost:hover { background: var(--veil-2); color: var(--fg-2); border-color: transparent; }
+.chat-bp-modal {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: k-rise var(--d-base) var(--ease-out);
+}
+/* In the modal the card fills the whole overlay and the editor claims all the
+   spare height (the head, evidence, and action bar keep their intrinsic size). */
+.chat-bp--full {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-pop);
+}
+.chat-bp--full .chat-bp__editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
 
 .chat-bp__cta {
   display: inline-flex;

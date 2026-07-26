@@ -774,6 +774,21 @@
   border-color: var(--border-strong);
 }
 
+/* Ghost — the quietest tier (e.g. a "Give up"/abandon action): no fill, no
+   border until hover, muted label. Sits in the same fb-editor__btn family so
+   size/shape stay consistent with Save/Reset. */
+.fb-editor__btn--ghost {
+  background: transparent;
+  color: var(--fg-3);
+  border-color: transparent;
+}
+
+.fb-editor__btn--ghost:hover {
+  background: var(--veil-2);
+  color: var(--fg-2);
+  border-color: transparent;
+}
+
 /* Bottom save bar — always visible on both desktop and mobile so the Save
    CTA is never out of reach. The bar is the only place we keep Save/Reset
    now (we used to also mirror them in the top toolbar — that turned out to

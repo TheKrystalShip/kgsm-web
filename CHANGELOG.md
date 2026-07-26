@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (v1.26.0) — blueprint review card matches the file-browser editor + full-screen pop-out
+- The in-chat blueprint review card now uses the **same editor chrome as the Files tab**. Its
+  action buttons reuse the shared `fb-editor__btn` family (identical Save/Reset styling
+  app-wide), laid out **Give up (far left) · Reset · Save & test-install (far right)** — the
+  primary teal Save CTA pinned to the right edge, Reset just left of it.
+- The review editor is **taller** (a roomier default height), and the card can **pop out into a
+  full-screen modal** — the same reused behaviour as the file browser/editor, the console panel,
+  and the time-series charts (portaled to `<body>`, quiet inline placeholder + Restore, closes on
+  Esc / scrim). The editor fills the overlay height when popped so a long config isn't capped.
+
 ### Added (v1.25.0) — in-chat blueprint-review checkpoint (editable Monaco card)
 - `create_blueprint` no longer test-installs unattended. When the assistant finishes drafting
   a config for a missing game, the chat now shows an **editable review card**: the drafted
