@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.29.0) — nine new themes
+- **Nine new themes added.** Theme count: 10 → 19 (13 dark + 5 light + auto).
+  - Dark: Amber CRT Screen, One Dark Pro, Rosé Pine, Kanagawa, Everforest
+  - Light: GitHub Light, Solarized Light, Catppuccin Latte, Nord Light
+
 ### Fixed (v1.28.1) — a revised blueprint draft no longer duplicates/revives earlier editor cards
 - **Each in-chat blueprint draft now carries a conversation-unique correlation id.** The assistant's
   `command.proposed` id (`cmd_<n>`) is a per-turn counter that resets to `cmd_0` every turn, so a

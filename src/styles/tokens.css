@@ -915,6 +915,762 @@
 }
 
 /* ============================================================
+   THEME — AMBER CRT SCREEN
+   ------------------------------------------------------------
+   Retro CRT monitor: very dark brown-black with warm amber accent.
+   Accent = Amber (#FE8019). Primary text is warm cream (#E8C49C).
+   Palette source: vscode-gabolaev.amber-crt-screen
+   ============================================================ */
+[data-theme="amber-crt"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #0E0905;
+  /* near-black warm brown */
+  --surface-0: #1A130B;
+  /* dark brown — sidebar */
+  --surface-1: #1E160E;
+  /* slightly lifted — card */
+  --surface-2: #2A1808;
+  /* nested / hovered */
+  --surface-3: #3A210C;
+  /* input fill / pressed */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(232, 196, 156, 0.08);
+  --border-strong: rgba(232, 196, 156, 0.15);
+  --border-accent: rgba(254, 128, 25, 0.55);
+  /* amber */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #E8C49C;
+  /* warm cream — primary text */
+  --fg-2: #BDAE93;
+  /* warm gray — secondary text */
+  --fg-3: #7A6B4E;
+  /* muted olive — labels */
+  --fg-4: #5A4E3A;
+  /* dim — placeholder / disabled */
+  --fg-inverse: #0E0905;
+  --btn-accent-fg: #0E0905;
+  /* dark ink on amber (#FE8019, 5.2:1) */
+  --btn-success-fg: #0E0905;
+
+  /* ---------- Brand & accent — Amber --------------------- */
+  --krystal-teal: #FE8019;
+  --krystal-teal-hover: #FF9C46;
+  --krystal-teal-press: #E56B0C;
+  --krystal-teal-dim: rgba(254, 128, 25, 0.14);
+  --krystal-teal-ring: rgba(254, 128, 25, 0.35);
+  --krystal-ink: #0E0905;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #7A9080;
+  /* sage green — strings */
+  --success-bg: rgba(122, 144, 128, 0.14);
+  --success-fg: #7A9080;
+
+  --danger: #CC4133;
+  /* muted red — keywords */
+  --danger-bg: rgba(204, 65, 51, 0.14);
+  --danger-fg: #CC4133;
+
+  --warning: #D3869B;
+  /* muted pink — numbers */
+  --warning-bg: rgba(211, 134, 155, 0.14);
+  --warning-fg: #D3869B;
+
+  --update: #FE8019;
+  /* orange — same as accent */
+  --update-bg: rgba(254, 128, 25, 0.14);
+  --update-fg: #FE8019;
+
+  --info: #83A598;
+  /* teal-aqua */
+  --info-bg: rgba(131, 165, 152, 0.14);
+  --info-fg: #83A598;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(232, 196, 156, 0.05);
+  --veil-2: rgba(232, 196, 156, 0.08);
+  --veil-3: rgba(232, 196, 156, 0.10);
+  --scrim-base: #060402;
+  --scrollbar-thumb: rgba(254, 128, 25, 0.24);
+  /* amber scrollbar */
+  --scrollbar-thumb-hover: rgba(254, 128, 25, 0.42);
+}
+
+/* ============================================================
+   THEME — ONE DARK PRO
+   ------------------------------------------------------------
+   Balanced dark blue-gray. Most popular VS Code-style theme.
+   Accent = Blue (#61AFEF). Muted pastels on a warm dark base.
+   Palette source: https://github.com/akamuu/vscode-one-dark-pro
+   ============================================================ */
+[data-theme="one-dark"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #282C34;
+  /* bg */
+  --surface-0: #21252B;
+  /* gutter / sidebar */
+  --surface-1: #2C313A;
+  /* card lift */
+  --surface-2: #353B45;
+  /* nested / hovered */
+  --surface-3: #3E4451;
+  /* selection / input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(171, 178, 191, 0.08);
+  --border-strong: rgba(171, 178, 191, 0.16);
+  --border-accent: rgba(97, 175, 239, 0.50);
+  /* blue */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #ABB2BF;
+  /* fg */
+  --fg-2: #888FA3;
+  /* secondary */
+  --fg-3: #5C6370;
+  /* comment */
+  --fg-4: #4B5263;
+  /* dim */
+  --fg-inverse: #282C34;
+  --btn-accent-fg: #282C34;
+  /* dark ink on Blue (5.3:1 on #61AFEF) */
+  --btn-success-fg: #282C34;
+  /* dark ink on Green (6.1:1 on #98C379) */
+
+  /* ---------- Brand & accent — Blue ---------------------- */
+  --krystal-teal: #61AFEF;
+  --krystal-teal-hover: #7DBBF2;
+  --krystal-teal-press: #4E9AD4;
+  --krystal-teal-dim: rgba(97, 175, 239, 0.14);
+  --krystal-teal-ring: rgba(97, 175, 239, 0.35);
+  --krystal-ink: #282C34;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #98C379;
+  /* green */
+  --success-bg: rgba(152, 195, 121, 0.12);
+  --success-fg: #98C379;
+
+  --danger: #E06C75;
+  /* red */
+  --danger-bg: rgba(224, 108, 117, 0.14);
+  --danger-fg: #E06C75;
+
+  --warning: #E5C07B;
+  /* yellow */
+  --warning-bg: rgba(229, 192, 123, 0.12);
+  --warning-fg: #E5C07B;
+
+  --update: #D19A66;
+  /* orange */
+  --update-bg: rgba(209, 154, 102, 0.14);
+  --update-fg: #D19A66;
+
+  --info: #56B6C2;
+  /* cyan */
+  --info-bg: rgba(86, 182, 194, 0.12);
+  --info-fg: #56B6C2;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(171, 178, 191, 0.05);
+  --veil-2: rgba(171, 178, 191, 0.08);
+  --veil-3: rgba(171, 178, 191, 0.10);
+  --scrim-base: #1E2127;
+  --scrollbar-thumb: rgba(171, 178, 191, 0.14);
+  --scrollbar-thumb-hover: rgba(171, 178, 191, 0.24);
+}
+
+/* ============================================================
+   THEME — ROSE PINE
+   ------------------------------------------------------------
+   Rosé Pine: muted, sophisticated dark with dusty rose/mauve.
+   Accent = Mauve (#C4A7E7). Gentle pastel palette on dark rose.
+   Palette source: https://rosepinetheme.com/palette
+   ============================================================ */
+[data-theme="rose-pine"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #191724;
+  /* base */
+  --surface-0: #13111E;
+  /* slightly darker — sidebar */
+  --surface-1: #1F1D2E;
+  /* surface — card lift */
+  --surface-2: #26233A;
+  /* overlay — nested / hovered */
+  --surface-3: #393552;
+  /* highlight — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(224, 222, 244, 0.07);
+  --border-strong: rgba(224, 222, 244, 0.14);
+  --border-accent: rgba(196, 167, 231, 0.50);
+  /* mauve */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #E0DEF4;
+  /* text */
+  --fg-2: #B4B3C8;
+  /* subtle */
+  --fg-3: #908CAA;
+  /* muted */
+  --fg-4: #6E6A86;
+  /* foam — dim */
+  --fg-inverse: #191724;
+  --btn-accent-fg: #191724;
+  /* dark ink on Mauve (4.8:1 on #C4A7E7) */
+  --btn-success-fg: #191724;
+  /* dark ink on Pine (5.3:1 on #31748F) */
+
+  /* ---------- Brand & accent — Mauve --------------------- */
+  --krystal-teal: #C4A7E7;
+  --krystal-teal-hover: #D0BDE9;
+  --krystal-teal-press: #B492DB;
+  --krystal-teal-dim: rgba(196, 167, 231, 0.14);
+  --krystal-teal-ring: rgba(196, 167, 231, 0.35);
+  --krystal-ink: #191724;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #31748F;
+  /* pine */
+  --success-bg: rgba(49, 116, 143, 0.14);
+  --success-fg: #31748F;
+
+  --danger: #EB6F92;
+  /* love */
+  --danger-bg: rgba(235, 111, 146, 0.14);
+  --danger-fg: #EB6F92;
+
+  --warning: #F6C177;
+  /* gold */
+  --warning-bg: rgba(246, 193, 119, 0.12);
+  --warning-fg: #F6C177;
+
+  --update: #EA9A97;
+  /* rose */
+  --update-bg: rgba(234, 154, 151, 0.14);
+  --update-fg: #EA9A97;
+
+  --info: #9CCFD8;
+  /* foam */
+  --info-bg: rgba(156, 207, 216, 0.12);
+  --info-fg: #9CCFD8;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(224, 222, 244, 0.05);
+  --veil-2: rgba(224, 222, 244, 0.08);
+  --veil-3: rgba(224, 222, 244, 0.10);
+  --scrim-base: #0F0E18;
+  --scrollbar-thumb: rgba(196, 167, 231, 0.24);
+  --scrollbar-thumb-hover: rgba(196, 167, 231, 0.40);
+}
+
+/* ============================================================
+   THEME — KANAGAWA
+   ------------------------------------------------------------
+   Kanagawa: Japanese ink-wash inspired, deep indigo.
+   Accent = Gold (#C8A55B). Traditional color harmony.
+   Palette source: https://github.com/rebelot/kanagawa.nvim
+   ============================================================ */
+[data-theme="kanagawa"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #1F1F28;
+  /* sumiInk3 */
+  --surface-0: #16161D;
+  /* sumiInk4 — sidebar */
+  --surface-1: #2A2A37;
+  /* waveBlue1 — card lift */
+  --surface-2: #363646;
+  /* waveBlue2 — nested / hovered */
+  --surface-3: #434356;
+  /* lighter */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(220, 215, 186, 0.08);
+  --border-strong: rgba(220, 215, 186, 0.15);
+  --border-accent: rgba(200, 165, 91, 0.50);
+  /* gold */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #DCD7BA;
+  /* fg */
+  --fg-2: #B4B096;
+  /* fujiWhite */
+  --fg-3: #71706A;
+  /* fujiGray */
+  --fg-4: #524F48;
+  /* dim */
+  --fg-inverse: #1F1F28;
+  --btn-accent-fg: #1F1F28;
+  /* dark ink on Gold (5.7:1 on #C8A55B) */
+  --btn-success-fg: #1F1F28;
+  /* dark ink on AutumnGreen (6.5:1 on #98BC6A) */
+
+  /* ---------- Brand & accent — Gold ---------------------- */
+  --krystal-teal: #C8A55B;
+  --krystal-teal-hover: #D4B774;
+  --krystal-teal-press: #B69344;
+  --krystal-teal-dim: rgba(200, 165, 91, 0.14);
+  --krystal-teal-ring: rgba(200, 165, 91, 0.35);
+  --krystal-ink: #1F1F28;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #98BC6A;
+  /* AutumnGreen */
+  --success-bg: rgba(152, 188, 106, 0.12);
+  --success-fg: #98BC6A;
+
+  --danger: #E82424;
+  /* autumnRed */
+  --danger-bg: rgba(232, 36, 36, 0.14);
+  --danger-fg: #E82424;
+
+  --warning: #E9CE89;
+  /* autumnYellow */
+  --warning-bg: rgba(233, 206, 137, 0.12);
+  --warning-fg: #E9CE89;
+
+  --update: #FF9E3B;
+  /* surimiOrange */
+  --update-bg: rgba(255, 158, 59, 0.14);
+  --update-fg: #FF9E3B;
+
+  --info: #7FB4CA;
+  /* crystalBlue */
+  --info-bg: rgba(127, 180, 202, 0.12);
+  --info-fg: #7FB4CA;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(220, 215, 186, 0.05);
+  --veil-2: rgba(220, 215, 186, 0.08);
+  --veil-3: rgba(220, 215, 186, 0.10);
+  --scrim-base: #111118;
+  --scrollbar-thumb: rgba(200, 165, 91, 0.24);
+  --scrollbar-thumb-hover: rgba(200, 165, 91, 0.40);
+}
+
+/* ============================================================
+   THEME — EVERFOREST
+   ------------------------------------------------------------
+   Everforest: nature-inspired green dark. Muted green tones.
+   Accent = Green (#A7C080). Warm, easy-on-the-eyes palette.
+   Palette source: https://github.com/sainnhe/everforest
+   ============================================================ */
+[data-theme="everforest"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #2D353B;
+  /* bg */
+  --surface-0: #343F44;
+  /* bg1 — sidebar */
+  --surface-1: #3D484D;
+  /* bg2 — card lift */
+  --surface-2: #475258;
+  /* bg3 — nested / hovered */
+  --surface-3: #535E63;
+  /* bg4 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(211, 198, 170, 0.08);
+  --border-strong: rgba(211, 198, 170, 0.15);
+  --border-accent: rgba(167, 192, 128, 0.50);
+  /* green */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #D3C6AA;
+  /* fg */
+  --fg-2: #BDC3A0;
+  /* secondary */
+  --fg-3: #859289;
+  /* grey0 */
+  --fg-4: #6D777D;
+  /* grey1 — dim */
+  --fg-inverse: #2D353B;
+  --btn-accent-fg: #2D353B;
+  /* dark ink on Green (5.4:1 on #A7C080) */
+  --btn-success-fg: #2D353B;
+
+  /* ---------- Brand & accent — Green --------------------- */
+  --krystal-teal: #A7C080;
+  --krystal-teal-hover: #B8CE96;
+  --krystal-teal-press: #96B16E;
+  --krystal-teal-dim: rgba(167, 192, 128, 0.14);
+  --krystal-teal-ring: rgba(167, 192, 128, 0.35);
+  --krystal-ink: #2D353B;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #A7C080;
+  /* green — same as accent */
+  --success-bg: rgba(167, 192, 128, 0.12);
+  --success-fg: #A7C080;
+
+  --danger: #E67E80;
+  /* red */
+  --danger-bg: rgba(230, 126, 128, 0.14);
+  --danger-fg: #E67E80;
+
+  --warning: #DBBC7F;
+  /* yellow */
+  --warning-bg: rgba(219, 188, 127, 0.12);
+  --warning-fg: #DBBC7F;
+
+  --update: #E69875;
+  /* orange */
+  --update-bg: rgba(230, 152, 117, 0.14);
+  --update-fg: #E69875;
+
+  --info: #7FBBB3;
+  /* aqua */
+  --info-bg: rgba(127, 187, 179, 0.12);
+  --info-fg: #7FBBB3;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(211, 198, 170, 0.05);
+  --veil-2: rgba(211, 198, 170, 0.08);
+  --veil-3: rgba(211, 198, 170, 0.10);
+  --scrim-base: #232A2F;
+  --scrollbar-thumb: rgba(167, 192, 128, 0.24);
+  --scrollbar-thumb-hover: rgba(167, 192, 128, 0.40);
+}
+
+/* ============================================================
+   THEME — GITHUB LIGHT
+   ------------------------------------------------------------
+   GitHub Light: clean developer-oriented light theme.
+   Accent = Blue (#0969DA). White/gray surfaces, crisp borders.
+   Palette source: https://primer.style/primitives
+   ============================================================ */
+[data-theme="github-light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #FFFFFF;
+  /* page background */
+  --surface-0: #F6F8FA;
+  /* sidebar — subtle gray */
+  --surface-1: #FFFFFF;
+  /* primary card — white lift */
+  --surface-2: #F6F8FA;
+  /* nested / hovered */
+  --surface-3: #EAEEF2;
+  /* input fill / pressed */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(31, 35, 40, 0.10);
+  --border-strong: rgba(31, 35, 40, 0.18);
+  --border-accent: rgba(9, 105, 218, 0.50);
+  /* blue */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #1F2328;
+  /* primary text */
+  --fg-2: #57606A;
+  /* secondary text */
+  --fg-3: #6E7781;
+  /* muted / labels */
+  --fg-4: #8B949E;
+  /* placeholder / disabled */
+  --fg-inverse: #FFFFFF;
+  /* dark text on colored surfaces */
+  --btn-accent-fg: #FFFFFF;
+  /* text on blue buttons */
+  --btn-success-fg: #FFFFFF;
+  /* text on green buttons */
+
+  /* ---------- Brand & accent — Blue ---------------------- */
+  --krystal-teal: #0969DA;
+  --krystal-teal-hover: #218BDD;
+  --krystal-teal-press: #0550AE;
+  --krystal-teal-dim: rgba(9, 105, 218, 0.12);
+  --krystal-teal-ring: rgba(9, 105, 218, 0.32);
+  --krystal-ink: #FFFFFF;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #1A7F37;
+  /* green */
+  --success-bg: rgba(26, 127, 55, 0.10);
+  --success-fg: #1A7F37;
+
+  --danger: #CF222E;
+  /* red */
+  --danger-bg: rgba(207, 34, 46, 0.10);
+  --danger-fg: #CF222E;
+
+  --warning: #9A6700;
+  /* amber */
+  --warning-bg: rgba(154, 103, 0, 0.12);
+  --warning-fg: #9A6700;
+
+  --update: #BC4C00;
+  /* orange */
+  --update-bg: rgba(188, 76, 0, 0.10);
+  --update-fg: #BC4C00;
+
+  --info: #0969DA;
+  /* blue — same as accent */
+  --info-bg: rgba(9, 105, 218, 0.10);
+  --info-fg: #0969DA;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1: rgba(31, 35, 40, 0.04);
+  --veil-2: rgba(31, 35, 40, 0.06);
+  --veil-3: rgba(31, 35, 40, 0.08);
+  --scrim-base: #F6F8FA;
+  --scrollbar-thumb: rgba(31, 35, 40, 0.20);
+  --scrollbar-thumb-hover: rgba(31, 35, 40, 0.34);
+}
+
+/* ============================================================
+   THEME — SOLARIZED LIGHT
+   ------------------------------------------------------------
+   Solarized Light: classic warm light palette by Ethan Schoonover.
+   Accent = Blue (#268BD2). Warm cream-toned surfaces.
+   Palette source: https://ethanschoonover.com/solarized
+   ============================================================ */
+[data-theme="solarized-light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #FDF6E3;
+  /* base3 */
+  --surface-0: #EEE8D5;
+  /* base2 — sidebar */
+  --surface-1: #FDF6E3;
+  /* base3 — primary card */
+  --surface-2: #EEE8D5;
+  /* base2 — nested / hovered */
+  --surface-3: #DDD6C1;
+  /* base1 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(0, 43, 54, 0.10);
+  --border-strong: rgba(0, 43, 54, 0.18);
+  --border-accent: rgba(38, 139, 210, 0.50);
+  /* blue */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #073642;
+  /* base02 — primary text */
+  --fg-2: #586E75;
+  /* base01 — secondary text */
+  --fg-3: #657B83;
+  /* base00 — muted / labels */
+  --fg-4: #93A1A1;
+  /* base0 — placeholder / disabled */
+  --fg-inverse: #FDF6E3;
+  /* light text on colored surfaces */
+  --btn-accent-fg: #FDF6E3;
+  --btn-success-fg: #FDF6E3;
+
+  /* ---------- Brand & accent — Blue ---------------------- */
+  --krystal-teal: #268BD2;
+  --krystal-teal-hover: #3D9CE0;
+  --krystal-teal-press: #1A6FB5;
+  --krystal-teal-dim: rgba(38, 139, 210, 0.12);
+  --krystal-teal-ring: rgba(38, 139, 210, 0.32);
+  --krystal-ink: #FDF6E3;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #859900;
+  /* green */
+  --success-bg: rgba(133, 153, 0, 0.12);
+  --success-fg: #859900;
+
+  --danger: #DC322F;
+  /* red */
+  --danger-bg: rgba(220, 50, 47, 0.10);
+  --danger-fg: #DC322F;
+
+  --warning: #B58900;
+  /* yellow */
+  --warning-bg: rgba(181, 137, 0, 0.12);
+  --warning-fg: #B58900;
+
+  --update: #CB4B16;
+  /* orange */
+  --update-bg: rgba(203, 75, 22, 0.12);
+  --update-fg: #CB4B16;
+
+  --info: #2AA198;
+  /* cyan */
+  --info-bg: rgba(42, 161, 152, 0.12);
+  --info-fg: #2AA198;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1: rgba(0, 43, 54, 0.04);
+  --veil-2: rgba(0, 43, 54, 0.06);
+  --veil-3: rgba(0, 43, 54, 0.08);
+  --scrim-base: #EEE8D5;
+  --scrollbar-thumb: rgba(0, 43, 54, 0.20);
+  --scrollbar-thumb-hover: rgba(0, 43, 54, 0.34);
+}
+
+/* ============================================================
+   THEME — CATPPUCCIN LATTE
+   ------------------------------------------------------------
+   Catppuccin Latte: light variant of Catppuccin.
+   Accent = Mauve (#8839EF). Matches Catppuccin Mocha's identity.
+   Palette source: https://catppuccin.com/palette
+   ============================================================ */
+[data-theme="catppuccin-latte"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #EFF1F5;
+  /* base */
+  --surface-0: #E6E9EF;
+  /* mantle — sidebar */
+  --surface-1: #CCD0DA;
+  /* surface0 — card lift */
+  --surface-2: #BCC0CC;
+  /* surface1 — nested / hovered */
+  --surface-3: #ACB0BE;
+  /* surface2 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(76, 79, 105, 0.10);
+  --border-strong: rgba(76, 79, 105, 0.18);
+  --border-accent: rgba(136, 57, 239, 0.45);
+  /* mauve */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #4C4F69;
+  /* text */
+  --fg-2: #5C5F77;
+  /* subtext1 */
+  --fg-3: #6C6F85;
+  /* subtext0 */
+  --fg-4: #7C7F93;
+  /* overlay1 */
+  --fg-inverse: #EFF1F5;
+  /* light text on colored surfaces */
+  --btn-accent-fg: #EFF1F5;
+  /* light ink on Mauve */
+  --btn-success-fg: #EFF1F5;
+
+  /* ---------- Brand & accent — Mauve --------------------- */
+  --krystal-teal: #8839EF;
+  --krystal-teal-hover: #9A52F3;
+  --krystal-teal-press: #7429E0;
+  --krystal-teal-dim: rgba(136, 57, 239, 0.12);
+  --krystal-teal-ring: rgba(136, 57, 239, 0.32);
+  --krystal-ink: #EFF1F5;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #40A02B;
+  /* green */
+  --success-bg: rgba(64, 160, 43, 0.12);
+  --success-fg: #40A02B;
+
+  --danger: #D20F39;
+  /* red */
+  --danger-bg: rgba(210, 15, 57, 0.10);
+  --danger-fg: #D20F39;
+
+  --warning: #DF8E1D;
+  /* yellow */
+  --warning-bg: rgba(223, 142, 29, 0.12);
+  --warning-fg: #DF8E1D;
+
+  --update: #FE640B;
+  /* peach */
+  --update-bg: rgba(254, 100, 11, 0.12);
+  --update-fg: #FE640B;
+
+  --info: #209FB5;
+  /* sapphire */
+  --info-bg: rgba(32, 159, 181, 0.12);
+  --info-fg: #209FB5;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1: rgba(76, 79, 105, 0.05);
+  --veil-2: rgba(76, 79, 105, 0.07);
+  --veil-3: rgba(76, 79, 105, 0.09);
+  --scrim-base: #E6E9EF;
+  --scrollbar-thumb: rgba(76, 79, 105, 0.20);
+  --scrollbar-thumb-hover: rgba(76, 79, 105, 0.34);
+}
+
+/* ============================================================
+   THEME — NORD LIGHT
+   ------------------------------------------------------------
+   Nord Light: light variant of the Nord palette.
+   Accent = Frost (#5E81AC). Cool blue light surfaces.
+   Palette source: https://www.nordtheme.com/docs/colors-and-palettes
+   ============================================================ */
+[data-theme="nord-light"] {
+  /* ---------- Canvas & surfaces (Snow Storm + Polar Night) - */
+  --canvas: #ECEFF4;
+  /* nord6 — Snow Storm lightest */
+  --surface-0: #E5E9F0;
+  /* nord5 — sidebar */
+  --surface-1: #FFFFFF;
+  /* pure white — card lift */
+  --surface-2: #E5E9F0;
+  /* nord5 — nested / hovered */
+  --surface-3: #D8DEE9;
+  /* nord4 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(46, 52, 64, 0.10);
+  /* Polar Night alpha */
+  --border-strong: rgba(46, 52, 64, 0.18);
+  --border-accent: rgba(94, 129, 172, 0.50);
+  /* nord9 — Frost */
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #2E3440;
+  /* nord0 — Polar Night (darkest) */
+  --fg-2: #3B4252;
+  /* nord1 */
+  --fg-3: #434C5E;
+  /* nord2 */
+  --fg-4: #4C566A;
+  /* nord3 */
+  --fg-inverse: #ECEFF4;
+  /* light ink on Frost */
+  --btn-accent-fg: #ECEFF4;
+  --btn-success-fg: #ECEFF4;
+
+  /* ---------- Brand & accent — Frost --------------------- */
+  --krystal-teal: #5E81AC;
+  /* nord9 */
+  --krystal-teal-hover: #7493BA;
+  --krystal-teal-press: #4C6A92;
+  --krystal-teal-dim: rgba(94, 129, 172, 0.12);
+  --krystal-teal-ring: rgba(94, 129, 172, 0.32);
+  --krystal-ink: #ECEFF4;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #A3BE8C;
+  /* Aurora green */
+  --success-bg: rgba(163, 190, 140, 0.12);
+  --success-fg: #A3BE8C;
+
+  --danger: #BF616A;
+  /* Aurora red */
+  --danger-bg: rgba(191, 97, 106, 0.10);
+  --danger-fg: #BF616A;
+
+  --warning: #EBCB8B;
+  /* Aurora yellow */
+  --warning-bg: rgba(235, 203, 139, 0.12);
+  --warning-fg: #EBCB8B;
+
+  --update: #D08770;
+  /* Aurora orange */
+  --update-bg: rgba(208, 135, 112, 0.12);
+  --update-fg: #D08770;
+
+  --info: #81A1C1;
+  /* nord9 — deeper Frost */
+  --info-bg: rgba(129, 161, 193, 0.12);
+  --info-fg: #81A1C1;
+
+  /* ---------- Overlays, veils & scrims -------------------- */
+  --veil-1: rgba(46, 52, 64, 0.05);
+  --veil-2: rgba(46, 52, 64, 0.07);
+  --veil-3: rgba(46, 52, 64, 0.09);
+  --scrim-base: #E5E9F0;
+  --scrollbar-thumb: rgba(46, 52, 64, 0.20);
+  --scrollbar-thumb-hover: rgba(46, 52, 64, 0.34);
+}
+
+/* ============================================================
    SEMANTIC ELEMENT STYLES
    ============================================================ */
 

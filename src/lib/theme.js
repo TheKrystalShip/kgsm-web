@@ -20,7 +20,7 @@ import { createStore, useStore } from "./store.js";
 // Base-layer module: imports only store.js, so it introduces no import cycle.
 
 const THEME_KEY = "krystal:theme";
-const VALID = ["auto", "dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox"];
+const VALID = ["auto", "dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox", "amber-crt", "one-dark", "rose-pine", "kanagawa", "everforest", "github-light", "solarized-light", "catppuccin-latte", "nord-light"];
 const DEFAULT = "dark";
 
 function readPref() {
