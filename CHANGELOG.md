@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.28.1) — a revised blueprint draft no longer duplicates/revives earlier editor cards
+- **Each in-chat blueprint draft now carries a conversation-unique correlation id.** The assistant's
+  `command.proposed` id (`cmd_<n>`) is a per-turn counter that resets to `cmd_0` every turn, so a
+  `create_blueprint` draft and a later `revise_blueprint` draft collided on the same `cmdId`. Because the
+  Save round-trip patches the card by `cmdId`, saving the newest draft matched **both** messages — reviving
+  the older (superseded) editor into a duplicate "verifying" card and, on success, producing two identical
+  "Added to the catalog" cards. The SPA now mints a local `uid()` for each draft's `cmdId` at insert time
+  (the id was only ever a client-side proposed→verified handle — the finalize authorizes with the token,
+  never the id), so every draft's state changes stay scoped to its own card. This also fixes a latent
+  collision in the open-draft edit buffer (`draftEditsRef`, keyed by `cmdId`), where a revise could carry
+  the wrong draft's live content back to the assistant.
+
 ### Fixed (v1.28.0) — the blueprint "verifying" card can no longer hang forever
 - **"Save" on a blueprint-review card now consumes a STREAMED finalize** instead of a single blocking POST.
   A finalize is minutes of test-install → verify → repair with long silent stretches; the old buffered

@@ -619,7 +619,14 @@ function reduceTurnFrame(messages, ev) {
       }
       msgs.splice(lastIdx, 0, {
         role: "command",
-        cmdId: ev.id,
+        // Mint a CONVERSATION-unique correlation handle locally rather than trusting ev.id: the
+        // assistant's command.proposed id (`cmd_<n>`) is a PER-TURN monotonic counter that resets
+        // to cmd_0 each turn, so a create_blueprint draft and a later revise_blueprint draft collide
+        // on the same id. Since ev.id is only ever used client-side to correlate proposed→verified
+        // (the finalize Save authorizes with msg.token, never the id — nothing server-bound reads it
+        // back), a fresh uid() keeps every draft's patches (verifying/verified/failed) scoped to its
+        // own card — otherwise a Save would revive every same-id superseded editor alongside it.
+        cmdId: uid(),
         verb: ev.verb,
         subjectId: ev.subject ? ev.subject.id : null,
         subjectResource: (ev.subject && ev.subject.resource) || "server",
