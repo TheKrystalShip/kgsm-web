@@ -240,8 +240,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     }
 
     const userMsg = voiceMeta
-      ? { role: "user", content: text, voice: voiceMeta }
-      : { role: "user", content: text };
+      ? { role: "user", content: text, voice: voiceMeta, ts: Date.now() }
+      : { role: "user", content: text, ts: Date.now() };
     setInput("");
     if (taRef.current) taRef.current.style.height = "auto";
 

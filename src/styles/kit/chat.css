@@ -675,6 +675,17 @@
   margin-bottom: 2px;
 }
 
+.chat-msg__ts {
+  font-size: 11px;
+  color: var(--fg-3);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.chat-msg--user .chat-msg__ts {
+  text-align: right;
+}
+
 .chat-msg__content {
   color: var(--fg-2);
   font-size: 14px;

@@ -660,6 +660,7 @@ function reduceTurnFrame(messages, ev) {
       }
       if (ev.text) done = { ...done, content: ev.text };
       if (ev.usage) done = { ...done, usage: ev.usage };
+      if (ev.completedAt) done = { ...done, ts: Date.parse(ev.completedAt) || undefined };
       // Streaming is over — reveal the evidence cards below the finished answer.
       msgs[lastIdx] = promotePendingCards(done);
       let start = lastIdx;
@@ -689,8 +690,10 @@ function scaffoldHistory(entries) {
     }
     const t = e.turn;
     if (!t) return;
-    out.push({ role: "user", content: t.prompt || "" });
-    const bubble = { role: "assistant", content: t.final || "" };
+    const userMsg = { role: "user", content: t.prompt || "" };
+    if (e.startedAt) userMsg.ts = Date.parse(e.startedAt) || undefined;
+    out.push(userMsg);
+    const bubble = { role: "assistant", content: t.final || "", ts: Date.parse(e.createdAt) || undefined };
     if (t.thinking) bubble.thinking = t.thinking;
     if (t.usage) bubble.usage = t.usage;
     const tools = Array.isArray(t.tools)

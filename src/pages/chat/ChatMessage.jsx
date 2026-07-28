@@ -22,6 +22,7 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun }) {
           {isUser ? (user.display || user.name) : "Krystal assistant"}
           {msg.voice && <span className="chat-msg__voicetag"><Icon name="mic" size={11} strokeWidth={2.2} /> Voice note</span>}
         </div>
+        {msg.ts && <span className="chat-msg__ts" title={new Date(msg.ts).toLocaleString()}>{new Date(msg.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
         {msg.voice && <VoiceNoteBubble voice={msg.voice} />}
         {!isUser && msg.thinking && <ChatThinking text={msg.thinking} streaming={!msg.content} />}
         {!isUser && msg.tools && msg.tools.map((t, i) => <ChatContextPill key={(t.id || "t") + ":" + i} msg={t} />)}
