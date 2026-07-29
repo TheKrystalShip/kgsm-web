@@ -48,8 +48,16 @@ export function adaptServer(be) {
     last_backup: null,
     log: [],                       // console is a SEPARATE endpoint (GET /servers/{id}/console + WS follow),
                                    // hydrated by ConsolePanel — never carried on the server DTO.
-    // update_available intentionally omitted (kgsm reports installed version,
-    // not an update check) → no "update waiting" badge.
+    // update_available — a truthy TARGET VERSION string when an update is waiting (the SPA surfaces
+    // render "→ <version>" beside the Update chip), or null when the probe hasn't checked / no update.
+    // The backend DTO is bool? updateAvailable + string? latestVersion; the adapter collapses to the
+    // consumer-expected shape so the existing KPI/tile/filter code ("→ " + server.update_available)
+    // keeps reading a truthy string. Honest-null when the probe is cold or reported no update — NEVER
+    // a fabricated false (the chip stays disabled with an honest reason, not lit as "no update").
+    update_available: be.updateAvailable ? (be.latestVersion || "new version available") : null,
+    // When the update-check probe last ran for this instance (UTC ISO), or null until the first check.
+    // Surfaced so freshness is visible ("checked N min ago"); never a fabricated timestamp.
+    update_checked_at: be.updateCheckedAt ?? null,
     // per-instance metrics (null when the monitor is absent/down):
     cpu: m ? round(m.cpuPctCore, 0) : null,           // % of one core (can exceed 100)
     ram: m ? { used: round(m.memBytes / 1e9, 2), max: null } : null,  // GiB; no per-instance max

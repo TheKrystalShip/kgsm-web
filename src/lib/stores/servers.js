@@ -124,6 +124,25 @@ api.stream.subscribe(["jobs"], (m) => {
       } else {
         serversStore.patch(serverId, { _phantom: true, job: { verb, state } });
       }
+    } else if (verb === "update") {
+      if (state === "done") {
+        // On a successful update, the game is now on the latest build. The backend's own
+        // UpdateCheckCache.MarkUpdated (called synchronously in CommandRunner and from the
+        // kgsm event consumer) ensures the verify server.patch also carries cleared state;
+        // this optimistic patch closes the race window between the job.patch event arriving
+        // and the verify server.patch following ~200ms later.
+        if (!m.data.error) {
+          serversStore.patch(serverId, {
+            job: null,
+            update_available: null,
+            update_checked_at: new Date().toISOString(),
+          });
+        } else {
+          serversStore.patch(serverId, { job: null });
+        }
+      } else {
+        serversStore.patch(serverId, { job: { verb, state } });
+      }
     } else {
       serversStore.patch(serverId, { job: state === "done" ? null : { verb, state } });
     }

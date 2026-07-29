@@ -59,11 +59,18 @@ function ServerHero({ server, onAction }) {
   // the supervisor can't start/stop/restart/update, so the chips lock out.
   const watchdogDown = !serverCapUsable(server, "watchdog");
   const wdReason = "Watchdog unavailable on this host — lifecycle actions are paused";
-  // kgsm-api doesn't expose an `update` verb yet (deferred from M3 — there's no
-  // honest update-check source either). Rather than offer a button that would 400
-  // against the backend, disable it with a reason.
-  const updateUnavailable = true;
-  const updReason = "Update isn't available yet — kgsm doesn't expose an update path";
+  // The Update chip lights up only when the update-check probe found a newer version
+  // (server.update_available is a truthy target-version string). kgsm refuses to update
+  // a RUNNING instance (the files are in use) and kgsm-api's CommandGate 409s that
+  // synchronously — pre-disable here too so the constraint is visible before the click,
+  // mirroring the Stop chip's pattern. The two-step confirm (confirm: true on the verb)
+  // still arms on first click → "Confirm?" → fires on the second, so a lit chip needs two
+  // deliberate presses; no accidental update.
+  const hasUpdate = !!server.update_available;
+  const updateUnavailable = !hasUpdate || isOnline || isStarting;
+  let updReason;
+  if (!hasUpdate) updReason = server.update_checked_at ? "On the latest build" : "Checking for updates…";
+  else if (isOnline || isStarting) updReason = "Server must be stopped before updating";
   // The cinematic background prefers the LANDSCAPE banner (`hero` = RAWG
   // background_image_additional), then falls back to the 2:3 portrait `cover`,
   // then to a themed gradient placeholder when neither is available.
@@ -97,7 +104,7 @@ function ServerHero({ server, onAction }) {
             <>
               <div className="hero__group">
                 <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || isStarting || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
-                <ServerActionButton verb="update"  variant="glass" disabled={isUpdating || watchdogDown || updateUnavailable} reason={updateUnavailable ? updReason : (watchdogDown ? wdReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="update"  variant="glass" disabled={isUpdating || watchdogDown || updateUnavailable} reason={watchdogDown ? wdReason : (updateUnavailable ? updReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="stop"    variant="glass" disabled={!(isOnline || isStarting) || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="restart" variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
               </div>

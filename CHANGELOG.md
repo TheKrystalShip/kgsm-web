@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.30.3) — "Checked X ago" now ticks forward live
+- **The "Checked X ago" subtitle re-renders every 30s** via a wall-clock tick timer, so the
+  relative time advances even when the audit feed is quiet. The previous implementation was
+  anchored to the most-recent audit event (by design for the backup KPI, which should not drift
+  from its event timestamp), which meant the "Checked" subtitle was frozen until a new audit
+  event arrived. The fix adds a `setInterval`-driven re-render; the "Checked X ago" computation
+  now uses `Date.now()` (wall-clock) while the backup KPI stays event-anchored — both intents
+  served without compromise.
+
+### Fixed (v1.30.2) — "Update available" KPI shows when the check last ran
+- **The "Update available" tile's subtitle now shows "Checked X ago" when the cache has a timestamp**
+  (`update_checked_at`, already provided by the API), instead of the hardcoded "On the latest build".
+  When the first slow probe hasn't landed yet (no `update_checked_at`), the subtitle shows
+  "Checking for updates…" — matching the `ServerHero` chip's honest-unknown state.
+
+### Fixed (v1.30.1) — "Update available" now clears immediately after a successful update
+- **The SPA reacts to `job.patch` (verb=`update`, state=`done`, no error) by optimistically clearing
+  `update_available` and `update_checked_at` in the server store.** This gives instant UX feedback: the
+  "Update available" KPI switches to "No update" and the Update chip disables the moment the job success
+  event arrives, closing the ~200ms race window before the verify `server.patch` confirms the same state
+  (the backend's own `UpdateCheckCache.MarkUpdated` is the authoritative fix; this optimistic patch is
+  the frontend's corresponding half).
+
+### Added (v1.30.0) — the update-check pipeline (frontend half)
+- **The "Update available" KPI/tile/filter surfaces are now live.** `adaptServer` maps the backend's
+  `updateAvailable` (bool?) + `latestVersion` (string?) into the truthy target-version string the existing
+  consumers already expected (`server.update_available = updateAvailable ? latestVersion : null`), so the
+  dashboard "Updates available" card, the server-detail "Update available" tile, and the Servers-page
+  "Update available" filter+count light up the moment the kgsm-api `UpdateCheckCache` reports a newer
+  version. `update_checked_at` is threaded for "checked N min ago" freshness. SSE `server.patch` runs
+  through the same adapter, so a flip propagates with no extra plumbing.
+- **The server-detail "Update" chip is enabled, gated on `update_available`.** It was force-disabled with
+  a stale "kgsm doesn't expose an update path" reason; the backend `update` verb has worked end-to-end
+  since M3. The chip now lights when `update_available` is truthy and the server is stopped, with the
+  two-step confirm (already wired via `confirm: true`) so a lit chip needs two deliberate presses — no
+  accidental update. A running/starting server pre-disables it with "Server must be stopped before
+  updating" (mirrors kgsm's own rule and the `CommandGate` 409); an unchecked server shows "Checking for
+  updates…"; an up-to-date one shows "On the latest build" — all honest, never fabricated.
+
 ### Added (v1.29.0) — nine new themes
 - **Nine new themes added.** Theme count: 10 → 19 (13 dark + 5 light + auto).
   - Dark: Amber CRT Screen, One Dark Pro, Rosé Pine, Kanagawa, Everforest
