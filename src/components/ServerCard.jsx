@@ -119,8 +119,13 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
       <div className="server-tile__body">
         <div className="server-tile__head">
           <div className="server-tile__name" onClick={open}>{server.name}</div>
+          {server.update_available && (
+            <span className="server-tile__update" title="Update available">
+              <Icon name="circle-arrow-down" size={14} />
+            </span>
+          )}
           <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
-            title={watchdogDown ? "Watchdog down — server state can’t be confirmed" : undefined}>
+            title={watchdogDown ? "Watchdog down — server state can't be confirmed" : undefined}>
             <span className="dot"></span>
             {watchdogDown ? "unknown" : (PILL_LABEL[server.status] || server.status)}
           </span>

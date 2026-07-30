@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (v1.31.0) — update-available icon on server tiles
+- **Server tile meta row now shows a "circle-arrow-down" icon (info tone) when an update is
+  available for that game server.** The icon sits right-aligned in the metrics row with a native
+  tooltip ("Update available") on hover. Follows the existing metric-LED pattern for right-edge
+  placement (`margin-left: auto`).
+
 ### Fixed (v1.30.4) — full-screen editor no longer loses your edits
 - **Editing in the full-screen editor modal and closing it (without saving) no longer discards the
   edits from the inline editor's Save.** The inline and full-screen editors were two separate Monaco

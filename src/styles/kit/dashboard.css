@@ -743,6 +743,23 @@
   font-family: var(--font-mono);
 }
 
+.server-tile__update {
+  color: var(--info);
+  cursor: default;
+  line-height: 0;
+  width: 22px !important;
+  height: 22px !important;
+
+  svg {
+    width: 100%;
+    height: auto;
+  }
+}
+
+.server-tile__update:hover {
+  color: var(--info-fg);
+}
+
 .server-tile__spark {
   height: 28px;
   margin-top: 2px;
