@@ -73,7 +73,7 @@ function StatTiles({ server, playerCounts }) {
         sub={playerSub} />
       <KPI icon="tag" label="Version" tone="muted"
         value={server.version || "—"} />
-      <KPI icon="circle-arrow-up" label="Update available"
+      <KPI icon="circle-arrow-down" label="Update available"
         value={hasUpdate ? "Yes" : "No"}
         tone={hasUpdate ? "info" : "muted"}
         sub={updateSub} />
