@@ -645,7 +645,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
 }
 
 .stats .kpi--ok::before {
@@ -668,7 +668,7 @@
 .tile {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 16px 18px;
   display: flex;
   flex-direction: column;

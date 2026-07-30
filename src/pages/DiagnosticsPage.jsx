@@ -139,7 +139,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
           </div>
           <div className="dash-head__sub">No nodes connected yet.</div>
         </div>
-        <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-lg)", padding: 60, textAlign: "center", color: "var(--fg-3)" }}>
+        <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-sm)", padding: 60, textAlign: "center", color: "var(--fg-3)" }}>
           <Icon name="server-off" size={28} />
           <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>No nodes configured</div>
           <div style={{ marginTop: 4, fontSize: 13 }}>Add a node to start aggregating servers and diagnostics.</div>
@@ -233,7 +233,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
     return (
       <>
         {headerChrome}
-        <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-lg)", padding: 56, textAlign: "center", color: "var(--fg-3)" }}>
+        <div style={{ background: "var(--surface-1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-sm)", padding: 56, textAlign: "center", color: "var(--fg-3)" }}>
           <Icon name="plug-zap" size={26} />
           <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>{host.name} is {host._pending ? "connecting" : host.online ? "awaiting telemetry" : "disconnected"}</div>
           <div style={{ marginTop: 4, fontSize: 13 }}>{(host._pending || host.online) ? "Waiting for the agent\u2019s first check-in \u2014 diagnostics appear once it reports in." : "Reconnect this host from its \u2026 menu to resume telemetry."}</div>

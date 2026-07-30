@@ -126,7 +126,7 @@
   gap: 10px;
   height: 46px;
   padding: 0 18px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   border: 1px solid transparent;
   font-family: var(--font-ui);
   font-weight: 600;
@@ -319,7 +319,7 @@
   padding: 14px 18px;
   background: var(--surface-0);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .welcome-card__step {
@@ -371,7 +371,7 @@
   right: 0;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   min-width: 200px;
   padding: 6px;

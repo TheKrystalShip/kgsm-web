@@ -1,7 +1,19 @@
 /* ============================================================================
-   kit/modal.css — modal, Select
+   kit/modal.css — modal, Select, ReversablePortal
    Split out of the monolithic kit.css; imported by it in cascade order.
    ============================================================================ */
+
+/* ============= ReversablePortal ============= */
+/* The slot divs and the stable host are display:contents, so the projected
+   subtree (e.g. the Files grid .fb-card, or the chat blueprint review card)
+   participates in the slot parent's layout exactly as if it were a direct
+   child — Monaco measures its own .fb-editor__monaco-wrap box, never the slot,
+   so reparenting the host across the inline ↔ modal toggle reflows cleanly. */
+.rportal-slot,
+.rportal-host {
+  display: contents;
+}
+
 /* ============= Modal ============= */
 .k-backdrop {
   position: fixed;
@@ -94,7 +106,7 @@
   color: var(--fg-3);
   cursor: pointer;
   padding: 6px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .k-modal__close:hover {
@@ -212,7 +224,7 @@
   width: 100%;
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
   outline: none;
@@ -292,7 +304,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-3);
   cursor: pointer;
   transition: color var(--d-fast);

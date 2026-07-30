@@ -259,7 +259,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
       {grouped.length === 0 && (
         <div style={{
           background: "var(--surface-1)", border: "1px solid var(--border-subtle)",
-          borderRadius: "var(--r-lg)", padding: 48, textAlign: "center", color: "var(--fg-3)",
+          borderRadius: "var(--r-sm)", padding: 48, textAlign: "center", color: "var(--fg-3)",
         }}>
           <Icon name="search-x" size={26} />
           <div style={{ marginTop: 10, color: "var(--fg-2)", fontWeight: 600, fontSize: 14 }}>No events match these filters</div>

@@ -22,7 +22,7 @@
 .settings-input {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   height: 34px;
   padding: 0 12px;
   color: var(--fg-1);

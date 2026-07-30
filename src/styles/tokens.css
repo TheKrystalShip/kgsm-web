@@ -1777,7 +1777,7 @@ pre {
   color: var(--fg-2);
   background: var(--surface-0);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: var(--s-4);
 }
 
@@ -1801,5 +1801,5 @@ a:hover,
 :focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }

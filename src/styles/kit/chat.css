@@ -208,7 +208,7 @@
   color: var(--fg-2);
   width: 34px;
   height: 34px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -414,7 +414,7 @@
   max-width: 84vw;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 12px 14px 13px;
   animation: k-fade var(--d-fast) var(--ease-out);
@@ -514,7 +514,7 @@
   padding: 0 12px;
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-1);
   font-size: 12.5px;
   font-weight: 600;
@@ -570,7 +570,7 @@
   max-width: 84vw;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   display: flex;
   flex-direction: column;
@@ -730,7 +730,7 @@
   position: relative;
   background: var(--surface-0);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 12px 14px;
   margin: 8px 0;
   overflow-x: auto;
@@ -898,7 +898,7 @@
   padding: 5px 0px;
   background: transparent;
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-3);
   cursor: pointer;
   font-family: var(--font-ui);
@@ -977,7 +977,7 @@
 .ev-card {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
@@ -993,7 +993,7 @@
 .ev-card__icon {
   width: 26px;
   height: 26px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--surface-3);
   color: var(--fg-2);
   display: inline-flex;
@@ -1039,7 +1039,7 @@
   font-size: 11.5px;
   font-weight: 600;
   padding: 5px 10px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -1293,7 +1293,7 @@
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 11.5px;
   font-family: var(--font-mono);
 }
@@ -1332,7 +1332,7 @@
   gap: 7px;
   margin: 0 12px 4px;
   padding: 8px 10px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -1791,7 +1791,7 @@ a.ev-search__src:hover {
 .chat-filepreview {
   margin: 8px 0;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--veil-1);
 }
@@ -1830,7 +1830,7 @@ a.ev-search__src:hover {
 .chat-bp {
   margin: 8px 0;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--veil-1);
   animation: chat-ctx-in var(--d-base) var(--ease-out);
@@ -2005,7 +2005,7 @@ a.ev-search__src:hover {
   margin: 0 11px 11px;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
   font-weight: 600;
@@ -2021,7 +2021,7 @@ a.ev-search__src:hover {
   gap: 7px;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
   font-weight: 600;
@@ -2150,7 +2150,7 @@ a.ev-search__src:hover {
   color: var(--success-fg);
   background: var(--success-bg);
   padding: 8px 12px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   width: fit-content;
 }
 
@@ -2161,7 +2161,7 @@ a.ev-search__src:hover {
 /* ---------- post-action verification ---------- */
 .chat-verify {
   margin: 4px 0 4px 40px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 12.5px;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
@@ -2700,7 +2700,7 @@ a.ev-search__src:hover {
   font-size: 12px;
   color: var(--krystal-teal);
   background: var(--krystal-teal-dim);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   width: fit-content;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
@@ -2884,7 +2884,7 @@ a.ev-search__src:hover {
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   border: none;
@@ -2929,7 +2929,7 @@ a.ev-search__src:hover {
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--fg-3);
   border: 1px solid var(--border-subtle);
@@ -2956,7 +2956,7 @@ a.ev-search__src:hover {
   background: var(--surface-3);
   border: 1px solid var(--border-accent);
   box-shadow: var(--ring-input);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 7px 8px 7px 10px;
 }
 
@@ -2978,7 +2978,7 @@ a.ev-search__src:hover {
   flex-shrink: 0;
   width: 34px;
   height: 34px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3281,7 +3281,7 @@ a.ev-search__src:hover {
     padding: 0 12px;
     background: var(--surface-1);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--r-md);
+    border-radius: var(--r-sm);
     color: var(--fg-1);
     font-size: 13.5px;
     font-weight: 500;
@@ -3326,7 +3326,7 @@ a.ev-search__src:hover {
     background: var(--krystal-teal);
     color: var(--fg-inverse);
     border: none;
-    border-radius: var(--r-md);
+    border-radius: var(--r-sm);
     cursor: pointer;
   }
 
@@ -3341,7 +3341,7 @@ a.ev-search__src:hover {
     right: 0;
     background: var(--surface-1);
     border: 1px solid var(--border-strong);
-    border-radius: var(--r-lg);
+    border-radius: var(--r-sm);
     box-shadow: var(--shadow-2);
     overflow: hidden;
     display: flex;
@@ -3566,7 +3566,7 @@ a.ev-search__src:hover {
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-family: var(--font-ui);
   font-weight: 600;
   font-size: 12.5px;

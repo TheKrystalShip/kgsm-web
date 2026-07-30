@@ -102,7 +102,7 @@
 .chart-card {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 16px 18px 18px;
   display: flex;
   flex-direction: column;
@@ -221,7 +221,7 @@
   pointer-events: none;
   background: var(--surface-3);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 6px 9px;
   min-width: 96px;
@@ -517,7 +517,7 @@
   gap: 4px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 3px;
 }
 
@@ -597,7 +597,7 @@
 .anomaly-panel__empty {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 32px;
   text-align: center;
   color: var(--success-fg);
@@ -613,7 +613,7 @@
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
   border-left: 3px solid var(--warning);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -633,7 +633,7 @@
 .anomaly-card__icon {
   width: 30px;
   height: 30px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -764,7 +764,7 @@
   padding: 0 12px;
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-2);
   font-family: var(--font-ui);
   font-weight: 600;
@@ -850,7 +850,7 @@
   gap: 12px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   padding: 8px 14px;
   cursor: pointer;
   min-width: 240px;
@@ -926,7 +926,7 @@
 .diag-tile {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -1029,7 +1029,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
 }
 
 .diag-tiles .kpi--ok::before {
@@ -1106,7 +1106,7 @@
   margin: 6px auto;
   max-width: 92%;
   padding: 10px 14px;
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
   animation: chatSystemIn 0.45s var(--ease-out) both;
@@ -1423,7 +1423,7 @@
   padding: 56px 24px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   color: var(--fg-3);
 }
 
@@ -1467,7 +1467,7 @@
   color: var(--fg-2);
   background: color-mix(in srgb, var(--warning) 9%, var(--surface-1));
   border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-subtle));
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .perf-stale-banner svg {
@@ -1532,7 +1532,7 @@
   padding: 52px 24px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   color: var(--fg-3);
 }
 
@@ -1637,7 +1637,7 @@
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
   border-left: 3px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .svc-card--up {
@@ -1884,7 +1884,7 @@
   gap: 5px;
   height: 28px;
   padding: 0 10px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -1972,7 +1972,7 @@
   align-items: flex-start;
   gap: 8px;
   padding: 9px 11px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 12.5px;
   line-height: 1.45;
   border: 1px solid var(--border-subtle);
@@ -2134,7 +2134,7 @@
   padding: 0 12px;
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
   font-size: 12.5px;
   color: var(--fg-2);
@@ -2164,7 +2164,7 @@
   color: var(--fg-2);
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .leaf-cfg-secret__replace:hover {
@@ -2260,7 +2260,7 @@
 .hotproc-table {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
 }
 
@@ -2884,7 +2884,7 @@
 .proc-table {
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
 }
 
@@ -2983,7 +2983,7 @@
 .log-view {
   background: var(--surface-0);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 12px 14px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -3181,7 +3181,7 @@
   flex-wrap: wrap;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 10px 12px;
 }
 
@@ -3208,7 +3208,7 @@
 .filter-bar__field select {
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   height: 32px;
   padding: 0 26px 0 10px;
   color: var(--fg-1);
@@ -3244,7 +3244,7 @@
   color: var(--fg-3);
   height: 32px;
   padding: 0 10px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -3264,7 +3264,7 @@
   border: 1px solid var(--border-accent, var(--border-strong));
   height: 32px;
   padding: 0 10px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -3283,7 +3283,7 @@
   color: var(--fg-2);
   height: 32px;
   padding: 0 12px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 500;

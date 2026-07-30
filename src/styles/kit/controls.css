@@ -248,7 +248,7 @@
   max-width: 88vw;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   display: flex;
   flex-direction: column;
@@ -328,7 +328,7 @@
   align-items: center;
   gap: 9px;
   padding: 7px 8px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -405,7 +405,7 @@
   display: inline-flex;
   gap: 2px;
   padding: 2px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
 }
@@ -832,7 +832,7 @@
   min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
   cursor: pointer;
   padding: 0;

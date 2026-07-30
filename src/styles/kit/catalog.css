@@ -583,7 +583,7 @@
   grid-template-columns: var(--fb-tree-w, 260px) minmax(0, 1fr);
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   overflow: hidden;
   min-height: 640px;
   position: relative;
@@ -965,7 +965,7 @@
   gap: 10px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   color: var(--fg-3);
   text-align: center;
   padding: 24px;
@@ -985,7 +985,7 @@
   align-items: center;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   padding: 14px 18px;
 }
 
@@ -1071,4 +1071,199 @@
 .icon-btn--danger:hover {
   color: var(--danger-fg);
   border-color: var(--danger);
+}
+
+/* ============= Blueprint file editor (Phase 5) ============= */
+/* The blueprint editor card reuses the FileBrowser's .fb-editor__* button/bar/
+   dirty/spacer/expand/modal styles — only the blueprint-specific pieces are new
+   here: the override badge, meta strip, errors, note, and host picker. */
+
+.bp-briefcard .chat-brief__head {
+  gap: 8px;
+}
+
+/* Override badge — shown when a user file shadows a shipped blueprint. */
+.bp-editor__override {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bp-editor__override-note {
+  font-weight: 400;
+  color: var(--fg-3);
+  margin-left: 4px;
+}
+
+/* Meta strip — tier + runtime chips below the head. */
+.bp-editor__meta {
+  display: flex;
+  gap: 6px;
+  padding: 6px 16px 0;
+}
+
+.bp-editor__meta-chip {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--fg-3);
+  text-transform: capitalize;
+}
+
+/* Editor wrapper — same fill as the FileBrowser's .bp-editor inside the BriefCard. */
+.bp-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.bp-editor .bp-editor__monaco-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  background: var(--surface-0);
+}
+
+.bp-editor .bp-editor__monaco-wrap > section {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Validation errors from the engine — shown below the editor. */
+.bp-editor__errors {
+  padding: 10px 16px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.bp-editor__errors-list {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+
+.bp-editor__errors-list li {
+  line-height: 1.5;
+}
+
+/* Stale-etag banner — mirrors FileBrowser's stale-reload treatment. */
+.bp-editor__stale {
+  padding: 8px 16px;
+  color: var(--warning-fg);
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Footer bar — identical to the FileBrowser's .fb-editor__foot. */
+.bp-editor__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.bp-editor__foot .fb-editor__btn--sm {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* One-line note that editing doesn't change installed instances. */
+.bp-editor__note {
+  padding: 8px 16px;
+  font-size: 11.5px;
+  color: var(--fg-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Host picker — follows the AssistantHostPicker pattern. */
+.bp-editor__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bp-editor__host {
+  position: relative;
+}
+
+.bp-editor__host-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  height: 28px;
+}
+
+.bp-editor__host-trigger:hover {
+  border-color: var(--border-strong);
+  color: var(--fg-1);
+}
+
+.bp-editor__host-trigger--open {
+  border-color: var(--krystal-teal);
+}
+
+.bp-editor__host-menu {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 160px;
+  z-index: 1000;
+  padding: 4px;
+}
+
+.bp-editor__host-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bp-editor__host-opt:hover {
+  background: var(--surface-2);
+  color: var(--fg-1);
+}
+
+.bp-editor__host-opt--active {
+  color: var(--krystal-teal);
+  font-weight: 600;
 }

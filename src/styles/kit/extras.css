@@ -22,7 +22,7 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-4);
   cursor: pointer;
   transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
@@ -265,7 +265,7 @@
 .server-group__chip {
   width: 24px;
   height: 24px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }

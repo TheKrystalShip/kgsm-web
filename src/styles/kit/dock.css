@@ -14,7 +14,7 @@
   margin-right: 4px;
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-2);
   cursor: pointer;
   font-family: var(--font-ui);
@@ -85,7 +85,7 @@
 .assistant-rail__btn {
   width: 40px;
   height: 40px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -183,7 +183,7 @@
   height: 66px;
   padding: 0;
   box-sizing: border-box;
-  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
   background: color-mix(in srgb, var(--surface-1) 92%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -309,7 +309,7 @@
   min-width: 226px;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 6px;
   z-index: 70;
@@ -410,7 +410,7 @@
   padding: 0 12px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--fg-1);
   font-size: 13px;
   font-weight: 500;
@@ -455,7 +455,7 @@
   background: var(--krystal-teal);
   color: var(--btn-accent-fg);
   border: none;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 
@@ -470,7 +470,7 @@
   right: 0;
   background: var(--surface-1);
   border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   overflow: hidden;
   display: flex;
