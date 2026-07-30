@@ -1,7 +1,7 @@
 import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { Modal } from "../components/Modal.jsx";
+import { ReversablePortal } from "../components/ReversablePortal.jsx";
 import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
@@ -229,9 +229,11 @@ function FileBrowser({ server }) {
   const treeError = root && root.status === "error" && !(root.entries && root.entries.length) ? root.error : null;
   const rootTruncated = !!(root && root.truncated);
 
-  // The tree + editor grid, defined once so the SAME element renders either
-  // inline (in the BriefCard) or inside the full-screen pop-out modal below —
-  // only one is live at a time.
+  // The tree + editor grid, projected through ReversablePortal so the SAME
+  // subtree (one Monaco instance, one model) lives either inline in the card
+  // or inside the full-screen pop-out — reparented, never remounted. That keeps
+  // edits made in full screen bound to `draft` via the same `onChange`, so
+  // closing without saving and then saving inline can never lose the work.
   const cardBody = (
       <div className="fb-card" style={{ "--fb-tree-w": treeW + "px" }}>
         {/* ---- tree ---- */}
@@ -331,26 +333,27 @@ function FileBrowser({ server }) {
   return (
     <BriefCard icon="folder" title="Files" meta={"Working directory · " + serverId} className="fb-briefcard">
       {/* Expand lifts the whole grid (tree + editor) into a full-screen pop-out
-          so a short viewport isn't limited to a few editor lines. While popped,
-          the inline slot keeps a quiet placeholder and the real grid lives in
-          the portal below (portaled to <body>, not promoted in place: .app__main
-          is a container-type ancestor that would otherwise clip a fixed child). */}
-      {expanded ? (
-        <div className="fb-popped-placeholder">
-          <Icon name="maximize-2" size={24} strokeWidth={1.6} />
-          <div style={{ fontSize: 13 }}>Editing in full screen.</div>
-          <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm" onClick={() => setExpanded(false)}>
-            <Icon name="minimize-2" size={13} /> Restore
-          </button>
-        </div>
-      ) : cardBody}
-      {expanded && (
-        <Modal onClose={() => setExpanded(false)} scrimClassName="fb-modal-scrim">
-          <div className="fb-modal" role="dialog" aria-modal="true" aria-label={"Files — " + serverId}>
-            {cardBody}
+          portaled to <body> (portaled, not promoted in place: .app__main is a
+          container-type ancestor that would otherwise clip a fixed child).
+          ReversablePortal moves the real DOM node across slots, so the Monaco
+          instance + model survive the toggle and stay bound to `draft`. */}
+      <ReversablePortal
+        fullscreen={expanded}
+        onClose={() => setExpanded(false)}
+        scrimClassName="fb-modal-scrim"
+        modalClassName="fb-modal"
+        ariaLabel={"Files — " + serverId}
+        placeholder={(
+          <div className="fb-popped-placeholder">
+            <Icon name="maximize-2" size={24} strokeWidth={1.6} />
+            <div style={{ fontSize: 13 }}>Editing in full screen.</div>
+            <button type="button" className="fb-editor__btn fb-editor__btn--secondary fb-editor__btn--sm" onClick={() => setExpanded(false)}>
+              <Icon name="minimize-2" size={13} /> Restore
+            </button>
           </div>
-        </Modal>
-      )}
+        )}>
+        {cardBody}
+      </ReversablePortal>
     </BriefCard>
   );
 }

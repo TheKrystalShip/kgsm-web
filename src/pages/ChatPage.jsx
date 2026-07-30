@@ -4,6 +4,7 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
+import { useStore } from "../lib/store.js";
 import { confirmCommand, confirmInstall, confirmUninstall, filesStore, serversStore } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 
@@ -37,6 +38,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);
   const [input, setInput]       = React.useState("");
   const [busy, setBusy]         = React.useState(false);
+
+  const serverList = useStore(serversStore, s => s.list);
 
   const canSeeActions = !!(assistantHost && canOperate(assistantHost.id));
   const canUseActions = !!(assistantHost && isAdmin(assistantHost.id));
@@ -421,12 +424,26 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
   };
 
-  const suggestions = [
-    "Run a health check on MyValheimServer",
-    "Why might my Valheim server be lagging?",
-    "Explain the server.cfg raid_freq setting",
-    "How do I port-forward UDP 2456?",
-  ];
+  const suggestions = React.useMemo(() => {
+    const running = serverList.find(s => s.status === "running");
+    const srv = running || serverList[0] || null;
+    if (!srv) {
+      return [
+        "Run a health check on my server",
+        "Why might my server be lagging?",
+        "Explain a setting in my server's config file",
+        "Server is online but I can't connect \u2014 why?",
+      ];
+    }
+    const name = srv.displayName || srv.name || "MyServer";
+    const game = srv.game || "my game";
+    return [
+      `Run a health check on ${name}`,
+      `Why might my ${game} server be lagging?`,
+      "Explain a setting in my server's config file",
+      `Server is online but I can't connect \u2014 why?`,
+    ];
+  }, [serverList]);
 
   const ChatBriefingPanel = NeedsAttention;
 

@@ -1,3 +1,4 @@
+import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { KPI } from "../components/KPI.jsx";
@@ -8,6 +9,8 @@ import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
+
+const BlueprintFileCard = React.lazy(() => import("./library/BlueprintFileCard.jsx"));
 
 // GamePage — the "blueprint" detail page for a single catalog game. A game in
 // the library is a TEMPLATE you can run, not a running server, so this page is
@@ -160,13 +163,17 @@ function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
         <BriefCard icon="sliders-horizontal" title="Blueprint defaults">
           <div className="chat-brief__list">
             <SpecRow icon="server" label="Available on" value={availValue} tone={hostRestricted ? null : "muted"} />
-            <SpecRow icon="plug" label="Game port" value={gamePort != null ? gamePort : "—"} mono tone={gamePort != null ? null : "muted"} />
-            <SpecRow icon="radio" label="Query port" value="—" mono tone="muted" />
-            <SpecRow icon="users" label="Max players" value={maxPlayers != null ? maxPlayers : "—"} mono tone={maxPlayers != null ? null : "muted"} />
-            <SpecRow icon="file-cog" label="Config file" value={configFile || "—"} mono tone={configFile ? null : "muted"} />
+            <SpecRow icon="plug" label="Game port" value={gamePort != null ? gamePort : "\u2014"} mono tone={gamePort != null ? null : "muted"} />
+            <SpecRow icon="radio" label="Query port" value="\u2014" mono tone="muted" />
+            <SpecRow icon="users" label="Max players" value={maxPlayers != null ? maxPlayers : "\u2014"} mono tone={maxPlayers != null ? null : "muted"} />
+            <SpecRow icon="file-cog" label="Config file" value={configFile || "\u2014"} mono tone={configFile ? null : "muted"} />
             <SpecRow icon="hard-drive" label="Recommended RAM" value={fmtFootprintMb(recRamMb)} tone={recRamMb != null ? null : "muted"} />
           </div>
         </BriefCard>
+
+        <React.Suspense fallback={null}>
+          <BlueprintFileCard game={game} offeringHosts={offered} />
+        </React.Suspense>
       </div>
 
       {/* Your servers — every instance running from this blueprint. Same

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (v1.30.4) — full-screen editor no longer loses your edits
+- **Editing in the full-screen editor modal and closing it (without saving) no longer discards the
+  edits from the inline editor's Save.** The inline and full-screen editors were two separate Monaco
+  instances loosely coupled by a string prop: toggling full screen unmounted + remounted the editor at
+  a new React tree position, so in-flight model content could drift from the `draft` state and be lost
+  on the remount. A new `ReversablePortal` primitive reparents the editor's real DOM node between the
+  inline slot and a body-portal modal slot (instead of re-rendering the same JSX at a different tree
+  position), keeping one Monaco instance + model alive across the toggle — so the inline and full-screen
+  editors are literally the same instance, bi-directionally bound through the existing `value`/`onChange`.
+  Applied to all three editor surfaces: the Files tab (`FileBrowser`), the blueprint file editor
+  (`BlueprintFileCard`), and the assistant's blueprint-review editor (`ChatBlueprintDraft`).
+
 ### Fixed (v1.30.3) — "Checked X ago" now ticks forward live
 - **The "Checked X ago" subtitle re-renders every 30s** via a wall-clock tick timer, so the
   relative time advances even when the audit feed is quiet. The previous implementation was

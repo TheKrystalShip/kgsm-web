@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
+import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { commandMeta } from "./chatConstants.js";
 import { API_COMMAND_VERBS } from "./chatConstants.js";
 
@@ -240,8 +240,9 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraft
   }
 
   // proposed (initial review or a re-edit) — the editor, optionally with the last boot log.
-  // The whole card is built once as `body` and rendered either inline or inside a full-screen
-  // Modal, so the pop-out reuses the exact same editor + actions (mirrors FileBrowser's cardBody).
+  // The whole card is built once as `body` and projected through ReversablePortal so the
+  // pop-out reuses the exact same editor + actions by reparenting the real DOM node — the
+  // Monaco instance/model survive the toggle and stay bound to `text` (mirrors FileBrowser).
   const body = (
     <div className={"chat-bp" + (busy ? " chat-bp--busy" : "") + (expanded ? " chat-bp--full" : "")}>
       <div className="chat-bp__head">
@@ -299,12 +300,19 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraft
     </div>
   );
 
-  // Popped out: leave a quiet placeholder in the inline slot and mount the real card in a
-  // portaled Modal (portaled to <body> — .app__main is a container-type ancestor that would
-  // otherwise clip a fixed child). Same pattern as FileBrowser / ConsolePanel.
-  if (expanded) {
-    return (
-      <>
+  // Popped out: leave a quiet placeholder in the inline slot and reparent the real
+  // card into a portaled modal slot (portaled to <body> — .app__main is a
+  // container-type ancestor that would otherwise clip a fixed child). ReversablePortal
+  // moves the DOM node, so the Monaco editor + `text` binding survive the toggle.
+  // Same pattern as FileBrowser / ConsolePanel.
+  return (
+    <ReversablePortal
+      fullscreen={expanded}
+      onClose={() => setExpanded(false)}
+      scrimClassName="chat-bp-modal-scrim"
+      modalClassName="chat-bp-modal"
+      ariaLabel={"Review the " + game + " config"}
+      placeholder={(
         <div className="chat-bp chat-bp--placeholder">
           <Icon name="maximize-2" size={22} strokeWidth={1.6} />
           <div className="chat-bp__placeholder-text">Reviewing {game} in full screen.</div>
@@ -313,15 +321,10 @@ function ChatBlueprintDraft({ msg, onSave, onGiveUp, onRun, onDraftEdit, onDraft
             <Icon name="minimize-2" size={13} /> Restore
           </button>
         </div>
-        <Modal onClose={() => setExpanded(false)} scrimClassName="chat-bp-modal-scrim">
-          <div className="chat-bp-modal" role="dialog" aria-modal="true" aria-label={"Review the " + game + " config"}>
-            {body}
-          </div>
-        </Modal>
-      </>
-    );
-  }
-  return body;
+      )}>
+      {body}
+    </ReversablePortal>
+  );
 }
 
 function ChatScopeNotice({ msg }) {
