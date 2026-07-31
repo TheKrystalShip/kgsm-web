@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — backups show what they are
+- **Each backup row carries its age, size and captured version** under the backup id, read from the
+  detail `GET /servers/{id}/backups` now returns (`createdAt`, `sizeBytes`, `version`) via the shared
+  `fmtRelative` / `formatBytes` helpers. Every field is optional: a backup the engine lists but has
+  no manifest for renders as its id alone rather than as a fabricated size or age, and the subtitle
+  is omitted entirely when nothing is known. Download and delete remain disabled affordances — there
+  is still no endpoint behind them.
+
 ### Added — the blueprint editor
 - **Edit a game's `.bp.yaml` from its library page.** `BlueprintFileCard` — a Monaco `BriefCard` on
   the game detail page with Save / Reset / Revert-to-original, an "Overridden" badge when a local

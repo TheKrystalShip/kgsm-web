@@ -3,6 +3,7 @@ import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { api } from "../lib/apiClient.js";
 import { awaitJob } from "../lib/stores.js";
+import { formatBytes, fmtRelative } from "../lib/formatting.js";
 
 // Backups list — one row per snapshot. Rendered through the shared BriefCard
 // shell; each entry uses the same .chat-brief__item row style as the dashboard's
@@ -10,9 +11,26 @@ import { awaitJob } from "../lib/stores.js";
 // (App.ServerDetailPage hides it for viewers), so the create/restore actions are
 // safe to show here without a second gate.
 //
-// The backend (GET /servers/{id}/backups) reports a backup's NAME ONLY — no
-// size / timestamp / type, and there is no download or delete endpoint. So the
-// row is honest-thin (name + Restore), never a fabricated size/age.
+// The backend (GET /servers/{id}/backups) reports each backup's id as `name`
+// plus whatever its manifest recorded — size, creation time, captured version.
+// Any of those may be absent (a backup the engine lists but has no manifest
+// for), and an absent field is simply not rendered: never a fabricated size or
+// age, never a "0 B" standing in for unknown. There is still no download or
+// delete endpoint, so those stay disabled affordances.
+// The one-line subtitle under a backup's id: age · size · version, built only
+// from the fields the manifest actually carried. A backup with no manifest
+// contributes nothing here and renders as its id alone.
+function metaFor(b) {
+  const parts = [];
+  if (b.createdAt) {
+    const d = new Date(b.createdAt);
+    if (!Number.isNaN(d.getTime())) parts.push(fmtRelative(d));
+  }
+  if (b.sizeBytes != null) parts.push(formatBytes(b.sizeBytes));
+  if (b.version) parts.push("v" + b.version);
+  return parts.join(" · ");
+}
+
 function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
@@ -88,6 +106,7 @@ function BackupsList({ server }) {
                   <span className="chat-brief__item-title chat-brief__item-title--mono">
                     <span className="chat-brief__titletext">{b.name}</span>
                   </span>
+                  {metaFor(b) && <span className="chat-brief__detail">{metaFor(b)}</span>}
                 </div>
                 <div className="backup-row__actions">
                   <button className="icon-btn" title="Restore" onClick={() => restoreBackup(b.name)} disabled={!!busy}>
