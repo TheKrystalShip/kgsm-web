@@ -1,12 +1,12 @@
 import React from "react";
-import { createPortal } from "react-dom";
+import { BlueprintHostPicker } from "./BlueprintHostPicker.jsx";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { formatBytes } from "../../lib/formatting.js";
 import { canOn, isAdmin } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
-import { blueprintFileStore, hostsStore } from "../../lib/stores.js";
+import { blueprintFileStore } from "../../lib/stores.js";
 
 // Monaco is heavy + worker-backed, lazy-loaded: the chunk downloads only when
 // the editor is actually opened. Same module as FileBrowser — resolves to the
@@ -29,7 +29,6 @@ function BlueprintFileCard({ game, offeringHosts }) {
   const hosts = React.useMemo(() => offeringHosts || [], [offeringHosts]);
 
   // ---- host selection (§5.2) -----------------------------------------------
-  const allHosts = useStore(hostsStore, s => s.list);
   const [selectedHostId, setSelectedHostId] = React.useState(() => {
     if (hosts.length === 1) return hosts[0].id;
     return hosts.length > 0 ? hosts[0].id : null;
@@ -41,7 +40,6 @@ function BlueprintFileCard({ game, offeringHosts }) {
   }, [hosts, selectedHostId]);
 
   const hostId = selectedHostId;
-  const hostObj = hostId ? allHosts.find(h => h.id === hostId) || null : null;
 
   // ---- gating (§5.3) -------------------------------------------------------
   const canRead = hostId ? canOn("server.operate", hostId) : false;
@@ -67,9 +65,6 @@ function BlueprintFileCard({ game, offeringHosts }) {
   const [errors, setErrors] = React.useState(null);  // validation errors[]
   const [staleReload, setStaleReload] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
-  const [hostMenuOpen, setHostMenuOpen] = React.useState(false);
-  const hostTriggerRef = React.useRef(null);
-  const hostMenuRef = React.useRef(null);
 
   // Load on mount / host change / name change.
   React.useEffect(() => {
@@ -131,25 +126,11 @@ function BlueprintFileCard({ game, offeringHosts }) {
     );
   };
 
-  // ---- host picker (§5.2) ---------------------------------------------------
-  // Close on outside click.
-  React.useEffect(() => {
-    if (!hostMenuOpen) return;
-    const h = (e) => {
-      if (hostTriggerRef.current && hostTriggerRef.current.contains(e.target)) return;
-      if (hostMenuRef.current && hostMenuRef.current.contains(e.target)) return;
-      setHostMenuOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [hostMenuOpen]);
-
   // ---- early exits ----------------------------------------------------------
   if (!canRead || !name || hosts.length === 0) return null;
 
   const loading = status === "loading" || status === "idle";
   const readOnly = apiReadOnly || !canWrite;
-  const manyHosts = hosts.length > 1;
 
   // ---- header action slot ---------------------------------------------------
   const tierLabel = tier === "user" ? "Custom" : tier === "system" ? "Shipped" : null;
@@ -159,37 +140,7 @@ function BlueprintFileCard({ game, offeringHosts }) {
 
   const headerAction = (
     <div className="bp-editor__actions">
-      {manyHosts && (
-        <div className="bp-editor__host" ref={hostTriggerRef}>
-          <button
-            className={"bp-editor__host-trigger" + (hostMenuOpen ? " bp-editor__host-trigger--open" : "")}
-            onClick={() => setHostMenuOpen(o => !o)}
-            title="Which host to edit"
-            aria-haspopup="listbox"
-            aria-expanded={hostMenuOpen}>
-            <span className="bp-editor__host-name">{hostObj ? hostObj.name : "Select host"}</span>
-            <Icon name="chevrons-up-down" size={13} />
-          </button>
-          {hostMenuOpen && createPortal(
-            <div className="bp-editor__host-menu" role="listbox" ref={hostMenuRef}
-              style={{ position: "fixed", top: "var(--bp-host-top, 0)", right: 16, zIndex: 1000 }}>
-              {hosts.map(h => {
-                const active = h.id === hostId;
-                return (
-                  <button key={h.id}
-                    className={"bp-editor__host-opt" + (active ? " bp-editor__host-opt--active" : "")}
-                    onClick={() => { setHostMenuOpen(false); if (!active) setSelectedHostId(h.id); }}
-                    role="option" aria-selected={active}>
-                    <span>{h.name}</span>
-                    {active && <Icon name="check" size={14} />}
-                  </button>
-                );
-              })}
-            </div>,
-            document.body,
-          )}
-        </div>
-      )}
+      <BlueprintHostPicker hosts={hosts} selectedId={hostId} onSelect={setSelectedHostId} />
       <button className="fb-editor__expand" onClick={() => setExpanded(v => !v)}
         title={expanded ? "Exit full screen (Esc)" : "Expand to full screen"}>
         <Icon name={expanded ? "minimize-2" : "maximize-2"} size={14} />

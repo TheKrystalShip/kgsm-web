@@ -7,6 +7,7 @@ import { LibrarySkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { fmtFootprintMb } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
+import { can } from "../lib/persona.js";
 import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
@@ -153,7 +154,8 @@ function LibraryGroup({ gkey, section, collapsed, onToggle, onOpenGame, onDeploy
 
 const LIB_COLLAPSE_KEY = "krystal.library.collapsed.v1";
 
-function Library({ onOpenGame, onDeploy, initialFilter }) {
+function Library({ onOpenGame, onDeploy, initialFilter, onCreateBlueprint }) {
+  const canCreate = can("server.create");
   const all = useStore(libraryStore, s => s.list);
   // Run-state is derived from the servers store — the one source of truth shared
   // with the cards — so "installed" can never disagree with the "N servers" pill.
@@ -255,7 +257,17 @@ function Library({ onOpenGame, onDeploy, initialFilter }) {
   return (
     <>
       <div className="library-head">
-        <h1>{KRYSTAL_LABELS.catalog || "Catalog"}</h1>
+        <div className="dash-head__row">
+          <h1>{KRYSTAL_LABELS.catalog || "Catalog"}</h1>
+          {/* Authoring a blueprint is gated the same way creating a server is — a viewer
+              browses the catalog but gets no entry point. Aggregate (any host), matching
+              ServersPage; the create page itself resolves which host it lands on. */}
+          {canCreate && (
+            <button className="fb-editor__btn" onClick={onCreateBlueprint}>
+              <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Create blueprint
+            </button>
+          )}
+        </div>
         <div className="library-head__sub">Pick a game and we'll handle the install, port-forwarding, and config defaults. You bring the world.</div>
       </div>
       {dataLoading ? <LibrarySkeleton /> : (<>

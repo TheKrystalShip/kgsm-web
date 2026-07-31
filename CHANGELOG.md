@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the blueprint editor
+- **Edit a game's `.bp.yaml` from its library page.** `BlueprintFileCard` — a Monaco `BriefCard` on
+  the game detail page with Save / Reset / Revert-to-original, an "Overridden" badge when a local
+  copy is shadowing a shipped blueprint, the engine's validation errors listed beneath the editor, a
+  412 "changed on disk" banner with reload, and a full-screen pop-out that keeps the same editor
+  instance. Operator+ reads (read-only), Admin writes. The host is auto-selected when one offers the
+  game and picked when several do — a blueprint file lives on one host's disk.
+- **Create a blueprint: `#/library/new`.** A "Create blueprint" button on the catalog header opens a
+  dedicated page whose buffer is seeded from the ENGINE's own `blueprint.tp` skeleton
+  (`GET /library/scaffold`) — the SPA carries no template of its own. A name input (lowercase slug),
+  Save (`POST /library`) with `409 name_taken` rendered under the input and the engine's `errors[]`
+  beneath the editor, and Reset back to the skeleton. On success it lands on the new game's page.
+  Admins author manually; Operators get the same editor read-only with the assistant hand-off as
+  their primary action, since creation is admin-only server-side.
+- **`askCreateBlueprint` on the assistant dock** — opens the inline dock (the page and its
+  half-written buffer stay put) and seeds an editable, not-yet-sent "Create a blueprint for `<name>`"
+  prompt into the assistant's existing `create_blueprint` flow. Shown only where the chosen host
+  actually provisions an assistant; the manual path works fully without one.
+- **`BlueprintHostPicker`** — the host picker both blueprint surfaces share, so the choice looks and
+  means the same in each.
+
+### Fixed
+- **The create page's editor rendered as a 5px sliver.** `@monaco-editor/react` wraps the editor in a
+  `<section style="height:100%">`, and a percentage height only resolves against a definite
+  containing block — a height that comes from `flex: 1` is not one, so the section collapsed to its
+  own near-zero content height. Its wrap now states a single grid track, the way the file browser's
+  card fills its modal, which sizes definitely at any size.
+- **The blueprint pop-out left dead space below its footer and offered no visible way out.** The
+  card now fills the modal (the fill rule the file browser's card already had), and its expand
+  toggle moved out of the card header into the card body — where the file browser and the console
+  keep theirs — so it travels into the pop-out and becomes the exit control. Applies to the
+  existing blueprint editor's pop-out as well as the new create page.
+- **An API error's `details` reached no caller.** `apiError` built its Error from the envelope's
+  `code`/`message` only, so `blueprint_invalid`'s `details.errors` — the ENGINE's own validator
+  messages — were dropped and the editor could only say "the engine rejected this blueprint" with
+  nothing about what to fix. `details` is now carried through verbatim.
+
 ### Changed — headless deploys (`setup.sh` once, `deploy.sh` forever after)
 - **The SPA now deploys through `deploy/setup.sh` + `deploy/deploy.sh`**, the ecosystem contract
   (`tks/scripts/deploy-template/README.md`), replacing `scripts/deploy-prod.sh`. `npm run

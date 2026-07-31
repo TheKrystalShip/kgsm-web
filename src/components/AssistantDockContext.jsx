@@ -94,6 +94,21 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     if (item) setAssistantSeed({ prompt: alertAssistantPrompt(item), serverId: item.serverId || null, nonce: Date.now() });
   }, [setRoute, askAssistant]);
 
+  // Hand a blueprint-authoring request to the assistant, from the create page. Opens the
+  // INLINE dock (the page stays put, so the half-written editor isn't thrown away) and seeds
+  // an editable, not-yet-sent prompt — the user reads and sends it, we never speak for them.
+  // The host is the one the create page picked: the blueprint lands on that host's disk.
+  const askCreateBlueprint = React.useCallback((gameName, hostId) => {
+    const h = hostId && hosts.find(x => x.id === hostId);
+    if (h && capUsable(h, "assistant")) setAssistantHostId(hostId);
+    setAssistantOpen(true);
+    setAssistantSeed({
+      prompt: "Create a blueprint for " + (gameName || ""),
+      serverId: null,
+      nonce: Date.now(),
+    });
+  }, [hosts]);
+
   const openAssistant = React.useCallback(() => {
     const sh = hosts.find(h => h.id === selectedHostId);
     if (!assistantHostId && sh && capUsable(sh, "assistant")) setAssistantHostId(sh.id);
@@ -174,7 +189,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     tw, desktop, canPush, effPush, pushingPanel, railMode,
     assistantHostList, usableAssistants, assistantHost,
     dockResize, handleAssistantNavigate, openView,
-    askAssistant, askAboutAlert, openAssistant,
+    askAssistant, askAboutAlert, askCreateBlueprint, openAssistant,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tw is a fresh-per-render literal with constant contents; depping it would rebuild the context value every render
   }), [
     assistantOpen, setAssistantOpen,
@@ -185,7 +200,7 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     desktop, canPush, effPush, pushingPanel, railMode,
     assistantHostList, usableAssistants, assistantHost,
     dockResize, handleAssistantNavigate, openView,
-    askAssistant, askAboutAlert, openAssistant,
+    askAssistant, askAboutAlert, askCreateBlueprint, openAssistant,
   ]);
 
   return (

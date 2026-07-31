@@ -17,6 +17,8 @@
 //   #/servers/<id>           server detail (overview)
 //   #/servers/<id>/<tab>     server detail, a specific tab
 //   #/library                game library          (?filter=installed entry filter)
+//   #/library/new            author a new blueprint
+//   #/library/<id>           game detail
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
 //   #/cluster                cluster grid
@@ -46,6 +48,7 @@
         return h;
       }
       case "library":   return "#/library" + (route.filter ? "?filter=" + enc(route.filter) : "");
+      case "library-create": return "#/library/new";
       case "game":      return "#/library/" + enc(route.id || "");
       case "audit": {
         const p = [];
@@ -87,6 +90,10 @@
         }
         return q.get("status") ? { kind: "servers", status: q.get("status") } : { kind: "servers" };
       case "library":
+        // "new" is the create page, so it is not addressable as a game id. Blueprint names are
+        // slugs, so a game genuinely called "new" would be shadowed here — accepted: the create
+        // route is a fixed word, and the game is still reachable everywhere else it is listed.
+        if (segs[1] === "new") return { kind: "library-create" };
         if (segs[1]) return { kind: "game", id: dec(segs[1]) };
         return q.get("filter") ? { kind: "library", filter: q.get("filter") } : { kind: "library" };
       case "audit": {

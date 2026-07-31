@@ -18,6 +18,7 @@ const DashboardPage = React.lazy(() => import("../pages/DashboardPage.jsx"));
 const ClusterPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
 const GamePage = React.lazy(() => import("../pages/GamePage.jsx"));
 const Library = React.lazy(() => import("../pages/LibraryPage.jsx"));
+const LibraryCreatePage = React.lazy(() => import("../pages/library/LibraryCreatePage.jsx"));
 const ServerDetailPage = React.lazy(() => import("../pages/ServerDetailPage.jsx"));
 const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("../pages/SettingsPage.jsx"));
@@ -31,7 +32,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
   // router), so read it from context here rather than threading it down from the
   // shell. Data (servers/hosts/scope) is likewise read by the pages themselves from
   // the singleton stores — this router only owns ROUTING (route → page + callbacks).
-  const { askAboutAlert } = useAssistantDock();
+  const { askAboutAlert, askCreateBlueprint } = useAssistantDock();
 
   return (
     <ErrorBoundary
@@ -77,7 +78,13 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onAction={(id, action) => handleAction(action, id)}
       onLibrary={() => setRoute({ kind: "library" })}
     />}
-    {route.kind === "library" && <Library key={route.filter || "all"} onOpenGame={openGame} onDeploy={handleInstall} initialFilter={route.filter} />}
+    {route.kind === "library" && <Library key={route.filter || "all"} onOpenGame={openGame} onDeploy={handleInstall} initialFilter={route.filter}
+      onCreateBlueprint={() => setRoute({ kind: "library-create" })} />}
+    {route.kind === "library-create" && <LibraryCreatePage
+      onBrowse={() => setRoute({ kind: "library" })}
+      onOpenGame={(id) => setRoute({ kind: "game", id })}
+      onAskAssistant={askCreateBlueprint}
+    />}
     {route.kind === "game" && (activeGame
       ? <GamePage
           game={activeGame}

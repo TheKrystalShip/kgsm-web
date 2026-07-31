@@ -952,6 +952,13 @@
   min-height: 0;
 }
 
+/* Same fill rule for the blueprint editor's pop-out — without it the card keeps its inline
+   min-height and leaves dead space below the footer instead of filling the modal. */
+.fb-modal .bp-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* Quiet stand-in left in the inline card while the editor is popped out — it
    sits behind the scrim, but keeps the card from collapsing under it (and gives
    a Restore path if the portal ever fails to paint). */
@@ -1195,6 +1202,91 @@
   font-size: 11.5px;
   color: var(--fg-4);
   border-top: 1px solid var(--border-subtle);
+}
+
+/* ===== New-blueprint page (#/library/new) ===== */
+
+/* @monaco-editor/react wraps the editor in a <section style="height:100%">, and a percentage
+   height only resolves against a DEFINITE containing block. A height that comes from `flex: 1`
+   is not one, so the section collapses to its own near-zero content height and the editor
+   renders as a sliver. A grid track sizes definitely, which is how the file browser's card
+   fills its modal (`.fb-modal .fb-card` → `grid-template-rows: minmax(0, 1fr)`), so the wrap
+   states its single row the same way and the editor fills it at any size. */
+.bp-create .bp-editor__monaco-wrap {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* The name field, footer and note all eat into the shared .bp-editor floor, which would leave
+   the editor itself barely a dozen lines. A taller floor here is what the editor's own height
+   is carved out of — authoring a blueprint from the template means reading a lot of it. */
+.bp-create {
+  min-height: 1024px;
+}
+
+/* Says why the editor is read-only for an operator, and where their path is. */
+.bp-create__banner {
+  padding: 10px 16px;
+  background: var(--info-bg);
+  color: var(--fg-2);
+  font-size: 12.5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bp-create__name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bp-create__name-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.bp-create__name-input {
+  height: 34px;
+  max-width: 340px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--fg-1);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.bp-create__name-input:focus {
+  outline: none;
+  border-color: var(--krystal-teal);
+}
+
+.bp-create__name-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bp-create__name-input--bad,
+.bp-create__name-input--bad:focus {
+  border-color: var(--danger-fg);
+}
+
+.bp-create__name-hint {
+  font-size: 11.5px;
+  color: var(--fg-4);
+}
+
+.bp-create__name-err {
+  color: var(--danger-fg);
 }
 
 /* Host picker — follows the AssistantHostPicker pattern. */

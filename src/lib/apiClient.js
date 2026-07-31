@@ -134,6 +134,11 @@ const FINALIZE_IDLE_MS = 60000;
     e.envCode = env.code || null;
     e.status = status;
     e.userMessage = env.message || "The server returned an error.";
+    // The envelope's optional `details` object, carried through verbatim. Some errors say more than a
+    // sentence can — `blueprint_invalid` puts the ENGINE's own validator messages in `details.errors`,
+    // and the blueprint editor renders them one per line. Dropping it here would leave the caller with
+    // "the engine rejected this blueprint" and nothing about what to fix.
+    e.details = env.details || null;
     return e;
   }
   // A host's bearer, when we hold a live one. Null under KGSM_API_AUTH_DISABLED

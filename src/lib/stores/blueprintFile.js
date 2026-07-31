@@ -95,4 +95,32 @@ blueprintFileStore.revert = (hostId, name) => {
   );
 };
 
+// The engine's blueprint skeleton for a host, for seeding a new blueprint's buffer. Not cached in
+// the store: it is read once per visit to the create page and never edited in place, so there is no
+// per-key entry to keep coherent. Resolves to the template text.
+blueprintFileStore.scaffold = (hostId) =>
+  api.host(hostId).get("/library/scaffold").then(res => res.content);
+
+// Create a brand-new blueprint on a host. Seeds the byKey entry so navigating straight to the new
+// game's page finds the file already loaded, with the identity the write just returned.
+blueprintFileStore.create = (hostId, name, content) =>
+  api.host(hostId).post("/library", { name, content, origin: "ui" }).then((res) => {
+    _patch(_bpKey(hostId, name), () => ({
+      content,
+      etag: res.etag,
+      sizeBytes: res.sizeBytes,
+      mtime: res.mtime,
+      tier: res.tier,
+      overridesSystem: res.overridesSystem,
+      canRevert: res.overridesSystem,
+      readOnly: false,
+      runtime: null,   // the engine reports it in the catalog; unknown until the catalog refreshes
+      hostId,
+      status: "ready",
+      error: null,
+      everLoaded: true,
+    }));
+    return blueprintFileStore.entry(hostId, name);
+  });
+
 export { blueprintFileStore };
