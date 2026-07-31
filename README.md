@@ -26,7 +26,7 @@ npm run deploy:prod  # build + sync dist/ into the kgsm-api wwwroot — NO API r
 `kgsm-api` serves this SPA same-origin from its `wwwroot/` via ASP.NET's static
 file middleware (read from disk per request — no in-memory content cache). So a
 **pure frontend change** doesn't need an API restart: `npm run deploy:prod`
-(`scripts/deploy-prod.sh`) builds with `VITE_API_BASE=self` and `rsync`s `dist/`
+(`deploy/deploy.sh`) builds with `VITE_API_BASE=self` and `rsync`s `dist/`
 straight into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service
 user → no sudo). The new bundle is live the moment the files land. Override the
 target with `KGSM_API_WWWROOT=/path`.
@@ -66,7 +66,8 @@ kgsm-web/
       kit.css             BARREL: @imports kit/*.css in cascade order (do not grow a monolith)
       kit/                domain partials (shell, server, catalog, dashboard, chat, hosts, …)
       consumer.css        app-level overrides
-  scripts/                smoke-live.mjs (live-wiring smoke) · deploy-prod.sh (frontend-only deploy)
+  scripts/                smoke-live.mjs (live-wiring smoke)
+  deploy/                 setup.sh · deploy.sh (frontend-only deploy) · deploy-common.sh
   MIGRATION.md            prototype → production playbook (partly historical)
 ```
 

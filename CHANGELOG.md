@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — headless deploys (`setup.sh` once, `deploy.sh` forever after)
+- **The SPA now deploys through `deploy/setup.sh` + `deploy/deploy.sh`**, the ecosystem contract
+  (`tks/scripts/deploy-template/README.md`), replacing `scripts/deploy-prod.sh`. `npm run
+  deploy:prod` points at the new script.
+- `setup.sh` verifies the target `wwwroot` exists and is writable by the deploying user; `deploy.sh`
+  builds and `rsync`s the bundle with **no `sudo` and no prompts**, and refuses up-front with "run
+  `deploy/setup.sh`" when the host is not provisioned. There are no systemd units and no polkit
+  grant for this project — kgsm-api serves the bundle.
+
 ### Added (v1.31.0) — update-available icon on server tiles
 - **Server tile meta row now shows a "circle-arrow-down" icon (info tone) when an update is
   available for that game server.** The icon sits right-aligned in the metrics row with a native

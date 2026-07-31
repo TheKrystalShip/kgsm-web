@@ -9,7 +9,7 @@
     "build": "vite build",
     "lint": "eslint src",
     "preview": "vite preview",
-    "deploy:prod": "bash scripts/deploy-prod.sh",
+    "deploy:prod": "bash deploy/deploy.sh",
     "smoke": "node scripts/smoke-live.mjs"
   },
   "dependencies": {

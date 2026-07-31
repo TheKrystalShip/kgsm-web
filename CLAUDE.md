@@ -24,7 +24,8 @@ npm install
 npm run dev          # http://localhost:5173 — no host configured → the connect screen
 npm run build        # → dist/  (minified, hashed, tree-shaken)
 npm run preview      # serve the built dist/
-npm run deploy:prod  # build + rsync dist/ into the kgsm-api wwwroot — NO API restart, no sudo
+./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
+npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
 
 KGSM_API=http://127.0.0.1:8080 npm run smoke   # against a RUNNING kgsm-api
 ```
@@ -32,11 +33,16 @@ KGSM_API=http://127.0.0.1:8080 npm run smoke   # against a RUNNING kgsm-api
 **Frontend-only deploys never restart the API.** kgsm-api serves this SPA
 same-origin from its `wwwroot/` via ASP.NET `UseStaticFiles` (PhysicalFileProvider
 — read from disk per request, no content cache), so `npm run deploy:prod`
-(`scripts/deploy-prod.sh`) just builds `VITE_API_BASE=self` and `rsync`s `dist/`
+(`deploy/deploy.sh`) just builds `VITE_API_BASE=self` and `rsync`s `dist/`
 into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service user → no
 sudo); the bundle is live the moment the files land. Reserve the full
 `kgsm-api/deploy/deploy.sh` (which bounces the systemd unit) for **API code**
 changes — it also re-bundles the SPA.
+
+This repo follows the ecosystem `setup.sh`/`deploy.sh` contract
+(`../scripts/deploy-template/README.md`), and is the one project that needs no
+privilege even at setup: its `setup.sh` only verifies that the wwwroot target exists
+and is writable by you, since kgsm-api's deploy is what creates it.
 
 **There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** —
 don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)
