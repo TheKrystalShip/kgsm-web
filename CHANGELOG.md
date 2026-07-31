@@ -28,6 +28,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`BlueprintHostPicker`** — the host picker both blueprint surfaces share, so the choice looks and
   means the same in each.
 
+### Fixed — the live smoke suite
+- **`npm run smoke` talked to the wrong backend no matter what `KGSM_API` said.** It seeded the URL
+  into `.env.local`, but the vite server it boots runs in "development" mode and Vite ranks a
+  mode-specific env file above a plain one — the committed `.env.development` (pointing at `:8090`)
+  won every time. Every REST call went to a port with nothing on it, the shell fell to "Can't reach
+  Krystal", and ~19 checks failed for one reason. The seed is written to `.env.development.local` now,
+  the top of that order.
+- **A run against an auth-enabled backend failed 40 times over instead of once.** The preflight now
+  probes `/me` and stops with the command to run — this suite sends no bearer, so a real host 401s
+  every gated read.
+- **Two crashes aborted the run mid-suite**, so the checks after them never ran and no summary ever
+  printed: an unhydrated hosts store dereferenced as `seed0.network`, and jsdom's missing
+  `Element.scrollTo`/`scrollIntoView` (no layout engine, so components that auto-scroll threw during
+  an ordinary render). Both are guarded; a missing seed is one reported failure.
+- **Every Monaco surface was invisible to the suite.** The editor is built for a real browser and
+  threw from inside its own mount under jsdom, which surfaced as the *page* hitting its error
+  boundary — the game page carrying the blueprint editor among them. It is stubbed with a
+  `textarea`; its real behaviour is proven in Chromium by the visual harness.
+- **Checks pinned to instances and contracts that had moved on.** Probe instances are derived from
+  the live roster rather than named (`factorio-test`/`terraria-hardmode` no longer exist); the player
+  roster block asserts the shipped DTO (`playerIdentity`-keyed, a permanent record whose rows change
+  *status* on leave rather than being evicted) instead of an early draft's; card assertions complete
+  the turn, since cards are staged while it streams and promoted on the terminal frame; a card is
+  found by verb, not by the wire's per-turn id; the Update chip's gate is derived from the live row;
+  and the audit cursor walk runs to the tail instead of assuming two pages reach it.
+
+### Added — blueprint coverage in the smoke
+- The blueprint editor and create page had **no automated coverage at all**. The suite now asserts
+  the live scaffold read (the engine's `blueprint.tp`, not an SPA constant), a live blueprint file
+  read with its sha256 etag and API-answered `canRevert`, the Overridden badge tracking the file's
+  real tier, `#/library/new` routing (parsed ahead of the game branch, round-tripping back), the
+  catalog's entry button, the create page mounting, and — intercepted, so no blueprint is ever
+  written to the host — the wire shapes of create/save/revert plus `409 name_taken` and
+  `400 blueprint_invalid` carrying the engine's own `errors[]` through the envelope.
+
 ### Fixed
 - **The create page's editor rendered as a 5px sliver.** `@monaco-editor/react` wraps the editor in a
   `<section style="height:100%">`, and a percentage height only resolves against a definite

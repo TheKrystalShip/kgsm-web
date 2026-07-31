@@ -27,7 +27,7 @@ npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
 
-KGSM_API=http://127.0.0.1:8080 npm run smoke   # against a RUNNING kgsm-api
+KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
 
 **Frontend-only deploys never restart the API.** kgsm-api serves this SPA
@@ -55,12 +55,30 @@ is deliberately NARROW: `no-undef` and `react-hooks/rules-of-hooks` are **errors
 a component used-but-not-imported, and a hook called after an early return);
 `react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a real backlog
 to work down, not a wall). Keep errors at zero. The other automated check is
-`scripts/smoke-live.mjs` (`npm run smoke`): it writes a temporary `.env.local` with
-`VITE_API_BASE`, boots the real Vite module graph in jsdom against a RUNNING
-kgsm-api, and asserts real backend data renders without crashing. It expects an
-**auth-disabled** backend (unauthenticated reads + tier=admin from `/me`). After any
+`scripts/smoke-live.mjs` (`npm run smoke`): it boots the real Vite module graph in jsdom
+against a RUNNING kgsm-api and asserts real backend data renders without crashing. After any
 data-layer or route change, run `npm run lint` (0 errors), `npm run build` (no
 import dangles), and `npm run smoke` against a live api.
+
+Four things about the smoke are load-bearing enough to state outright:
+
+- **It needs an AUTH-DISABLED backend.** It sends no bearer, so a real auth-enabled host
+  401s every gated read. The backend it expects is `scripts/visual-harness/dev-api.sh`
+  (`:8096`); the prod unit on `:8097` has auth ON, and the smoke refuses it up front with a
+  message rather than degrading into a wall of failures. Run it as
+  `KGSM_API=http://127.0.0.1:8096 npm run smoke`.
+- **The backend URL is written to `.env.development.local`, not `.env.local`.** The vite
+  server boots in "development" mode, and Vite ranks a mode-specific env file above a plain
+  one — the committed `.env.development` (seeding `:8090`) beats `.env.local`, so writing
+  there silently does nothing and the whole suite runs against the wrong port.
+- **Monaco is stubbed with a `textarea`.** It is built for a real browser and throws from
+  inside its own mount under jsdom, which surfaces as the *page* hitting its error boundary
+  — every surface hosting it (blueprint editor, create page, file editor, chat draft) would
+  be untestable. Its real behaviour is proven in Chromium by the visual harness; the smoke
+  asserts the wiring around it.
+- **Instances are DERIVED from the live roster, never named.** `PROBE`/`OTHER` come from
+  `GET /servers`, because a hardcoded instance name rots the moment someone uninstalls it
+  and then fails in a way that reads like an SPA regression.
 
 **For VISUAL / layout testing (smoke is jsdom — it does NOT lay out CSS), use the
 permanent headless-browser harness at `/home/heisen/tks/scripts/visual-harness/`**

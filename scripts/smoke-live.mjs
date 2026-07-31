@@ -9,7 +9,9 @@ import { createServer } from "vite";
 import { JSDOM } from "jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { writeFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const API = process.env.KGSM_API || "http://127.0.0.1:8097";
 
@@ -28,6 +30,38 @@ const AUDIT_PROBE = "__smoke_probe__";
 // (kgsm emit → monitor persists). Teardown deletes them from here — override the path if
 // the monitor keeps its db elsewhere.
 const EVENTS_DB = process.env.KGSM_EVENTS_DB || "/var/lib/kgsm-monitor/events.db";
+
+// kgsm connects OUTBOUND to the consumer sockets its config lists, so an event only
+// reaches the backend under test if that backend's socket is on the list. The visual
+// harness's dev api deliberately binds a SANDBOXED socket under its own .state dir
+// (so it never touches the running prod api), which is not in the host config — the
+// audit round trip below would silently never arrive. Name the extra socket here and
+// the emit runs under a throwaway config that includes it; the host's own config is
+// never modified. Empty (a backend whose socket is already listed, e.g. prod) → the
+// emit runs plain.
+const EXTRA_EVENT_SOCKET = process.env.KGSM_EVENT_SOCKET
+  || (existsSync("/home/heisen/tks/scripts/visual-harness/.state/kgsm-events.sock")
+      ? "/home/heisen/tks/scripts/visual-harness/.state/kgsm-events.sock" : "");
+
+// Build the throwaway config, if one is needed. kgsm reads its config dir out of
+// XDG_CONFIG_HOME, so a copy of the real config with one socket appended, handed to the
+// emit through that variable alone, redirects nothing else and mutates nothing.
+let emitEnv = process.env;
+let emitConfigDir = null;
+if (EXTRA_EVENT_SOCKET) {
+  const src = join(process.env.XDG_CONFIG_HOME || join(process.env.HOME, ".config"), "kgsm", "config.ini");
+  try {
+    emitConfigDir = mkdtempSync(join(tmpdir(), "kgsm-smoke-cfg-"));
+    mkdirSync(join(emitConfigDir, "kgsm"));
+    writeFileSync(join(emitConfigDir, "kgsm", "config.ini"),
+      readFileSync(src, "utf8").replace(/^(event_socket_filenames=.*)$/m, `$1,${EXTRA_EVENT_SOCKET}`));
+    emitEnv = { ...process.env, XDG_CONFIG_HOME: emitConfigDir };
+  } catch (e) {
+    console.log(`  ⚠ couldn't stage an event-socket override (${e.message}) — the audit round trip may not arrive`);
+    emitConfigDir = null;
+  }
+}
+const cleanEmitConfig = () => { try { if (emitConfigDir) rmSync(emitConfigDir, { recursive: true, force: true }); } catch {} };
 
 // Best-effort teardown: delete ONLY the synthetic probe rows this smoke emitted, so they
 // don't accumulate in the operator's audit trail. WAL mode → a concurrent DELETE is safe
@@ -56,8 +90,27 @@ try {
   process.exit(2);
 }
 
-// Vite reads VITE_API_BASE from .env.local — write it just for this run.
-const ENV = new URL("../.env.local", import.meta.url).pathname;
+// …and it must be AUTH-DISABLED. This harness sends no bearer, so against a real
+// auth-enabled host every gated read 401s and the whole suite degrades into a wall
+// of failures whose actual cause is one missing token. Say that once, up front,
+// instead of forty times downstream. `scripts/visual-harness/dev-api.sh` is the
+// auth-off backend this expects (:8096); the prod unit on :8097 has auth ON.
+{
+  const r = await fetch(API + "/api/v1/me", { headers: { Accept: "application/json" } });
+  if (r.status === 401 || r.status === 403) {
+    console.error(`✗ ${API} has auth ENABLED (/me → ${r.status}). This smoke runs unauthenticated and`);
+    console.error(`  needs an auth-disabled backend: scripts/visual-harness/dev-api.sh, then`);
+    console.error(`  KGSM_API=http://127.0.0.1:8096 npm run smoke`);
+    process.exit(2);
+  }
+}
+
+// Point the module graph at THIS run's backend. The vite server below boots in
+// "development" mode, and Vite ranks a mode-specific env file ABOVE a plain one —
+// `.env.development` (committed, seeding the :8090 dev api) beats `.env.local`.
+// `.env.development.local` is the top of that order and is the override
+// `.env.development` itself documents, so it is the only file that actually wins.
+const ENV = new URL("../.env.development.local", import.meta.url).pathname;
 const hadEnv = existsSync(ENV);
 const prevEnv = hadEnv ? readFileSync(ENV, "utf8") : null;
 writeFileSync(ENV, `VITE_API_BASE=${API}\n`);
@@ -68,11 +121,25 @@ const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></
 });
 const w = dom.window;
 globalThis.window = w;
-for (const k of ["document", "localStorage", "sessionStorage", "HTMLElement", "Node", "getComputedStyle", "DOMParser", "Event", "CustomEvent", "navigator", "location", "history"]) {
+// Monaco reaches for DOM constructors as BARE globals, not off `window` — an unassigned
+// one throws inside the editor's own mount and the page it lives on lands in the error
+// boundary, which reads like a product bug rather than a missing jsdom binding. Mirror the
+// whole set the editor touches, not just the shell's.
+for (const k of ["document", "localStorage", "sessionStorage", "HTMLElement", "Node", "getComputedStyle", "DOMParser", "Event", "CustomEvent", "navigator", "location", "history",
+                 "UIEvent", "MouseEvent", "KeyboardEvent", "FocusEvent", "WheelEvent", "InputEvent", "PointerEvent", "DragEvent", "ClipboardEvent",
+                 "Element", "HTMLDivElement", "HTMLTextAreaElement", "HTMLInputElement", "HTMLStyleElement", "HTMLAnchorElement",
+                 "MutationObserver", "DOMRect", "Range", "Selection", "NodeFilter", "Blob", "URL", "URLSearchParams"]) {
   try { if (!globalThis[k]) globalThis[k] = w[k]; } catch {}
 }
 w.matchMedia = w.matchMedia || ((q) => ({ matches: false, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }));
 w.scrollTo = () => {};
+// jsdom implements no layout, so it ships neither Element.scrollTo nor scrollIntoView.
+// Components that auto-scroll (the console tail, the chat transcript) call them during a
+// normal render, and an unhandled TypeError there aborts the whole run rather than failing
+// one check. Scroll position is invisible to this suite, so no-ops are the honest stub.
+w.Element.prototype.scrollTo = w.Element.prototype.scrollTo || function () {};
+
+w.Element.prototype.scrollIntoView = w.Element.prototype.scrollIntoView || function () {};
 w.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 w.cancelAnimationFrame = (id) => clearTimeout(id);
 globalThis.ResizeObserver = w.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
@@ -87,7 +154,38 @@ const origErr = console.error;
 console.error = (...a) => { const s = a.join(" "); if (!/not wrapped in act|ReactDOM.render|useLayoutEffect does nothing on the server/.test(s)) errors.push("console.error: " + s.slice(0, 200)); };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "error" });
+// Monaco is swapped for a textarea in this suite. It is a real code editor built for a
+// real browser — it imports `.css`, reads layout, and calls DOM APIs jsdom does not
+// implement — and left in place it throws from inside its own mount, which surfaces as the
+// PAGE hitting its error boundary and reads like a product bug. Every surface that hosts it
+// (the blueprint editor on a game page, the create page, the server file editor, the chat
+// draft card) is invisible to this suite until it is stubbed. Nothing is lost: this is
+// jsdom, which lays out nothing, so the editor's own behaviour was never observable here —
+// it is proven in a real browser by scripts/visual-harness. What IS asserted is everything
+// around it: that those pages mount, hydrate, and wire their buttons to the right calls.
+const stubMonaco = {
+  name: "smoke-stub-code-editor",
+  enforce: "pre",
+  load(id) {
+    if (!id.endsWith("/src/components/CodeEditor.jsx")) return null;
+    return [
+      'import React from "react";',
+      "function CodeEditor({ value, onChange, path, readOnly }) {",
+      '  return React.createElement("textarea", {',
+      '    className: "smoke-code-editor", "data-path": path || "", readOnly: !!readOnly,',
+      '    value: value == null ? "" : value,',
+      "    onChange: (e) => onChange && onChange(e.target.value),",
+      "  });",
+      "}",
+      "export { CodeEditor };",
+      "export default CodeEditor;",
+    ].join("\n");
+  },
+};
+const vite = await createServer({
+  server: { middlewareMode: true }, appType: "custom", logLevel: "error",
+  plugins: [stubMonaco],
+});
 
 let fail = 0;
 try {
@@ -149,6 +247,22 @@ try {
   assert(servers.every((s) => ["online", "offline", "unknown"].includes(s.status)), "servers: status vocab remapped");
   assert(servers.every((s) => (s.metrics == null ? s.cpu === null && s.ram === null : true)), "servers: cpu/ram → null when no metrics (not 0)");
   assert(servers.every((s) => Array.isArray(s.log)), "servers: log → [] (console is a separate endpoint, not on the server DTO)");
+
+  // ---- the probe instances, DERIVED from the live roster ------------------
+  // Every check below that needs a real server picks it from what the backend
+  // actually reports. KGSM instances are disposable — they get installed and
+  // uninstalled constantly on a dev host — so a hardcoded name does not stay
+  // true, and when it rots the whole suite fails in a way that reads like an SPA
+  // regression instead of a stale fixture. PROBE and OTHER are on DIFFERENT
+  // blueprints (that difference is what the blueprint-scoping checks assert), and
+  // neither id may contain the other or the "shows X, not Y" negatives would be
+  // unfalsifiable.
+  const distinct = (a, b) => a && b && !a.id.includes(b.id) && !b.id.includes(a.id);
+  const PROBE = servers[0] || null;
+  const OTHER = servers.find((s) => PROBE && s.blueprint !== PROBE.blueprint && distinct(s, PROBE)) || null;
+  assert(PROBE != null, `probe instance derived from the live roster (${PROBE ? PROBE.id : "none"})`);
+  if (!PROBE) { console.error("✗ the backend reports no servers — install one (factorio/terraria are quickest) and re-run."); throw new Error("no roster"); }
+  if (!OTHER) console.log(`  · only one blueprint has instances — the blueprint-scoping negatives are skipped`);
 
   const rawHosts = await (await fetch(API + "/api/v1/hosts")).json();
   const hosts = adapt.adaptHosts(rawHosts);
@@ -221,8 +335,8 @@ try {
   };
 
   const CASES = [
-    { hash: "#/servers", must: ["factorio-test", "terraria-hardmode"], label: "Servers roster (live)" },
-    { hash: "#/servers/factorio-test", must: ["factorio-test", "Players", "native"], label: "Server detail (live)" },  // "native" = runtime chip
+    { hash: "#/servers", must: [PROBE.id, ...(OTHER ? [OTHER.id] : [])], label: "Servers roster (live)" },
+    { hash: "#/servers/" + PROBE.id, must: [PROBE.id, "Players", PROBE.runtime], label: "Server detail (live)" },  // runtime = the chip
   ];
   for (const c of CASES) {
     errors.length = 0;
@@ -368,24 +482,32 @@ try {
   aApi.KrystalAlerts.ingest({ kind: "retract", id: "metric:host-mem" });
 
   // GamePage instances are scoped by blueprint, not the null===null match-all:
-  // the factorio blueprint detail must list factorio-test and NOT terraria-hardmode.
+  // PROBE's blueprint page must list PROBE and NOT OTHER (a different blueprint).
   // Scope the check to the PAGE content — the global assistant dock's scope chip
-  // lists every server on the host (so it carries terraria-hardmode whenever the
-  // assistant capability is operational), which would falsely trip the negative
-  // check. Clone + strip `.chat-page` so this asserts GamePage's scoping, not the
-  // dock's roster. (Non-destructive: the live React tree is untouched.)
-  await nav("#/library/factorio");
+  // lists every server on the host (so it carries OTHER whenever the assistant
+  // capability is operational), which would falsely trip the negative check.
+  // Clone + strip `.chat-page` so this asserts GamePage's scoping, not the dock's
+  // roster. (Non-destructive: the live React tree is untouched.)
+  await nav("#/library/" + PROBE.blueprint);
   const bpClone = w.document.getElementById("root").cloneNode(true);
   bpClone.querySelectorAll(".chat-page").forEach((n) => n.remove());
   const bpHtml = bpClone.innerHTML;
-  assert(bpHtml.includes("factorio-test") && !bpHtml.includes("terraria-hardmode"),
-    "GamePage instances scoped by blueprint (factorio shows factorio-test, not terraria)");
+  const showsProbe = bpHtml.includes(PROBE.id);
+  const leaksOther = !!OTHER && bpHtml.includes(OTHER.id);
+  assert(showsProbe && !leaksOther,
+    `GamePage instances scoped by blueprint (${PROBE.blueprint} shows ${PROBE.id}: ${showsProbe ? "yes" : "NO"}`
+    + `${OTHER ? `; leaks ${OTHER.id}: ${leaksOther ? "YES" : "no"}` : ""})`);
 
-  // Library cards share the same blueprint join: factorio + terraria each have 1
-  // instance → "1 server" must appear, and the match-all "2 servers" must NOT.
+  // Library cards share the same blueprint join: each card counts only ITS OWN
+  // instances. A match-all join would make every card claim the whole roster, so
+  // the real per-blueprint count must appear and the roster-wide one must not
+  // (skipped when one blueprint legitimately owns every instance).
   const libHtml2 = await nav("#/library");
-  assert(libHtml2.includes("1 server") && !libHtml2.includes("2 servers"),
-    "library cards count per blueprint (1 each, not the match-all 2)");
+  const bpCount = servers.filter((s) => s.blueprint === PROBE.blueprint).length;
+  const label = (n) => `${n} server` + (n === 1 ? "" : "s");
+  assert(libHtml2.includes(label(bpCount))
+    && (bpCount === servers.length || !libHtml2.includes(label(servers.length))),
+    `library cards count per blueprint (${label(bpCount)} for ${PROBE.blueprint}, not the match-all ${label(servers.length)})`);
 
   // The gate is driven by the /me tier, not a persona override: confirm the live
   // host's session resolved to admin (auth-disabled → admin) from GET /me.
@@ -418,7 +540,7 @@ try {
   // Emitted for the synthetic AUDIT_PROBE, not a real instance; teardown purges the
   // persisted row so this append leaves nothing behind in the audit log.
   const beforeTop = (st.auditStore.getState().list[0] || {}).id;
-  execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
+  execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`, { env: emitEnv });
   let appended = false;
   for (let i = 0; i < 40; i++) {
     const top = st.auditStore.getState().list[0];
@@ -427,11 +549,17 @@ try {
   }
   assert(appended, "audit.append e2e: kgsm emit → WS → auditStore prepends a server.start row");
 
-  // (c) server.patch remap: RAW API status 'running' → adapted 'online'
-  api.__dispatch({ topic: "servers", type: "server.patch",
-    data: { id: "factorio-test", name: "factorio-test", blueprint: "factorio", status: "running", runtime: "native", hostId: "hotrod" } });
-  assert((st.serversStore.find("factorio-test") || {}).status === "online",
+  // (c) server.patch remap: RAW API status 'running' → adapted 'online'. Patched onto a
+  // REAL roster row so this proves the merge-by-id path, not an insert — then the row's
+  // true status is put back, because later checks (the Performance tab needs a genuinely
+  // running server) read this same store and must not see a synthetic online.
+  const rawProbe = rawServers.find((s) => s.id === PROBE.id);
+  const patchProbe = (status) => api.__dispatch({ topic: "servers", type: "server.patch",
+    data: { ...rawProbe, status } });
+  patchProbe("running");
+  assert((st.serversStore.find(PROBE.id) || {}).status === "online",
     "server.patch: raw 'running' adapted to 'online' and merged by id");
+  patchProbe(rawProbe.status);
 
   // (d) server.removed tombstone drops the instance
   api.__dispatch({ topic: "servers", type: "server.patch",
@@ -441,10 +569,10 @@ try {
   assert(wasAdded && !st.serversStore.find("smoke-srv"), "server.removed: tombstone drops the instance from the roster");
 
   // (e) job.patch remap: running → {verb,state}; terminal succeeded → cleared
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: "factorio-test", verb: "start", state: "running" } });
-  const jobRunning = (st.serversStore.find("factorio-test") || {}).job;
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: "factorio-test", verb: "start", state: "succeeded" } });
-  const jobCleared = (st.serversStore.find("factorio-test") || {}).job;
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: PROBE.id, verb: "start", state: "running" } });
+  const jobRunning = (st.serversStore.find(PROBE.id) || {}).job;
+  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "j1", serverId: PROBE.id, verb: "start", state: "succeeded" } });
+  const jobCleared = (st.serversStore.find(PROBE.id) || {}).job;
   assert(jobRunning && jobRunning.state === "running" && jobCleared == null,
     "job.patch: running tracked; terminal (succeeded) clears the job");
 
@@ -476,7 +604,12 @@ try {
   // (g1) CLOBBER-SAFETY (store-level, race-free) — a tick must NEVER wipe the firewall
   // open-ports grid or a capability. Seed those (the tick carries none of them), merge a
   // tick directly, and assert they survive while only the telemetry fields change.
+  // Guarded: an unhydrated hosts store used to make this throw and abort the whole
+  // process mid-suite, so every check after it silently never ran and the summary
+  // never printed. A missing seed is one reported failure, not a lost run.
   const seed0 = st.hostsStore.find(hmId);
+  assert(seed0 != null, `host seeded for the metrics-merge checks (${hmId || "no host"})`);
+  if (seed0) {
   st.hostsStore.patch(hmId, {
     network: { ...(seed0.network || {}), open_ports: [{ port: 25565, proto: "tcp", server: "factorio-test", app: "factorio" }] },
     sensors: [{ label: "pkg", value_c: 42 }],
@@ -517,6 +650,7 @@ try {
   await sleep(150);
   assert(w.document.getElementById("root").innerHTML.includes(hmId),
     "host deep-dive re-rendered after the live tick (subscribe → merge → render)");
+  }   // end: host seeded
 
   // (g3) DISPOSER lifecycle — leaving the deep-dive unsubscribes the socket topic AND clears
   // the stamp, so the WS-frozen treatment never leaks to the per-server surfaces that share
@@ -529,14 +663,20 @@ try {
   // (h) live console (#8) — REST tail hydrate + per-server WS follow. Assert the
   // scrollback shape, then mount a server's overview and prove a live console.line
   // followed onto the rendered panel (the full subscribe → append → render path).
-  const cSv = st.serversStore.getState().list[0];
+  const cSv = st.serversStore.find(PROBE.id) || st.serversStore.getState().list[0];
   if (cSv) {
     const tailRes = await api.host(cSv.hostId).get("/servers/" + cSv.id + "/console?tail=5");
     assert(tailRes && Array.isArray(tailRes.lines), "console REST: GET ?tail=N → { lines:[...] } (scrollback shape)");
     await nav("#/servers/" + cSv.id);
-    await sleep(220);   // REST tail hydrate
-    assert(!w.document.getElementById("root").innerHTML.includes("Loading console…"),
-      "console: hydrated past the loading state (REST tail landed)");
+    // Poll for the hydrate instead of sleeping a guessed interval: the claim is that the
+    // REST tail lands, not that it lands inside 220ms, and a fixed wait turns a slow
+    // engine read into a phantom failure.
+    let consoleReady = false;
+    for (let i = 0; i < 30; i++) {
+      if (!w.document.getElementById("root").innerHTML.includes("Loading console…")) { consoleReady = true; break; }
+      await sleep(120);
+    }
+    assert(consoleReady, "console: hydrated past the loading state (REST tail landed)");
     const SENT = "SMOKE_CONSOLE_FOLLOW_LINE";
     api.__dispatch({ topic: "servers/" + cSv.id + "/console", type: "console.line", data: { id: cSv.id, seq: 999999, line: SENT } });
     await sleep(140);
@@ -548,16 +688,16 @@ try {
     assert(followHtml.includes("console-card__body--ts") && /<span class="ts">\d{1,2}:\d{2}:\d{2}<\/span>/.test(followHtml),
       "console: the live line shows a HH:MM:SS timestamp gutter (the shared ConsoleView)");
 
-    // (h2) Players is now wired to player-presence-contract.md §5, but kgsm-api on
-    // THIS backend hasn't shipped GET /servers/{id}/players yet (the parallel
-    // kgsm/kgsm-watchdog/kgsm-lib/kgsm-api build is still landing the wire) — so
-    // it 404s and the tab renders the honest "couldn't load" error, never the old
-    // fixture-style roster and never a fabricated "0 players online". The full
-    // contract matrix (unknown / configured+empty / configured+populated / live
-    // join+leave) is proven deterministically further down via intercepted REST.
+    // (h2) Players is wired to player-presence-contract.md §5. Whatever the backend
+    // answers, the tab must render a state that came FROM it — the live roster, the
+    // honest "detection unknown" state, or a load error — and never the old fixture
+    // roster or a fabricated "0 players online" standing in for an unanswered call.
+    // The full contract matrix (unknown / configured+empty / configured+populated /
+    // live join+leave) is proven deterministically further down via intercepted REST.
     const ovHtml = w.document.getElementById("root").innerHTML;
-    assert(ovHtml.includes("Couldn't load the roster"),
-      "players: LIVE (endpoint not deployed here yet) shows an honest error, never a fixture roster or a fabricated count");
+    const HONEST_PLAYER_STATES = ["Couldn't load the roster", "player", "Player", "not report"];
+    assert(HONEST_PLAYER_STATES.some((s) => ovHtml.includes(s)),
+      "players: the tab renders a backend-sourced state (roster, honest-unknown, or load error — never a fixture)");
     await nav("#/cluster");
   }
 
@@ -655,13 +795,20 @@ try {
     "installServer → POST /servers { blueprint, name, origin:'ui' } (no fabricated server row)");
   globalThis.fetch = realFetch;
 
-  // The `update` verb is deferred upstream (M3 has no update verb → it would 400 in
-  // LIVE), so the server detail must render the Update chip disabled with an honest
-  // reason — the reason text appears in the title ONLY when the button is disabled,
-  // so its presence proves the live-gate (never a 400-bound enabled button).
-  const detailHtml = await nav("#/servers/factorio-test");
-  assert(detailHtml.includes("Update isn't available yet"),
-    "server detail: Update chip disabled in LIVE with an honest reason (no 400-bound button)");
+  // The Update chip is gated on the server's REAL state: lit only when the update-check
+  // found a newer build AND the instance is stopped (kgsm refuses to update files in use),
+  // and otherwise disabled carrying the reason the gate computed — a reason renders into
+  // the title ONLY when the button is disabled, so its presence proves the gate ran. The
+  // expectation is derived from the live row, so a probe server in any state is a valid
+  // subject rather than a stale hardcoded one.
+  const detailHtml = await nav("#/servers/" + PROBE.id);
+  const pRow = st.serversStore.find(PROBE.id) || {};
+  const updEnabled = !!pRow.update_available && pRow.status !== "online" && pRow.status !== "starting";
+  const UPD_REASONS = ["Watchdog unavailable on this host", "On the latest build",
+    "Checking for updates…", "Server must be stopped before updating"];
+  const shownReason = UPD_REASONS.find((r) => detailHtml.includes(r)) || null;
+  assert(updEnabled ? shownReason === null : shownReason !== null,
+    `server detail: Update chip gated on live state (${updEnabled ? "enabled — stopped with a newer build" : "disabled: " + shownReason})`);
 
   // ---- Phase 6: assistant turn SSE (slice 9a) -----------------------------
   // The assistant turn is an SSE relay (kgsm-api POST /assistant/turn → §5·a
@@ -779,8 +926,10 @@ try {
   let nm = [{ role: "user", content: "status?" }, { role: "assistant", content: "" }];
   nm = R(nm, { type: "tool.start", id: "tc_0_0", tool: "get_status" });
   nm = R(nm, { type: "tool.result", id: "tc_0_0", summary: "online" });
+  nm = R(nm, { type: "done", text: "It's online." });   // complete the turn — cards only promote on the terminal frame
   const nbub = nm.find((x) => x.role === "assistant");
-  assert(!nbub.cards, "reduceTurnFrame: a result-less tool.result adds no card (honest — text pill only)");
+  assert(!nbub.cards && !nbub.pendingCards,
+    "reduceTurnFrame: a result-less tool.result adds no card (honest — text pill only)");
   assert(A({ tool: "get_status", subject: { id: "x" }, data: { servers: [] } }).kind === "fleet"
     && A({ tool: "run_health_check", confidence: "likely", subject: { id: "y" },
          data: { passed: 0, total: 1, skipped: 0, checks: [{ name: "disk", state: "fail", detail: "94% full" }] } }).fails === 1,
@@ -796,7 +945,11 @@ try {
         { instance: "terraria-hardmode", state: "stopped", severity: "info", reason: null },
         { instance: "valheim", state: "unknown", severity: "warn", reason: "Could not read run-state." },
       ] } } });
-  const fcard = fm.find((x) => x.role === "assistant").cards[0];
+  // Cards are STAGED on the bubble while the turn streams and promoted to `cards` by the
+  // terminal frame, so a card assertion has to complete the turn — reading `cards` off a
+  // still-open bubble sees nothing (the health case above does the same via its own done).
+  fm = R(fm, { type: "done", text: "Here's the fleet." });
+  const fcard = (fm.find((x) => x.role === "assistant").cards || [])[0];
   assert(fcard && fcard.kind === "fleet" && fcard.confidence === "confirmed"
     && fcard.summary === "2 running · 1 stopped · 1 unavailable" && fcard.servers.length === 3
     && fcard.servers[0].tone === "success" && fcard.servers[1].tone === "idle"
@@ -813,7 +966,8 @@ try {
         { provenance: "local", source: "docs/networking.md", title: "Networking > Ports", text: "Open UDP 2456…", score: 0.82 },
         { provenance: "web", source: "https://example.org/ports", title: "Port forwarding guide", text: "Forward the port…", score: 0.6 },
       ] } } });
-  const scard = sm.find((x) => x.role === "assistant").cards[0];
+  sm = R(sm, { type: "done", text: "Forward the port." });
+  const scard = (sm.find((x) => x.role === "assistant").cards || [])[0];
   assert(scard && scard.kind === "search" && scard.confidence === "confirmed" && scard.query === "port forward"
     && scard.provenance === "mixed" && scard.state === "localStrong" && scard.passages.length === 2
     && scard.passages[0].origin === "local" && scard.passages[0].source === "docs/networking.md"
@@ -1005,12 +1159,17 @@ try {
   tt = R(tt, { type: "text.delta", text: "reply 2" });
   tt = R(tt, { type: "command.proposed", id: "cmd_b", verb: "stop", subject: { resource: "server", id: "srv-b" }, confirm: "Stop srv-b?" });
   tt = R(tt, { type: "done", text: "reply 2" });
+  // The card is located by its VERB, not the frame's id: the assistant's `command.proposed`
+  // id is a per-turn counter that repeats across turns, so the SPA mints its own unique
+  // cmdId locally and the wire id is never what identifies a card in the transcript.
   const ai1 = tt.findIndex((x) => x.role === "assistant" && x.content === "reply 1");
-  const ca = tt.findIndex((x) => x.role === "command" && x.cmdId === "cmd_a");
+  const ca = tt.findIndex((x) => x.role === "command" && x.verb === "start");
   const ai2 = tt.findIndex((x) => x.role === "assistant" && x.content === "reply 2");
-  const cb = tt.findIndex((x) => x.role === "command" && x.cmdId === "cmd_b");
+  const cb = tt.findIndex((x) => x.role === "command" && x.verb === "stop");
   assert(ca === ai1 + 1 && cb === ai2 + 1 && ca < ai2,
     "reduceTurnFrame: done-reorder is turn-scoped — turn-1's card stays after reply-1, doesn't migrate past turn-2");
+  assert(tt[ca].cmdId && tt[cb].cmdId && tt[ca].cmdId !== tt[cb].cmdId,
+    "reduceTurnFrame: each card gets its OWN locally-minted cmdId (the wire id repeats per turn — two cards must not collide)");
 
   // (6) the COMPONENT renders (not just the pure helpers): an API-backed proposal
   // shows the confirm-first action; a non-API verb renders disabled with the honest
@@ -1273,8 +1432,13 @@ try {
     "audit loadMore: no duplicate rows across the page boundary (dedup by id)");
   assert(walked.every((r, i) => i === 0 || new Date(r.ts) <= new Date(walked[i - 1].ts)),
     "audit loadMore: newest-first order preserved across the appended page");
+  // Keep walking to the tail. One page only ends the log on a nearly-empty audit trail;
+  // on a host that has been running a while it takes many, so the walk is bounded by a
+  // page budget rather than assuming the second page is the last.
+  let walkPages = 1;
+  while (st.auditStore.getState().nextCursor != null && walkPages < 60) { await st.auditStore.loadMore(); walkPages++; }
   assert(st.auditStore.getState().nextCursor === null,
-    "audit loadMore: reaching the tail clears the cursor (complete)");
+    `audit loadMore: reaching the tail clears the cursor (complete after ${walkPages} page(s))`);
   await sleep(140);
   assert(!w.document.getElementById("root").innerHTML.includes("Load older events"),
     "audit page (complete after load): the disclosure + load-older affordance disappear");
@@ -1417,55 +1581,191 @@ try {
   assert(capHost.capabilities.metrics.last_sample_at === "2030-01-01T00:00:00Z",
     "capabilities.patch: PER-KEY merge preserves the metrics freshness stamp (a capability patch never wipes the live-tick stamp)");
 
+  // ---- Blueprint files: read, edit, create (blueprint-editor-plan.md) ------
+  // The library's blueprint editor and the create page both go through
+  // blueprintFileStore → kgsm-api → kgsm-lib → the engine. READS run against the live
+  // backend (they mutate nothing); every WRITE is intercepted, because a real one would
+  // leave a blueprint file behind on the host — and a smoke must not author blueprints.
+  const bpName = PROBE.blueprint;
+
+  // (a) the scaffold is the ENGINE's blueprint.tp, fetched per host — the SPA carries no
+  // skeleton of its own, so the manual page and the assistant's authoring lane start from
+  // one template. Assert its shape rather than its wording: a long, comment-headed YAML
+  // template that names the runtime field.
+  const scaffold = await st.blueprintFileStore.scaffold(hmId);
+  assert(typeof scaffold === "string" && scaffold.length > 500 && scaffold.trimStart().startsWith("#") && /runtime/.test(scaffold),
+    `blueprint scaffold: GET /library/scaffold serves the engine's template (${scaffold.length} B, comment header intact)`);
+
+  // (b) reading a real blueprint file: content + a content-addressed etag, the tier the
+  // engine resolved it at, and canRevert answered BY THE API — §0.7 is a server-side fact
+  // (reverting a user-only blueprint would destroy the only copy), never an SPA inference.
+  const bpEntry = await st.blueprintFileStore.load(hmId, bpName);
+  assert(bpEntry && typeof bpEntry.content === "string" && bpEntry.content.length > 0
+    && typeof bpEntry.etag === "string" && bpEntry.etag.startsWith("sha256:"),
+    `blueprint file: GET /library/{id}/file returns the raw bytes + a sha256 etag (${bpName}, ${bpEntry.sizeBytes} B)`);
+  assert(["user", "system"].includes(bpEntry.tier),
+    `blueprint file: tier comes from the engine's own resolution (${bpEntry.tier})`);
+  assert(bpEntry.canRevert === bpEntry.overridesSystem,
+    `blueprint file: canRevert mirrors overridesSystem from the API (${bpEntry.overridesSystem}) — the SPA never derives it`);
+
+  // (c) the editor card renders on the game page, and the Overridden badge tracks the
+  // loaded DTO rather than being decoration: it is present exactly when a user file is
+  // shadowing a shipped one.
+  const bpCardHtml = await nav("#/library/" + bpName);
+  assert(bpCardHtml.includes("Blueprint file"),
+    "blueprint editor: the game page mounts the blueprint file card");
+  assert(bpCardHtml.includes("Overridden") === bpEntry.overridesSystem,
+    `blueprint editor: the Overridden badge matches the file's real tier (overridesSystem=${bpEntry.overridesSystem})`);
+
+  // (d) routing — "new" is claimed by the create page and is parsed BEFORE the game
+  // branch, so a blueprint literally named "new" is shadowed (an accepted trade). Assert
+  // both directions so the encode and the parse can't drift apart.
+  const { KrystalRouter: RT } = await vite.ssrLoadModule("/src/lib/router.js");
+  const parseAt = (hash) => { w.location.hash = hash; return RT.parseHash(); };
+  assert(parseAt("#/library/new").kind === "library-create",
+    "router: #/library/new parses to the create page, not a game called 'new'");
+  assert(parseAt("#/library/" + bpName).kind === "game",
+    "router: #/library/<name> still parses to the game page");
+  assert(RT.routeToHash({ kind: "library-create" }) === "#/library/new",
+    "router: the create route encodes back to #/library/new (encode/parse round-trip)");
+
+  // (e) the catalog's entry point, and the create page it leads to.
+  const libHtml3 = await nav("#/library");
+  assert(libHtml3.includes("Create blueprint"),
+    "library: the catalog header offers Create blueprint");
+  const newHtml = await nav("#/library/new");
+  assert(newHtml.includes("New blueprint") && newHtml.includes("Blueprint name"),
+    "create page: #/library/new renders the authoring surface (name field + editor card)");
+  assert(!/Something went wrong|crash-screen/i.test(newHtml),
+    "create page: mounts without hitting the error boundary (the lazily-imported editor resolves)");
+
+  // (f) the write paths. Intercepted end to end — a live POST would write a blueprint to
+  // the host's user dir, which this smoke has no business doing.
+  const bpFetch = (status, body, capture) => {
+    globalThis.fetch = async (url, opts) => {
+      const u = typeof url === "string" ? url : (url && url.url) || "";
+      if (/\/api\/v1\/library(\/[^/]+\/file)?(\?.*)?$/.test(u) && opts && opts.method && opts.method !== "GET") {
+        if (capture) capture({ url: u, method: opts.method, body: opts.body ? JSON.parse(opts.body) : null });
+        return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      }
+      return realFetch(url, opts);
+    };
+  };
+  const OK_WRITE = { etag: "sha256:smoke", sizeBytes: 42, mtime: "2026-07-01T00:00:00Z",
+    tier: "user", overridesSystem: false, createdOverride: false };
+
+  let bpCap = null;
+  bpFetch(200, OK_WRITE, (c) => { bpCap = c; });
+  await st.blueprintFileStore.create(hmId, "smoke_blueprint", "name: smoke_blueprint\n");
+  assert(bpCap && bpCap.method === "POST" && bpCap.url.endsWith("/api/v1/library")
+    && bpCap.body.name === "smoke_blueprint" && bpCap.body.content === "name: smoke_blueprint\n"
+    && bpCap.body.origin === "ui",
+    "create blueprint → POST /library { name, content, origin:'ui' }");
+  const bpSeeded = st.blueprintFileStore.entry(hmId, "smoke_blueprint");
+  assert(bpSeeded && bpSeeded.overridesSystem === false && bpSeeded.canRevert === false && bpSeeded.readOnly === false,
+    "create blueprint: a NEW name shadows nothing — both override flags stay false, and the buffer is writable");
+
+  // A name that already exists at either tier is refused by the API, and the SPA gets a
+  // typed code it can render under the name input rather than a generic failure.
+  bpFetch(409, { error: { code: "name_taken", message: "A blueprint named 'palworld' already exists." } });
+  const bp409 = await st.blueprintFileStore.create(hmId, bpName, "name: x\n").then(() => null, (e) => e);
+  assert(bp409 && bp409.envCode === "name_taken",
+    "create blueprint: an existing name comes back as 409 name_taken (rendered under the name field, not as a crash)");
+
+  // The engine's validator messages ride the envelope's `details`. This is the plumbing
+  // that used to be dropped by apiError, leaving the editor able to say only "the engine
+  // rejected this" with nothing about what to fix — keep it wired.
+  bpFetch(400, { error: { code: "blueprint_invalid", message: "The engine rejected this blueprint.",
+    details: { errors: ["missing required field: native.executable_file", "runtime must be one of: native, container"] } } });
+  const bp400 = await st.blueprintFileStore.create(hmId, "smoke_bad", "nope\n").then(() => null, (e) => e);
+  assert(bp400 && bp400.envCode === "blueprint_invalid" && bp400.details && bp400.details.errors
+    && bp400.details.errors.length === 2 && /executable_file/.test(bp400.details.errors[0]),
+    "create blueprint: the engine's own errors[] survive the envelope (apiError carries `details` through)");
+
+  // Edit-path wire shapes: a save is etag-conditional, a revert names its origin.
+  bpCap = null;
+  bpFetch(200, { ...OK_WRITE, overridesSystem: true }, (c) => { bpCap = c; });
+  await st.blueprintFileStore.save(hmId, bpName, "name: " + bpName + "\n", bpEntry.etag);
+  assert(bpCap && bpCap.method === "PUT" && bpCap.url.endsWith("/api/v1/library/" + bpName + "/file")
+    && bpCap.body.etag === bpEntry.etag && bpCap.body.origin === "ui",
+    "save blueprint → PUT /library/{id}/file { content, etag, origin:'ui' } (etag-conditional, never blind)");
+  assert((st.blueprintFileStore.entry(hmId, bpName) || {}).canRevert === true,
+    "save blueprint: a save that created an override flips canRevert on (Revert appears only once there is an original)");
+
+  bpCap = null;
+  bpFetch(200, { revertedTo: "system", etag: "sha256:orig", sizeBytes: 10, mtime: "2026-07-01T00:00:00Z" }, (c) => { bpCap = c; });
+  await st.blueprintFileStore.revert(hmId, bpName).catch(() => {});   // the reload after it is a live GET
+  assert(bpCap && bpCap.method === "DELETE" && bpCap.url.includes("/api/v1/library/" + bpName + "/file?origin=ui"),
+    "revert blueprint → DELETE /library/{id}/file?origin=ui (removes the override, keeps the shipped file)");
+  globalThis.fetch = realFetch;
+
+  // The store's live entry is restored by revert's own reload, so the roster/editor the
+  // rest of this run sees is the file that is actually on disk.
+  await st.blueprintFileStore.load(hmId, bpName);
+  await nav("#/cluster");
+
   // ---- Player presence roster (player-presence-contract.md §5) ------------
-  // GET /servers/{id}/players + the "players" WS topic (players.join/players.leave,
-  // keyed by sessionKey, carrying the owning serverId in the frame). kgsm-api
-  // hasn't shipped the endpoint yet as of this session — kgsm/kgsm-watchdog/
-  // kgsm-lib/kgsm-api build the wire in parallel against the same frozen contract
-  // — so the REST calls below are intercepted with canned responses (the same
-  // non-destructive technique as Phase 5/6) rather than depending on a live
-  // roster. This proves the FE's rendering + reducer logic against the contract;
-  // the real REST/WS round-trip is owed once kgsm-api ships the endpoint.
+  // GET /servers/{id}/players + the "players" WS topic (players.join / players.leave /
+  // players.ban / players.reset, each frame carrying the owning serverId). The roster is
+  // a PERMANENT per-identity record, not a live headcount: a row is keyed by
+  // `playerIdentity` and carries a `status`, so leaving flips the status rather than
+  // removing the row, and "who has ever played" survives a restart. The REST shapes below
+  // are intercepted with canned responses (the same non-destructive technique as the
+  // command/install paths) so every branch of the contract — including detection:"unknown",
+  // which a host with a detecting game can't produce — is exercised deterministically.
   const pt = await vite.ssrLoadModule("/src/pages/PlayersTab.jsx");
+  // A roster row, in the shipped DTO's own field names.
+  const P = (identity, over = {}) => ({
+    playerIdentity: identity, playerId: null, playerName: null, playerAddr: null,
+    status: "online", firstSeen: "2026-07-01T00:00:00Z", lastSeen: "2026-07-01T00:00:00Z",
+    banReason: null, ...over,
+  });
 
   // Pure helpers — the honesty-critical label fallback, asserted with no network.
-  assert(pt.playerLabel({ name: "Alice", id: "76561198000000001", addr: null, sessionKey: "sk-1" }) === "Alice",
-    "playerLabel: prefers name");
-  assert(pt.playerLabel({ name: null, id: null, addr: "203.0.113.10:2456", sessionKey: "sk-2" }) === "203.0.113.10:2456",
-    "playerLabel: falls back to addr when name is null");
-  assert(pt.playerLabel({ name: null, id: null, addr: null, sessionKey: "sk-3" }) === "sk-3",
-    "playerLabel: falls back to sessionKey when name+addr are both null (never blank)");
-  assert(pt.playerSecondary({ name: "Alice", id: "76561198000000001", addr: "203.0.113.10:2456", sessionKey: "sk-1" }) === "203.0.113.10:2456 · 76561198000000001",
+  assert(pt.playerLabel(P("76561198000000001", { playerName: "Alice", playerId: "76561198000000001" })) === "Alice",
+    "playerLabel: prefers the player's name");
+  assert(pt.playerLabel(P("sk-2", { playerAddr: "203.0.113.10:2456" })) === "203.0.113.10:2456",
+    "playerLabel: falls back to the address when there is no name");
+  assert(pt.playerLabel(P("sk-3")) === "sk-3",
+    "playerLabel: falls back to the identity when name+addr are both null (never blank)");
+  assert(pt.playerSecondary(P("76561198000000001", { playerName: "Alice", playerId: "76561198000000001", playerAddr: "203.0.113.10:2456" }))
+      === "203.0.113.10:2456 · 76561198000000001",
     "playerSecondary: surfaces addr + id alongside a real name (never duplicates the label)");
-  assert(pt.playerSecondary({ name: null, id: null, addr: "203.0.113.10:2456", sessionKey: "sk-2" }) === "",
+  assert(pt.playerSecondary(P("sk-2", { playerAddr: "203.0.113.10:2456" })) === "",
     "playerSecondary: empty once addr already IS the label (no redundant repeat)");
 
-  // Pure join/leave reducer (keyed by sessionKey) — the roster's core semantics.
+  // Pure frame reducer, keyed by playerIdentity — the roster's core semantics.
   let roster = new Map();
-  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
-  assert(roster.size === 1 && roster.get("sk-1").name === "Alice", "applyPlayerFrame: join upserts by sessionKey");
-  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
-  assert(roster.size === 1, "applyPlayerFrame: a repeated join for the same sessionKey doesn't duplicate the row");
-  roster = pt.applyPlayerFrame(roster, "players.leave", { sessionKey: "sk-1" });
-  assert(roster.size === 0, "applyPlayerFrame: leave evicts by sessionKey");
-  roster = pt.applyPlayerFrame(roster, "players.leave", { sessionKey: "missing" });
-  assert(roster.size === 0, "applyPlayerFrame: a leave for an unknown sessionKey is a no-op (never throws)");
+  roster = pt.applyPlayerFrame(roster, "players.join", P("id-1", { playerName: "Alice" }), "srv");
+  assert(roster.size === 1 && roster.get("id-1").playerName === "Alice",
+    "applyPlayerFrame: join upserts by playerIdentity");
+  roster = pt.applyPlayerFrame(roster, "players.join", P("id-1", { playerName: "Alice" }), "srv");
+  assert(roster.size === 1, "applyPlayerFrame: a repeated join for the same identity doesn't duplicate the row");
+  roster = pt.applyPlayerFrame(roster, "players.leave", P("id-1", { playerName: "Alice", status: "offline" }), "srv");
+  assert(roster.size === 1 && roster.get("id-1").status === "offline",
+    "applyPlayerFrame: leave flips the row to offline and KEEPS it (the roster is a permanent record)");
+  roster = pt.applyPlayerFrame(roster, "players.leave", null, "srv");
+  assert(roster.size === 1, "applyPlayerFrame: a frame with no player is a no-op (never throws)");
 
-  // players.reset — the api clearing its roster on instance stop/start/restart
-  // (a killed process emits no "left" lines, so this is how an already-open tab
-  // learns to drop its stale rows, per the contract's §5 clarification).
-  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:00:00Z" });
-  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-2", name: "Bob", since: "2026-07-01T00:00:00Z" });
-  assert(roster.size === 2, "applyPlayerFrame: (setup) two joins populate the roster");
-  roster = pt.applyPlayerFrame(roster, "players.reset");
-  assert(roster.size === 0, "applyPlayerFrame: players.reset clears the ENTIRE roster, no matter how many were on it");
-  roster = pt.applyPlayerFrame(roster, "players.join", { sessionKey: "sk-1", name: "Alice", since: "2026-07-01T00:20:00Z" });
-  assert(roster.size === 1 && roster.get("sk-1").name === "Alice",
+  // players.reset — the api clearing live presence on instance stop/start/restart (a
+  // killed process emits no "left" lines). Every row of THAT server goes offline; rows
+  // belonging to another server are untouched, and no row is destroyed.
+  roster = pt.applyPlayerFrame(roster, "players.join", P("id-2", { playerName: "Bob" }), "srv");
+  roster = pt.applyPlayerFrame(roster, "players.join", P("id-3", { playerName: "Carol" }), "other-srv");
+  assert(roster.size === 3, "applyPlayerFrame: (setup) three identities across two servers");
+  roster = pt.applyPlayerFrame(roster, "players.reset", null, "srv");
+  assert(roster.size === 3 && roster.get("id-1").status === "offline" && roster.get("id-2").status === "offline",
+    "applyPlayerFrame: players.reset takes that server's rows offline without destroying them");
+  assert(roster.get("id-3").status === "online",
+    "applyPlayerFrame: players.reset leaves another server's rows alone (no cross-server wipe)");
+  roster = pt.applyPlayerFrame(roster, "players.join", P("id-1", { playerName: "Alice" }), "srv");
+  assert(roster.get("id-1").status === "online",
     "applyPlayerFrame: a rejoin after reset flows back in as an ordinary join (no special-casing needed)");
 
-  // The rendered panel, against the contract's real matrix — each REST shape
-  // intercepted non-destructively so no host needs the endpoint deployed yet.
-  const pSv = st.serversStore.getState().list.find((s) => s.id === "factorio-test") || st.serversStore.getState().list[0];
+  // The rendered panel, against the contract's real matrix — each REST shape intercepted
+  // non-destructively, so detection:"unknown" and an empty roster are provable on a host
+  // whose live games all detect presence.
+  const pSv = st.serversStore.find(PROBE.id) || st.serversStore.getState().list[0];
   if (pSv) {
     const mockPlayers = (body) => {
       globalThis.fetch = async (url, opts) => {
@@ -1480,56 +1780,63 @@ try {
     mockPlayers({ detection: "unknown", players: [] });
     const unknownHtml = await nav("#/servers/" + pSv.id);
     assert(unknownHtml.includes("Presence not available for this game"),
-      "players: detection:'unknown' renders the honest not-measurable state, never '0 players online'");
-    assert(!unknownHtml.includes("No players online"),
+      "players: detection:'unknown' renders the honest not-measurable state, never '0 players'");
+    assert(!unknownHtml.includes("No players yet"),
       "players: 'unknown' is never conflated with a real configured-and-empty roster");
 
     await nav("#/cluster");   // force a remount so the next canned response actually re-fetches
+    mockPlayers({ detection: "configured", players: [] });
+    const emptyHtml = await nav("#/servers/" + pSv.id);
+    assert(emptyHtml.includes("No players yet") && !emptyHtml.includes("Presence not available"),
+      "players: configured-and-empty is its OWN state (nobody has connected yet ≠ can't be measured)");
 
+    await nav("#/cluster");
     mockPlayers({ detection: "configured", players: [
-      { sessionKey: "sk-1", name: "Alice",    id: "76561198000000001", addr: null,               since: "2026-07-01T00:00:00Z" },
-      { sessionKey: "sk-2", name: "Builder42", id: null,               addr: "203.0.113.10:2456", since: "2026-07-01T00:05:00Z" },
-      { sessionKey: "sk-3", name: "Ranger",    id: null,               addr: null,                since: "2026-07-01T00:10:00Z" },
+      P("76561198000000001", { playerName: "Alice", playerId: "76561198000000001" }),
+      P("sk-2", { playerName: "Builder42", playerAddr: "203.0.113.10:2456", status: "offline" }),
+      P("sk-3", { playerName: "Ranger" }),
     ] });
     const configuredHtml = await nav("#/servers/" + pSv.id);
     globalThis.fetch = realFetch;   // done intercepting — the WS proof below needs no fetch at all
     assert(["Alice", "76561198000000001", "Builder42", "203.0.113.10:2456", "Ranger"].every((s) => configuredHtml.includes(s)),
       "players: a configured roster renders every row's real name/id/addr (id+name, name+addr, name-only mixes)");
     assert(/\d+[smhd] ago/.test(configuredHtml),
-      "players: 'Connected' shows a relative connected-since time");
-    assert(!configuredHtml.includes("Presence not available") && !configuredHtml.includes("No players online"),
+      "players: first/last seen render as relative times");
+    assert(!configuredHtml.includes("Presence not available") && !configuredHtml.includes("No players yet"),
       "players: a populated, configured roster shows neither the unknown nor the empty state");
 
-    // Live follow: a WS players.join/players.leave frame for THIS server updates the
-    // mounted panel — the same subscribe → append → render proof as the console tail.
+    // Live follow: a WS players.join frame for THIS server appends a row on the mounted
+    // panel — the same subscribe → append → render proof as the console tail.
     api.__dispatch({ topic: "players", type: "players.join",
-      data: { serverId: pSv.id, player: { sessionKey: "sk-4", name: "SMOKE_JOIN_PLAYER", id: null, addr: null, since: new Date().toISOString() } } });
+      data: { serverId: pSv.id, player: P("sk-4", { playerName: "SMOKE_JOIN_PLAYER" }) } });
     await sleep(140);
     assert(w.document.getElementById("root").innerHTML.includes("SMOKE_JOIN_PLAYER"),
       "players: a live players.join frame for this server appends a row (subscribe → append → render)");
 
-    api.__dispatch({ topic: "players", type: "players.leave", data: { serverId: pSv.id, player: { sessionKey: "sk-1" } } });
+    api.__dispatch({ topic: "players", type: "players.leave",
+      data: { serverId: pSv.id, player: P("76561198000000001", { playerName: "Alice", playerId: "76561198000000001", status: "offline" }) } });
     await sleep(140);
     const leftHtml = w.document.getElementById("root").innerHTML;
-    assert(!leftHtml.includes(">Alice<"), "players: a live players.leave frame evicts the row (Alice is gone)");
+    assert(leftHtml.includes("Alice"),
+      "players: a live players.leave KEEPS the row (permanent record — status changes, history doesn't vanish)");
     assert(leftHtml.includes("SMOKE_JOIN_PLAYER"), "players: the earlier live join survives an unrelated leave");
 
     // A frame for a DIFFERENT server must never leak into this one's roster.
     api.__dispatch({ topic: "players", type: "players.join",
-      data: { serverId: "some-other-server", player: { sessionKey: "sk-9", name: "WRONG_SERVER_PLAYER", since: new Date().toISOString() } } });
+      data: { serverId: "some-other-server", player: P("sk-9", { playerName: "WRONG_SERVER_PLAYER" }) } });
     await sleep(140);
     assert(!w.document.getElementById("root").innerHTML.includes("WRONG_SERVER_PLAYER"),
       "players: a WS frame for a different serverId is ignored (no cross-server leak)");
 
-    // players.reset (instance stop/start/restart): the mounted panel drops every
-    // row with no REST refetch, then a fresh join flows back in normally.
+    // players.reset (instance stop/start/restart): live presence drops with no REST
+    // refetch — the rows stay (they are the record of who has played), and a fresh join
+    // flows back in normally.
     api.__dispatch({ topic: "players", type: "players.reset", data: { serverId: pSv.id } });
     await sleep(140);
-    const resetHtml = w.document.getElementById("root").innerHTML;
-    assert(resetHtml.includes("No players online") && !resetHtml.includes("SMOKE_JOIN_PLAYER") && !resetHtml.includes("Builder42"),
-      "players: a live players.reset frame clears every row on the mounted panel (restart-safe, no phantom rows)");
+    assert(w.document.getElementById("root").innerHTML.includes("SMOKE_JOIN_PLAYER"),
+      "players: a live players.reset keeps the roster rows (restart clears presence, not history)");
     api.__dispatch({ topic: "players", type: "players.join",
-      data: { serverId: pSv.id, player: { sessionKey: "sk-10", name: "SMOKE_POST_RESET_PLAYER", since: new Date().toISOString() } } });
+      data: { serverId: pSv.id, player: P("sk-10", { playerName: "SMOKE_POST_RESET_PLAYER" }) } });
     await sleep(140);
     assert(w.document.getElementById("root").innerHTML.includes("SMOKE_POST_RESET_PLAYER"),
       "players: a rejoin after reset renders normally (reset doesn't wedge the roster)");
@@ -1544,6 +1851,7 @@ try {
   console.error = origErr;
   await vite.close();
   restoreEnv();
+  cleanEmitConfig();
   await purgeProbeEvents();
 }
 console.log(fail ? `\n✗ ${fail} live check(s) failed` : `\n✓ live wiring verified against ${API}`);

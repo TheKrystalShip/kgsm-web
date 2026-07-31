@@ -44,13 +44,15 @@ publishes the API and re-bundles the SPA, swapping the systemd service.
 
 ```bash
 npm run build      # the mechanical check — fails on any dangling import
-KGSM_API=http://127.0.0.1:8080 npm run smoke   # jsdom mount of the read paths against a RUNNING kgsm-api
+KGSM_API=http://127.0.0.1:8096 npm run smoke   # jsdom mount of the read paths against a RUNNING kgsm-api
 ```
 
-`npm run smoke` (`scripts/smoke-live.mjs`) writes a temporary `.env.local` with
-`VITE_API_BASE`, boots the real Vite module graph in jsdom against a running
-backend, and asserts real backend data renders without crashing. It expects an
-**auth-disabled** backend (unauthenticated reads + tier=admin from `/me`).
+`npm run smoke` (`scripts/smoke-live.mjs`) boots the real Vite module graph in jsdom
+against a running backend and asserts real backend data renders without crashing. It
+needs an **auth-disabled** backend (unauthenticated reads + tier=admin from `/me`) — it
+sends no bearer, so it refuses an auth-enabled host up front. `scripts/visual-harness/
+dev-api.sh` in the workspace root serves one on `:8096`. See `CLAUDE.md` for the rest of
+its contract (Monaco is stubbed; probe instances come from the live roster).
 
 ## Layout
 
