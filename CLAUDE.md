@@ -39,10 +39,14 @@ sudo); the bundle is live the moment the files land. Reserve the full
 `kgsm-api/deploy/deploy.sh` (which bounces the systemd unit) for **API code**
 changes — it also re-bundles the SPA.
 
-This repo follows the ecosystem `setup.sh`/`deploy.sh` contract
-(`../scripts/deploy-template/README.md`), and is the one project that needs no
-privilege even at setup: its `setup.sh` only verifies that the wwwroot target exists
-and is writable by you, since kgsm-api's deploy is what creates it.
+This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
+`kgsm-*` repo uses, and is the simplest case of it — the one project that needs no
+privilege even at setup. It owns no systemd unit and runs no process of its own, so
+`setup.sh` installs nothing and needs no polkit grant: it only verifies that the
+wwwroot target exists and is writable by you, since kgsm-api's deploy is what
+creates it. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
+refuses up front with *"run `deploy/setup.sh`"* when the target isn't there. The
+three files in `deploy/` are self-contained, so a standalone clone deploys.
 
 **There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** —
 don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)

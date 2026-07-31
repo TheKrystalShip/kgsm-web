@@ -31,6 +31,12 @@ straight into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service
 user → no sudo). The new bundle is live the moment the files land. Override the
 target with `KGSM_API_WWWROOT=/path`.
 
+Run `./deploy/setup.sh` once on a new host first — it verifies the wwwroot target
+exists and is writable by you, and `deploy.sh` refuses until it is. This is the
+same `setup.sh`-once / `deploy.sh`-forever pattern every `kgsm-*` repo uses, and
+the only one that needs no privilege even at setup: the SPA owns no systemd unit,
+so there is nothing to install and no polkit grant to make.
+
 For an **API code change**, use the full `kgsm-api/deploy/deploy.sh` instead — it
 publishes the API and re-bundles the SPA, swapping the systemd service.
 
