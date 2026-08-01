@@ -18,8 +18,12 @@ import { Icon } from "./Icon.jsx";
 //   onViewAll, viewAllLabel— convenience right-side affordance ("View all →")
 //   action                 — custom header-right node; when provided it wins
 //                            over onViewAll (pass null for nothing)
+//   collapsible, open,     — controlled collapse: the whole header becomes the
+//   onToggle                 toggle and the body is unmounted when shut. Left
+//                            uncontrolled the card renders exactly as before.
 //   className, children
-function BriefCard({ icon, title, count, countTone, meta, onViewAll, viewAllLabel = "View all", action, className = "", children }) {
+function BriefCard({ icon, title, count, countTone, meta, onViewAll, viewAllLabel = "View all", action,
+  collapsible = false, open = true, onToggle, className = "", children }) {
   const right = action !== undefined
     ? action
     : (onViewAll
@@ -29,19 +33,31 @@ function BriefCard({ icon, title, count, countTone, meta, onViewAll, viewAllLabe
           </button>
         )
         : null);
+  const shut = collapsible && !open;
+  const head = (
+    <>
+      <span className="chat-brief__title">
+        {icon && <Icon name={icon} size={13} />} {title}
+        {count != null && count !== false && (
+          <span className={"chat-brief__count" + (countTone ? " chat-brief__count--" + countTone : "")}>{count}</span>
+        )}
+      </span>
+      {right}
+      {collapsible && <Icon name="chevron-down" size={16} className="chat-brief__chev" />}
+    </>
+  );
   return (
-    <div className={"chat-brief" + (className ? " " + className : "")}>
-      <div className="chat-brief__head">
-        <span className="chat-brief__title">
-          {icon && <Icon name={icon} size={13} />} {title}
-          {count != null && count !== false && (
-            <span className={"chat-brief__count" + (countTone ? " chat-brief__count--" + countTone : "")}>{count}</span>
-          )}
-        </span>
-        {right}
-      </div>
-      {meta && <div className="chat-brief__meta">{meta}</div>}
-      {children}
+    <div className={"chat-brief" + (shut ? " chat-brief--shut" : "") + (className ? " " + className : "")}>
+      {collapsible
+        ? (
+          <button type="button" className="chat-brief__head chat-brief__head--toggle"
+            onClick={onToggle} aria-expanded={open}>
+            {head}
+          </button>
+        )
+        : <div className="chat-brief__head">{head}</div>}
+      {!shut && meta && <div className="chat-brief__meta">{meta}</div>}
+      {!shut && children}
     </div>
   );
 }

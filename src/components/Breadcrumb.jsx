@@ -19,6 +19,11 @@ function breadcrumbTrail(route, ctx) {
                         ? trail.push({ label: "Cluster", kind: "cluster" }, { label: ctx.hostName || "Host" })
                         : trail.push({ label: "Cluster" });
                       break;
+    case "leafConfig":  trail.push(
+                        { label: "Cluster", kind: "cluster" },
+                        { label: ctx.hostName || "Host" },
+                        { label: "Configuration" });
+                      break;
     case "settings":  trail.push({ label: "Settings", kind: "settings" }); break;
     default:          break;
   }

@@ -72,6 +72,9 @@ import { hostsStore } from "./stores.js";
     cluster:   CAP.NAV_CLUSTER,
     settings:  CAP.NAV_SETTINGS,
     addHost:   CAP.HOST_MANAGE,
+    // Leaf configuration is admin-only end to end: kgsm-api's whole leaf controller is
+    // Admin-policy, so an operator reaching this route would meet a 403 on every read.
+    leafConfig: CAP.HOST_MANAGE,
   };
 
   function storedUser() {

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the leaf configuration page
+- **Every setting every leaf declares, on one page.** `#/config/<hostId>/<leaf>` — its own route, not a
+  node sub-tab, because it carries its own leaf tab strip and nesting that under the node page's tabs
+  would stack two rows. Admin-only (`ROUTE_CAP.leafConfig = host.manage`), matching kgsm-api's
+  Admin-policy leaf controller: an operator cannot reach it and could not read it if they did. The
+  Services board's Configure button routes here; `LeafConfigModal` is gone.
+- **Built from the existing kit.** The leaf strip is `SubTabs` (the server- and node-detail switcher,
+  icon + label like every other tab strip); search/filters/count/collapse-all is `Toolbar`; each group
+  is a collapsible `BriefCard`; controls are `Select` and `settings-primitives`' `Toggle`; the review
+  step is `Modal`; per-leaf logs are `ConsoleView`. Four components took an additive prop —
+  `SubTabs` `title`, `BriefCard` `collapsible`/`open`/`onToggle`, `ConsoleView` `initialSourceId` —
+  each with an unchanged default.
+- **One apply, one restart.** Edits stage into a sticky bar; the review sheet shows every change as
+  from → to, names any `pairedApiKey` moving with it, and requires an explicit acknowledgement when
+  something staged is `wiring` or `destructive`. Reset and edit are mutually exclusive per key, so a
+  payload can never carry both.
+- **Provenance on every row.** override → floor → default as one line with the tier in effect lit,
+  collapsing `floor = default` when a leaf's config merely restates its own default. `unknown` is its
+  own state — the host could not read the leaf's config source — and is never dressed up as the
+  default. `unset` and `empty` stay distinct.
+- **Honest edge states.** A read-only leaf (the Control Panel API, which cannot restart itself to
+  apply a change) renders values as text with a copy-the-env-line button rather than dead inputs, and
+  offers no Restart. A leaf that shipped no descriptor says so rather than implying the short list is
+  its whole surface. `applied` / `unchanged` / `rolled_back` / `applied_unreachable` each read
+  differently.
+- Restart-a-leaf-on-its-own is **disabled with its reason** — there is no endpoint for it yet, and an
+  empty `PUT` returns `unchanged` and restarts nothing. It turns on with leaf lifecycle actions.
+
+### Fixed — the config adapter dropped most of what the backend sends
+- **`adaptLeafConfig` carried only the keys the old modal used.** `groups`, `editable`,
+  `editableReason`, `applyMode`, `fromDescriptor` and per-field `floor`, `effective`, `source`,
+  `group`, `risk`, `unit`, `min`, `max`, `pairedApiKey`, `dependsOn` were discarded at the honesty
+  boundary, so no component could see them. The full shape now passes through, with the secret rule
+  extended across `floor` and `effective` as well as `value`.
+
 ### Changed — backups show what they are
 - **Each backup row carries its age, size and captured version** under the backup id, read from the
   detail `GET /servers/{id}/backups` now returns (`createdAt`, `sizeBytes`, `version`) via the shared

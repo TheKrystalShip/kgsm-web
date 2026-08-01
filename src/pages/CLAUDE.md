@@ -49,6 +49,7 @@ Four screens were too big and were broken into folders (root-`CLAUDE.md` refacto
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
 | `DashboardPage.jsx` | `dashboard/` | `DashFleetStrip` |
+| `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
 
 New rule of thumb: **a page pushing ~400 lines gets its own `pages/<name>/`
 folder** rather than another append.

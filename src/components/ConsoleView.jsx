@@ -47,19 +47,29 @@ function renderLine(line, idx, tsMode) {
 //   count    — optional line count for the head ("N lines"); `loading` shows "connecting…".
 //   footer   — optional node under the body (a command input / a read-only note).
 //   resetKey — when it changes, the full-screen pop-out collapses (a server / host switch).
+//   initialSourceId — which source to open on, when the caller knows (the leaf config page opens a
+//              leaf's own journal). Ignored if it isn't in `sources`; only seeds the initial pick,
+//              so the user's later choice always wins.
 function ConsoleView({
   title = "Console", icon = "terminal-square",
   lines = [], sources, pill, count, loading = false,
-  footer = null, emptyText = "— no output —", resetKey,
+  footer = null, emptyText = "— no output —", resetKey, initialSourceId,
 }) {
   const bodyRef = React.useRef(null);
-  const [sourceId, setSourceId] = React.useState(sources && sources[0] && sources[0].id);
+  const [sourceId, setSourceId] = React.useState(() => {
+    if (initialSourceId && sources && sources.some(s => s.id === initialSourceId)) return initialSourceId;
+    return sources && sources[0] && sources[0].id;
+  });
   const [expanded, setExpanded] = React.useState(false);
 
   // Keep the source selection valid as the set changes; collapse the pop-out on a context switch.
+  // Sources usually arrive after the first render, so the requested one is honoured here too —
+  // otherwise seeding it above would lose the race and always fall to the first source.
   React.useEffect(() => {
-    if (sources && sources.length && !sources.some(s => s.id === sourceId)) setSourceId(sources[0].id);
-  }, [sources, sourceId]);
+    if (!sources || !sources.length || sources.some(s => s.id === sourceId)) return;
+    const wanted = initialSourceId && sources.some(s => s.id === initialSourceId) ? initialSourceId : sources[0].id;
+    setSourceId(wanted);
+  }, [sources, sourceId, initialSourceId]);
   React.useEffect(() => { setExpanded(false); }, [resetKey]);
 
   const current = sources ? (sources.find(s => s.id === sourceId) || sources[0]) : null;

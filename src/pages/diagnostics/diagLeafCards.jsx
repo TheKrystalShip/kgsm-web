@@ -1,11 +1,10 @@
 // Leaf/service diagnostics cards — StatusLed, LeafProvisionControl, LeafCard,
-// ConfigFieldRow, ServicesSummaryCard. Split out of diagComponents.jsx (#8);
+// ServicesSummaryCard. Split out of diagComponents.jsx (#8);
 // re-exported from there so consumers are unchanged. Pure render + narrow local state.
 
 import React from "react";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
-import { Select } from "../../components/Select.jsx";
 import { servicesStore, setLeafProvisioned } from "../../lib/stores.js";
 import { leafStatus, fmtBytes, uptimeShort } from "./diagHelpers.js";
 
@@ -101,85 +100,6 @@ function LeafCard({ svc, hostId, canManage, onConfigure }) {
   );
 }
 
-function ConfigFieldRow({ f, draft, secretDraft, revealed, willReset, onChange, onSecretChange, onReveal, onToggleReset }) {
-  const disabled = willReset;
-  const input = (() => {
-    if (f.type === "secret") {
-      if (!revealed) {
-        return (
-          <div className="leaf-cfg-secret">
-            <span className="leaf-cfg-secret__mask">
-              {f.set
-                ? <>{"●●●●"} set{f.fingerprint ? <span className="leaf-cfg-secret__fp"> ·{"…"}{f.fingerprint}</span> : null}</>
-                : <span className="leaf-cfg-secret__unset">not set</span>}
-            </span>
-            <button type="button" className="leaf-cfg-secret__replace" onClick={() => onReveal(f.key)} disabled={disabled}>
-              <Icon name="key" size={11} strokeWidth={2} /> {f.set ? "Replace" : "Set"}
-            </button>
-          </div>
-        );
-      }
-      return (
-        <input type="password" className="host-field__input host-field__input--mono" autoFocus disabled={disabled}
-          placeholder={f.set ? "Enter a new value to replace it" : "Enter a value"} value={secretDraft || ""}
-          onChange={(e) => onSecretChange(f.key, e.target.value)} spellCheck="false" autoComplete="new-password" />
-      );
-    }
-    if (f.type === "enum" && Array.isArray(f.enum)) {
-      return (
-        <Select value={draft == null ? "" : String(draft)} disabled={disabled}
-          onChange={(e) => onChange(f.key, e.target.value)}>
-          {f.enum.map((opt) => <option key={String(opt)} value={String(opt)}>{String(opt)}</option>)}
-        </Select>
-      );
-    }
-    if (f.type === "bool") {
-      return (
-        <label className="leaf-cfg-toggle">
-          <input type="checkbox" checked={!!draft} disabled={disabled} onChange={(e) => onChange(f.key, e.target.checked)} />
-          <span className="leaf-cfg-toggle__txt">{draft ? "Enabled" : "Disabled"}</span>
-        </label>
-      );
-    }
-    if (f.type === "int") {
-      return (
-        <input type="number" className="host-field__input host-field__input--mono" value={draft == null ? "" : draft} disabled={disabled}
-          onChange={(e) => onChange(f.key, e.target.value)} spellCheck="false" />
-      );
-    }
-    return (
-      <input type="text" className="host-field__input host-field__input--mono" value={draft == null ? "" : draft} disabled={disabled}
-        onChange={(e) => onChange(f.key, e.target.value)} spellCheck="false" />
-    );
-  })();
-
-  return (
-    <div className={"leaf-cfg-field" + (willReset ? " is-reset" : "")}>
-      <div className="leaf-cfg-field__top">
-        <span className="leaf-cfg-field__label">{f.label}</span>
-        {f.overridden && (
-          <span className={"leaf-cfg-prov" + (willReset ? " leaf-cfg-prov--reset" : "")}
-            title={willReset ? "Will reset to the deploy default on save" : "Overrides the deploy-floor default"}>
-            <span className="leaf-cfg-prov__dot"></span>{willReset ? "reset pending" : "override"}
-          </span>
-        )}
-        {f.envName && <code className="leaf-cfg-field__env">{f.envName}</code>}
-        <span style={{ flex: 1 }}></span>
-        {f.overridden && (
-          <button type="button" className="leaf-cfg-reset" onClick={() => onToggleReset(f.key)}>
-            <Icon name="rotate-ccw" size={11} strokeWidth={2} />{willReset ? "Keep override" : "Reset to default"}
-          </button>
-        )}
-      </div>
-      {f.description && <div className="leaf-cfg-field__desc">{f.description}</div>}
-      <div className="leaf-cfg-field__input">{input}</div>
-      {f.type !== "secret" && f.default != null && (
-        <div className="leaf-cfg-field__default">default <code>{String(f.default)}</code></div>
-      )}
-    </div>
-  );
-}
-
 function ServicesSummaryCard({ services, status, ready, onViewAll }) {
   const rows = ready && Array.isArray(services) ? services : [];
   const running = rows.filter(r => r.state === "active").length;
@@ -222,4 +142,4 @@ function ServicesSummaryCard({ services, status, ready, onViewAll }) {
   );
 }
 
-export { StatusLed, LeafProvisionControl, LeafCard, ConfigFieldRow, ServicesSummaryCard };
+export { StatusLed, LeafProvisionControl, LeafCard, ServicesSummaryCard };

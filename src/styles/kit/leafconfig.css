@@ -1,0 +1,743 @@
+/* ============================================================================
+   kit/leafconfig.css — the per-node leaf configuration page (#/config/<host>/<leaf>).
+   Leaf strip (SubTabs) · leaf header · grouped BriefCards of setting rows ·
+   the sticky apply bar · the review sheet's diff rows.
+   ============================================================================ */
+
+/* ---- Page header ---------------------------------------------------------- */
+.lcf-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.lcf-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 2px;
+  color: var(--fg-3);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lcf-back:hover {
+  color: var(--krystal-teal);
+}
+
+.lcf-head__title {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--w-bold);
+  letter-spacing: -0.01em;
+}
+
+.lcf-head__sub {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 12.5px;
+  color: var(--fg-3);
+  line-height: var(--lh-normal);
+}
+
+/* ---- Leaf header ---------------------------------------------------------- */
+.lcf-leaf {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+}
+
+.lcf-leaf__icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  background: var(--krystal-teal-dim);
+  color: var(--krystal-teal);
+}
+
+.lcf-leaf__id {
+  min-width: 0;
+}
+
+.lcf-leaf__name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: var(--text-lg);
+  font-weight: var(--w-bold);
+}
+
+.lcf-leaf__state {
+  font-size: 12px;
+  font-weight: var(--w-medium);
+  color: var(--fg-3);
+}
+
+.lcf-leaf__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.lcf-leaf__meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.lcf-leaf__meta code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.lcf-leaf__ovr {
+  color: var(--krystal-teal);
+}
+
+.lcf-leaf__acts {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- Buttons (the page's local button family, on the site's metrics) ------- */
+.lcf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-weight: var(--w-semibold);
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out),
+    color var(--d-fast) var(--ease-out),
+    border-color var(--d-fast) var(--ease-out);
+}
+
+.lcf-btn--ghost {
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  color: var(--fg-2);
+}
+
+.lcf-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+}
+
+.lcf-btn--ghost.is-on {
+  background: var(--krystal-teal-dim);
+  border-color: var(--border-accent);
+  color: var(--krystal-teal);
+}
+
+.lcf-btn--primary {
+  background: var(--krystal-teal);
+  color: var(--btn-accent-fg);
+}
+
+.lcf-btn--primary:hover:not(:disabled) {
+  background: var(--krystal-teal-hover);
+}
+
+.lcf-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.lcf-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+
+.lcf-iconbtn:hover {
+  background: var(--surface-2);
+  color: var(--fg-1);
+}
+
+/* ---- Groups --------------------------------------------------------------- */
+.lcf-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The card family's own head padding is tuned for one-line feed rows; a group head
+   carries a count chip and an edit badge, so it gets a touch more room. */
+.lcf-group > .chat-brief__head {
+  padding: 11px 14px;
+}
+
+.lcf-group.has-edits {
+  border-color: var(--border-accent);
+}
+
+.lcf-group__edits {
+  font-size: 10.5px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--krystal-teal-dim);
+  color: var(--krystal-teal);
+}
+
+/* ---- One setting ---------------------------------------------------------- */
+.lcf-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+  padding: 13px 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.lcf-row:first-child {
+  border-top: none;
+}
+
+.lcf-row:hover {
+  background: color-mix(in srgb, var(--veil-1) 55%, transparent);
+}
+
+.lcf-row.is-dirty {
+  background: var(--krystal-teal-dim);
+  box-shadow: inset 3px 0 0 var(--krystal-teal);
+}
+
+.lcf-row.is-reset {
+  background: var(--update-bg);
+  box-shadow: inset 3px 0 0 var(--update);
+}
+
+.lcf-row__l {
+  min-width: 0;
+}
+
+.lcf-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lcf-row__label {
+  font-size: 13.5px;
+  font-weight: var(--w-semibold);
+}
+
+.lcf-row__dep {
+  font-size: 11.5px;
+  color: var(--fg-4);
+}
+
+/* A description that runs the full width of a wide panel is a wall; cap the measure. */
+.lcf-row__desc {
+  margin-top: 3px;
+  max-width: 64ch;
+  font-size: 12.5px;
+  color: var(--fg-3);
+  line-height: var(--lh-normal);
+}
+
+.lcf-row__env {
+  margin-top: 7px;
+}
+
+.lcf-row__env code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  background: var(--veil-1);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+}
+
+.lcf-row__r {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lcf-row__under {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.lcf-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg-3);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.lcf-reset:hover {
+  color: var(--krystal-teal);
+}
+
+/* ---- Badges: provenance + risk -------------------------------------------- */
+.lcf-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lcf-prov::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.lcf-prov--override {
+  background: var(--krystal-teal-dim);
+  color: var(--krystal-teal);
+}
+
+.lcf-prov--floor {
+  background: var(--veil-1);
+  color: var(--fg-3);
+}
+
+.lcf-prov--default {
+  background: var(--veil-1);
+  color: var(--fg-4);
+}
+
+/* Unknown is a state of its own — the host could not read the leaf's config source, so what it
+   runs with is genuinely not known. It is never dressed up as the default. */
+.lcf-prov--unknown {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.lcf-prov--pending {
+  background: var(--update-bg);
+  color: var(--update-fg);
+}
+
+.lcf-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  font-size: 10.5px;
+  font-weight: var(--w-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.lcf-risk--wiring {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.lcf-risk--destructive {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+/* ---- The provenance chain -------------------------------------------------- */
+.lcf-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+}
+
+/* Values here are often long paths; let them wrap inside the column rather than
+   run out of the card. */
+.lcf-chain__t {
+  display: inline;
+  overflow-wrap: anywhere;
+}
+
+.lcf-chain__t.is-eff {
+  color: var(--krystal-teal);
+  font-weight: var(--w-semibold);
+}
+
+.lcf-chain__t.is-null {
+  font-style: italic;
+  font-family: var(--font-ui);
+}
+
+.lcf-chain__sep {
+  opacity: 0.45;
+}
+
+/* ---- Controls -------------------------------------------------------------- */
+.lcf-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+
+.lcf-input--mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.lcf-input--num {
+  max-width: 160px;
+}
+
+.lcf-input:focus {
+  border-color: var(--border-accent);
+  box-shadow: var(--ring-input);
+}
+
+.lcf-input::placeholder {
+  color: var(--fg-4);
+}
+
+.lcf-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lcf-bool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lcf-bool__txt {
+  font-size: 12.5px;
+  color: var(--fg-3);
+}
+
+.lcf-secret {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lcf-secret__mask {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.lcf-secret__fp {
+  color: var(--fg-4);
+}
+
+.lcf-secret__unset {
+  font-family: var(--font-ui);
+  font-style: italic;
+  color: var(--fg-4);
+}
+
+/* Read-only leaf: the value as text with a copy affordance, not a box you cannot type in. */
+.lcf-ro {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.lcf-ro__v {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--fg-2);
+  word-break: break-all;
+}
+
+.lcf-ro__v.is-null {
+  font-family: var(--font-ui);
+  font-style: italic;
+  color: var(--fg-4);
+}
+
+/* ---- Notes & states -------------------------------------------------------- */
+.lcf-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  line-height: var(--lh-normal);
+}
+
+.lcf-note svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.lcf-note .lcf-iconbtn {
+  margin-left: auto;
+}
+
+.lcf-note--lock {
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  color: var(--fg-2);
+}
+
+.lcf-note--info {
+  background: var(--info-bg);
+  border-color: color-mix(in srgb, var(--info) 30%, transparent);
+  color: var(--info-fg);
+}
+
+.lcf-note--ok {
+  background: var(--success-bg);
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+  color: var(--success-fg);
+}
+
+.lcf-note--warn {
+  background: var(--warning-bg);
+  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+  color: var(--warning-fg);
+}
+
+.lcf-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.lcf-state--error {
+  color: var(--danger-fg);
+}
+
+/* ---- The apply bar ---------------------------------------------------------- */
+.lcf-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: 0 -6px 24px color-mix(in srgb, var(--scrim-base) 40%, transparent);
+}
+
+.lcf-bar__n {
+  font-size: 13px;
+  font-weight: var(--w-semibold);
+  white-space: nowrap;
+}
+
+.lcf-bar__n b {
+  color: var(--krystal-teal);
+}
+
+.lcf-bar__sum {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+/* ---- The review sheet -------------------------------------------------------- */
+.lcf-review {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 780px);
+}
+
+.lcf-review__body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lcf-chg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+}
+
+.lcf-chg__t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lcf-chg__label {
+  font-size: 13px;
+  font-weight: var(--w-semibold);
+}
+
+.lcf-chg__env {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  background: var(--veil-1);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+}
+
+.lcf-chg__d {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.lcf-chg__from {
+  color: var(--fg-4);
+  text-decoration: line-through;
+}
+
+.lcf-chg__to {
+  color: var(--krystal-teal);
+  font-weight: var(--w-semibold);
+}
+
+.lcf-chg__note {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--fg-4);
+}
+
+.lcf-chg__paired {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--warning-fg);
+}
+
+.lcf-chg__paired svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.lcf-chg__paired code {
+  font-family: var(--font-mono);
+}
+
+.lcf-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--warning-bg);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  color: var(--warning-fg);
+  font-size: 12.5px;
+  line-height: var(--lh-normal);
+  cursor: pointer;
+}
+
+.lcf-ack input {
+  margin-top: 3px;
+  accent-color: var(--warning);
+}
+
+/* ---- Narrow ------------------------------------------------------------------ */
+@media (max-width: 900px) {
+  .lcf-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .lcf-leaf__acts {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .lcf-bar {
+    flex-wrap: wrap;
+  }
+
+  .lcf-bar__sum {
+    display: none;
+  }
+}

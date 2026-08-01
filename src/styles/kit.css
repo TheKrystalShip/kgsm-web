@@ -23,5 +23,6 @@
 @import "./kit/dock.css";
 @import "./kit/hosts.css";
 @import "./kit/cluster.css";
+@import "./kit/leafconfig.css";
 @import "./kit/states.css";
 @import "./kit/extras.css";

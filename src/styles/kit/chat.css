@@ -2311,6 +2311,39 @@ a.ev-search__src:hover {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Collapsible variant (BriefCard `collapsible`): the whole head is the toggle, so it is a
+   <button> and has to shed the browser's button chrome to keep the card's look. */
+.chat-brief__head--toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-brief__head--toggle:hover {
+  background: var(--surface-2);
+}
+
+.chat-brief__chev {
+  margin-left: auto;
+  flex: none;
+  color: var(--fg-3);
+  transition: transform var(--d-base) var(--ease-out);
+}
+
+.chat-brief--shut .chat-brief__chev {
+  transform: rotate(-90deg);
+}
+
+.chat-brief--shut .chat-brief__head--toggle {
+  border-bottom: none;
+}
+
 .chat-brief__title {
   display: inline-flex;
   align-items: center;

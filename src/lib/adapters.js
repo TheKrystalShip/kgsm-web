@@ -372,15 +372,26 @@ export function adaptCapabilities(block) {
   return out;
 }
 
-// ---- Leaf config (the per-leaf runtime configuration form) --------------
-// GET /hosts/{id}/services/{leaf}/config → LeafConfig { leaf, displayName, unit, fields:[LeafConfigField] }.
-// A typed manifest the API exposes for the four config-target leaves (monitor/watchdog/assistant/firewall).
-// HONESTY is load-bearing for SECRETS: a secret field's `value` is ALWAYS null on the wire — the form must
-// never echo it; `set` (is one stored?) + `fingerprint` (last-4 or null) are all the UI gets. A non-secret
-// field carries its current `value` + `default` + `overridden` (does an override sit on top of the floor?).
+// ---- Leaf config (the per-leaf configuration surface) --------------------
+// GET /hosts/{id}/services/{leaf}/config → LeafConfig. Every leaf ships a descriptor declaring its whole
+// configurable surface, so this carries the FULL shape the config page renders: the display `groups`,
+// whether this host can deliver a change at all (`editable` + the reason it cannot), and per field the
+// provenance chain, the risk, and the bounds.
+//
+// HONESTY is load-bearing here in three places:
+//   • SECRETS — a secret's value is ALWAYS null on the wire and the form must never echo it. `set` (is
+//     one stored?) + `fingerprint` (last-4) are all the UI gets. Forced null here as defence in depth,
+//     across `value`, `floor` and `effective` alike.
+//   • PROVENANCE — `source` says which tier `effective` came from, and `"unknown"` means the host could
+//     not read the leaf's own config source. It is NEVER quietly downgraded to `"default"`: the page has
+//     to be able to say "I don't know what this leaf is running with".
+//   • UNSET vs EMPTY — `null` is "nothing supplies this"; `""` is "the leaf's config supplies an empty
+//     value" (several settings read that as "fall back to the machine name"). Neither is coerced.
 export function adaptLeafConfigField(f) {
   if (!f) return null;
   const isSecret = f.type === "secret" || !!f.isSecret;
+  const str = (v) => (v == null ? null : String(v));
+  const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
   return {
     key: f.key,
     envName: f.envName || null,
@@ -390,12 +401,23 @@ export function adaptLeafConfigField(f) {
     enum: Array.isArray(f.enum) ? f.enum : null,
     isSecret,
     overridden: !!f.overridden,
-    // A secret's value is NEVER on the wire → force null even if the backend slipped one in (defence in
-    // depth). A non-secret passes its measured value/default through honestly (null = unset, never "").
-    value: isSecret ? null : (f.value == null ? null : f.value),
-    default: f.default == null ? null : f.default,
+    value: isSecret ? null : str(f.value),
+    default: str(f.default),
     set: isSecret ? !!f.set : null,
     fingerprint: isSecret ? (f.fingerprint || null) : null,
+    // The provenance chain: what the leaf's own deploy files set, what it is actually running with,
+    // and which tier that came from.
+    floor: isSecret ? null : str(f.floor),
+    effective: isSecret ? null : str(f.effective),
+    source: f.source || "unknown",
+    // Presentation + safety metadata from the descriptor.
+    group: f.group || null,
+    risk: f.risk || "safe",
+    unit: f.unit || null,
+    min: num(f.min),
+    max: num(f.max),
+    pairedApiKey: f.pairedApiKey || null,
+    dependsOn: f.dependsOn || null,
   };
 }
 export function adaptLeafConfig(be) {
@@ -404,12 +426,31 @@ export function adaptLeafConfig(be) {
     leaf: be.leaf || null,
     displayName: be.displayName || be.leaf || null,
     unit: be.unit || null,
+    // Sections, ascending by order. Empty for a leaf whose surface renders flat.
+    groups: Array.isArray(be.groups)
+      ? be.groups
+          .filter(g => g && g.id != null)
+          .map(g => ({ id: g.id, label: g.label || g.id, order: typeof g.order === "number" ? g.order : 0 }))
+          .sort((a, b) => a.order - b.order)
+      : [],
+    // Whether a PUT would be accepted, and why not. A leaf can be readable and not editable — the API
+    // itself publishes its surface for reading only, and a host that has not wired a leaf's drop-in
+    // cannot deliver a change to it. Default true only when the backend omits the field entirely.
+    editable: be.editable !== false,
+    editableReason: be.editableReason || null,
+    applyMode: be.applyMode || "restart",
+    // False means the leaf has not shipped a descriptor and only the keys this API historically knew
+    // are exposed — the page says so rather than implying the short list is the whole surface.
+    fromDescriptor: !!be.fromDescriptor,
     fields: Array.isArray(be.fields) ? be.fields.map(adaptLeafConfigField).filter(Boolean) : [],
   };
 }
 // PUT /hosts/{id}/services/{leaf}/config → LeafConfigApplyResult { outcome, health, message, config }.
-// outcome ∈ applied | rolled_back | unchanged — the UI renders each HONESTLY (a rollback is NOT a success:
-// the value did not stick, the leaf was restored). `config` is the fresh LeafConfig the form re-reads from.
+// outcome ∈ applied | rolled_back | unchanged | applied_unreachable — the UI renders each HONESTLY.
+// A rollback is NOT a success: the value did not stick and the leaf was restored. `applied_unreachable`
+// is the signature of a wiring change: it WAS applied and the leaf restarted cleanly, but the API can no
+// longer reach it — reported rather than reverted, because a silent revert would misreport what is
+// running. `config` is the fresh LeafConfig the form re-reads from.
 export function adaptLeafConfigApply(be) {
   if (!be) return { outcome: "unchanged", health: null, message: null, config: null };
   const h = be.health ? { status: be.health.status || "unknown", message: be.health.message || null } : null;

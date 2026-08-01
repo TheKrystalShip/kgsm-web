@@ -7,6 +7,8 @@ import { Icon } from "./Icon.jsx";
 // BY App, so pulling SubTabs from App would be a circular import — this was the
 // "SubTabs is not defined" crash the host deep-dive hit once it rendered with
 // real telemetry).
+// A tab may carry an optional `title` for a hover hint (the leaf config page puts each leaf's
+// role there). Everything else is unchanged.
 export function SubTabs({ tabs, active, onChange }) {
   const current = tabs.find(t => t.id === active) || tabs[0];
   return (
@@ -15,7 +17,8 @@ export function SubTabs({ tabs, active, onChange }) {
         {tabs.map(t => (
           <button key={t.id}
             className={"subtab" + (t.id === active ? " subtab--active" : "")}
-            onClick={() => onChange(t.id)}>
+            onClick={() => onChange(t.id)}
+            title={t.title}>
             <Icon name={t.icon} size={14} />
             {t.label}
             {t.badge > 0 && <span className={"subtab__badge subtab__badge--" + (t.badgeTone || "info")}>{t.badge}</span>}

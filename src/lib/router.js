@@ -24,6 +24,8 @@
 //   #/cluster                cluster grid
 //   #/cluster/<hostId>       a node's diagnostics deep-dive (overview)
 //   #/cluster/<hostId>/<tab> a node's diagnostics, a specific tab
+//   #/config/<hostId>        a node's leaf configuration (first configurable leaf)
+//   #/config/<hostId>/<leaf> one leaf's configuration surface
 //   #/settings               account settings
 //
 // The pre-cluster URL words #/diagnostics and #/hosts still resolve to #/cluster
@@ -61,6 +63,10 @@
         if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
         return h;
       }
+      // Leaf configuration is its own page, not a node sub-tab: it carries its own leaf tab strip,
+      // and nesting that under the node page's tabs would stack two tab rows.
+      case "leafConfig":
+        return "#/config/" + enc(route.hostId || "") + (route.leaf ? "/" + enc(route.leaf) : "");
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       case "settings":  return "#/settings";
@@ -106,6 +112,13 @@
         if (!segs[1]) return { kind: "cluster" };
         const r = { kind: "cluster", hostId: dec(segs[1]) };
         if (segs[2]) r.tab = dec(segs[2]);
+        return r;
+      }
+      case "config": {
+        // A host is required — without one there is nothing to configure, so fall back to the grid.
+        if (!segs[1]) return { kind: "cluster" };
+        const r = { kind: "leafConfig", hostId: dec(segs[1]) };
+        if (segs[2]) r.leaf = dec(segs[2]);
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };

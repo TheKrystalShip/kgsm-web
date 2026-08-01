@@ -6,15 +6,13 @@ import { useStore } from "../../lib/store.js";
 import { canOn } from "../../lib/persona.js";
 import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { LeafCard } from "./diagComponents.jsx";
-import { LeafConfigModal } from "./LeafConfigModal.jsx";
 
-function DiagServices({ host }) {
+function DiagServices({ host, onConfigureLeaf }) {
   const hostId = host && host.id;
   const list = useStore(servicesStore, s => s.list);
   const status = useStore(servicesStore, s => s.status);
   const forHost = useStore(servicesStore, s => s.hostId);
   const canManage = hostId ? canOn("host.manage", hostId) : false;
-  const [configuring, setConfiguring] = React.useState(null);
 
   React.useEffect(() => {
     if (!hostId) return;
@@ -28,7 +26,6 @@ function DiagServices({ host }) {
   if (rows.length > 0) {
     const installed = rows.filter(r => r.state !== "not-installed");
     const running = rows.filter(r => r.state === "active").length;
-    const configLeaf = configuring ? rows.find(r => r.id === configuring) : null;
     return (
       <>
         <div className="players-toolbar">
@@ -43,12 +40,9 @@ function DiagServices({ host }) {
         <div className="svc-grid">
           {rows.map(svc => (
             <LeafCard key={svc.id} svc={svc} hostId={hostId} canManage={canManage}
-              onConfigure={() => setConfiguring(svc.id)} />
+              onConfigure={() => onConfigureLeaf && onConfigureLeaf(svc.id)} />
           ))}
         </div>
-        {canManage && configLeaf && (
-          <LeafConfigModal hostId={hostId} leaf={configLeaf} onClose={() => setConfiguring(null)} />
-        )}
       </>
     );
   }
