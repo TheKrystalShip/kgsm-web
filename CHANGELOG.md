@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the backup KPIs are wired to real data
+
+- **"Last backup" (server detail) and "Oldest backup" (dashboard) show real backups.** Both read
+  `server.last_backup`, which the adapter had hardcoded to `null` — so both KPIs read "—" / "No backups
+  yet" no matter how many backups existed. They now consume the `lastBackup` / `backupCount` fields the
+  backend serves, and update live over the `server.patch` stream when a backup is taken or restored,
+  including one taken from the CLI.
+
+- **Removed the fabricated "Auto-snapshot" subtitle.** Nothing records how a backup was triggered, so
+  the tile no longer characterizes it. It now describes what the snapshot IS, read off the backup's own
+  manifest — size, which directories it captured, which build — and shows only the fields that manifest
+  actually carried.
+
+- **"No backups yet" is only shown when that is known.** A server the backend has scanned and found
+  empty reads "No backups yet"; one it has not scanned yet reads "Not scanned yet" rather than implying
+  the server is unprotected. A backup whose manifest carries no timestamp is still described, and is
+  excluded from the dashboard's oldest-backup ranking rather than being sorted as infinitely old or
+  brand new.
+
 ### Added — the server note is wired to the backend
 
 - **The "Server note" card now persists.** It saves through `PUT/DELETE /servers/{id}/note`, so a note

@@ -156,11 +156,22 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const updatable = servers.filter(s => s.update_available && s.status !== "updating");
   // 3) Oldest backup — the MOST-OVERDUE server (worst-case insurance gap), not
   //    the most recent, so the one actually at risk is what surfaces.
-  const backedUp = servers.filter(s => s.last_backup);
-  const oldestBackup = backedUp.reduce((w, s) =>
-    (!w || +new Date(s.last_backup) < +new Date(w.last_backup)) ? s : w, null);
-  const backupAgeMs = oldestBackup ? (now - new Date(oldestBackup.last_backup)) : 0;
+  //    s.last_backup is the newest backup's manifest record; its createdAt is what dates it. A backup
+  //    whose manifest carries no timestamp can't be ranked by age, so it doesn't compete for "oldest"
+  //    (it would otherwise sort as either infinitely old or brand new — both fabrications).
+  const backupTs = (s) => (s.last_backup?.createdAt ? +new Date(s.last_backup.createdAt) : null);
+  const backedUp = servers.filter(s => backupTs(s) != null);
+  const oldestBackup = backedUp.reduce((w, s) => (!w || backupTs(s) < backupTs(w)) ? s : w, null);
+  const backupAgeMs = oldestBackup ? (now - backupTs(oldestBackup)) : 0;
   const backupTone = !oldestBackup ? "muted" : backupAgeMs > 24 * HOUR ? "danger" : backupAgeMs > 12 * HOUR ? "warn" : "ok";
+  // Only a server the backend has actually scanned and found empty counts as "no backups yet"; one that
+  // hasn't been scanned is unknown, and the KPI says so rather than implying it is unprotected.
+  const unscanned = servers.filter(s => s.backup_count == null && !s.last_backup).length;
+  const backupSub = oldestBackup
+    ? oldestBackup.name
+    : servers.length && unscanned === servers.length
+      ? "not scanned yet"
+      : "no backups yet";
   // 4) Crashes / auto-restarts in the last 24h — caught by the watchdog at the
   //    process level, so it's game-agnostic. Reads the same audit feed.
   const crash24h = auditScoped.filter(ev => ev.action === "server.crash" && (now - parseTs(ev.ts)) <= 24 * HOUR);
@@ -213,7 +224,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
         <Kpi
           icon="database-backup" label="Oldest backup"
           value={oldestBackup ? fmtDur(backupAgeMs) : "—"}
-          sub={oldestBackup ? oldestBackup.name : "no backups yet"}
+          sub={backupSub}
           tone={backupTone}
           onView={oldestBackup ? () => onOpenServer(oldestBackup.id) : null}
         />

@@ -45,7 +45,18 @@ export function adaptServer(be) {
     players: null,
     uptime: null,                  // not exposed by kgsm
     ip: null,                      // not exposed by kgsm
-    last_backup: null,
+    // The newest backup's own manifest record ({ name, createdAt, version, sizeBytes, fileCount,
+    // compressed, consistency, sources, sha256 }) or null, plus how many backups the instance holds.
+    // Both ride the list, the detail AND the server.patch stream, so the dashboard can summarize backup
+    // freshness across the roster without a detail fetch per server.
+    //
+    // The two nulls mean DIFFERENT things and surfaces must keep them apart: backup_count === 0 is a
+    // MEASURED zero ("this server genuinely has no backups"), while backup_count == null means the
+    // backend hasn't scanned yet ("unknown"). Rendering the second as "no backups yet" would be a
+    // fabrication — it is the honest-unknown "—" case. Any manifest field may itself be null (a backup
+    // the engine lists but whose manifest is missing/unreadable); render what is present, omit the rest.
+    last_backup: be.lastBackup ?? null,
+    backup_count: be.backupCount ?? null,
     log: [],                       // console is a SEPARATE endpoint (GET /servers/{id}/console + WS follow),
                                    // hydrated by ConsolePanel — never carried on the server DTO.
     // update_available — a truthy TARGET VERSION string when an update is waiting (the SPA surfaces
@@ -540,7 +551,9 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }
     players: null,
     uptime: null,
     ip: null,
+    // An install in flight has no backups and has not been scanned — honestly unknown, not a measured zero.
     last_backup: null,
+    backup_count: null,
     log: [],
     cpu: null,
     ram: null,

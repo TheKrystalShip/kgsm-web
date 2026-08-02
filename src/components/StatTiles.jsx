@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { KPI } from "./KPI.jsx";
 import { useStore } from "../lib/store.js";
 import { auditStore } from "../lib/stores.js";
-import { parseTs } from "../lib/formatting.js";
+import { parseTs, formatBytes } from "../lib/formatting.js";
 
 // StatTiles — the server-detail overview KPIs. Renders the shared KPI card
 // (KPI) so the overview matches the dashboard summary and host
@@ -63,8 +63,30 @@ function StatTiles({ server, playerCounts }) {
 
   // Time since last backup — same concept as the dashboard's backup KPI:
   // fresh = ok, getting stale = warn, overdue (>24h) = danger.
-  const backupMs = server.last_backup ? (now - parseTs(server.last_backup)) : null;
+  //
+  // server.last_backup is the newest backup's own manifest record. Everything shown here is read off
+  // that manifest; nothing is inferred. A manifest field the engine didn't record is simply omitted
+  // rather than guessed — in particular there is no source for HOW a backup was triggered, so the
+  // subtitle never characterizes it (it describes what the snapshot IS: size, what it captured, which
+  // build). The count separates "scanned, none exist" from "not scanned yet"; only the first may say
+  // "No backups yet", the second is an honest unknown.
+  const backup = server.last_backup;
+  const backupMs = backup?.createdAt ? (now - parseTs(backup.createdAt)) : null;
   const backupTone = backupMs == null ? "muted" : backupMs > 24 * HOUR ? "danger" : backupMs > 12 * HOUR ? "warn" : "ok";
+
+  const backupSub = (() => {
+    if (!backup) return server.backup_count === 0 ? "No backups yet" : "Not scanned yet";
+    // Built only from fields the manifest actually carried, joined in the order that reads best:
+    // how big it is, what it captured, which build it holds.
+    const parts = [];
+    if (backup.sizeBytes != null) parts.push(formatBytes(backup.sizeBytes));
+    if (backup.sources?.length) parts.push(backup.sources.join(" + "));
+    if (backup.version) parts.push("v" + backup.version);
+    // A backup with no createdAt still exists and is still described — say so rather than showing a
+    // detail line with no anchor.
+    if (!parts.length) return backup.createdAt ? null : "Captured (no timestamp recorded)";
+    return parts.join(" · ");
+  })();
 
   return (
     <div className="stats">
@@ -81,7 +103,7 @@ function StatTiles({ server, playerCounts }) {
         value={backupMs == null ? "—" : fmtDur(backupMs)}
         unit={backupMs == null ? null : "ago"}
         tone={backupTone}
-        sub={server.last_backup ? "Auto-snapshot" : "No backups yet"} />
+        sub={backupSub} />
     </div>
   );
 }
