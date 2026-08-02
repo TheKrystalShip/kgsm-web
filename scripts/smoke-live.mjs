@@ -1191,6 +1191,65 @@ try {
   assert(updHtml.includes("Not available from the panel yet") && /disabled/.test(updHtml),
     "ChatCommand: a non-API verb (update) renders disabled with an honest reason (no 400-bound button)");
 
+  // ---- server note (MOTD) -------------------------------------------------
+  // The note is engine-owned (it lives in the kgsm instance's own config), so this
+  // is a real write against the live backend. NON-DESTRUCTIVE: the probe's existing
+  // note is captured first and restored at the end, whatever it was.
+  const noteApi = api.host(hmId);
+  const notePath = "/servers/" + PROBE.id + "/note";
+  const noteBefore = (await noteApi.get(notePath)).note;
+
+  const NOTE_TEXT = "smoke: mods v1 — quotes \" $dollars `ticks`\nand a second line";
+  const written = await st.saveServerNote(hmId, PROBE.id, NOTE_TEXT);
+  assert(written && written.body === NOTE_TEXT,
+    "server note: a body with quotes/$/backticks/newlines round-trips verbatim (the config file is SOURCED — encoding is what keeps it intact)");
+  assert(written.updatedBy && written.updatedAt,
+    `server note: the backend stamps who wrote it and when (${written.updatedBy})`);
+
+  // It must ride the LIST DTO, not just the dedicated endpoint — the dashboard tile
+  // renders a note without ever fetching a detail. The write triggers a roster refresh
+  // that is deliberately NON-blocking (the editing client already has the authoritative
+  // value from the PUT response), so poll briefly rather than assuming it lands instantly.
+  let noteRow = null;
+  for (let i = 0; i < 20; i++) {
+    const rows = adapt.adaptServers(await (await fetch(API + "/api/v1/servers")).json());
+    noteRow = rows.find((s) => s.id === PROBE.id);
+    if (noteRow && noteRow.notice === NOTE_TEXT) break;
+    await sleep(250);
+  }
+  assert(noteRow && noteRow.notice === NOTE_TEXT,
+    "server note: rides the /servers list DTO (adaptServer → .notice), so a tile needs no detail fetch");
+
+  // The card itself renders the text and the byline — the component, not just the store.
+  const { ServerNotice } = await vite.ssrLoadModule("/src/components/ServerNotice.jsx");
+  const renderNote = async (server, canEdit) => {
+    const node = w.document.createElement("div");
+    const root = createRoot(node);
+    root.render(React.createElement(ServerNotice, { server, canEdit }));
+    await sleep(30);
+    const html = node.innerHTML;
+    root.unmount();
+    return html;
+  };
+  const noteHtml = await renderNote(noteRow, true);
+  assert(noteHtml.includes("mods v1") && noteHtml.includes("Server note"),
+    "ServerNotice: renders the live note body inside the card");
+  assert(noteHtml.includes("edited by"),
+    "ServerNotice: renders the backend's attribution byline (never a guessed author)");
+  const noteEmptyHtml = await renderNote({ ...noteRow, notice: "", note: null }, false);
+  assert(noteEmptyHtml === "",
+    "ServerNotice: a player viewing a server with no note gets nothing at all (no dead box)");
+
+  // An empty save is a CLEAR (routed to DELETE — the backend refuses an empty write,
+  // so an accidentally-emptied editor can never silently wipe a note).
+  const cleared = await st.saveServerNote(hmId, PROBE.id, "");
+  assert(cleared === null, "server note: saving an empty body clears it (DELETE, not an empty PUT)");
+  assert((await noteApi.get(notePath)).note === null, "server note: the clear persisted (re-read is honestly null)");
+
+  // Restore whatever the probe had before this suite touched it.
+  await st.saveServerNote(hmId, PROBE.id, noteBefore ? noteBefore.body : "");
+  assert(true, `  ✓ teardown: restored ${PROBE.id}'s original note (${noteBefore ? "had one" : "had none"})`);
+
   // ---- Phase 7: integrations (Discord) wiring -----------------------------
   // (a) The webhook-PATCH footgun is the one place a bug = silent data loss: the
   // secret is write-only (GET returns only a masked hint), so the body must never

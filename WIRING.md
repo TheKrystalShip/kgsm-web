@@ -715,6 +715,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `PlayersTab` | player roster + per-player ping/playtime | **C** | presence mid-build (`player.join/leave` audit exist; no roster/count). |
 | `ConsolePanel`/`LogConsole` | console stream topic | **C** | no WS topic; degrade to "unavailable." |
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
+| `ServerNotice` (server note) | `GET/PUT/DELETE /servers/{id}/note` + `note` on the `Server` DTO | ✅ **DONE** | operator-gated write, viewer read; note rides the list DTO + `server.patch` so the dashboard tile needs no detail fetch; byline from the backend's attribution, blank when it recorded none. |
 | `FileBrowser` | `GET/PUT /servers/{id}/files…` | ✅ **DONE** | Tier 3 #12: lazy working-dir tree + raw read + etag save, operator-gated. `put` seam added. binary/too-large/symlink/jail handled honestly. |
 | `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings` endpoint (config is `/servers/{id}/config`; settings panel still WIP). |
 | `ChatPage` (assistant) | `POST /assistant/turn` SSE | ✅ **9a done** | rewritten onto `api.host(id).turn()` SSE through the seam (streaming half). 9b = command.proposed→verify. |

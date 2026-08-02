@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the server note is wired to the backend
+
+- **The "Server note" card now persists.** It saves through `PUT/DELETE /servers/{id}/note`, so a note
+  survives a refresh and every viewer of that server sees the same text. Previously the editor patched
+  the in-memory store only and the note vanished on reload.
+- **A byline under the note** — "edited by X · 2h ago", from the attribution the backend records. A note
+  written by hand into the instance config has no stored author, and renders with no byline rather than
+  a guessed one.
+- **Clearing the editor removes the note** (routed to `DELETE`), and a failed save keeps the draft in the
+  editor with the error beside it instead of losing the text to a toast.
+- The note rides the `/servers` list DTO and the `server.patch` stream, so the dashboard tile renders it
+  with no extra fetch and an edit made elsewhere appears live.
+
 ### Changed — the Join button launches the game instead of trying to connect for you
 - **"Play" replaces "Join".** The button now fires `steam://run/<clientSteamAppId>`, which asks Steam to
   start a title the player owns — something every Steam game supports. Handing Steam an address to

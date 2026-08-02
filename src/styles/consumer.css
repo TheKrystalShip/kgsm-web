@@ -208,6 +208,21 @@
   word-break: break-word;
 }
 
+/* who last wrote the note, and when — only rendered when the backend recorded it */
+.motd__byline {
+  padding: 0 14px 12px;
+  margin-top: -6px;
+  color: var(--fg-4);
+  font-size: 11.5px;
+}
+
+/* a failed save, kept inside the editor so the draft is never lost to a toast */
+.motd__error {
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 /* empty-state invitation (operators only) */
 .motd__empty {
   display: block;

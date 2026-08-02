@@ -276,6 +276,26 @@ function fetchSettings(hostId, serverId) {
 function patchSettings(hostId, serverId, patch) {
   return api.host(hostId).patch("/servers/" + serverId + "/settings", patch);
 }
+// The operator-authored server note. Writing goes through the dedicated endpoint (not the config
+// PATCH, which refuses the note's keys) so the backend owns the encoding and the attribution stamp.
+// An empty body is a CLEAR → DELETE; the backend rejects an empty PUT deliberately, so that an
+// accidentally-emptied editor can never silently wipe a note. Both paths return the fresh
+// { serverId, note }, which is patched straight into the store so the card and the dashboard tile
+// update without waiting for the stream.
+function saveServerNote(hostId, serverId, body) {
+  const text = (body || "").trim();
+  const req = text
+    ? api.host(hostId).put("/servers/" + serverId + "/note", { body: text, origin: "ui" })
+    : api.host(hostId).del("/servers/" + serverId + "/note?origin=ui");
+
+  return req.then(res => {
+    const note = res?.note ?? null;
+    if (serversStore.find(serverId))
+      serversStore.patch(serverId, { note, notice: note?.body ?? "" });
+    return note;
+  });
+}
+
 function deleteServer(hostId, serverId, origin) {
   const qs = origin ? "?origin=" + encodeURIComponent(origin) : "";
   return api.host(hostId).del("/servers/" + serverId + qs);
@@ -285,5 +305,5 @@ export {
   __setJobTiming, serversStore, jobsStore, resolveGameNames,
   commandServer, sendConsoleInput, awaitJob, confirmCommand, installServer,
   confirmInstall, confirmUninstall,
-  fetchSettings, patchSettings, deleteServer,
+  fetchSettings, patchSettings, deleteServer, saveServerNote,
 };

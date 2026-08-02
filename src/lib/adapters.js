@@ -74,6 +74,12 @@ export function adaptServer(be) {
     // background), cover = 2:3 portrait. Never construct these client-side; consume the DTO field.
     cover: be.cover ?? null,
     hero: be.hero ?? null,
+    // The operator-authored server note ({ body, updatedBy, updatedAt }) or null when none is set.
+    // Rides the list, the detail AND the server.patch stream, so a dashboard tile renders it without
+    // a detail fetch and an edit made elsewhere lands live. `notice` is the body alone — the shape
+    // the tile and the note card read; `note` keeps the attribution the card's byline needs.
+    note: be.note ?? null,
+    notice: be.note?.body ?? "",
     steamAppId: be.steamAppId,
     clientSteamAppId: be.clientSteamAppId,
     isSteamAccountRequired: be.isSteamAccountRequired,
