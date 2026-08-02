@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a server with no backups is the dashboard's worst case
+
+- **"Oldest backup" ranks a never-backed-up server ahead of every aged one.** Having no backup at all
+  is a wider insurance gap than having an old one, so a server the backend scanned and found empty
+  takes the tile outright and reads **"never"** in the danger tone, naming the server. It carries no
+  timestamp, so it is ranked first rather than sorted onto the date axis — treating "never" as
+  infinitely old would be inventing an age. Several unprotected servers report the count and drill
+  into the server list instead of arbitrarily opening one of them.
+
+- Only a **measured** empty store (`backup_count === 0`) counts as unprotected. A server that has not
+  been scanned yet stays `null` and is still reported as "not scanned yet", never as having none.
+
 ### Fixed — the backup KPIs are wired to real data
 
 - **"Last backup" (server detail) and "Oldest backup" (dashboard) show real backups.** Both read

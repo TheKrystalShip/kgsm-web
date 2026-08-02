@@ -162,16 +162,32 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const backupTs = (s) => (s.last_backup?.createdAt ? +new Date(s.last_backup.createdAt) : null);
   const backedUp = servers.filter(s => backupTs(s) != null);
   const oldestBackup = backedUp.reduce((w, s) => (!w || backupTs(s) < backupTs(w)) ? s : w, null);
+  // A server the backend SCANNED and found empty outranks every aged backup: having none at all is a
+  // wider gap than having an old one. It carries no age, so it takes the tile outright rather than
+  // competing on the date axis — ranking it as "infinitely old" would be inventing a timestamp.
+  // Only backup_count === 0 qualifies; null is unscanned (see below) and never counts as unprotected.
+  const neverBackedUp = servers.filter(s => s.backup_count === 0);
   const backupAgeMs = oldestBackup ? (now - backupTs(oldestBackup)) : 0;
-  const backupTone = !oldestBackup ? "muted" : backupAgeMs > 24 * HOUR ? "danger" : backupAgeMs > 12 * HOUR ? "warn" : "ok";
+  const backupTone = neverBackedUp.length
+    ? "danger"
+    : !oldestBackup ? "muted" : backupAgeMs > 24 * HOUR ? "danger" : backupAgeMs > 12 * HOUR ? "warn" : "ok";
   // Only a server the backend has actually scanned and found empty counts as "no backups yet"; one that
   // hasn't been scanned is unknown, and the KPI says so rather than implying it is unprotected.
   const unscanned = servers.filter(s => s.backup_count == null && !s.last_backup).length;
-  const backupSub = oldestBackup
-    ? oldestBackup.name
-    : servers.length && unscanned === servers.length
-      ? "not scanned yet"
-      : "no backups yet";
+  const backupSub = neverBackedUp.length
+    ? (neverBackedUp.length === 1 ? neverBackedUp[0].name : `${neverBackedUp.length} servers have none`)
+    : oldestBackup
+      ? oldestBackup.name
+      : servers.length && unscanned === servers.length
+        ? "not scanned yet"
+        : "no backups yet";
+  // One unprotected server drills into it; several drill into the list, since picking one of them to
+  // open would be arbitrary.
+  const backupView = neverBackedUp.length > 1
+    ? () => onServers()
+    : neverBackedUp.length === 1
+      ? () => onOpenServer(neverBackedUp[0].id)
+      : oldestBackup ? () => onOpenServer(oldestBackup.id) : null;
   // 4) Crashes / auto-restarts in the last 24h — caught by the watchdog at the
   //    process level, so it's game-agnostic. Reads the same audit feed.
   const crash24h = auditScoped.filter(ev => ev.action === "server.crash" && (now - parseTs(ev.ts)) <= 24 * HOUR);
@@ -223,10 +239,10 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
         />
         <Kpi
           icon="database-backup" label="Oldest backup"
-          value={oldestBackup ? fmtDur(backupAgeMs) : "—"}
+          value={neverBackedUp.length ? "never" : oldestBackup ? fmtDur(backupAgeMs) : "—"}
           sub={backupSub}
           tone={backupTone}
-          onView={oldestBackup ? () => onOpenServer(oldestBackup.id) : null}
+          onView={backupView}
         />
         <Kpi
           icon="server-crash" label="Crashes · 24h"
