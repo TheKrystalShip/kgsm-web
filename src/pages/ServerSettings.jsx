@@ -31,7 +31,10 @@ function ServerSettings({ server, onDeleted }) {
   const [restartDay, setRestartDay] = React.useState(null); // sun..sat
   const [timezone, setTimezone] = React.useState(null); // IANA string, "" = host-local
   const [nextFireUtc, setNextFireUtc] = React.useState(null); // read-only; null = scheduler absent/unknown
-  const [autoBackupOnRestart, setAutoBackupOnRestart] = React.useState(false);
+  const [backupSchedule, setBackupSchedule] = React.useState(null); // null = not loaded
+  const [backupTime, setBackupTime] = React.useState(null); // "HH:MM"
+  const [backupDay, setBackupDay] = React.useState(null); // sun..sat
+  const [nextBackupUtc, setNextBackupUtc] = React.useState(null); // read-only; null = scheduler absent/unknown
   const [backupRetention, setBackupRetention] = React.useState(5);
   const [lastBackupUtc, setLastBackupUtc] = React.useState(null); // read-only; from scheduler status
   const [lastBackupOk, setLastBackupOk] = React.useState(null); // read-only; null = unknown
@@ -61,7 +64,10 @@ function ServerSettings({ server, onDeleted }) {
         setRestartDay(data.restartDay ?? "sun");
         setTimezone(data.timezone ?? "");
         setNextFireUtc(data.nextFireUtc ?? null);
-        setAutoBackupOnRestart(data.autoBackupOnRestart ?? false);
+        setBackupSchedule(data.backupSchedule ?? "off");
+        setBackupTime(data.backupTime ?? "05:00");
+        setBackupDay(data.backupDay ?? "sun");
+        setNextBackupUtc(data.nextBackupUtc ?? null);
         setBackupRetention(data.backupRetention ?? 5);
         setLastBackupUtc(data.lastBackupUtc ?? null);
         setLastBackupOk(data.lastBackupOk ?? null);
@@ -82,7 +88,7 @@ function ServerSettings({ server, onDeleted }) {
     patchSettings(server.hostId, server.id, {
       autoUpdate, autostart, crashRestart, crashMaxRestarts, cpuPriority, memoryCapMb,
       scheduledRestart, restartTime, restartDay, timezone,
-      autoBackupOnRestart, backupRetention: Number(backupRetention),
+      backupSchedule, backupTime, backupDay, backupRetention: Number(backupRetention),
       origin: "ui",
     }).then(
       (data) => {
@@ -97,7 +103,10 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
-          if (data.settings.autoBackupOnRestart !== undefined) setAutoBackupOnRestart(data.settings.autoBackupOnRestart ?? false);
+          if (data.settings.backupSchedule !== undefined) setBackupSchedule(data.settings.backupSchedule ?? "off");
+          if (data.settings.backupTime !== undefined) setBackupTime(data.settings.backupTime ?? "05:00");
+          if (data.settings.backupDay !== undefined) setBackupDay(data.settings.backupDay ?? "sun");
+          if (data.settings.nextBackupUtc !== undefined) setNextBackupUtc(data.settings.nextBackupUtc ?? null);
           if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
           if (data.settings.lastBackupUtc !== undefined) setLastBackupUtc(data.settings.lastBackupUtc ?? null);
           if (data.settings.lastBackupOk !== undefined) setLastBackupOk(data.settings.lastBackupOk ?? null);
@@ -121,7 +130,7 @@ function ServerSettings({ server, onDeleted }) {
     patchSettings(server.hostId, server.id, {
       autoUpdate: null, autostart: null, crashRestart: null, crashMaxRestarts: null, cpuPriority: null, memoryCapMb: null,
       scheduledRestart: null, restartTime: null, restartDay: null, timezone: null,
-      autoBackupOnRestart: null, backupRetention: null,
+      backupSchedule: null, backupTime: null, backupDay: null, backupRetention: null,
       origin: "ui",
     }).then(
       (data) => {
@@ -137,7 +146,10 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.restartDay !== undefined) setRestartDay(data.settings.restartDay ?? "sun");
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.nextFireUtc !== undefined) setNextFireUtc(data.settings.nextFireUtc ?? null);
-          if (data.settings.autoBackupOnRestart !== undefined) setAutoBackupOnRestart(data.settings.autoBackupOnRestart ?? false);
+          if (data.settings.backupSchedule !== undefined) setBackupSchedule(data.settings.backupSchedule ?? "off");
+          if (data.settings.backupTime !== undefined) setBackupTime(data.settings.backupTime ?? "05:00");
+          if (data.settings.backupDay !== undefined) setBackupDay(data.settings.backupDay ?? "sun");
+          if (data.settings.nextBackupUtc !== undefined) setNextBackupUtc(data.settings.nextBackupUtc ?? null);
           if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
           if (data.settings.lastBackupUtc !== undefined) setLastBackupUtc(data.settings.lastBackupUtc ?? null);
           if (data.settings.lastBackupOk !== undefined) setLastBackupOk(data.settings.lastBackupOk ?? null);
@@ -217,7 +229,10 @@ function ServerSettings({ server, onDeleted }) {
         restartTime={restartTime} setRestartTime={setRestartTime}
         restartDay={restartDay} setRestartDay={setRestartDay}
         timezone={timezone} setTimezone={setTimezone}
-        autoBackupOnRestart={autoBackupOnRestart} setAutoBackupOnRestart={setAutoBackupOnRestart}
+        backupSchedule={backupSchedule} setBackupSchedule={setBackupSchedule}
+        backupTime={backupTime} setBackupTime={setBackupTime}
+        backupDay={backupDay} setBackupDay={setBackupDay}
+        nextBackupUtc={nextBackupUtc}
         backupRetention={backupRetention} setBackupRetention={setBackupRetention}
         lastBackupUtc={lastBackupUtc} lastBackupOk={lastBackupOk} nextFireUtc={nextFireUtc} />
 

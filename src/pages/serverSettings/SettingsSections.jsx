@@ -68,31 +68,32 @@ function StartupSection({ watchdogDown, watchdogLed, autostart, setAutostart, cr
 function ScheduleSection({
   schedulerDown, schedulerLed, scheduledRestart, setScheduledRestart,
   restartTime, setRestartTime, restartDay, setRestartDay, timezone, setTimezone,
-  autoBackupOnRestart, setAutoBackupOnRestart, backupRetention, setBackupRetention,
-  lastBackupUtc, lastBackupOk, nextFireUtc,
+  backupSchedule, setBackupSchedule, backupTime, setBackupTime, backupDay, setBackupDay,
+  backupRetention, setBackupRetention,
+  lastBackupUtc, lastBackupOk, nextFireUtc, nextBackupUtc,
 }) {
   const cadence = scheduledRestart ?? "off";
+  const backupCadence = backupSchedule ?? "off";
+  // The timezone is shared by both schedules, so it is offered as soon as either one is on.
+  const anySchedule = cadence !== "off" || backupCadence !== "off";
+  const cadenceOptions = [
+    { value: "off",    label: "Off" },
+    { value: "daily",  label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "6h",     label: "Every 6 hours" },
+  ];
   return (
     <SettingsSection icon="calendar-clock" title="Scheduled tasks" action={schedulerDown ? schedulerLed : null}>
       {schedulerDown ? (
         <div style={{ padding: "10px 0 4px", color: "var(--fg-3)", fontSize: 12.5, textAlign: "center" }}>
           <Icon name="alert-circle" size={13} strokeWidth={1.8} style={{ verticalAlign: "middle", marginRight: 5 }} />
-          Scheduler leaf not deployed — scheduled restarts unavailable
+          Scheduler leaf not deployed — scheduled restarts and backups unavailable
         </div>
       ) : (
         <>
           <SettingsRow icon="calendar-clock" title="Restart cadence"
             sub="Automatically restart this server on a schedule.">
-            <Select
-              value={cadence}
-              options={[
-                { value: "off",    label: "Off" },
-                { value: "daily",  label: "Daily" },
-                { value: "weekly", label: "Weekly" },
-                { value: "6h",     label: "Every 6 hours" },
-              ]}
-              onChange={setScheduledRestart}
-            />
+            <Select value={cadence} options={cadenceOptions} onChange={setScheduledRestart} />
           </SettingsRow>
 
           {cadence !== "off" && (
@@ -108,7 +109,7 @@ function ScheduleSection({
               </SettingsRow>
 
               {cadence === "weekly" && (
-                <SettingsRow icon="calendar" title="Day of week"
+                <SettingsRow icon="calendar" title="Restart day"
                   sub="Which day the weekly restart runs.">
                   <Select
                     value={restartDay ?? "sun"}
@@ -125,55 +126,101 @@ function ScheduleSection({
                   />
                 </SettingsRow>
               )}
+            </>
+          )}
 
-              <SettingsRow icon="globe" title="Timezone"
-                sub="IANA timezone for the schedule (empty = host-local).">
-                <input
-                  type="text"
-                  value={timezone ?? ""}
-                  placeholder="e.g. Europe/Madrid"
-                  onChange={e => setTimezone(e.target.value)}
-                  style={{ ...schedInputStyle, width: 150 }}
-                />
-              </SettingsRow>
+          {/* Backups run against the server as it is, so this schedule stands on its own — it
+              needs no restart cadence and is not nested under one. */}
+          <SettingsRow icon="archive" title="Backup cadence"
+            sub="Automatically back this server up on a schedule, running or not.">
+            <Select value={backupCadence} options={cadenceOptions} onChange={setBackupSchedule} />
+          </SettingsRow>
 
-              <SettingsRow icon="archive" title="Back up before restart"
-                sub="Take a backup each time the scheduled restart runs.">
-                <Toggle on={!!autoBackupOnRestart} onChange={setAutoBackupOnRestart} />
-              </SettingsRow>
-
-              {autoBackupOnRestart && (
-                <SettingsRow icon="layers" title="Keep backups"
-                  sub="How many recent backups to retain (older ones are pruned).">
+          {backupCadence !== "off" && (
+            <>
+              {backupCadence !== "6h" && (
+                <SettingsRow icon="clock" title="Backup time"
+                  sub="Time of day the backup runs.">
                   <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={backupRetention ?? 5}
-                    onChange={e => setBackupRetention(Number(e.target.value))}
-                    style={{ ...schedInputStyle, width: 70, textAlign: "right" }}
+                    type="time"
+                    value={backupTime ?? "05:00"}
+                    onChange={e => setBackupTime(e.target.value)}
+                    style={schedInputStyle}
                   />
                 </SettingsRow>
               )}
 
-              {lastBackupUtc && (
-                <SettingsRow icon="history" title="Last backup"
-                  sub="Most recent backup taken by the scheduler.">
-                  <span style={{ fontSize: 12.5, color: lastBackupOk === false ? "var(--danger, #e55)" : "var(--fg-2)" }}>
-                    {new Date(lastBackupUtc).toLocaleString()}{lastBackupOk === false ? " (failed)" : ""}
-                  </span>
+              {backupCadence === "weekly" && (
+                <SettingsRow icon="calendar" title="Backup day"
+                  sub="Which day the weekly backup runs.">
+                  <Select
+                    value={backupDay ?? "sun"}
+                    options={[
+                      { value: "sun", label: "Sunday" },
+                      { value: "mon", label: "Monday" },
+                      { value: "tue", label: "Tuesday" },
+                      { value: "wed", label: "Wednesday" },
+                      { value: "thu", label: "Thursday" },
+                      { value: "fri", label: "Friday" },
+                      { value: "sat", label: "Saturday" },
+                    ]}
+                    onChange={setBackupDay}
+                  />
                 </SettingsRow>
               )}
 
-              {nextFireUtc && (
-                <SettingsRow icon="alarm-clock" title="Next restart"
-                  sub="Scheduled by the kgsm-scheduler leaf.">
-                  <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
-                    {new Date(nextFireUtc).toLocaleString()}
-                  </span>
-                </SettingsRow>
-              )}
+              <SettingsRow icon="layers" title="Keep backups"
+                sub="How many recent backups to retain (older ones are pruned).">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={backupRetention ?? 5}
+                  onChange={e => setBackupRetention(Number(e.target.value))}
+                  style={{ ...schedInputStyle, width: 70, textAlign: "right" }}
+                />
+              </SettingsRow>
             </>
+          )}
+
+          {anySchedule && (
+            <SettingsRow icon="globe" title="Timezone"
+              sub="IANA timezone for both schedules (empty = host-local).">
+              <input
+                type="text"
+                value={timezone ?? ""}
+                placeholder="e.g. Europe/Madrid"
+                onChange={e => setTimezone(e.target.value)}
+                style={{ ...schedInputStyle, width: 150 }}
+              />
+            </SettingsRow>
+          )}
+
+          {nextFireUtc && (
+            <SettingsRow icon="alarm-clock" title="Next restart"
+              sub="Scheduled by the kgsm-scheduler leaf.">
+              <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
+                {new Date(nextFireUtc).toLocaleString()}
+              </span>
+            </SettingsRow>
+          )}
+
+          {nextBackupUtc && (
+            <SettingsRow icon="alarm-clock" title="Next backup"
+              sub="Scheduled by the kgsm-scheduler leaf.">
+              <span style={{ fontSize: 12.5, color: "var(--fg-2)" }}>
+                {new Date(nextBackupUtc).toLocaleString()}
+              </span>
+            </SettingsRow>
+          )}
+
+          {lastBackupUtc && (
+            <SettingsRow icon="history" title="Last backup"
+              sub="Most recent backup taken by the scheduler.">
+              <span style={{ fontSize: 12.5, color: lastBackupOk === false ? "var(--danger, #e55)" : "var(--fg-2)" }}>
+                {new Date(lastBackupUtc).toLocaleString()}{lastBackupOk === false ? " (failed)" : ""}
+              </span>
+            </SettingsRow>
           )}
         </>
       )}

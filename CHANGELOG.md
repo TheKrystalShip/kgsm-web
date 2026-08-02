@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a server's backup schedule stands on its own
+
+- **Scheduled tasks offers a Backup cadence alongside the Restart cadence.** The old "Back up
+  before restart" toggle is gone: a backup runs against the server as it is, running or not, so it
+  no longer needs a restart schedule to hang off and is no longer nested under one. Backup time,
+  weekly day and retention appear once a cadence is chosen; Next backup renders beside Next
+  restart, both from the scheduler leaf.
+- **The timezone applies to both schedules** and is offered as soon as either one is on.
+
 ### Changed — a server with no backups is the dashboard's worst case
 
 - **"Oldest backup" ranks a never-backed-up server ahead of every aged one.** Having no backup at all
