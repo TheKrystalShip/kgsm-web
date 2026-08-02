@@ -1,9 +1,9 @@
 /* ============================================================================
-   Consumer surfaces — Join / connect, server note (MOTD), login persona switch.
+   Consumer surfaces — Play / connect, server note (MOTD), login persona switch.
    Loaded after kit.css; reuses the same tokens so it reads as one system.
    ============================================================================ */
 
-/* ---- Join / connect (server hero) ---- */
+/* ---- Play / connect (server hero) ---- */
 .connect {
   display: flex;
   flex-direction: column;
@@ -111,9 +111,9 @@
 
 /* ---- cinematic hero "bar" variant (compact, no note) ---- */
 /* A single inline row that sits inside the server-hero's frosted control bar:
-   green Join CTA (Steam) + glass address pill + icon-only copy. */
-/* The whole cluster (HOST:IP label → Copy → Join) right-aligns and hugs the bar's right
-   edge, in that order. With no Join (non-Steam) the label + copy still hug the right. */
+   glass address pill + icon-only copy + the green Play CTA (Steam). */
+/* The whole cluster (HOST:IP label → Copy → Play) right-aligns and hugs the bar's right
+   edge, in that order. With no Play (non-Steam) the label + copy still hug the right. */
 .connect--bar {
   flex-direction: row;
   align-items: center;
@@ -144,7 +144,7 @@
   justify-content: center;
 }
 
-/* ---- Join button on a server card (tile variant) ---- */
+/* ---- Play / copy buttons on a server card (tile variant) ---- */
 .connect-tile {
   display: inline-flex;
   align-items: center;
@@ -178,6 +178,14 @@
   color: var(--fg-1);
   border-color: var(--border-strong);
   filter: none;
+}
+
+/* Icon-only copy, sat beside the Play button on a Steam title's card: the pair
+   shares one row, so this one drops its label and its flex grow. */
+.connect-tile--icon {
+  flex: 0 0 32px;
+  gap: 0;
+  padding: 0;
 }
 
 .connect-tile--off {

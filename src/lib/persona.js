@@ -145,33 +145,45 @@ import { hostsStore } from "./stores.js";
   function isOperatorAnywhere() { return can(CAP.NAV_DASHBOARD); }
   function isAdminAnywhere() { return can(CAP.NAV_CLUSTER); }
 
-  // ---- Steam connect ------------------------------------------------------
+  // ---- Steam launch + connect address --------------------------------------
   // Identity comes from the backend, NOT a hardcoded table: each server carries
   // clientSteamAppId — the CLIENT/store app id a player owns and launches (e.g.
   // Factorio 427520). This is deliberately NOT the dedicated-server steamAppId
-  // (a separate SteamCMD id with no store/launch meaning); steam://connect is a
+  // (a separate SteamCMD id with no store/launch meaning); the deep link is a
   // player-side launch, so the client app id is the only correct one. "0" / absent
   // ⇒ not a Steam game. kgsm-api projects it from the engine blueprint, the single
   // source of truth — the frontend keeps zero game data.
   //
   // serverPort — the instance's player-facing connect port: the FIRST required
-  // port (kgsm lists the game/connect port first in the blueprint). Sourced from
-  // the detail superset's `network` block (GET /servers/{id}) — null on the bare
-  // list row (network is detail-only) and never fabricated.
+  // port (kgsm lists the game/connect port first in the blueprint). `connectPort`
+  // is the source: kgsm-api carries it on the list, the stream and the detail
+  // alike (it's roster truth, no firewall probe), so a list card resolves an
+  // address without a detail fetch. The detail-only `network` block is the
+  // fallback, and both name the same port — the backend derives them with one
+  // rule. Unknown → null, never fabricated.
   function serverPort(server) {
+    var p = server && server.connectPort;
+    if (typeof p === "number" && p > 0) return p;
     var req = server && server.network && server.network.required;
     if (!Array.isArray(req) || !req.length) return null;
-    var p = req[0] && req[0].port;
-    return (typeof p === "number" && p > 0) ? p : null;
+    var q = req[0] && req[0].port;
+    return (typeof q === "number" && q > 0) ? q : null;
   }
 
-  // serverJoin — everything the Join UI needs. `address` is the player-facing
-  // host:port, composed from the host's address (the origin the SPA reached this
-  // server's host api at — kgsm/monitor source no ip, so the connect origin is the
-  // honest host address) + the instance's connect port (from the detail network
-  // block). Either part unknown → address is null (honest "—", never the string
-  // "null"). steamUrl is null for non-Steam games (or until an address is known) →
-  // the UI falls back to copy-connect only.
+  // serverJoin — everything the Play/connect UI needs. `address` is the
+  // player-facing host:port, composed from the host's address (the origin the SPA
+  // reached this server's host api at — kgsm/monitor source no ip, so the connect
+  // origin is the honest host address) + the instance's connect port. Either part
+  // unknown → address is null (honest "—", never the string "null").
+  //
+  // launchUrl LAUNCHES THE GAME; it does not join the server. `steam://run/<appid>`
+  // asks Steam to start a title the player owns, which every Steam game supports —
+  // whereas handing Steam an address to auto-connect only works for the subset of
+  // games whose developers wired that up, so it silently did nothing for the rest.
+  // The player joins from the game's own server browser using `address`, which is
+  // why the copy affordance sits beside the button on every surface rather than
+  // being a fallback for non-Steam titles. It depends only on the app id, so it is
+  // resolvable wherever a server row is (no address, no detail fetch needed).
   function serverJoin(server) {
     // clientSteamAppId arrives as a string ("0" = not Steam) from the API; coerce.
     var appId = server ? (Number(server.clientSteamAppId) || 0) : 0;
@@ -185,9 +197,7 @@ import { hostsStore } from "./stores.js";
       address: address,
       host: host || null,
       port: port,
-      // steam://connect/<ip:port> — asks Steam to launch the owned client game and
-      // join. Offered only for a Steam title (clientSteamAppId > 0) with an address.
-      steamUrl: (isSteam && address) ? ("steam://connect/" + address) : null,
+      launchUrl: isSteam ? ("steam://run/" + appId) : null,
       online: !!(server && server.status === "online"),
     };
   }

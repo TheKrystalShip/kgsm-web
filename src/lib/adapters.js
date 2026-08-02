@@ -64,6 +64,10 @@ export function adaptServer(be) {
     // keep the raw backend objects for surfaces that want honest detail:
     metrics: m,
     network: be.network || null,
+    // The player-facing connect port. Unlike `network` (detail-only — it carries a firewall probe), this
+    // rides the list, the stream AND the detail, so a card can render host:port without a detail fetch.
+    // Honest null when the instance declares no ports.
+    connectPort: be.connectPort ?? null,
     // RAWG art for this server's blueprint, self-hosted by kgsm-api (absolute, directly-renderable
     // URLs, or null). DETAIL-ONLY — the list/stream omit them, so they're null here until
     // serversStore.fetchDetail merges the detail body in. hero = landscape banner (the detail-page
@@ -536,6 +540,7 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }
     ram: null,
     metrics: null,
     network: null,
+    connectPort: null,
     steamAppId: null,
     clientSteamAppId: null,
     isSteamAccountRequired: false,

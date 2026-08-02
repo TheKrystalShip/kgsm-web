@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the Join button launches the game instead of trying to connect for you
+- **"Play" replaces "Join".** The button now fires `steam://run/<clientSteamAppId>`, which asks Steam to
+  start a title the player owns — something every Steam game supports. Handing Steam an address to
+  auto-connect only works for the subset of games whose developers wired that up, so on the rest it
+  silently did nothing and there was no way to tell which was which from the panel. Launching is honest
+  about what it does: it opens the game, and the connect address beside it is how you get in.
+- **The connect address works on the servers list.** It comes from the server row's own `connectPort`
+  (kgsm-api now carries it on the list and the stream, not just the detail body), so a card resolves
+  `host:port` without opening the server first. This fixes a Copy button that silently did nothing on a
+  freshly-loaded list — the port only existed after a visit to the detail page merged it in.
+- **Steam cards get a copy button too.** They previously offered only the connect action, which was
+  correct when it connected you; now that the player joins from the game's own server browser, the
+  address has to be reachable from the card. Play + an icon-only copy share the card's action row.
+- The launch link no longer depends on an address, so it resolves anywhere a server row does. Both
+  actions stay gated on the server being online — there is nothing to join otherwise.
+
 ### Added — the leaf configuration page
 - **Every setting every leaf declares, on one page.** `#/config/<hostId>/<leaf>` — its own route, not a
   node sub-tab, because it carries its own leaf tab strip and nesting that under the node page's tabs
