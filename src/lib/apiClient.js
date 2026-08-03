@@ -79,6 +79,45 @@ const FINALIZE_IDLE_MS = 60000;
   let online = nav.onLine !== false;
   const realtimeStore = createStore({ online, hosts: {} });
 
+  // ---- fan-out reach (what an aggregated read actually got) ---------------
+  // A read spanning N nodes comes back partial when a node is unreachable,
+  // refuses the session, or errors: the rows that node owns are simply absent.
+  // On a list with no node dimension on screen that is indistinguishable from
+  // "those servers are gone" — a fabricated state. So every fan-out records its
+  // per-node outcome here and the aggregated surfaces disclose it. Absence of
+  // data is never the signal; this is the measurement.
+  //   ok           the node answered
+  //   unreachable  transport failure — no answer at all
+  //   unauthorized the node refused the session (401/403)
+  //   error        the node answered, with a failure
+  // Keyed by the connection's URL, not its id: a connection's backend id is null
+  // until GET /hosts reconciles it, so id-keying would strand the reads taken
+  // before that under a second key and inflate the node count. The URL is the
+  // one identity that holds from the first request. `id` rides along for label
+  // resolution and can fill in later.
+  const reachStore = createStore({ byHost: {} });
+  function reachReason(err) {
+    if (!err) return "unreachable";
+    // `preflight` means the call never left: the session couldn't be established.
+    // That covers a node that is simply down (its /me probe can't complete) as
+    // well as one whose session is dead, so it must NOT be reported as the node
+    // refusing us — we never got to ask it.
+    if (err.preflight) return "unauthenticated";
+    if (err.code === 401 || err.code === 403) return "unauthorized";
+    if (typeof err.code === "number") return "error";
+    return "unreachable";   // ECONNREFUSED / EOFFLINE / a thrown transport error
+  }
+  function recordReach(conn, ok, err) {
+    const key = (conn && conn.url) || "_default";
+    const reason = ok ? null : reachReason(err);
+    const id = (conn && conn.id) || null;
+    const prev = reachStore.getState().byHost[key];
+    if (prev && prev.ok === ok && prev.reason === reason && prev.id === id) return;   // steady state → no churn
+    reachStore.setState(s => ({
+      byHost: { ...s.byHost, [key]: { ok, reason, id, name: (conn && conn.name) || null, at: Date.now() } },
+    }));
+  }
+
   // The connection a call routed to; a falsy / aggregate ("all") id folds onto the
   // sole-connection default key so N=1 (and unscoped calls) attribute consistently.
   function connKey(hostId) { return (hostId && hostId !== "all") ? hostId : "_default"; }
@@ -792,7 +831,10 @@ const FINALIZE_IDLE_MS = 60000;
     }
     return Promise.all(CONNECTIONS.map((conn) => {
       const client = conn.id ? hostScoped(conn.id) : { get };
-      return client.get(path).then((data) => ({ conn, ok: true, data }), (err) => ({ conn, ok: false, err, data: null }));
+      return client.get(path).then(
+        (data) => { recordReach(conn, true, null); return { conn, ok: true, data }; },
+        (err) => { recordReach(conn, false, err); return { conn, ok: false, err, data: null }; },
+      );
     }));
   }
 
@@ -832,4 +874,4 @@ const FINALIZE_IDLE_MS = 60000;
     __dispatch: (raw) => dispatchMessage(adaptStreamMessage(raw)),
   };
 
-export { api, connectionStore, realtimeStore };
+export { api, connectionStore, reachStore, realtimeStore };

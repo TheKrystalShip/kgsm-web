@@ -1418,3 +1418,23 @@
     flex: 0 0 auto;
   }
 }
+/* Fan-out reach — which nodes did not contribute to an aggregated surface.
+   Renders only when a node is genuinely degraded, so it reads as a warning
+   rather than as chrome. */
+.cluster-reach {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 7px 11px;
+  border: 1px solid var(--warning-bg);
+  border-radius: var(--r-sm);
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.cluster-reach svg {
+  flex: 0 0 auto;
+}

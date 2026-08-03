@@ -1,6 +1,6 @@
 import React from "react";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
-import { nodeFilterOptions } from "../components/host-helpers.jsx";
+import { ClusterReach, nodeFilterOptions } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
@@ -150,8 +150,9 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   const nodeOptions = nodeFilterOptions(hosts, selectedHostId);
   const multiNode = nodeOptions.length > 2;
   // The rows carry a node badge only while the list actually spans nodes —
-  // pinned to one, the badge repeats the filter on every card.
-  const spansNodes = selectedHostId === "all" && node === "all";
+  // pinned to one (or a one-node cluster), the badge repeats itself on every
+  // card. Derived from the data on screen, never from an app-wide scope.
+  const spansNodes = hosts.length > 1 && node === "all";
 
   // Count by status for the filter tabs (so each tab shows how many match).
   const counts = React.useMemo(() => {
@@ -269,6 +270,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
         <div className="dash-head__sub">
           {dataLoading ? <Skel w={240} h={14} /> : <>{servers.length} installed · {counts.online} online right now.</>}
         </div>
+        <ClusterReach />
       </div>
 
       {dataLoading ? <ServersSkeleton /> : (<>

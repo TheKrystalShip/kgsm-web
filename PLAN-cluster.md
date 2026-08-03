@@ -185,30 +185,51 @@ registers that peer, opens its primary + dynamic SSE streams, and fans
 console errors. The viewer branch is unexercised here: the dev api authenticates
 every request as admin.*
 
-### P2 — Aggregate-always surfaces · `planned`
+### P2 — Aggregate-always surfaces · `built`
 
-- **Dashboard** drops its scope reads and renders the cluster: totals across
-  nodes, with per-node breakdown as *content* (a node capacity strip / node
-  column), not a mode. `showHost` becomes unconditional.
-- **Alerts** — `alertBuckets(hostId)` keeps its `serverId` scope and its
-  optional explicit `hostId` (used by server detail); the ambient default
-  becomes "every node". `ContextualAlerts.jsx:30` likewise.
-- **Fan-out partials become visible.** `api.fanOut` already returns per-node
-  `{conn, ok, err}` (`apiClient.js:761-769`) and callers mostly discard `err`.
-  Introduce one shared reachability summary the list surfaces render:
-  *"5 of 6 nodes reported · node C unreachable"*. This is peers decision 25
-  (fail-open to honest "unknown") carried into the UI, and it is what makes
-  removing the selector safe.
-- **Audit** — `auditInScope`'s unknown-node ⇒ in-scope fallback
-  (`audit.js:44-49`) becomes an explicit `unknown` node value in the Node
-  column rather than silent attribution.
-- **Settings / Sessions** — drop the selected-else-first anchor. Sessions
-  already fans out and merges (peers decision 18); make the fan symmetric with
-  no "primary" node. "Sign out everywhere" enqueues the cluster-wide revoke
-  from any reachable node. `isAdmin` uses the aggregate persona rule.
+- **Fan-out partials are visible.** `api.fanOut` records every per-node outcome
+  into `reachStore` (`apiClient.js`), and `<ClusterReach />` renders the honest
+  footnote on Home, Servers, Alerts and Audit: *"1 of 2 nodes reported · Node B
+  couldn't be signed in to"*. Recording happens at the one place every
+  aggregated read passes through, so a new fan-out caller is covered for free.
+  This is peers decision 25 (fail-open to honest "unknown") carried into the UI,
+  and it is what makes removing the selector safe.
+  - Keyed by the connection **URL**, not its id: an id is null until `GET /hosts`
+    reconciles it, and id-keying strands the earlier reads under a second key
+    and inflates the node count.
+  - A `preflight` auth failure reads *"couldn't be signed in to"*, never
+    *"refused this session"* — the call never left, so the node never refused
+    anything. A node that is simply down surfaces through this path.
+  - Silent at N=1 (a lone node's failure is the connectivity banner's story) and
+    silent when every node answered.
+- **Dashboard** renders the cluster: servers, audit, ping, capacity and the
+  watchdog KPI all read every node. The crash KPI reads unknown when ANY node's
+  watchdog is down, rather than reporting a count that excludes it. No node is
+  marked "local" in the fleet strip.
+- **Alerts** are cluster-wide by default — the page, the dashboard card and the
+  sidebar badge. `alertBuckets` keeps its `serverId` scope and its explicit
+  `hostId` for the node deep-dive, where the node is the subject on screen.
+- **Audit** matches nodes STRICTLY, with events belonging to no node (auth,
+  account) as their own selectable class — the same "panel" the timeline already
+  chips them as — instead of being silently counted into whichever node you pick.
+- **The node badge on a server row** is derived from the data: shown when the
+  cluster has more than one node and the list is not pinned to one, on both the
+  dashboard and the Servers page.
+- **Settings / Sessions** fan symmetrically over every live node with no primary;
+  sessions and recent logins are unions over whatever answered, with an honest
+  partial note and a real error only when every node fails. A single-row revoke
+  goes to the node that row came from; "Sign out everywhere" is cluster-wide, so
+  any live node is a valid entry point. `isAdmin` uses the aggregate persona rule
+  (`isAdminAnywhere`).
 
 **Done when:** no non-administrative surface reads a node id it did not derive
-from an object on screen.
+from an object on screen. — *Servers and Audit still apply the sidebar's scope as
+an upstream narrowing, deliberately: removing it before P5 deletes the control
+would leave a selector that silently does nothing on two pages. Everything else
+is aggregate. Verified live in Chromium with a stubbed two-node cluster: two
+healthy nodes aggregate to 4 servers with per-node badges and no notice; a node
+that joins and then stops answering produces the disclosure on all three list
+surfaces. Lint 0 errors, build clean, smoke 247/247.*
 
 ### P3 — Entity-derived node targets · `planned`
 

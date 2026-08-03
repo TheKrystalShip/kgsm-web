@@ -1,5 +1,8 @@
 import { Icon } from "./Icon.jsx";
+import { reachStore } from "../lib/apiClient.js";
+import { CONNECTIONS } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
+import { hostsStore } from "../lib/stores.js";
 import { sessionStore, TIER_LABEL } from "../lib/sessionStore.js";
 import { statusTone } from "../lib/formatting.js";
 
@@ -7,6 +10,48 @@ import { statusTone } from "../lib/formatting.js";
 //
 // These were previously co-located in DiagnosticsPage.jsx, HostAccess.jsx, and
 // LoginPage.jsx. They are reusable components consumed across pages and components.
+
+// ---------- Fan-out reach disclosure ----------
+
+const REACH_TEXT = {
+  unreachable: "didn't answer",
+  unauthenticated: "couldn't be signed in to",
+  unauthorized: "refused this session",
+  error: "returned an error",
+};
+
+// The honest footnote on an aggregated surface: which nodes did NOT contribute
+// to what you are looking at. Without it, a node dropping out of the fan-out is
+// indistinguishable from its servers having been deleted.
+//
+// Silent when every node answered, and silent at N=1 — a lone node's failure is
+// already the app-wide connectivity banner's story, and repeating it here would
+// be noise. A node with no recorded read yet is not counted against anything.
+function ClusterReach({ className = "" }) {
+  const byHost = useStore(reachStore, s => s.byHost);
+  const hosts = useStore(hostsStore, s => s.list);
+  // The denominator is the connection set — the nodes we drive — so a stale
+  // entry for a node no longer connected can never be counted against it.
+  const known = CONNECTIONS.filter(c => byHost[c.url]);
+  if (CONNECTIONS.length <= 1 || known.length <= 1) return null;
+  const degraded = known.filter(c => !byHost[c.url].ok);
+  if (!degraded.length) return null;
+  const labelOf = (conn) => {
+    const rec = byHost[conn.url];
+    const id = conn.id || (rec && rec.id);
+    const h = id && hosts.find(x => x.id === id);
+    return (h && h.name) || conn.name || (rec && rec.name) || id || conn.url;
+  };
+  return (
+    <div className={"cluster-reach " + className}>
+      <Icon name="triangle-alert" size={13} />
+      <span>
+        {known.length - degraded.length} of {known.length} nodes reported
+        {degraded.map(c => " · " + labelOf(c) + " " + (REACH_TEXT[byHost[c.url].reason] || "is degraded")).join("")}
+      </span>
+    </div>
+  );
+}
 
 // ---------- The Node list-filter ----------
 
@@ -199,4 +244,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };
+export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };

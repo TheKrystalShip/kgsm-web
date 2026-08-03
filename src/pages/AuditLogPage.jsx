@@ -1,13 +1,13 @@
 import React from "react";
 import { AuditEventRow } from "../components/AuditEventRow.jsx";
-import { nodeFilterOptions } from "../components/host-helpers.jsx";
+import { ClusterReach, nodeFilterOptions } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditEventHost, auditInScope, auditStore, hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // AuditLogPage — searchable, filterable timeline of every action taken on
 // Krystal. Same data feeds the small "Recent activity" panel on the
@@ -27,6 +27,10 @@ function dayBucket(date, now = new Date()) {
 
 // ---------- Query ----------
 
+// The Node filter's value for events that belong to no node — the same class the
+// timeline chips as "panel".
+const PANEL_WIDE = "__panel";
+
 // Apply the aggregated filter set to the event list. This is the client-side
 // stand-in for the server's WHERE clause: in production the same `filters`
 // object is sent as query params (GET /audit?…) and this function disappears —
@@ -39,7 +43,13 @@ function queryAudit(list, filters, now) {
   return list.filter(ev => {
     if (parseTs(ev.ts) < cutoff) return false;
     if (filters.category !== "all" && actionCategory(ev.action) !== filters.category) return false;
-    if (filters.node     !== "all" && !auditInScope(ev, filters.node)) return false;
+    // Node matches STRICTLY. An event that belongs to no node (auth, account —
+    // the rows the timeline chips "panel") is its own class, selectable on its
+    // own, never quietly counted as part of whichever node you picked.
+    if (filters.node !== "all") {
+      const h = auditEventHost(ev);
+      if (filters.node === PANEL_WIDE ? h != null : h !== filters.node) return false;
+    }
     if (filters.actor    !== "all" && ev.actor.name !== filters.actor) return false;
     if (filters.server   !== "all" && ev.serverId !== filters.server) return false;
     if (filters.severity === "attention" && ev.severity !== "warn" && ev.severity !== "danger") return false;
@@ -224,6 +234,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
       <div className="dash-head">
         <h1>Audit log</h1>
         <div className="dash-head__sub">Every action on Krystal — by you, your crew, or our automation. Search, filter, export.</div>
+        <ClusterReach />
       </div>
 
       {dataLoading ? <AuditSkeleton /> : (<>
@@ -234,7 +245,8 @@ function AuditLogPage({ initialSeverity, initialServer }) {
           fields={[
             { id: "category", label: "Category", value: category, onChange: setCat, default: "all",
               options: categories.map(c => ({ value: c, label: c === "all" ? "All categories" : (CATEGORY_LABEL[c] || c), count: cnt(c === "all" ? auditCounts.total : auditCounts.category[c]) })) },
-            { id: "node", label: "Node", value: node, onChange: setNode, default: "all", options: nodeOptions, hidden: nodeOptions.length <= 2 },
+            { id: "node", label: "Node", value: node, onChange: setNode, default: "all",
+              options: [...nodeOptions, { value: PANEL_WIDE, label: "Panel-wide" }], hidden: nodeOptions.length <= 2 },
             { id: "actor", label: "User", value: actor, onChange: setActor, default: "all",
               options: actorOpts.map(a => ({ value: a, label: a === "all" ? "All users" : a, count: a === "all" ? undefined : cnt(auditCounts.actor[a]) })) },
             { id: "severity", label: "Severity", value: severity, onChange: setSeverity, default: "all", options: [

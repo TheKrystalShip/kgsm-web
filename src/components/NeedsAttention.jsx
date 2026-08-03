@@ -4,7 +4,6 @@ import { alertInScope } from "./ContextualAlerts.jsx";
 import { Icon } from "./Icon.jsx";
 import { KrystalAlerts } from "../lib/alertsApi.js";
 import { askAssistantUsable } from "../lib/capabilities.js";
-import { useSelectedHostId } from "../lib/stores.js";
 
 // NeedsAttention — compact FIRING-alerts panel, plus the client hooks over the
 // server alert feed (KrystalAlerts, see alertsApi.js).
@@ -62,19 +61,16 @@ function alertBuckets(hostId, serverId) {
 // "all clear" placeholder so it can sit balanced beside Recent activity. The
 // assistant briefing keeps the original collapse-when-empty default.
 //
-// `hostId` pins the card to a specific host regardless of the global sidebar
-// scope — used by the host diagnostics deep-dive, where the host being
-// inspected is independent of the active scope. Omit it (the default) to track
-// the global selection, as the dashboard and sidebar badge do.
+// `hostId` pins the card to the node it is rendered FOR — the host diagnostics
+// deep-dive, where the node being inspected is the subject on screen. Omitted
+// (the default) the card is cluster-wide, as the dashboard and sidebar badge are.
 //
 // `serverId` (server-detail Performance tab) scopes strictly to one game
-// server's alerts, ignoring the host scope entirely.
+// server's alerts, ignoring the node entirely.
 function NeedsAttention({ onPick, actionLabel = "Ask", onViewAll, className = "", max = Infinity, emptyState = false, hostId, serverId, title = "Alerts" }) {
   useAlerts();
-  const selectedId = useSelectedHostId();
-  const scopeId = hostId != null ? hostId : selectedId;
   const [hidden, setHidden] = React.useState(false);
-  const { active } = alertBuckets(scopeId, serverId);
+  const { active } = alertBuckets(hostId != null ? hostId : "all", serverId);
   const shown = active.slice(0, max);
   if (hidden) return null;
   if (active.length === 0 && !emptyState) return null;

@@ -3,10 +3,9 @@ import { Icon } from "../components/Icon.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { api } from "../lib/apiClient.js";
-import { CONNECTIONS } from "../lib/config.js";
 import { fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
+import { isAdminAnywhere } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
-import { useSelectedHostId } from "../lib/stores.js";
 
 // SettingsSessions.jsx — "Active sessions" + "Recent logins" (Settings page),
 // plus an admin-only "Manage user sessions" section.
@@ -22,21 +21,24 @@ import { useSelectedHostId } from "../lib/stores.js";
 // revoked server-side, so the app clears its local session and returns to the
 // login gate instead of sitting on a now-dead token.
 //
-// "Active sessions" is cross-node aware (SPA-C1): it fans its session list
-// across every node this browser holds a LIVE session on (sessionStore's
-// registry + isLive), not just the selected/default host. Every current:true
-// row across those nodes is the SAME browser, so they collapse into one "This
+// "Active sessions" is a CLUSTER view: one login grants access everywhere and
+// each node mints its own session, so the list is a symmetric fan-out over every
+// node this browser holds a LIVE session on (sessionStore's registry + isLive),
+// with no node treated as primary. Sessions and recent logins are both unions
+// over whatever answered; a node that fails drops its rows and earns an honest
+// partial note rather than silently shrinking the list. Every current:true row
+// across those nodes is the SAME browser, so they collapse into one "This
 // device" row whose "Log out" revokes the caller's own session on each node.
-// A device with only one live connection sees exactly the single-host list
-// this page always rendered — the fan-out only changes anything at N>=2.
-// "Log out all" still only targets the primary node; the backend fans
-// session.revoke to peers server-side.
 //
-// The admin section (tier-gated, sessionStore.tierOf(hostId) === "admin")
-// looks up ANOTHER user's sessions by id and can revoke one or all of them,
-// scoped to the selected/primary host only — not fanned. It never touches
-// onLogout — an admin revoking someone else's session never signs the admin
-// out; the backend enforces the tier check server-side, this gate is UX only.
+// A single-row revoke goes to the node that row came from — the row carries its
+// own node. "Log out all" is cluster-wide and the backend fans session.revoke to
+// peers itself, so any live node performs it.
+//
+// The admin section is gated on the aggregate persona rule (admin on ANY node);
+// it looks up ANOTHER user's sessions by id and can revoke one or all of them
+// through one node. It never touches onLogout — an admin revoking someone else's
+// session never signs the admin out; the backend enforces the tier check
+// server-side, this gate is UX only.
 
 // Guard timestamp formatting against null/unparsable values — never throw,
 // never fabricate a value; render the honest placeholder instead.
@@ -103,24 +105,21 @@ function ConfirmRevokeDialog({ mode, targetUserId, busy, onConfirm, onClose }) {
 }
 
 function SettingsSessions({ onLogout }) {
-  // Resolve a concrete host the same way other in-page settings surfaces do
-  // (DiscordLiveConfig): the selected host, falling back to the sole/first
-  // connection. "all" (the fleet-wide pseudo-selection) isn't a real host.
-  const sel = useSelectedHostId();
-  const hostId = (sel && sel !== "all") ? sel : (CONNECTIONS[0] && CONNECTIONS[0].id) || null;
+  // Your sessions are a CLUSTER fact: one login grants access everywhere and
+  // each node mints its own session, so this page fans out over every node the
+  // browser holds a live session on and merges. No node is "primary" — none of
+  // them is the one you are "on".
+  //
+  // `hostId` is the ENTRY POINT for cluster-wide mutations only (revoke-all
+  // propagates over the backend's own bus, so any live node performs it for the
+  // whole cluster). It is not a scope, and nothing is read through it alone.
+  const liveNodes = sessionStore.readRegistry().filter(h => h && h.id && sessionStore.isLive(h.id));
+  const hostId = (liveNodes[0] && liveNodes[0].id) || null;
+  const nodeKey = liveNodes.map(h => h.id).join(",");
 
-  // Active-sessions state is split by node: `primarySessions` is the
-  // selected/default host, fetched exactly the way the single-host path
-  // always has; `otherSessions` is every OTHER node the SPA holds a live
-  // session on (SPA-C1 cluster fan-out — see the effect below). `sessions`
-  // (defined after the early-return, next to `runRevoke`) is just their
-  // union: at N=1 (no other live nodes) `otherSessions` stays `[]` forever,
-  // so `sessions` === `primarySessions` and every downstream read (revoke,
-  // rendering) behaves exactly as it did before this node was fanned.
-  const [primarySessions, setPrimarySessions] = React.useState([]);
-  const [otherSessions, setOtherSessions] = React.useState([]);
+  const [sessions, setSessions] = React.useState([]);
   const [otherNote, setOtherNote] = React.useState(null); // honest partial-fan-out-failure note, or null
-  const [liveNodeCount, setLiveNodeCount] = React.useState(1); // nodes this browser fetched sessions from (primary + others)
+  const [liveNodeCount, setLiveNodeCount] = React.useState(1); // nodes this browser fetched sessions from
   const [recentLogins, setRecentLogins] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState(null);
@@ -130,7 +129,9 @@ function SettingsSessions({ onLogout }) {
   // Admin cross-user revoke — a distinct, tier-gated section with its own
   // state so it never interferes with the self-service list/dialog above.
   // Real gate (the backend enforces the same check server-side; this is UX).
-  const isAdmin = hostId ? sessionStore.tierOf(hostId) === "admin" : false;
+  // Aggregate, per the persona rule: admin on ANY node reaches the section, and
+  // the node it acts through enforces its own tier.
+  const isAdmin = isAdminAnywhere();
   const [targetUserId, setTargetUserId] = React.useState("");
   const [adminSessions, setAdminSessions] = React.useState([]);
   const [adminLoading, setAdminLoading] = React.useState(false);
@@ -147,60 +148,38 @@ function SettingsSessions({ onLogout }) {
     setErr(null);
     setOtherNote(null);
 
-    const registry = sessionStore.readRegistry();
-    const nameOf = (id) => { const h = registry.find(r => r && r.id === id); return (h && h.name) || id; };
-
-    // Primary fetch — unchanged from the single-host path. Drives `err`,
-    // `loading` and `recentLogins`; at N=1 this is the ONLY fetch, so the
-    // row rendering below (liveNodeCount <= 1 branch) reads straight off it.
-    Promise.all([
-      api.sessions(hostId).list(),
-      api.host(hostId).get("/me"),
-    ]).then(
-      ([s, me]) => {
-        if (!live) return;
-        setPrimarySessions(((s && s.sessions) || []).map(row => ({ ...row, nodeId: hostId, nodeName: nameOf(hostId) })));
-        setRecentLogins((me && me.recentLogins) || []);
-        setLoading(false);
-      },
-      (e) => {
-        if (!live) return;
-        setErr((e && e.userMessage) || "Couldn't load sessions.");
-        setLoading(false);
-      },
-    );
-
-    // Cluster fan-out (SPA-C1): every OTHER node this browser holds a live
-    // session on (the primary is always covered above, regardless of its own
-    // live-ness, so it's excluded here to avoid double-fetching it). A
-    // per-node failure just drops that node's rows and adds an honest note —
-    // it never blanks the primary list. At N=1 `others` is empty, this block
-    // resolves synchronously, and liveNodeCount stays 1 — the untouched
-    // single-host row-rendering branch is what actually renders.
-    const others = registry.filter(h => h && h.id && h.id !== hostId && sessionStore.isLive(h.id));
-    setLiveNodeCount(1 + others.length);
-
-    if (others.length === 0) {
-      setOtherSessions([]);
-    } else {
-      Promise.allSettled(others.map(h =>
-        api.sessions(h.id).list().then(s => ({ node: h, rows: (s && s.sessions) || [] }))
-      )).then(results => {
-        if (!live) return;
-        const ok = [];
-        let failed = 0;
-        results.forEach(r => { if (r.status === "fulfilled") ok.push(r.value); else failed += 1; });
-        setOtherSessions(ok.flatMap(({ node, rows }) =>
-          rows.map(row => ({ ...row, nodeId: node.id, nodeName: node.name || node.id }))
-        ));
-        setOtherNote(failed > 0
-          ? failed + " of " + others.length + " other node" + (others.length > 1 ? "s" : "") + " didn't respond — showing partial results."
-          : null);
-      });
-    }
+    // One symmetric fan-out over every live node. Each node reports its own
+    // sessions and its own recent logins (a login happens at the node you
+    // authenticated against and is vouched onward), so both are unions across
+    // whatever answered. A node that fails drops its rows and earns an honest
+    // note — the list never silently shrinks.
+    setLiveNodeCount(liveNodes.length);
+    Promise.allSettled(liveNodes.map(h =>
+      Promise.all([api.sessions(h.id).list(), api.host(h.id).get("/me")])
+        .then(([s, me]) => ({ node: h, rows: (s && s.sessions) || [], logins: (me && me.recentLogins) || [] }))
+    )).then(results => {
+      if (!live) return;
+      const ok = [];
+      let failed = 0;
+      results.forEach(r => { if (r.status === "fulfilled") ok.push(r.value); else failed += 1; });
+      setSessions(ok.flatMap(({ node, rows }) =>
+        rows.map(row => ({ ...row, nodeId: node.id, nodeName: node.name || node.id }))
+      ));
+      setRecentLogins(
+        ok.flatMap(({ logins }) => logins)
+          .sort((a, b) => new Date(b.at || b.time || 0) - new Date(a.at || a.time || 0))
+      );
+      setOtherNote(failed > 0
+        ? failed + " of " + liveNodes.length + " node" + (liveNodes.length > 1 ? "s" : "") + " didn't respond — showing partial results."
+        : null);
+      // Every node failing is a real error, not a partial.
+      setErr(ok.length === 0 ? "Couldn't load sessions." : null);
+      setLoading(false);
+    });
 
     return () => { live = false; };
-  }, [hostId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeKey IS the identity of liveNodes; depending on the array itself would refetch every render
+  }, [nodeKey]);
 
   if (!hostId) {
     return (
@@ -209,11 +188,6 @@ function SettingsSessions({ onLogout }) {
       </SettingsSection>
     );
   }
-
-  // The union of every node's fetched rows. At N=1 `otherSessions` is always
-  // `[]`, so this is exactly `primarySessions` — identical to the old single
-  // `sessions` state.
-  const sessions = [...primarySessions, ...otherSessions];
 
   const runRevoke = () => {
     if (!confirm) return;
@@ -237,10 +211,10 @@ function SettingsSessions({ onLogout }) {
     // Log out all always includes the caller's own session; a single revoke
     // is "current" only when it targets the row marked current:true.
     const revokesCurrent = isAll || sessions.some(s => s.sid === confirm.sid && s.current);
-    // "Log out all" always targets the primary node (the backend fans
-    // session.revoke to peers server-side — no client-side fan-out here). A
-    // single-row revoke targets whichever node that row came from; at N=1
-    // that's always the primary, so this is unchanged.
+    // "Log out all" is cluster-wide and the backend fans session.revoke to peers
+    // itself, so any live node performs it — no client-side fan-out. A
+    // single-row revoke goes to the node that row came from: the row IS the
+    // object being acted on, so it carries its own node.
     const targetNode = isAll ? hostId : (confirm.nodeId || hostId);
     setBusy(isAll ? "all" : confirm.sid);
     api.sessions(targetNode).revoke(isAll ? { all: true } : { sid: confirm.sid }).then(
@@ -248,8 +222,7 @@ function SettingsSessions({ onLogout }) {
         setConfirm(null);
         setBusy(null);
         if (revokesCurrent) { onLogout(); return; }
-        if (targetNode === hostId) setPrimarySessions(prev => prev.filter(s => s.sid !== confirm.sid));
-        else setOtherSessions(prev => prev.filter(s => s.sid !== confirm.sid));
+        setSessions(prev => prev.filter(s => s.sid !== confirm.sid));
       },
       (e) => {
         setBusy(null);

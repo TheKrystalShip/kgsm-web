@@ -226,7 +226,9 @@ function AppInner({ user, setUser, route, setRoute }) {
     return <LoginPage />;
   }
 
-  const alertCounts = alertBuckets(selectedHostId);
+  // The sidebar badge counts the CLUSTER's firing alerts — an alert on any node
+  // needs a human, so hiding it behind a scope would hide the work.
+  const alertCounts = alertBuckets("all");
   const attentionCount = alertCounts.active.length;
   const attentionTone = alertCounts.active.some(i => i.severity === "danger") ? "danger"
     : alertCounts.active.some(i => i.severity === "warn") ? "warn" : "info";

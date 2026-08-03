@@ -4,8 +4,7 @@ import { SettingsRow, SettingsSection } from "../components/settings-primitives.
 import { Select } from "../components/Select.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
 import { api } from "../lib/apiClient.js";
-import { CONNECTIONS } from "../lib/config.js";
-import { useSelectedHostId } from "../lib/stores.js";
+import { sessionStore } from "../lib/sessionStore.js";
 
 // SettingsPage — account-level settings (distinct from the per-server Settings
 // sub-tab). A single flat page with no subtabs.
@@ -43,12 +42,11 @@ function SettingsPage({ user, onLogout }) {
     handle: user?.name || "",
   });
 
-  // "Sign out everywhere" — resolve the active host the same way SettingsSessions
-  // does, revoke EVERY session server-side, then drop the local session. Without
-  // the revoke this only cleared local tokens (the other devices stayed signed
-  // in); onLogout is still called on failure so the local sign-out never blocks.
-  const sel = useSelectedHostId();
-  const hostId = (sel && sel !== "all") ? sel : (CONNECTIONS[0] && CONNECTIONS[0].id) || null;
+  // "Sign out everywhere" revokes EVERY session server-side, then drops the local
+  // one; onLogout still runs on failure so the local sign-out never blocks. The
+  // revoke is cluster-wide (the backend fans session.revoke to its peers), so any
+  // live node performs it — this is an entry point, not a scope.
+  const hostId = (sessionStore.readRegistry().find(h => h && h.id && sessionStore.isLive(h.id)) || {}).id || null;
   const [signingOutAll, setSigningOutAll] = React.useState(false);
   const signOutEverywhere = async () => {
     if (signingOutAll) return;

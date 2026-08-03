@@ -2,12 +2,12 @@ import React from "react";
 import { AlertCard, AlertSeverityTag } from "../components/AlertCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { alertInScope } from "../components/ContextualAlerts.jsx";
-import { nodeFilterOptions } from "../components/host-helpers.jsx";
+import { ClusterReach, nodeFilterOptions } from "../components/host-helpers.jsx";
 import { alertBuckets, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { useStore } from "../lib/store.js";
-import { hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, serversStore } from "../lib/stores.js";
 
 // AlertsPage — the "what's wrong right now" board (Model A, condition-mirror).
 
@@ -43,7 +43,6 @@ function AlertsSection({ title, subtitle, icon, items, defaultOpen, onAsk, onOpe
 
 function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServerId }) {
   useAlerts();
-  const selectedId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [query, setQuery] = React.useState("");
   const [sev, setSev] = React.useState("all");
@@ -56,8 +55,8 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   // Debounce the search; both alert surfaces re-filter off the settled value.
   const dq = useDebouncedValue(query, 250);
   const searchPending = query.trim() !== dq.trim();
-  const { all, firing, resolved } = alertBuckets(selectedId);
-  const nodeOptions = nodeFilterOptions(hosts, selectedId);
+  const { all, firing, resolved } = alertBuckets("all");
+  const nodeOptions = nodeFilterOptions(hosts, "all");
   const now = new Date();
 
   // Ordering (escalated → severity → recency) now comes from alertBuckets, the
@@ -111,6 +110,7 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
           {firing.length} firing · {resolved.length} resolved in the last 24h
           <span className="dash-head__src"> · conditions raised &amp; cleared by the server monitor</span>
         </div>
+        <ClusterReach />
       </div>
 
       <Toolbar>
@@ -146,12 +146,12 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
         <div className="alerts-sections">
           <AlertsSection
             title="Active" icon="triangle-alert" items={ff} defaultOpen now={now}
-            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter + "|" + selectedId}
+            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter}
             onAsk={onAsk} onOpenServer={onOpenServer} onOpenHost={onOpenHost} onOpenAudit={onOpenAudit}
             emptyHint={filtering ? "No firing conditions match your filters." : "All clear — nothing needs you right now."} />
           <AlertsSection
             title="Recently resolved" subtitle="last 24h" icon="history" items={fr} defaultOpen now={now}
-            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter + "|" + selectedId}
+            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter}
             onAsk={onAsk} onOpenServer={onOpenServer} onOpenHost={onOpenHost} onOpenAudit={onOpenAudit}
             emptyHint={filtering ? "Nothing resolved here matches your filters." : "Nothing has resolved in the last day."}
             footer={

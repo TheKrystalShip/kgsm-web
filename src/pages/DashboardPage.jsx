@@ -6,12 +6,13 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { GameCard } from "../components/GameCard.jsx";
+import { ClusterReach } from "../components/host-helpers.jsx";
 import { RecentActivity } from "../components/RecentActivity.jsx";
 import { capUsable } from "../lib/capabilities.js";
 import { parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, clusterStore, favoritesStore, hostsStore, libraryStore, pingStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditStore, clusterStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore } from "../lib/stores.js";
 import { startPingLoop } from "../lib/stores/ui.js";
 import { DashFleetStrip } from "./dashboard/DashFleetStrip.jsx";
 import { buildClusterNodes } from "./diagnostics/clusterNodes.js";
@@ -28,8 +29,10 @@ import { buildClusterNodes } from "./diagnostics/clusterNodes.js";
 // host diagnostics overview and the server-detail overview stats.
 
 function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onAudit, onDiagnostics, onOpenHostDiagnostics, onAttention, onServers, onViewAlerts, canCluster = true }) {
-  const selectedId = useSelectedHostId();
-  const servers = scopeServers(useStore(serversStore, s => s.list), selectedId);
+  // The dashboard is the CLUSTER's front page: every card reads every node. A
+  // per-node view is a thing you navigate to (a node's page), not a mode this
+  // one switches into.
+  const servers = useStore(serversStore, s => s.list);
   const onlineCount = servers.filter(s => s.status === "online").length;
   const totalPlayers = servers.reduce((n, s) => n + (s.players?.current || 0), 0);
   // Bottom "Servers" card — a single fit-to-width row (max 4), UNFILTERED by
@@ -56,17 +59,12 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps -- SERVER_STATUS_RANK is a constant rank map, never changes
   }, [servers, favSet]);
   // Recent activity is the same feed as the Audit log page — the dashboard is
-  // just a compact window onto it. Use the page's host-scoping (auditInScope)
-  // and newest-first order, then show the latest few; the page owns the full
-  // searchable list. Single source: auditStore.
-  const auditList = useStore(auditStore, s => s.list);
+  // just a compact window onto it, newest-first, across every node; the page
+  // owns the full searchable list. Single source: auditStore.
+  const auditScoped = useStore(auditStore, s => s.list);
   const hosts = useStore(hostsStore, s => s.list);
   const pings = useStore(pingStore, s => s.byHost);
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  const auditScoped = React.useMemo(
-    () => auditList.filter(ev => auditInScope(ev, selectedId)),
-    [auditList, selectedId]
-  );
   // Catalog preview — a compact window onto the installable library. The backend
   // blueprint catalog carries no "added" date (the LibraryEntry DTO has no
   // timestamp), so this is a straight slice of the catalog in its natural order,
@@ -115,16 +113,14 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   // Fleet capacity strip — one mini-meter row per CLUSTER NODE (connected host
   // + federation "ghost" peers), built from the same merge the Cluster page
   // renders from (buildClusterNodes) so the two surfaces never drift. Capacity
-  // can't be averaged across machines, so it's always one row per node,
-  // regardless of host selection. The "local" node is the active scope (or
-  // the first connected host under "all") — same convention ClusterPage uses.
-  const scopedHost = selectedId !== "all" ? (hosts.find(h => h.id === selectedId) || hosts[0] || null) : null;
-  const localHostId = selectedId !== "all" ? selectedId : (hosts[0] && hosts[0].id);
+  // can't be averaged across machines, so it's always one row per node. No node
+  // is marked "local": which address this browser was pointed at first says
+  // nothing about the cluster, so the rows sort by name and read as equals.
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   React.useEffect(() => { startPingLoop(); }, []);
   const clusterNodes = React.useMemo(
-    () => buildClusterNodes(hosts, clusterNodesRaw, pings, localHostId),
-    [hosts, clusterNodesRaw, pings, localHostId]);
+    () => buildClusterNodes(hosts, clusterNodesRaw, pings, null),
+    [hosts, clusterNodesRaw, pings]);
   const now = auditScoped.length ? parseTs(auditScoped[0].ts) : new Date();
 
   // ---- KPIs ---------------------------------------------------------------
@@ -140,15 +136,13 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     return rh ? `${d}d ${rh}h` : `${d}d`;
   };
   // 1) Ping — operator's live link to the host(s). Lower is better; non-interactive.
-  // Client-measured round trip via WebSocket ping/pong (pingStore, keyed by host id). For a
-  // single scoped host it's that host's reading; under "all" it's the WORST (max)
-  // across hosts that have a reading — the slowest link, matching the other summary
-  // tiles' worst-case framing. No reading (probe failed / not yet measured) → null
-  // → "no reading" (never a fabricated latency).
-  const pingVals = (selectedId === "all" ? hosts : hosts.filter(h => h.id === selectedId))
-    .map(h => pings[h.id]).filter(p => p && p.ms != null).map(p => p.ms);
+  // Client-measured round trip via WebSocket ping/pong (pingStore, keyed by host id).
+  // It's the WORST (max) across every node that has a reading — the slowest link,
+  // matching the other summary tiles' worst-case framing. No reading (probe failed /
+  // not yet measured) → null → "no reading" (never a fabricated latency).
+  const pingVals = hosts.map(h => pings[h.id]).filter(p => p && p.ms != null).map(p => p.ms);
   const pingMs = pingVals.length ? Math.max(...pingVals) : null;
-  const pingMultiHost = selectedId === "all" && pingVals.length > 1;
+  const pingMultiHost = pingVals.length > 1;
   const pingTone = pingMs == null ? "muted" : pingMs < 60 ? "ok" : pingMs < 120 ? "warn" : "danger";
   // 2) Updates available — servers on an older build, excluding ones already
   //    mid-update. Actionable to-do, not an error → info tone.
@@ -192,9 +186,10 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const crash24h = auditScoped.filter(ev => ev.action === "server.crash" && (now - parseTs(ev.ts)) <= 24 * HOUR);
   const crashTone = crash24h.length === 0 ? "ok" : crash24h.length < 3 ? "warn" : "danger";
   const lastCrash = crash24h[0];
-  // Crash detection is the watchdog's job — when the scoped host's watchdog is
-  // down we can't claim "all stable", so the KPI reads unknown.
-  const scopedWatchdogDown = selectedId !== "all" && scopedHost && !capUsable(scopedHost, "watchdog");
+  // Crash detection is the watchdog's job — if ANY node's watchdog is down we
+  // can't claim the cluster is stable, so the KPI reads unknown rather than
+  // reporting a count that silently excludes that node.
+  const scopedWatchdogDown = hosts.length > 0 && hosts.some(h => !capUsable(h, "watchdog"));
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 5) return "Late one,";
@@ -265,7 +260,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
       <div className="dash-feed">
         <NeedsAttention onPick={onAttention} onViewAll={onViewAlerts} max={3} emptyState title="Alerts - Latest" />
 
-        <RecentActivity hostId={selectedId} onViewAll={onAudit} max={3} title="Audit - Recent activity" />
+        <RecentActivity onViewAll={onAudit} max={3} title="Audit - Recent activity" />
       </div>
     )
   });
@@ -326,7 +321,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
           ) : (
             <div className="server-grid" ref={serverRowRef}>
               {featuredVisible.map(s => (
-                <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={selectedId === "all"} />
+                <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={hosts.length > 1} />
               ))}
             </div>
           )}
@@ -345,6 +340,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
               ? <Skel w={300} h={14} />
               : <>{onlineCount} of {servers.length} servers online · {totalPlayers} players connected right now.</>}
           </div>
+          <ClusterReach />
         </div>
         {!dataLoading && (
           <div className={"dash-customize" + (customize ? " dash-customize--on" : "")}>

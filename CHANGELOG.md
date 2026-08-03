@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a node that goes quiet says so, instead of its servers just vanishing
+
+- **Every aggregated list discloses which nodes didn't answer.** Home, Servers, Alerts and Audit
+  show *"1 of 2 nodes reported · Node B couldn't be signed in to"* when a read comes back partial.
+  Fewer rows used to be indistinguishable from servers having been deleted.
+- **The reason is the measured one**: a node that couldn't be signed in to is never reported as
+  having refused you, and the notice stays silent when every node answers or when there's one node.
+
+### Changed — the dashboard and alerts are cluster-wide
+
+- **The dashboard reads every node** — servers, activity, ping, capacity. The crash KPI reads
+  unknown when any node's watchdog is down, instead of quietly reporting a count that leaves that
+  node out.
+- **Alerts are cluster-wide** on the board, the dashboard card and the sidebar badge: an alert on
+  any node needs a human, so a scope can't hide it.
+- **Server rows show which node they run on** whenever the cluster has more than one and the list
+  isn't pinned to one.
+- **The audit's Node filter matches strictly**, with account-level events (auth, tokens) as their
+  own selectable "Panel-wide" class rather than being counted into whichever node you picked.
+- **Active sessions treat every node equally** — sessions and recent logins are merged from all of
+  them, with an honest note when one doesn't respond. "Sign out everywhere" still ends everything
+  everywhere.
+
 ### Added — the panel drives the cluster's nodes, not the ones you typed in
 
 - **Node discovery runs at boot, for every tier.** The SPA asks a node it can reach for the
