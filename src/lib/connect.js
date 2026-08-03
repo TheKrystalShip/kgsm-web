@@ -10,7 +10,7 @@
 // backend token-handoff that isn't built (WIRING §6) — so we surface that
 // honestly ("needs_auth") rather than bounce into a flow that can't finish.
 
-import { REGISTRY_KEY } from "./config.js";
+import { CONNECTIONS, REGISTRY_KEY, addConnections } from "./config.js";
 
 const AUTH_LS_KEY = "krystal:auth";   // app-shell identity (same key App.jsx / authRedirect use)
 
@@ -53,11 +53,15 @@ function readRegistry() {
   catch { return []; }
 }
 // Add (or replace, by origin) a connection in the registry. URLs only, no tokens.
+// The live connection set grows with it, so a node registered after boot is
+// driven immediately; addConnections dedupes, so re-registering a URL the app
+// already drives only rewrites the stored entry.
 export function addConnection(entry) {
   const norm = normalizeHostUrl(entry.url);
   const list = readRegistry().filter((h) => normalizeHostUrl(h.url) !== norm);
   list.push(entry);
   try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch {}
+  addConnections([entry]);
 }
 export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.stringify(user)); } catch {} }
 
@@ -74,10 +78,16 @@ export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.
 // never self-heals, and there is nothing to vouch onto anyway. Idempotent:
 // dedupes by normalized origin AND by existing id, so repeated calls (e.g. on
 // every roster poll) only ever add genuinely-new entries. opts.localHostId is
-// the already-connected node — skipped, it's registered by definition.
+// the already-connected node — skipped, it's registered by definition. A mirrored
+// node joins the LIVE connection set at once (addConnection), so the fan-out and
+// the stream registry pick it up with no reload.
 export function mirrorRosterToRegistry(nodes, opts = {}) {
   const localHostId = (opts && opts.localHostId) || null;
-  const existing = readRegistry();
+  // Known = the stored registry PLUS the connections the app is already driving.
+  // The env seed is a connection with no registry row, so registry-only dedupe
+  // would re-register the seeded node under whatever address the roster
+  // advertises for it and fan out over the same node twice.
+  const existing = readRegistry().concat(CONNECTIONS);
   const knownOrigins = new Set(existing.map((h) => normalizeHostUrl(h && h.url)).filter(Boolean));
   const knownIds = new Set(existing.map((h) => h && h.id).filter(Boolean));
   let added = 0;

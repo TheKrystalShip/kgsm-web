@@ -8,7 +8,6 @@ import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { useAlerts } from "../components/NeedsAttention.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { api } from "../lib/apiClient.js";
-import { mirrorRosterToRegistry } from "../lib/connect.js";
 import { canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
@@ -64,24 +63,10 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   const canFederate = !!localHostId && canOn("host.manage", localHostId) && !!clusterAdmin;
   const pingByHost = useStore(pingStore, s => s.byHost);
   React.useEffect(() => { startPingLoop(); }, []);
-  React.useEffect(() => { if (localHostId) clusterStore.refresh(localHostId); }, [localHostId]);
-  // Lazy-vouch loop close: mirror the converged roster into the host registry
-  // (keyed by nodeId) so a 401 against a federated peer has a routable vouch
-  // target. Mirroring itself is idempotent and safe on every roster change
-  // (only genuinely-new entries get written) but a registry change only takes
-  // effect after a reload (config.js reads CONNECTIONS once at module load) —
-  // so bound the auto-reload to once per page load, the FIRST time a mirror
-  // actually adds something; later polls still mirror silently (a "ghost" row
-  // in the meantime) and activate on the next natural reload.
-  const mirroredRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!clusterNodesRaw.length) return;
-    const { added } = mirrorRosterToRegistry(clusterNodesRaw, { localHostId });
-    if (added > 0 && !mirroredRef.current) {
-      mirroredRef.current = true;
-      window.location.reload();
-    }
-  }, [clusterNodesRaw, localHostId]);
+  // The roster has ONE owner: cluster discovery keeps clusterStore current for
+  // the whole app, at boot and on its own cadence. This page reads it. The
+  // per-node peer ACTIONS still re-read the node they mutated — that read is
+  // scoped to the node it acted on, not to an ambient one.
   const clusterNodes = React.useMemo(
     () => buildClusterNodes(hosts, clusterNodesRaw, pingByHost, localHostId),
     [hosts, clusterNodesRaw, pingByHost, localHostId]);

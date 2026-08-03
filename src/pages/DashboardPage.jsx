@@ -122,7 +122,6 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const localHostId = selectedId !== "all" ? selectedId : (hosts[0] && hosts[0].id);
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   React.useEffect(() => { startPingLoop(); }, []);
-  React.useEffect(() => { if (localHostId) clusterStore.refresh(localHostId); }, [localHostId]);
   const clusterNodes = React.useMemo(
     () => buildClusterNodes(hosts, clusterNodesRaw, pings, localHostId),
     [hosts, clusterNodesRaw, pings, localHostId]);

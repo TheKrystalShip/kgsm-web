@@ -10,9 +10,13 @@
 //                   smoke:live harness points the app at a backend, and a handy
 //                   dev shortcut.
 //
-// CONNECTIONS is read once at module load; the app does a FULL PAGE RELOAD on any
-// registry change (connect / disconnect) — exactly as it reloads on login /
-// logout / session-loss — so every module-load read re-evaluates cleanly.
+// CONNECTIONS is seeded once at module load and then GROWS IN PLACE as cluster
+// discovery converges on the roster: the array identity never changes, so every
+// consumer that holds the import — routing, fan-out, the SSE registry — sees a
+// node the moment it is registered. Connect and disconnect still do a FULL PAGE
+// RELOAD (they change identity and auth, exactly as login / logout / session-loss
+// do); an appended peer needs no reload because nothing about the session changes.
+// Subscribe with subscribeConnections() to hold per-connection resources.
 
 const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
 
@@ -53,6 +57,35 @@ const registry = readRegistry();
 export const CONNECTIONS = registry.length
   ? registry.map(h => ({ id: h.id || null, url: h.url, name: h.name || null }))
   : (SEED_URL ? [{ id: null, url: SEED_URL, name: null, seed: true }] : []);
+
+// ---- growing the connection set (cluster discovery) ---------------------
+// Notified with the connections just appended. The SSE registry uses this to
+// open a stream per new node and re-hydrate; nothing here fetches by itself.
+const connListeners = new Set();
+export function subscribeConnections(fn) {
+  connListeners.add(fn);
+  return () => connListeners.delete(fn);
+}
+
+// Append the connections the app doesn't already drive. Dedupe is by normalized
+// ORIGIN and by backend id, so a node already reachable under a URL we hold is
+// never added twice — that keeps repeated roster polls idempotent. Returns the
+// entries actually added, so a caller can tell "converged" from "nothing new".
+export function addConnections(entries) {
+  const added = [];
+  for (const e of (entries || [])) {
+    const url = clean(e && e.url);
+    if (!url) continue;
+    const o = originOf(url);
+    if (CONNECTIONS.some(c => originOf(c.url) === o)) continue;
+    if (e.id && CONNECTIONS.some(c => c.id && c.id === e.id)) continue;
+    const conn = { id: e.id || null, url, name: e.name || null };
+    CONNECTIONS.push(conn);
+    added.push(conn);
+  }
+  if (added.length) connListeners.forEach(fn => { try { fn(added); } catch {} });
+  return added;
+}
 
 // Normalize a stored host URL to an http(s) origin. A URL with an explicit
 // scheme is kept verbatim (the seed is a full URL, e.g. http://127.0.0.1:8097);

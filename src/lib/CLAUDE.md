@@ -41,13 +41,18 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 **back-compat re-export barrel** over `stores/` — new code can import from either.
 
 **Connection / config / multi-host**
-- `config.js` — the connection model: `CONNECTIONS` (localStorage host registry,
-  read once at module load), `apiV1Of`/`streamUrlOf` per-host routing with the
-  sole-connection fallback. **`CONNECTIONS.length` is a topology check (0 →
-  connect screen, ≥2 → fan-out), NOT a `LIVE`/`MOCK` mode flag — never
-  reintroduce that duality.** `VITE_API_BASE` is an optional single-host *seed*.
+- `config.js` — the connection model: `CONNECTIONS` (seeded from the localStorage
+  host registry at module load, then **grown in place** by cluster discovery via
+  `addConnections`; `subscribeConnections` notifies holders of per-connection
+  resources), `apiV1Of`/`streamUrlOf` per-host routing with the sole-connection
+  fallback. **`CONNECTIONS.length` is a topology check (0 → connect screen, ≥2 →
+  fan-out), NOT a `LIVE`/`MOCK` mode flag — never reintroduce that duality.**
+  `VITE_API_BASE` is an optional single-host *seed*.
 - `connect.js` — connect/disconnect a host (mutates the registry → full page
-  reload); `devSeedAutoConnect` for auth-disabled dev.
+  reload) and `mirrorRosterToRegistry`, which registers the alive+reachable peers
+  a roster names (dedupes against the registry AND the live connection set, so a
+  seeded node is never registered twice under a second address);
+  `devSeedAutoConnect` for auth-disabled dev.
 
 **Auth / RBAC / capabilities**
 - `sessionStore.js` — per-host identity (Model A): Discord SSO anchor, each host

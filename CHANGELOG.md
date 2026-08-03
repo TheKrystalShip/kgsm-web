@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the panel drives the cluster's nodes, not the ones you typed in
+
+- **Node discovery runs at boot, for every tier.** The SPA asks a node it can reach for the
+  converged cluster roster and starts driving the peers it names, so a node federated on another
+  machine shows up in servers, alerts, audit and the catalog on its own. Discovery re-runs on a slow
+  cadence, so a node that joins later arrives without anyone doing anything.
+- **A discovered node joins live — no page reload.** It gets its realtime streams and is folded into
+  the next fan-out immediately. Connecting or disconnecting a host still reloads, because that
+  changes who you are signed in as.
+- **The roster has one owner.** Pages read it instead of each fetching their own copy, so opening
+  the dashboard or the Cluster page is no longer what keeps the node list current. Peer actions
+  still re-read the node they changed.
+- **A seeded node can't be registered twice** under a second address the roster advertises for it.
+
+Only nodes the cluster reports as alive and reachable are driven; anything else stays a visible
+ghost on the Cluster page rather than becoming a dead connection (`PLAN-cluster.md`).
+
 ### Fixed — a list filter filters its list, and nothing else
 
 - **The Node filter on Servers, Alerts and Audit is local to its page.** Each list holds its own

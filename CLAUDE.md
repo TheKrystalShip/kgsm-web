@@ -104,10 +104,16 @@ host is connected**, derived at module-load from `CONNECTIONS`:
   where you point the SPA at a kgsm-api.
 
 `VITE_API_BASE` is an OPTIONAL single-host **seed** (a dev shortcut and how
-`smoke` points the app at a backend), not a gate. `CONNECTIONS` is read once at
-module load; the app does a **full page reload** on any registry change
-(connect/disconnect) so every module-load read re-evaluates — the same way it
-reloads on login/logout/session-loss.
+`smoke` points the app at a backend), not a gate. `CONNECTIONS` is seeded once at
+module load and then **grows in place**: cluster discovery (`clusterStore.discover`,
+started from `stores/boot.js`) asks any reachable node for the converged peer
+roster and registers the nodes it names, so the SPA drives the **cluster's** node
+set rather than the addresses this browser was pointed at by hand. The array
+identity never changes, so every consumer that holds the import sees a new node at
+once; `subscribeConnections()` notifies the pieces that hold per-connection
+resources (the SSE registry opens a stream per new node and re-hydrates). Connect
+and disconnect still do a **full page reload** — they change identity and auth, the
+same way login/logout/session-loss do. An appended peer needs no reload.
 
 Each host carries its own base URL + bearer; `apiV1Of(hostId)` / `streamUrlOf(hostId, topics)`
 route per host, with a **sole-connection fallback** that makes N=1 the simple

@@ -1,5 +1,5 @@
 import { createStore } from "./store.js";
-import { API_V1, apiV1Of, apiOriginOf, streamUrlOf, CONNECTIONS } from "./config.js";
+import { API_V1, apiV1Of, apiOriginOf, streamUrlOf, subscribeConnections, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createSseStream } from "./liveStream.js";
 import { readSseStream, parseSseEvent } from "./sse.js";
@@ -587,6 +587,34 @@ const FINALIZE_IDLE_MS = 60000;
   if (CONNECTIONS.length) {
     primaryStreams = CONNECTIONS.map((conn) => openPrimary(conn));
   }
+
+  // Cluster discovery grows the connection set in place. Give each new node the
+  // same treatment the boot set got — its primary stream (pushed in order, so
+  // primaryStreams stays index-aligned with CONNECTIONS for reconnectHost), plus
+  // every dynamic topic a view is currently subscribed to, so a late-joining node
+  // is not silently missing from an open subscription. Then re-hydrate: the
+  // stores fan out over CONNECTIONS, so their current contents predate this node.
+  subscribeConnections((added) => {
+    for (const conn of added) {
+      primaryStreams.push(openPrimary(conn));
+      for (const [topic, entry] of dynamicStreams) {
+        const url = streamUrlOf(conn.id, [topic]);
+        if (!url) continue;
+        entry.hosts.push({
+          connId: conn.id,
+          stream: createSseStream({
+            url,
+            bearer: () => authorizedBearer(conn.id),
+            onOpen: () => {},
+            onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+            onMode: () => {},
+            onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+          }),
+        });
+      }
+    }
+    rehydrateAll();
+  });
 
   // User-driven "Reconnect now" (the connectivity banner / per-host indicator):
   // drop the backoff and re-open that host's streams immediately.

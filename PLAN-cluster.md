@@ -149,26 +149,41 @@ surface untouched. — *Verified: no `selectedHostStore` reference remains in th
 three pages; lint 0 errors, build clean, live smoke 247/247 against the
 auth-disabled dev api.*
 
-### P1 — Roster-driven node discovery · `planned`
+### P1 — Roster-driven node discovery · `built`
 
-Make N the cluster's N, on every load, for every tier.
+N is the cluster's N, on every load, for every tier.
 
-- Hoist the roster fetch + `mirrorRosterToRegistry` out of `DiagnosticsPage`
-  into app boot (alongside the `hostsStore` hydrate), anchored on **any**
-  reachable connection rather than the selected node.
-- Keep the mirror's honesty rules verbatim (`connect.js:78-97`): only
-  `alive` + `reachable` + `nodeId` + `clientUrl` nodes are registered; a node
-  missing either stays a visible ghost, never a fabricated connection.
-- Replace the once-per-load `window.location.reload()` with a live
-  `CONNECTIONS` update. This is the one piece of real refactor: `config.js`
-  reads the registry once at module load and exports frozen `CONNECTIONS`,
-  `API_BASE` and friends. Turn the connection set into a subscribable store so
-  a newly mirrored node joins the fan-out without a reload.
-- Viewers get the roster through `/peers/roster` (already the fallback path).
+- `clusterStore.discover()` asks the first **addressable** connection for the
+  converged roster (`api.peers` needs a reconciled backend id; the env seed
+  starts id-less, so discovery waits for the first `GET /hosts` to fill one in)
+  and registers the peers it names. `startDiscovery()` runs it from
+  `stores/boot.js` and re-runs on a 60s cadence.
+- The roster has **one owner**. Pages read `clusterStore`; they do not refresh
+  it on mount. The per-node peer *actions* (add / remove / enable) still re-read
+  the node they mutated — that read is scoped to the node it acted on.
+- The mirror's honesty rules are unchanged: only `alive` + `reachable` +
+  `nodeId` + `clientUrl` nodes are registered; anything else stays a visible
+  ghost, never a fabricated connection. Dedupe now spans the registry **and**
+  the live connection set, so a seeded node is never registered a second time
+  under whatever address the roster advertises for it.
+- `CONNECTIONS` grows **in place** — the array identity never changes, so every
+  holder of the import sees a new node at once, and `API_BASE`/`API_V1` (bound
+  to index 0 at module load) stay valid because discovery only appends.
+  `subscribeConnections()` notifies holders of per-connection resources:
+  `apiClient` opens the new node's primary stream (pushed in order, so
+  `primaryStreams` stays index-aligned with `CONNECTIONS` for `reconnectHost`)
+  plus every dynamic topic a view currently subscribes to, then re-hydrates.
+- Viewers get the roster through `/peers/roster` — the same fallback inside
+  `fetchRoster` that the Cluster page already used.
 
 **Done when:** a node federated on another machine appears in the SPA's
 fan-out on the next poll, for a viewer, without visiting Cluster and without a
-reload.
+reload. — *Verified live in Chromium: on `#/` (not Cluster) the SPA issues
+exactly one roster call at boot, and with a roster naming a reachable peer it
+registers that peer, opens its primary + dynamic SSE streams, and fans
+`/hosts` `/servers` `/library` `/audit` out to it — one page load, no reload, no
+console errors. The viewer branch is unexercised here: the dev api authenticates
+every request as admin.*
 
 ### P2 — Aggregate-always surfaces · `planned`
 
@@ -239,7 +254,8 @@ bug.
 - **Add the guard:** a dev-mode invariant that logs loudly on any host-less
   routed call, plus a smoke assertion that the app boots and renders with **two
   connections configured** and no selection state — the regression test for the
-  whole doctrine.
+  whole doctrine. It also covers P1's append path (a discovered peer joining the
+  live connection set), which has no permanent test yet.
 
 **Done when:** grep finds no `list[0]` / `CONNECTIONS[0]` node defaults outside
 the documented cold-boot seed.

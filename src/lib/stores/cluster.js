@@ -7,7 +7,10 @@
 // value either code path doesn't provide (honest null/"unknown").
 
 import { api } from "../apiClient.js";
+import { CONNECTIONS } from "../config.js";
+import { mirrorRosterToRegistry } from "../connect.js";
 import { createStore } from "../store.js";
+import { hostsStore } from "./hosts.js";
 
 const clusterStore = createStore({
   nodes: [],
@@ -55,26 +58,82 @@ function isForbidden(err) {
   return !!err && (err.code === 403 || err.status === 403);
 }
 
+// Read one node's view of the roster: the admin peer list, falling back to the
+// viewer-safe converged roster on a 403. Resolves { nodes, admin }.
+function fetchRoster(hostId) {
+  return api.peers(hostId).list()
+    .then(rows => ({ nodes: rows.map(fromPeerRow), admin: true }))
+    .catch(err => {
+      if (!isForbidden(err)) throw err;
+      return api.peers(hostId).roster().then(rows => ({ nodes: rows.map(fromClusterNodeRow), admin: false }));
+    });
+}
+
 clusterStore.refresh = (hostId) => {
   clusterStore.setState(s => ({ ...s, status: "loading", error: null }));
-  return api.peers(hostId).list().then(rows => {
-    const nodes = rows.map(fromPeerRow);
-    clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin: true }));
+  return fetchRoster(hostId).then(({ nodes, admin }) => {
+    clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin }));
     return nodes;
   }).catch(err => {
-    if (!isForbidden(err)) {
-      clusterStore.setState(s => ({ ...s, status: "error", error: err }));
-      throw err;
-    }
-    return api.peers(hostId).roster().then(rows => {
-      const nodes = rows.map(fromClusterNodeRow);
-      clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin: false }));
-      return nodes;
-    }).catch(err2 => {
-      clusterStore.setState(s => ({ ...s, status: "error", error: err2 }));
-      throw err2;
-    });
+    clusterStore.setState(s => ({ ...s, status: "error", error: err }));
+    throw err;
   });
 };
 
-export { clusterStore };
+// ---- Cluster discovery --------------------------------------------------
+// The node set the SPA drives is the CLUSTER's, not the list of addresses this
+// browser happens to have been pointed at. Ask any node we can reach for the
+// converged roster and register the peers it names; the connection set grows in
+// place, so every surface fans out over them from the next read on.
+//
+// Runs for every tier — a viewer resolves the same roster through the
+// viewer-safe path inside fetchRoster. Nodes are tried in order and the FIRST
+// that answers wins: the roster is converged, so any reachable node's view is
+// the cluster's view. All nodes failing is not an error state here — an
+// unreachable cluster is already surfaced by the connection banner, and a
+// roster we could not read must not clear or contradict one we already have.
+//
+// Registration is deliberately conservative (see mirrorRosterToRegistry): only
+// an alive + reachable peer carrying both a nodeId and a client URL is
+// registered. A peer we cannot verify stays a visible ghost on the Cluster
+// page rather than becoming a dead connection.
+// Only a connection whose BACKEND id is reconciled can be asked (api.peers
+// requires a concrete id) — the seed starts id-less and GET /hosts fills it in.
+const addressable = () => CONNECTIONS.filter(c => c.id);
+
+clusterStore.discover = () => {
+  const conns = addressable();
+  const attempt = (i) => {
+    if (i >= conns.length) return Promise.resolve(0);
+    return Promise.resolve()
+      .then(() => fetchRoster(conns[i].id))
+      .then(({ nodes, admin }) => {
+        clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin }));
+        return mirrorRosterToRegistry(nodes, { localHostId: conns[i].id }).added;
+      })
+      .catch(() => attempt(i + 1));
+  };
+  return attempt(0);
+};
+
+// Re-run discovery on a slow cadence so a node federated elsewhere joins this
+// browser's fan-out on its own, without anyone opening the Cluster page.
+const DISCOVER_MS = 60000;
+let _discoverTimer = null;
+function startDiscovery() {
+  if (_discoverTimer || !CONNECTIONS.length) return;
+  const run = () => { clusterStore.discover().catch(() => {}); };
+  // Nothing is addressable until the first GET /hosts reconciles an id, so wait
+  // for that rather than spending the boot attempt on an empty set.
+  if (addressable().length) run();
+  else {
+    const stop = hostsStore.subscribe(() => {
+      if (!addressable().length) return;
+      stop();
+      run();
+    });
+  }
+  _discoverTimer = setInterval(run, DISCOVER_MS);
+}
+
+export { clusterStore, startDiscovery };
