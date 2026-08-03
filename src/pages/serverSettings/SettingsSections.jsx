@@ -55,7 +55,7 @@ function StartupSection({ watchdogDown, watchdogLed, autostart, setAutostart, cr
                   { value: "5", label: "5" },
                   { value: "10", label: "10" },
                 ]}
-                onChange={(v) => setCrashMaxRestarts(Number(v))}
+                onChange={e => setCrashMaxRestarts(Number(e.target.value))}
               />
             </SettingsRow>
           )}
@@ -93,7 +93,7 @@ function ScheduleSection({
         <>
           <SettingsRow icon="calendar-clock" title="Restart cadence"
             sub="Automatically restart this server on a schedule.">
-            <Select value={cadence} options={cadenceOptions} onChange={setScheduledRestart} />
+            <Select value={cadence} options={cadenceOptions} onChange={e => setScheduledRestart(e.target.value)} />
           </SettingsRow>
 
           {cadence !== "off" && (
@@ -122,7 +122,7 @@ function ScheduleSection({
                       { value: "fri", label: "Friday" },
                       { value: "sat", label: "Saturday" },
                     ]}
-                    onChange={setRestartDay}
+                    onChange={e => setRestartDay(e.target.value)}
                   />
                 </SettingsRow>
               )}
@@ -133,7 +133,7 @@ function ScheduleSection({
               needs no restart cadence and is not nested under one. */}
           <SettingsRow icon="archive" title="Backup cadence"
             sub="Automatically back this server up on a schedule, running or not.">
-            <Select value={backupCadence} options={cadenceOptions} onChange={setBackupSchedule} />
+            <Select value={backupCadence} options={cadenceOptions} onChange={e => setBackupSchedule(e.target.value)} />
           </SettingsRow>
 
           {backupCadence !== "off" && (
@@ -164,7 +164,7 @@ function ScheduleSection({
                       { value: "fri", label: "Friday" },
                       { value: "sat", label: "Saturday" },
                     ]}
-                    onChange={setBackupDay}
+                    onChange={e => setBackupDay(e.target.value)}
                   />
                 </SettingsRow>
               )}
@@ -247,7 +247,7 @@ function ResourcesSection({ watchdogDown, watchdogLed, cpuPriority, setCpuPriori
                 { value: "normal", label: "Normal" },
                 { value: "high",   label: "High" },
               ]}
-              onChange={setCpuPriority}
+              onChange={e => setCpuPriority(e.target.value)}
             />
           </SettingsRow>
           <SettingsRow icon="database" title="Memory cap"

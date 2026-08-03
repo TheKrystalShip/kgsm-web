@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the settings dropdowns save what you picked
+
+- **Backup cadence, restart cadence, backup/restart day, CPU priority and max consecutive restarts
+  now save.** `Select` hands its `onChange` the native `<select>` event, the way every other consumer
+  reads it; these six Scheduled-tasks and Runtime handlers took it as a bare value. The dropdown's
+  choice therefore never reached state — Save shipped a React event object in the request body, the
+  body failed to serialize, and the page reported *"Can't reach the Krystal backend (network)"* with
+  the connection banner, against a healthy API that was never contacted.
+- **A request body that can't be serialized reports itself.** `liveFetch` serializes before the
+  transport `try`, so only a real transport failure marks the host unreachable; a caller passing an
+  unserializable body surfaces its own `TypeError` instead of a false "backend is down".
+
 ### Changed — a server's backup schedule stands on its own
 
 - **Scheduled tasks offers a Backup cadence alongside the Restart cadence.** The old "Back up

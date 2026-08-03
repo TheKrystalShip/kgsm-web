@@ -208,9 +208,13 @@ const FINALIZE_IDLE_MS = 60000;
     // baseOverride routes off the default /api/v1 base (the auth endpoints are
     // root-routed on the backend, not under /api/v1).
     const base = baseOverride !== undefined ? baseOverride : (apiV1Of(hostId) || API_V1);
+    // Serialize OUTSIDE the try below. Only a TRANSPORT throw is "the host is unreachable" —
+    // a body that can't be serialized is a caller bug, and letting it land in that catch would
+    // report a healthy backend as down (banner included) while hiding the real TypeError.
+    const payload = body != null ? JSON.stringify(body) : undefined;
     let res;
     try {
-      res = await fetch(base + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
+      res = await fetch(base + path, { method, headers, body: payload });
     } catch { markFailure(hostId); throw netError(); }
     markSuccess(hostId);             // the host answered → reachable
     if (res.status === 204) return null;
