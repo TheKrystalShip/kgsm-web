@@ -193,11 +193,12 @@ try {
   // "Live" = at least one resolved connection (the VITE_API_BASE seed). config.js dropped
   // the old LIVE/MOCK duality, so CONNECTIONS is the only signal (cfg.LIVE is gone — the
   // old check silently always-failed, swallowed by the console.error wrapper).
-  if (!cfg.CONNECTIONS || cfg.CONNECTIONS.length < 1 || cfg.API_V1 !== API + "/api/v1") {
-    console.error(`✗ config not live: CONNECTIONS=${cfg.CONNECTIONS && cfg.CONNECTIONS.length} API_V1=${cfg.API_V1} (expected ${API}/api/v1)`);
+  const seedBase = cfg.apiV1ForConn(cfg.CONNECTIONS[0]);
+  if (!cfg.CONNECTIONS || cfg.CONNECTIONS.length < 1 || seedBase !== API + "/api/v1") {
+    console.error(`✗ config not live: CONNECTIONS=${cfg.CONNECTIONS && cfg.CONNECTIONS.length} base=${seedBase} (expected ${API}/api/v1)`);
     fail++;
   } else {
-    console.log(`✓ config wired live → ${cfg.API_V1}`);
+    console.log(`✓ config wired live → ${seedBase}`);
   }
 
   // ---- OAuth fragment capture (mechanical) --------------------------------
@@ -1903,6 +1904,51 @@ try {
     await nav("#/cluster");
   } else {
     console.log("  ⚠ skip players roster (no server on this backend)");
+  }
+
+  // ---- the cluster invariant: N nodes, nothing selected --------------------
+  // The regression test for the whole cluster-transparency doctrine. Everything
+  // above runs against ONE node, which is exactly the shape that hides a
+  // positional default — a fallback to "the first connection" is invisible when
+  // there is only one. So grow the set to two and assert the two halves of the
+  // rule: routing is EXACT (a named node resolves to its own base, an unknown one
+  // fails loudly, a node-less call fails loudly), and the app still boots and
+  // renders with no selection state anywhere.
+  //
+  // It also exercises P1's append path — a peer discovered after boot joins the
+  // live connection set in place, with no reload.
+  {
+    const realId = cfg.CONNECTIONS[0].id;
+    assert(typeof realId === "string" && realId.length > 0,
+      `cold-boot seed reconciled its backend id from GET /hosts (${realId || "still null"})`);
+
+    // A second ORIGIN for the same backend: reachable (so the fan-out is real),
+    // textually distinct (so the origin dedupe admits it), and carrying its own
+    // id — from the SPA's point of view a second node.
+    const peerUrl = API.includes("127.0.0.1") ? API.replace("127.0.0.1", "localhost") : API.replace("localhost", "127.0.0.1");
+    const added = cfg.addConnections([{ id: "smoke-peer", url: peerUrl, name: "Smoke peer" }]);
+    assert(added.length === 1 && cfg.CONNECTIONS.length === 2,
+      `append: a discovered peer joins the live connection set in place (n=${cfg.CONNECTIONS.length})`);
+    assert(cfg.addConnections([{ id: "smoke-peer", url: peerUrl }]).length === 0,
+      "append: re-registering a peer we already drive is a no-op (repeated discovery is idempotent)");
+
+    // Synchronous, before the append's own rehydrate can reconcile ids underneath us.
+    assert(cfg.apiV1Of(realId) === API + "/api/v1", "routing: a named node resolves to its own base");
+    assert(cfg.apiV1Of("smoke-peer") === peerUrl + "/api/v1",
+      "routing: the appended peer resolves to ITS base, not to the first connection's");
+    let threw = false;
+    try { cfg.apiV1Of("no-such-node"); } catch { threw = true; }
+    assert(threw, "routing guard: an unresolvable node id throws in dev (never falls through to node 0)");
+    threw = false;
+    try { cfg.apiV1Of(null); } catch { threw = true; }
+    assert(threw, "routing guard: a node-less routed call throws in dev once the cluster has two nodes");
+
+    assert(!w.localStorage.getItem("krystal:selectedHost"), "no selected-node state is persisted");
+    const twoNodeHtml = await nav("#/servers");
+    assert(twoNodeHtml.includes(PROBE.id), "servers roster renders with two connections and no selection");
+    const dashHtml = await nav("#/cluster");
+    assert(dashHtml.length > 400 && !/Something went wrong/i.test(dashHtml),
+      "cluster page renders with two connections and no selection");
   }
 
   root.unmount();

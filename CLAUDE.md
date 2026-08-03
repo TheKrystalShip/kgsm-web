@@ -115,12 +115,16 @@ resources (the SSE registry opens a stream per new node and re-hydrates). Connec
 and disconnect still do a **full page reload** — they change identity and auth, the
 same way login/logout/session-loss do. An appended peer needs no reload.
 
-Each host carries its own base URL + bearer; `apiV1Of(hostId)` / `streamUrlOf(hostId, topics)`
-route per host, with a **sole-connection fallback** that makes N=1 the simple
-case. Multi-host (N≥2) fan-out + merge are real but some paths are still partly
-stubbed (see `merge.js`, `WIRING.md`). `CONNECTIONS.length` (0 → connect screen,
-\>1 → fan-out) is a topology check, NOT a mode flag — don't reintroduce a
-`LIVE`/`MOCK` duality.
+Each host carries its own base URL + bearer, and **routing is exact**: `apiV1Of(hostId)`
+resolves the connection with that backend id or fails — throwing in dev, returning
+null in prod so the call is rejected — because answering from another node is worse
+than not answering. The single exemption is **cold boot**: a lone connection whose id
+`GET /hosts` hasn't reconciled yet answers to any id. The fan-out and the SSE registry
+already hold the connection, so they address it directly (`apiV1ForConn` /
+`streamUrlForConn`) instead of round-tripping through an id. Multi-host (N≥2) fan-out
++ merge are real but some paths are still partly stubbed (see `merge.js`, `WIRING.md`).
+`CONNECTIONS.length` (0 → connect screen, \>1 → fan-out) is a topology check, NOT a
+mode flag — don't reintroduce a `LIVE`/`MOCK` duality.
 
 ## The data layer (`src/lib/`)
 

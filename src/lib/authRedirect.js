@@ -8,10 +8,11 @@
 // establish the app-shell identity from /me so the app mounts authed with no
 // LoginPage flash. A normal load (a #/route or no hash) is a no-op.
 
-import { API_V1, API_BASE, CONNECTIONS, reconcileConnectionId } from "./config.js";
+import { CONNECTIONS, soleConnectionOrigin, reconcileConnectionId } from "./config.js";
 
 const PENDING_KEY = "krystal:oauth:pending";   // sessionStorage {access,refresh} (one-shot)
 const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one-shot)
+const ANCHOR_KEY = "krystal:oauth:anchor";     // sessionStorage origin of the node we signed in through
 const AUTH_LS_KEY = "krystal:auth";
 
 function stripHash() {
@@ -48,6 +49,25 @@ export function takePendingTokens() {
   } catch { return null; }
 }
 
+// The node the sign-in bounce goes through, recorded by LoginPage before it hands
+// the browser to Discord. The tokens that come back were minted by THAT node, so
+// the return leg (/me, /hosts, the registry entry) must address it and no other —
+// with several nodes connected, asking the first one would present another node's
+// identity under this session's token.
+export function rememberAuthAnchor(origin) {
+  try { sessionStorage.setItem(ANCHOR_KEY, origin || ""); } catch {}
+}
+// Resolve the node a returning login belongs to: the origin LoginPage recorded,
+// else the sole connection (nothing to disambiguate). Null when neither holds —
+// the login can't be completed honestly and the caller says so.
+function authAnchorOrigin() {
+  let stashed = null;
+  try { stashed = sessionStorage.getItem(ANCHOR_KEY); } catch {}
+  const origin = stashed || soleConnectionOrigin();
+  if (!origin) return null;
+  return CONNECTIONS.some(c => c.url === origin) ? origin : null;
+}
+
 // One-shot read of a captured login error (the LoginPage surfaces it).
 export function takeOAuthError() {
   try { const e = sessionStorage.getItem(ERROR_KEY); if (e) sessionStorage.removeItem(ERROR_KEY); return e; }
@@ -69,10 +89,19 @@ export function takeOAuthError() {
 // On failure we drop the stash so we never half-authenticate, and record an error.
 export async function completeOAuthLogin(captured) {
   if (!CONNECTIONS.length || !captured || !captured.access) return;
+  const anchor = authAnchorOrigin();
+  if (!anchor) {
+    // We hold a token but not the node that issued it — probing an arbitrary one
+    // would either 401 or, worse, adopt the session under the wrong node's id.
+    try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+    try { sessionStorage.setItem(ERROR_KEY, "login_failed"); } catch {}
+    return;
+  }
+  const apiV1 = anchor + "/api/v1";
   const bearer = "Bearer " + captured.access;
   const authHeaders = { Authorization: bearer, Accept: "application/json" };
   try {
-    const res = await fetch(API_V1 + "/me", { headers: authHeaders });
+    const res = await fetch(apiV1 + "/me", { headers: authHeaders });
     if (!res.ok) throw new Error("me " + res.status);
     const me = await res.json();
     const u = (me && me.user) || {};
@@ -87,7 +116,7 @@ export async function completeOAuthLogin(captured) {
     // data unloaded until the next call heals it, never a broken half-login.
     let hostId = null, hostName = null;
     try {
-      const hr = await fetch(API_V1 + "/hosts", { headers: authHeaders });
+      const hr = await fetch(apiV1 + "/hosts", { headers: authHeaders });
       if (hr.ok) {
         const arr = await hr.json();
         const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]);
@@ -96,7 +125,7 @@ export async function completeOAuthLogin(captured) {
       }
     } catch {}
     if (hostId) {
-      reconcileConnectionId(API_BASE, hostId);
+      reconcileConnectionId(anchor, hostId);
       takePendingTokens();                       // consume the one-shot stash; we adopt directly
       try {
         const { sessionStore } = await import("./sessionStore.js");
@@ -108,7 +137,7 @@ export async function completeOAuthLogin(captured) {
         // resumes from sessionStorage / the refresh token. Without this a same-origin "self" seed
         // reverts to an id-less connection on reload and the session can't be matched back —
         // dropping the user to the unauthenticated/Viewer state with every call 401-ing.
-        sessionStore.register({ id: hostId, url: API_BASE, name: hostName });
+        sessionStore.register({ id: hostId, url: anchor, name: hostName });
       } catch {}
       try {
         const stores = await import("./stores.js");

@@ -1,8 +1,9 @@
 import React from "react";
 import { OAuthIcon } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { takeOAuthError } from "../lib/authRedirect.js";
-import { API_BASE } from "../lib/config.js";
+import { Select } from "../components/Select.jsx";
+import { rememberAuthAnchor, takeOAuthError } from "../lib/authRedirect.js";
+import { CONNECTIONS, soleConnectionOrigin } from "../lib/config.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // LoginPage — the unauthenticated landing surface.
@@ -12,22 +13,29 @@ import { sessionStore } from "../lib/sessionStore.js";
 // shown as secondary providers for any future non-Discord audiences.
 
 // LoginPage — the unauthenticated gate, shown once a host is connected but no
-// identity is established yet. A full-page Discord OAuth bounce to the connected
-// host's /auth/discord/start. The callback 302s back to this SPA with the session
-// in the URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin
-// callback — the app reboots already authed. Auth is PER HOST, so we sign in
-// against the one connected host (API_BASE) and SHOW the exact origin we bounce
-// to: a localhost-vs-127.0.0.1 mismatch would otherwise fail as an opaque
-// state-cookie 400. "Connect a different host" drops the registry → connect screen.
+// identity is established yet. A full-page Discord OAuth bounce to a node's
+// /auth/discord/start. The callback 302s back to this SPA with the session in the
+// URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin callback —
+// the app reboots already authed.
+//
+// Signing in picks the DOORWAY into the cluster: the session is minted by the node
+// you come through and vouches onto the rest, so with several nodes connected the
+// user names the one to sign in against and a sole node is simply it. The exact
+// origin is shown either way — a localhost-vs-127.0.0.1 mismatch would otherwise
+// fail as an opaque state-cookie 400. The chosen origin is remembered for the
+// return leg, which must call /me on the node that issued the token.
+// "Connect a different host" drops the registry → connect screen.
 function LoginPage() {
   const [busy, setBusy] = React.useState(false);
   const [error] = React.useState(() => takeOAuthError());
-  const origin = API_BASE || "";
-  const hostLabel = origin.replace(/^https?:\/\//, "") || "this host";
+  const nodes = CONNECTIONS.map(c => ({ url: c.url, name: c.name, label: String(c.url || "").replace(/^https?:\/\//, "") }));
+  const [origin, setOrigin] = React.useState(() => soleConnectionOrigin());
+  const hostLabel = String(origin || "").replace(/^https?:\/\//, "") || "this host";
 
   const signIn = () => {
     if (busy || !origin) return;
     setBusy(true);
+    rememberAuthAnchor(origin);   // the return leg calls /me on THIS node
     window.location.href = origin + "/auth/discord/start?prompt=consent";
   };
   const useDifferentHost = () => {
@@ -68,10 +76,23 @@ function LoginPage() {
               : (<><OAuthIcon provider="discord" /> Continue with Discord</>)}
           </button>
 
-          <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: "var(--fg-3)" }}>
-            <Icon name="server" size={12} />
-            <span>Signing in to <b style={{ color: "var(--fg-2)" }}>{hostLabel}</b></span>
-          </div>
+          {nodes.length > 1 ? (
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: "var(--fg-3)" }}>
+              <Icon name="server" size={12} />
+              <label htmlFor="login-node" style={{ whiteSpace: "nowrap" }}>Sign in through</label>
+              <Select id="login-node" variant="chip" value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                <option value="">Choose a node…</option>
+                {nodes.map(n => (
+                  <option key={n.url} value={n.url}>{n.name ? `${n.name} — ${n.label}` : n.label}</option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: "var(--fg-3)" }}>
+              <Icon name="server" size={12} />
+              <span>Signing in to <b style={{ color: "var(--fg-2)" }}>{hostLabel}</b></span>
+            </div>
+          )}
 
           <button
             type="button"

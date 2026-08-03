@@ -53,8 +53,15 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 - `config.js` — the connection model: `CONNECTIONS` (seeded from the localStorage
   host registry at module load, then **grown in place** by cluster discovery via
   `addConnections`; `subscribeConnections` notifies holders of per-connection
-  resources), `apiV1Of`/`streamUrlOf` per-host routing with the sole-connection
-  fallback. **`CONNECTIONS.length` is a topology check (0 → connect screen, ≥2 →
+  resources) and the **routing rule**: `apiV1Of`/`apiOriginOf` resolve a node by
+  backend id **exactly** — an id no connection holds throws in dev and returns
+  null in prod, so a call fails rather than landing on another node. The one
+  exemption is cold boot (a lone connection whose id isn't reconciled yet); a
+  node-less call at N=1 resolves with a loud dev warning. `apiV1ForConn`/
+  `streamUrlForConn` address a connection the caller already holds (the fan-out,
+  the SSE registry). `originOfHost`/`hostAddressOf` are the soft **lookups** —
+  an address to show or store, honestly `""` when we hold no such node.
+  **`CONNECTIONS.length` is a topology check (0 → connect screen, ≥2 →
   fan-out), NOT a `LIVE`/`MOCK` mode flag — never reintroduce that duality.**
   `VITE_API_BASE` is an optional single-host *seed*.
 - `connect.js` — connect/disconnect a host (mutates the registry → full page

@@ -32,14 +32,15 @@ try {
   const cfg = await vite.ssrLoadModule("/src/lib/config.js");
   assert(cfg.CONNECTIONS.length === 1 && cfg.CONNECTIONS[0].seed === true,
     "corrupt bare-host entry dropped → CONNECTIONS falls back to the seed", ` (n=${cfg.CONNECTIONS.length})`);
-  assert(cfg.API_BASE === API, "API_BASE is the reachable seed origin, NOT https://hotrod", ` (${cfg.API_BASE})`);
-  assert(!/hotrod/.test(cfg.API_BASE), "API_BASE contains no bare backend hostname");
+  const seedOrigin = cfg.soleConnectionOrigin();
+  assert(seedOrigin === API, "the sign-in origin is the reachable seed, NOT https://hotrod", ` (${seedOrigin})`);
+  assert(!/hotrod/.test(seedOrigin), "the sign-in origin contains no bare backend hostname");
   // The login redirect target the LoginPage builds (origin + /auth/discord/start):
-  assert((cfg.API_BASE + "/auth/discord/start") === API + "/auth/discord/start",
-    "Discord login URL now targets the real api origin");
-  // What register() now stores for a /hosts host (no url) instead of host.hostname:
-  assert(cfg.apiOriginOf("hotrod") === API,
-    "apiOriginOf(hostId) → the connection origin register() will persist", ` (${cfg.apiOriginOf("hotrod")})`);
+  assert((seedOrigin + "/auth/discord/start") === API + "/auth/discord/start",
+    "Discord login URL targets the real api origin");
+  // What register() stores for a /hosts host (no url) instead of host.hostname:
+  assert(cfg.originOfHost("hotrod") === API,
+    "originOfHost(hostId) → the connection origin register() will persist", ` (${cfg.originOfHost("hotrod")})`);
 } catch (e) {
   console.error("✗ harness error:", e && (e.stack || e.message)); fail++;
 } finally {

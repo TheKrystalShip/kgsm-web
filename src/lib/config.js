@@ -50,9 +50,9 @@ const SEED_URL = /^(self|same-origin)$/i.test(RAW_SEED)
 
 // The connection set the app drives. Real registry wins; otherwise the seed
 // stands in as one connection with NO known backend id yet (id:null) — the
-// sole-connection fallback in connOf() routes it id-agnostically, and cold-boot
-// reconciles the real id from GET /hosts. A registry entry already carries its
-// probed id (connect resolves it).
+// cold-boot exemption in connOf() routes it id-agnostically until GET /hosts
+// reconciles the real id. A registry entry already carries its probed id
+// (connect resolves it).
 const registry = readRegistry();
 export const CONNECTIONS = registry.length
   ? registry.map(h => ({ id: h.id || null, url: h.url, name: h.name || null }))
@@ -96,19 +96,64 @@ function originOf(url) {
   return /^https?:\/\//i.test(u) ? u : "https://" + u;
 }
 
-// Resolve a connection by BACKEND host id, with the SOLE-CONNECTION FALLBACK:
-// when there's exactly one connection we route to it regardless of the id
-// argument — that is literally the old single global-API_V1 behavior, so an
-// id we haven't reconciled yet (seed, or pre-GET /hosts) can't break N=1.
-// Exact id→URL matching only matters at N ≥ 2 (the fan-out slice).
-function connOf(hostId) {
-  if (CONNECTIONS.length === 1) return CONNECTIONS[0];
-  if (hostId) { const c = CONNECTIONS.find(c => c.id === hostId); if (c) return c; }
-  return CONNECTIONS[0] || null;   // default to the first when unscoped / unknown
+// ---- routing: a call names the node it is for ----------------------------
+// The SPA drives N nodes. Routing is EXACT — an id that matches no connection is
+// a routing failure, never a cue to pick one, because reading node A's data under
+// node B's name is worse than reading nothing. In DEV that throws, so the bug
+// surfaces at its source; in PROD it returns null and the call fails honestly
+// (an empty base is rejected by liveFetch).
+const DEV = !!env.DEV;
+function unrouted(why) {
+  const msg = `kgsm-web routing: ${why} — ${CONNECTIONS.length} connection(s) configured`;
+  if (DEV) throw new Error(msg);
+  try { console.error(msg); } catch {}
+  return null;
 }
 
-// Per-host REST base ("…/api/v1") and SSE stream URL ("…/api/v1/stream?topics=...").
-// Empty string when there's no connection — callers guard on CONNECTIONS.length.
+// Resolve a connection by BACKEND host id.
+//
+// The ONE documented exemption is COLD BOOT: a lone connection whose backend id
+// isn't known yet (the VITE_API_BASE seed, or a registry entry before GET /hosts
+// reconciles it). There is nothing to match an id against and only one node it
+// could mean, so it answers to any id; the exemption ends the moment
+// reconcileConnectionId lands or a second node joins.
+//
+// A node-less call against a lone IDENTIFIED connection still resolves — one node
+// is unambiguous — but it is a latent bug that breaks the moment the cluster grows,
+// so dev says so loudly. At N ≥ 2 it is simply unrouted.
+function connOf(hostId) {
+  if (hostId) {
+    const c = CONNECTIONS.find(c => c.id === hostId);
+    return c || unrouted(`no connection is registered for node "${hostId}"`);
+  }
+  if (CONNECTIONS.length === 1 && CONNECTIONS[0].id == null) return CONNECTIONS[0];  // cold boot
+  if (!CONNECTIONS.length) return null;      // not connected at all — callers guard on CONNECTIONS.length
+  if (CONNECTIONS.length === 1) {
+    if (DEV) { try { console.warn("kgsm-web routing: a call named no node and fell through to the only one — name the node it is for; this breaks as soon as a second joins."); } catch {} }
+    return CONNECTIONS[0];
+  }
+  return unrouted("a routed call named no node");
+}
+
+// Address a connection DIRECTLY by the entry we hold rather than by a backend id.
+// The fan-out and the SSE registry iterate CONNECTIONS, so the node is already in
+// hand — routing those through an id would fail on a connection whose id isn't
+// reconciled yet, and naming the entry is exactly as specific as naming its id.
+export function apiV1ForConn(conn) {
+  const o = conn ? originOf(conn.url) : "";
+  return o ? o + "/api/v1" : "";
+}
+// SSE stream URL for a connection: "…/api/v1/stream?topics=a,b,c". Topics are
+// comma-separated, URL-encoded, and fixed for the lifetime of the stream.
+export function streamUrlForConn(conn, topics) {
+  const base = apiV1ForConn(conn);
+  if (!base) return "";
+  const qs = topics && topics.length ? "?topics=" + encodeURIComponent(topics.join(",")) : "";
+  return base + "/stream" + qs;
+}
+
+// Per-host REST base ("…/api/v1"). Empty string when there's no connection —
+// callers guard on CONNECTIONS.length.
 export function apiV1Of(hostId) {
   const c = connOf(hostId);
   return c ? originOf(c.url) + "/api/v1" : "";
@@ -119,23 +164,26 @@ export function apiOriginOf(hostId) {
   const c = connOf(hostId);
   return c ? originOf(c.url) : "";
 }
+
+// ---- looking a node up (not calling it) ---------------------------------
+// The origin we reach a node at, for DISPLAY and bookkeeping — an address to
+// show or store, not a call to route. A node we don't hold is honestly "" here
+// rather than a routing failure, because these run during render and while
+// registering hosts we may not be connected to.
+export function originOfHost(hostId) {
+  const c = hostId ? CONNECTIONS.find(c => c.id === hostId)
+                   : (CONNECTIONS.length === 1 ? CONNECTIONS[0] : null);
+  return c ? originOf(c.url) : "";
+}
 // The bare HOSTNAME/IP of a host (no scheme, no port) — the address the SPA
 // reached this host's api at. kgsm/monitor source no ip address, so the connect
 // origin IS the honest host address (the api and its game servers are co-located
 // per host). Used to compose a server's player-facing connect address (host:port).
 // Empty string when no such connection — callers fall back to honest-unknown.
 export function hostAddressOf(hostId) {
-  const o = apiOriginOf(hostId);
+  const o = originOfHost(hostId);
   if (!o) return "";
   try { return new URL(o).hostname; } catch { return ""; }
-}
-// SSE stream URL: "…/api/v1/stream?topics=a,b,c". Topics are comma-separated,
-// URL-encoded, and fixed for the lifetime of the connection.
-export function streamUrlOf(hostId, topics) {
-  const base = apiV1Of(hostId);
-  if (!base) return "";
-  const qs = topics && topics.length ? "?topics=" + encodeURIComponent(topics.join(",")) : "";
-  return base + "/stream" + qs;
 }
 
 // Reconcile a connection's BACKEND host id once it's known (from connect's GET
@@ -156,10 +204,14 @@ export function reconcileConnectionId(url, id) {
   } catch {}
 }
 
-// ---- backwards-compatible single-host aliases ---------------------------
-// The "sole / default connection" values. Existing single-host call sites
-// (authRedirect /me, LoginPage redirect) read these; they resolve
-// to the first/only connection, preserving N=1 behavior. Per-host call sites
-// pass an explicit id to apiV1Of/streamUrlOf instead.
-export const API_BASE = CONNECTIONS[0] ? originOf(CONNECTIONS[0].url) : "";
-export const API_V1 = apiV1Of(null);
+// ---- the sign-in doorway -------------------------------------------------
+// Discord identity is a GLOBAL SSO anchor: a session minted by any node vouches
+// the user onto the rest of the cluster. So signing in picks a DOORWAY, not a
+// node to read from — the OAuth bounce, the /me that follows it and the registry
+// entry it writes all belong to the node the user came through. LoginPage offers
+// the connected nodes and remembers which one it used; this is the sole-candidate
+// answer for the N=1 case and the honest empty when there is nothing to sign in
+// against.
+export function soleConnectionOrigin() {
+  return CONNECTIONS.length === 1 ? originOf(CONNECTIONS[0].url) : "";
+}

@@ -296,8 +296,8 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > **Slice 4 — Auth/Me (FE half) — DONE (2026-06-21).** Wires the per-host tier from
 > `GET /me` so the persona/route gate works against the live backend (no more forced
 > "Preview as admin" lens). Files: `adapters.js` (`adaptMe` — honest passthrough,
-> tier→`none` secure-by-default), `apiClient.js` (live transport now injects the
-> selected host's bearer when held — `liveBearer()`; null under
+> tier→`none` secure-by-default), `apiClient.js` (live transport injects the bearer of
+> the node the call names — `liveBearer()`; null under
 > `KGSM_API_AUTH_DISABLED`, so calls go out unauthenticated and that mode accepts
 > them; adapt `/me`), `sessionStore.js` (LIVE `bootstrap` resolves tier from `/me`
 > instead of the fake callback; **reactive bootstrap as hosts hydrate** — seed runs

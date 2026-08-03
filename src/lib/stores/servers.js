@@ -4,7 +4,6 @@ import { adaptPhantom } from "../adapters.js";
 import { api, realtimeStore } from "../apiClient.js";
 import * as merge from "../merge.js";
 import { createStore } from "../store.js";
-import { hostsStore } from "./hosts.js";
 import { libraryStore } from "./library.js";
 
 // ---- Game servers -------------------------------------------------------
@@ -243,8 +242,11 @@ function confirmCommand(server, verb) {
   });
 }
 
+// Where a server lands is a decision, never a default: the caller names the node
+// (the install modal's measured pick, or the assistant's), and an install with no
+// node is rejected rather than dropped on whichever host sorted first.
 function installServer(cfg) {
-  const hostId = (cfg && cfg.hostId) || (hostsStore.getState().list[0] || {}).id || null;
+  const hostId = (cfg && cfg.hostId) || null;
   if (!hostId) return Promise.reject(new Error("installServer: hostId required"));
   const body = { blueprint: cfg.game.id, name: cfg.name, origin: (cfg && cfg.origin) || "ui" };
   const port = Number(cfg.port);

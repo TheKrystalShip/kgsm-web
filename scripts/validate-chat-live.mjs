@@ -51,7 +51,8 @@ try {
   const cfg = await vite.ssrLoadModule("/src/lib/config.js");
   // "Live" = at least one connection (the VITE_API_BASE seed) resolving to this API.
   // (config.js has no LIVE/MOCK duality any more — CONNECTIONS is the only signal.)
-  assert(cfg.CONNECTIONS.length >= 1 && cfg.API_V1 === API + "/api/v1", `SPA config wired live → ${cfg.API_V1}`);
+  const base = cfg.apiV1ForConn(cfg.CONNECTIONS[0]);
+  assert(cfg.CONNECTIONS.length >= 1 && base === API + "/api/v1", `SPA config wired live → ${base}`);
 
   const { api } = await vite.ssrLoadModule("/src/lib/apiClient.js");
   const { reduceTurnFrame } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");

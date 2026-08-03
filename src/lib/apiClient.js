@@ -1,5 +1,5 @@
 import { createStore } from "./store.js";
-import { API_V1, apiV1Of, apiOriginOf, streamUrlOf, subscribeConnections, CONNECTIONS } from "./config.js";
+import { apiV1Of, apiOriginOf, apiV1ForConn, streamUrlForConn, subscribeConnections, CONNECTIONS } from "./config.js";
 import * as adapt from "./adapters.js";
 import { createSseStream } from "./liveStream.js";
 import { readSseStream, parseSseEvent } from "./sse.js";
@@ -180,14 +180,16 @@ const FINALIZE_IDLE_MS = 60000;
     e.details = env.details || null;
     return e;
   }
-  // A host's bearer, when we hold a live one. Null under KGSM_API_AUTH_DISABLED
-  // (no token is minted) → the call goes out unauthenticated, which that mode
-  // accepts. Pass the explicit host id for a host-scoped call (api.host(id)); an
-  // unscoped call falls back to the selected host.
+  // A host's bearer, when we hold a live one. Sessions are keyed by BACKEND HOST
+  // ID, so the id must be the one the call is for — there is no ambient node to
+  // borrow a token from, and sending one node's token to another is how a request
+  // becomes both wrong and authenticated. No id (the cold-boot connection, before
+  // GET /hosts names it) or the aggregate scope ⇒ no bearer. Null is also the
+  // honest answer under KGSM_API_AUTH_DISABLED, where no token is minted at all
+  // and the call goes out unauthenticated.
   function liveBearer(hostId) {
     try {
-      const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
-      if (sessionStore && sessionStore.tokenOf && id && id !== "all") return sessionStore.tokenOf(id);
+      if (sessionStore && sessionStore.tokenOf && hostId && hostId !== "all") return sessionStore.tokenOf(hostId);
     } catch {}
     return null;
   }
@@ -200,7 +202,7 @@ const FINALIZE_IDLE_MS = 60000;
   // no bearer (auth-disabled). The auth layer's OWN calls (refreshSession, the bootstrap /me probe via
   // meWith) pass an explicit bearer and so SKIP this — that keeps the funnel from re-entering itself.
   async function authorizedBearer(hostId) {
-    const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
+    const id = hostId;
     // The FIRST WS/REST call can fire during apiClient's synchronous module eval — BEFORE the lazy
     // import("./sessionStore.js") above resolves — so without this await `sessionStore` is still null and
     // we'd fall through to a tokenless bearer → a guaranteed 401 on every fresh load, healed only by the
@@ -224,7 +226,7 @@ const FINALIZE_IDLE_MS = 60000;
   // (tagged preflight) → the UI's honest re-auth. Falls back to authorizedBearer when the session layer
   // isn't the authority (auth-disabled / aggregate scope).
   async function freshBearer(hostId) {
-    const id = hostId || (storesNs && storesNs.selectedHostStore && storesNs.selectedHostStore.getState().id);
+    const id = hostId;
     if (!sessionStore) { try { await sessionReady; } catch {} }
     if (!sessionStore || !sessionStore.authorizeFresh || !id || id === "all") return authorizedBearer(hostId);
     const st = await sessionStore.authorizeFresh(id);
@@ -232,9 +234,18 @@ const FINALIZE_IDLE_MS = 60000;
     if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
     return sessionStore.tokenOf(id);
   }
-  // hostId routes the call to that host's base URL + bearer (multi-host). With a
-  // single connection apiV1Of() ignores the id (sole-connection fallback) so N=1
-  // is byte-identical to the old single global-API_V1 path.
+  // A call that couldn't be routed to a node. In prod apiV1Of/apiOriginOf answer
+  // "" for a node we don't hold, and a relative fetch would quietly hit whatever
+  // origin served the bundle — so stop here and say which node was asked for.
+  function unroutedError(hostId) {
+    const e = new Error(`No connection for node ${hostId ? `"${hostId}"` : "(unnamed)"}.`);
+    e.code = "EUNROUTED";
+    e.userMessage = "That node isn’t connected.";
+    return e;
+  }
+  // hostId routes the call to that host's base URL + bearer. It is the NODE the
+  // call is for: routing is exact (config.connOf), so an id we don't hold fails
+  // here rather than landing on another node.
   async function liveFetch(method, path, body, hostId, bearerOverride, baseOverride) {
     const headers = body != null
       ? { "Content-Type": "application/json", Accept: "application/json" }
@@ -245,8 +256,10 @@ const FINALIZE_IDLE_MS = 60000;
     const tok = bearerOverride !== undefined ? bearerOverride : await authorizedBearer(hostId);
     if (tok) headers.Authorization = "Bearer " + tok;
     // baseOverride routes off the default /api/v1 base (the auth endpoints are
-    // root-routed on the backend, not under /api/v1).
-    const base = baseOverride !== undefined ? baseOverride : (apiV1Of(hostId) || API_V1);
+    // root-routed on the backend, not under /api/v1; the fan-out addresses an
+    // as-yet-unidentified connection by its own URL).
+    const base = baseOverride !== undefined ? baseOverride : apiV1Of(hostId);
+    if (!base) throw unroutedError(hostId);
     // Serialize OUTSIDE the try below. Only a TRANSPORT throw is "the host is unreachable" —
     // a body that can't be serialized is a caller bug, and letting it land in that catch would
     // report a healthy backend as down (banner included) while hiding the real TypeError.
@@ -331,7 +344,8 @@ const FINALIZE_IDLE_MS = 60000;
     const { onEvent, signal } = opts || {};
     const headers = { "Content-Type": "application/json", Accept: "text/event-stream" };
     if (bearer) headers.Authorization = "Bearer " + bearer;
-    const base = apiV1Of(hostId) || API_V1;
+    const base = apiV1Of(hostId);
+    if (!base) throw unroutedError(hostId);
     let res;
     try {
       res = await fetch(base + "/assistant/turn", { method: "POST", headers, body: JSON.stringify(body), signal });
@@ -372,7 +386,8 @@ const FINALIZE_IDLE_MS = 60000;
     const { onProgress, signal } = opts || {};
     const headers = { "Content-Type": "application/json", Accept: "text/event-stream" };
     if (bearer) headers.Authorization = "Bearer " + bearer;
-    const base = apiV1Of(hostId) || API_V1;
+    const base = apiV1Of(hostId);
+    if (!base) throw unroutedError(hostId);
 
     // Idle watchdog: abort if no bytes arrive for FINALIZE_IDLE_MS (≫ the server's 15s
     // heartbeat, so a live-but-slow finalize is never killed — only a truly dead socket).
@@ -548,12 +563,14 @@ const FINALIZE_IDLE_MS = 60000;
     if (svc && svc.getState && svc.getState().hostId) svc.refresh(svc.getState().hostId).catch(() => {});
   }
 
-  function liveHostId() {
-    try { return ((storesNs && storesNs.hostsStore && storesNs.hostsStore.getState().list[0]) || {}).id || null; }
-    catch { return null; }
-  }
+  // Realtime state is keyed by the CONNECTION whose socket produced the mode —
+  // never by "whichever node loaded first", which would report one node's link
+  // under another's name. A connection with no backend id yet (cold boot) keys
+  // under COLD_BOOT_KEY: its own state, attributed to nothing, until the hostsStore
+  // subscription above re-emits it under the reconciled id.
+  const COLD_BOOT_KEY = "_cold-boot";
   function setLiveRealtime(connId, mode) {
-    const id = connId || liveHostId() || "live";
+    const id = connId || COLD_BOOT_KEY;
     realtimeStore.setState((s) => ({ online, hosts: { ...s.hosts, [id]: { mode, attempts: 0, nextRetryInMs: 0, lastSyncAt: Date.now(), polling: mode === "reconnecting" } } }));
   }
 
@@ -563,7 +580,7 @@ const FINALIZE_IDLE_MS = 60000;
 
   // Open the primary SSE stream for a connection (global topics, drives mode + rehydrate).
   function openPrimary(conn) {
-    const url = streamUrlOf(conn.id, GLOBAL_TOPICS);
+    const url = streamUrlForConn(conn, GLOBAL_TOPICS);
     if (!url) return null;
     return createSseStream({
       url,
@@ -579,7 +596,7 @@ const FINALIZE_IDLE_MS = 60000;
   function openDynamic(topic) {
     const hosts = [];
     for (const conn of CONNECTIONS) {
-      const url = streamUrlOf(conn.id, [topic]);
+      const url = streamUrlForConn(conn, [topic]);
       if (!url) continue;
       const s = createSseStream({
         url,
@@ -643,7 +660,7 @@ const FINALIZE_IDLE_MS = 60000;
     for (const conn of added) {
       primaryStreams.push(openPrimary(conn));
       for (const [topic, entry] of dynamicStreams) {
-        const url = streamUrlOf(conn.id, [topic]);
+        const url = streamUrlForConn(conn, [topic]);
         if (!url) continue;
         entry.hosts.push({
           connId: conn.id,
@@ -828,15 +845,18 @@ const FINALIZE_IDLE_MS = 60000;
 
   // Fan a GET across EVERY connection (multi-host roll-up). Returns
   // [{ conn, ok, data, err }] — per-connection failures captured, so one host
-  // being down doesn't fail the whole read. With no registered id (a lone seed
-  // routed plainly) it's a single get; the caller merges the results (lib/merge.js).
-  // A registered host uses its scoped client (per-host bearer); the lone seed uses plain get.
+  // being down doesn't fail the whole read; the caller merges (lib/merge.js).
+  //
+  // A connection with a backend id goes through its scoped client (per-host
+  // bearer + the 401 heal). One without an id yet is addressed by ITS OWN URL —
+  // the node is named, it just isn't identified — and carries no bearer, because
+  // sessions are keyed by host id and there is no token that belongs to it.
   function fanOut(path) {
-    if (!CONNECTIONS.length) {
-      return get(path).then((data) => [{ conn: null, ok: true, data }], (err) => [{ conn: null, ok: false, err, data: null }]);
-    }
+    if (!CONNECTIONS.length) return Promise.resolve([{ conn: null, ok: false, err: offlineError(), data: null }]);
+    const byUrl = (conn) => (p) =>
+      liveFetch("GET", p, null, null, null, apiV1ForConn(conn)).then((j) => adaptResponse(p, j));
     return Promise.all(CONNECTIONS.map((conn) => {
-      const client = conn.id ? hostScoped(conn.id) : { get };
+      const client = conn.id ? hostScoped(conn.id) : { get: byUrl(conn) };
       return client.get(path).then(
         (data) => { recordReach(conn, true, null); return { conn, ok: true, data }; },
         (err) => { recordReach(conn, false, err); return { conn, ok: false, err, data: null }; },

@@ -52,29 +52,22 @@ Authority for the federation contracts this builds on: `kgsm-api/PLAN-peers.md`
 
 | Site | Reads scope for |
 |---|---|
-| `src/App.jsx:41,64,217,229,246,259-264,292,403` | sidebar wiring, alert counts, deny/expired gates, install-modal default node |
+| `src/App.jsx:63,216,247` | sidebar wiring, the deny/expired gates |
 | `src/components/Sidebar.jsx:15-90,193,223` | `HostSwitcher` — the control itself |
-| `src/pages/DashboardPage.jsx:31,32,67,121,122,149,152,198,269,330` | servers, audit, ping, capacity, watchdog capability, host column |
-| `src/pages/ServersPage.jsx:279`, `AlertsPage.jsx:121`, `AuditLogPage.jsx:231` | toolbar "Host" fields that **write the global store** |
-| `src/components/Toolbar.jsx:219,242` | reset / chip-clear, which resets the global store |
-| `src/components/NeedsAttention.jsx:74`, `ContextualAlerts.jsx:30` | alert bucket scoping |
-| `src/components/AssistantDockContext.jsx:113-116` | the assistant's default node |
 | `src/components/AppRouter.jsx:44,49` | deny/expired "back to all hosts" |
-| `src/pages/DiagnosticsPage.jsx:38,57,112,117,211` | active node, roster refresh anchor, roster-mirror anchor |
-| `src/pages/SettingsPage.jsx:50-51`, `SettingsSessions.jsx:109-110` | selected-node-else-`CONNECTIONS[0]` anchor for account surfaces |
+| `src/pages/DiagnosticsPage.jsx:37,97,102,196` | the active node on the node-subject page |
+| `src/pages/ServersPage.jsx:117`, `AuditLogPage.jsx:120` | the sidebar's scope still narrows these two lists upstream |
+| `src/lib/sessionStore.js:334` | clears the scope on sign-out |
 
 ### c · Implicit first-node fallbacks — the latent-bug class
 
-These are the sites that make a missing node *look* like it works. Each one is
-a place a future feature silently binds to node 1.
+These are the sites that make a missing node *look* like it works: each one is a
+place a future feature silently binds to node 1. The routing layer no longer has
+any (P4) — what remains is the selector's own.
 
 | Site | Fallback |
 |---|---|
-| `src/lib/config.js:72-74` | `connOf()` — an unknown or absent id routes to `CONNECTIONS[0]`. The deepest one: it makes every other fallback survivable |
-| `src/lib/apiClient.js:150,164,188` | `liveBearer` / `authorizedBearer` / `freshBearer` — no id ⇒ the selected node's bearer |
-| `src/lib/apiClient.js:507` | `liveHostId()` → `list[0]`, keys realtime state |
-| `src/lib/stores/servers.js:243` | `installServer` falls back to `list[0]` |
-| `src/App.jsx:405`, `DiagnosticsPage.jsx:57`, `Sidebar.jsx:31` | selected-else-first-node |
+| `src/pages/DiagnosticsPage.jsx:57`, `Sidebar.jsx:31` | selected-else-first-node |
 
 ### d · Where N comes from (the structural gap)
 
@@ -287,31 +280,52 @@ asks and Install is blocked. The fit matrix is asserted against the app's own
 phantom row attributed to node B, not to the first connection. Lint 0 errors,
 build clean, smoke 247/247.*
 
-### P4 — Delete the implicit fallbacks · `planned`
+### P4 — Delete the implicit fallbacks · `built`
 
-Nothing depends on them after P0–P3. This is the phase that prevents the next
-bug.
+**Routing is exact.** `connOf()` resolves a node by backend id and nothing else:
+an id no connection holds is a routing failure, which **throws in dev** (the bug
+surfaces at its source) and in prod logs and returns `null`, so the call is
+rejected with *"That node isn't connected"* rather than answered by a different
+node. There is one documented exemption — **cold boot**: a lone connection whose
+backend id isn't known yet (the `VITE_API_BASE` seed, or a registry entry before
+`GET /hosts` reconciles it) answers to any id, because there is nothing to match
+and only one node it could mean. A node-less call against a lone *identified*
+connection still resolves and **warns loudly in dev**: unambiguous today, a bug
+the moment a second node joins. At N ≥ 2 it is simply unrouted.
 
-- `config.js connOf()` — an unresolvable host id **throws** (dev) / returns
-  `null` and fails the call honestly (prod). Keep exactly one narrow exemption,
-  documented in place: the cold-boot lone seed connection with `id: null`,
-  before `GET /hosts` reconciles its real id.
-- `apiClient` — `liveBearer` / `authorizedBearer` / `freshBearer` require an
-  explicit host id; no id is a programming error, not a silent default.
-- `liveHostId()` (`apiClient.js:507`) — key realtime state by connection id
-  only.
-- `installServer` (`servers.js:243`) — already rejects without a host id; drop
-  the `list[0]` fallback above it.
-- Remove `API_BASE`-style sole-connection conveniences (`config.js:127-131`)
-  wherever a caller can name its node.
-- **Add the guard:** a dev-mode invariant that logs loudly on any host-less
-  routed call, plus a smoke assertion that the app boots and renders with **two
-  connections configured** and no selection state — the regression test for the
-  whole doctrine. It also covers P1's append path (a discovered peer joining the
-  live connection set), which has no permanent test yet.
+- **The fan-out and the SSE registry address a connection directly**
+  (`apiV1ForConn` / `streamUrlForConn`) rather than through its id. They iterate
+  `CONNECTIONS`, so the node is already in hand — naming the entry is exactly as
+  specific as naming its id, and it keeps a not-yet-reconciled node reachable
+  without a positional fallback underneath it. Such a connection carries **no
+  bearer**: sessions are keyed by backend id, so no token belongs to it.
+- **Bearers require the node they are for.** `liveBearer` / `authorizedBearer` /
+  `freshBearer` take the id as given — no ambient node to borrow a token from,
+  which is how a request became both wrong and authenticated.
+- **Realtime state is keyed by the connection whose socket produced it.** A
+  connection with no id yet keys under `_cold-boot` — its own state, attributed
+  to nothing — and the `hostsStore` subscription re-emits it under the reconciled
+  id.
+- **`installServer` rejects an install with no node.** Where a server lands is a
+  decision, never a default.
+- **Signing in picks a doorway, not a node to read from.** Identity is a global
+  SSO anchor, so with several nodes connected the login page offers them and
+  blocks *Continue* until one is named; a sole node is simply it. The chosen
+  origin is remembered, and the return leg (`/me`, `/hosts`, the registry entry)
+  addresses **that** node — asking the first one would have adopted the session
+  under another node's id.
 
 **Done when:** grep finds no `list[0]` / `CONNECTIONS[0]` node defaults outside
-the documented cold-boot seed.
+the documented cold-boot seed. — *Verified live in Chromium (24 checks): against
+a stubbed two-node cluster the SPA boots with no selection state and renders both
+nodes' rosters, the peer is fetched from its own origin, six routes produce no
+routing failure, an unknown id and a node-less call both throw, and the login
+page blocks sign-in until a node is named then records it. Against the sole seed
+connection the cold-boot exemption holds — roster and host-scoped detail pages
+render with no routing failure. Lint 0 errors, build clean, smoke 256/256, whose
+last phase is the permanent regression test: grow to two connections at runtime
+(P1's append path), then assert exact routing, both guards firing, no persisted
+selection, and the app still rendering.*
 
 ### P5 — Remove the selector · `planned`
 
@@ -339,7 +353,7 @@ the documented cold-boot seed.
 | Risk | Handling |
 |---|---|
 | A node drops out of the fan-out and reads as deleted data | P2's reachability summary is a hard prerequisite for P5 |
-| `CONNECTIONS` becoming live breaks the read-once assumption | P1 converts it to a store; audit every module-load consumer (`config.js:127-131`, `apiClient` stream registry, `SettingsSessions.jsx:110`) |
+| `CONNECTIONS` becoming live breaks the read-once assumption | P1 grows it in place and notifies holders; P4 removed the module-load snapshots, so every consumer resolves per call |
 | Roster mirroring registers an unreachable node | Keep the existing `alive` + `reachable` gate; a ghost row is the honest outcome |
 | Placement recommends a node that fills up before install | Peers decision 24: accept the race, fail honestly at start time |
 | Per-node auth failure becomes invisible without a selector | P5's per-node degradation list; fail-closed auth stays distinct from fail-open availability (decisions 25/26) |

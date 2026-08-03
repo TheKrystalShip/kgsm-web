@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a call names the node it is for, or it fails
+
+- **Routing is exact.** Reaching a node the browser doesn't hold now fails — loudly in development,
+  and in production with *"That node isn't connected"* — instead of quietly answering from a
+  different one. Reading node A's data under node B's name is worse than reading nothing.
+- **One exemption, on purpose:** a lone connection whose backend id isn't known yet (a fresh boot,
+  before the host list confirms it) still answers, because there is nothing to mistake it for. A
+  call that names no node at all still works while exactly one is connected, but says so in
+  development — it breaks the moment a second node joins.
+- **A token only goes to the node it belongs to.** Sessions are per node, so a call that doesn't
+  name one no longer borrows the last-selected node's credentials.
+- **Installing a server requires naming where it goes.** No node, no install — instead of landing
+  on whichever host happened to load first.
+- **Live-connection state is attributed to the socket that produced it**, never to whichever node
+  loaded first.
+
+### Changed — signing in picks a doorway, not a node
+
+Your identity is cluster-wide: whichever node signs you in vouches you onto the rest. With several
+nodes connected the sign-in page now asks which one to go through and waits until you choose, and
+it remembers that choice so the trip back lands on the same node. Before, the return leg always
+asked the first configured node — with someone else's token.
+
 ### Added — where a server lands is a measured decision
 
 - **The install modal recommends a node from what it can measure**: the blueprint's declared RAM

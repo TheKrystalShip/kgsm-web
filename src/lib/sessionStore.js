@@ -1,6 +1,6 @@
 import { api } from "./apiClient.js";
 import { takePendingTokens } from "./authRedirect.js";
-import { REGISTRY_KEY, apiOriginOf } from "./config.js";
+import { REGISTRY_KEY, originOfHost } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore, selectedHostStore } from "./stores.js";
 
@@ -128,9 +128,9 @@ import { hostsStore, selectedHostStore } from "./stores.js";
   function register(host) {
     // The registry stores the CONNECTION ORIGIN we actually reach this host at — an
     // explicit url if the caller has one, else the origin we're ALREADY talking to it
-    // on (apiOriginOf). NEVER the backend's self-reported hostname/id (not a reachable
-    // URL). No real origin ⇒ don't write.
-    const url = host.url || apiOriginOf(host.id);
+    // on (originOfHost). NEVER the backend's self-reported hostname/id (not a reachable
+    // URL). A host we hold no connection for ⇒ don't write.
+    const url = host.url || originOfHost(host.id);
     if (!url || !/^https?:\/\//i.test(url)) return;
     const list = readRegistry().filter(h => h.id !== host.id);
     list.push({ id: host.id, url, name: host.name || host.label || host.id });
