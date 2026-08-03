@@ -1,5 +1,6 @@
 import React from "react";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
+import { nodeFilterOptions } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
@@ -8,7 +9,7 @@ import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, To
 import { serverCapUsable } from "../lib/capabilities.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
-import { favoritesStore, hostsStore, scopeServers, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { favoritesStore, hostsStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // ServersPage — the dedicated home for every installed game server.
 //
@@ -119,6 +120,8 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState(initialStatus || "all");
   const [game, setGame] = React.useState("all");
+  // Node is a filter over THIS list, held locally like every other filter here.
+  const [node, setNode] = React.useState("all");
   // Ordering. Status-first by default (online → updating → crashed → offline) so
   // the page opens on the same triage order the dashboard uses; re-pick the
   // active key to flip direction. See ToolbarSort / sortByAccessor.
@@ -144,8 +147,11 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // Cold-load only: skeletons appear when we have NO data yet. A background
   // refresh (everLoaded) keeps showing the current list instead of flashing.
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  const selectedId = selectedHostId;
-  const multiHost = hosts.length > 1;
+  const nodeOptions = nodeFilterOptions(hosts, selectedHostId);
+  const multiNode = nodeOptions.length > 2;
+  // The rows carry a node badge only while the list actually spans nodes —
+  // pinned to one, the badge repeats the filter on every card.
+  const spansNodes = selectedHostId === "all" && node === "all";
 
   // Count by status for the filter tabs (so each tab shows how many match).
   const counts = React.useMemo(() => {
@@ -168,7 +174,6 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
     { value: "crashed",  label: "Crashed",  count: counts.crashed },
   ];
   const gameOptions = [{ value: "all", label: "All games" }, ...games.map(g => ({ value: g, label: g }))];
-  const hostOptions = [{ value: "all", label: "All hosts" }, ...hosts.map(h => ({ value: h.id, label: h.name }))];
 
   // Sort axes. Numbers default to desc (most players / hottest first); name and
   // status read better ascending. Status uses the effective status (watchdog-
@@ -204,6 +209,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
     if (status === "updates") {
       if (!(s.update_available && s.status !== "updating")) return false;
     } else if (status !== "all" && s.status !== status) return false;
+    if (node !== "all" && s.hostId !== node) return false;
     if (game !== "all" && s.game !== game) return false;
     if (q && !(s.name.toLowerCase().includes(q) || (s.game || "").toLowerCase().includes(q))) return false;
     return true;
@@ -240,7 +246,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // ---- Pagination (25 / page) ----
   const PAGE_SIZE = 25;
   const [page, setPage] = React.useState(0);
-  React.useEffect(() => { setPage(0); }, [q, status, game, selectedId, sort, sortDir]);
+  React.useEffect(() => { setPage(0); }, [q, status, game, node, selectedHostId, sort, sortDir]);
   const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = ordered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -276,12 +282,12 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
         <ToolbarFilters
           fields={[
             { id: "status", label: "Status", value: status, onChange: setStatus, default: "all", options: statusOptions },
-            { id: "host",   label: "Host",   value: selectedId, onChange: (v) => selectedHostStore.set(v), default: "all", options: hostOptions, hidden: !multiHost },
+            { id: "node",   label: "Node",   value: node, onChange: setNode, default: "all", options: nodeOptions, hidden: !multiNode },
             { id: "game",   label: "Game",   value: game, onChange: setGame, default: "all", options: gameOptions },
             { id: "group",  label: "Group",  value: groupBy, onChange: setGroupBy, default: "none", options: [
               { value: "none",      label: "None" },
               { value: "blueprint", label: "Blueprint" },
-              ...(multiHost ? [{ value: "host", label: "Host" }] : []),
+              ...(multiNode ? [{ value: "host", label: "Node" }] : []),
             ] },
           ]}
           onReset={() => setQuery("")} />
@@ -341,7 +347,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
                   solo={grouped.length === 1 && groupBy === "host"}
                   onOpenServer={onOpenServer}
                   onAction={onAction}
-                  showHost={selectedId === "all"} />
+                  showHost={spansNodes} />
               ))}
             </div>
           ) : (
@@ -353,7 +359,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
               )}
               <div className="server-grid server-grid--page">
                 {pageItems.map(s => (
-                  <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={selectedId === "all"} />
+                  <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={spansNodes} />
                 ))}
               </div>
               <Pagination

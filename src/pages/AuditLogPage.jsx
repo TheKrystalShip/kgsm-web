@@ -1,12 +1,13 @@
 import React from "react";
 import { AuditEventRow } from "../components/AuditEventRow.jsx";
+import { nodeFilterOptions } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
-import { auditInScope, auditStore, hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditInScope, auditStore, hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // AuditLogPage — searchable, filterable timeline of every action taken on
 // Krystal. Same data feeds the small "Recent activity" panel on the
@@ -38,6 +39,7 @@ function queryAudit(list, filters, now) {
   return list.filter(ev => {
     if (parseTs(ev.ts) < cutoff) return false;
     if (filters.category !== "all" && actionCategory(ev.action) !== filters.category) return false;
+    if (filters.node     !== "all" && !auditInScope(ev, filters.node)) return false;
     if (filters.actor    !== "all" && ev.actor.name !== filters.actor) return false;
     if (filters.server   !== "all" && ev.serverId !== filters.server) return false;
     if (filters.severity === "attention" && ev.severity !== "warn" && ev.severity !== "danger") return false;
@@ -113,6 +115,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
     [all, selectedId]
   );
   const servers = selectedId === "all" ? allServers : allServers.filter(s => s.hostId === selectedId);
+  const nodeOptions = nodeFilterOptions(hosts, selectedId);
   const actorOpts = React.useMemo(() => {
     const set = new Set(scoped.map(e => e.actor.name));
     return ["all", ...Array.from(set)];
@@ -123,6 +126,9 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   const [actor, setActor]     = React.useState("all");
   const [server, setServer]   = React.useState(initialServer || "all");
   const [range, setRange]     = React.useState("all");
+  // Node is a filter over THIS log, held locally like every other filter here.
+  // It stays CLIENT-side (no backend param), same as free-text search.
+  const [node, setNode]       = React.useState("all");
   // "attention" = warn + danger (what the Alerts button pre-selects).
   const [severity, setSeverity] = React.useState(initialSeverity || "all");
 
@@ -158,8 +164,8 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   // Memoizing it on its inputs means "the query changed" is one identity check.
   const filters = React.useMemo(() => ({
     query: debouncedQuery.trim().toLowerCase(),
-    category, actor, server, severity, range,
-  }), [debouncedQuery, category, actor, server, severity, range]);
+    category, actor, server, severity, range, node,
+  }), [debouncedQuery, category, actor, server, severity, range, node]);
 
   // Run the aggregated query (client-side stand-in for the server WHERE clause).
   const filtered = React.useMemo(
@@ -228,8 +234,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
           fields={[
             { id: "category", label: "Category", value: category, onChange: setCat, default: "all",
               options: categories.map(c => ({ value: c, label: c === "all" ? "All categories" : (CATEGORY_LABEL[c] || c), count: cnt(c === "all" ? auditCounts.total : auditCounts.category[c]) })) },
-            { id: "host", label: "Host", value: selectedId, onChange: v => selectedHostStore.set(v), default: "all", hidden: hosts.length <= 1,
-              options: [{ value: "all", label: "All hosts" }, ...hosts.map(h => ({ value: h.id, label: h.name }))] },
+            { id: "node", label: "Node", value: node, onChange: setNode, default: "all", options: nodeOptions, hidden: nodeOptions.length <= 2 },
             { id: "actor", label: "User", value: actor, onChange: setActor, default: "all",
               options: actorOpts.map(a => ({ value: a, label: a === "all" ? "All users" : a, count: a === "all" ? undefined : cnt(auditCounts.actor[a]) })) },
             { id: "severity", label: "Severity", value: severity, onChange: setSeverity, default: "all", options: [

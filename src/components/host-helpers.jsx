@@ -8,6 +8,18 @@ import { statusTone } from "../lib/formatting.js";
 // These were previously co-located in DiagnosticsPage.jsx, HostAccess.jsx, and
 // LoginPage.jsx. They are reusable components consumed across pages and components.
 
+// ---------- The Node list-filter ----------
+
+// Option list for a toolbar's "Node" field. This is a LIST filter: it narrows
+// the rows on its own page and touches nothing outside it. Options are the
+// nodes the page can actually show, so the choice can never contradict what is
+// already on screen, and a filter with nothing to choose between hides itself
+// (`nodeFilterOptions(...).length <= 2` — "All nodes" plus a lone node).
+function nodeFilterOptions(hosts, scopeId) {
+  const list = (!scopeId || scopeId === "all") ? (hosts || []) : (hosts || []).filter(h => h.id === scopeId);
+  return [{ value: "all", label: "All nodes" }, ...list.map(h => ({ value: h.id, label: h.name }))];
+}
+
 // ---------- Capacity meters (from DiagnosticsPage.jsx) ----------
 
 // Derive the three capacity meters from a host record.
@@ -187,4 +199,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters };
+export { CapacityMeter, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };

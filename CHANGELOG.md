@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a list filter filters its list, and nothing else
+
+- **The Node filter on Servers, Alerts and Audit is local to its page.** Each list holds its own
+  node filter, so narrowing one list leaves every other surface exactly where it was. Clearing or
+  resetting a page's filters no longer re-scopes the dashboard, the assistant's target node or the
+  install form's default node, and no longer writes a persisted app-wide selection.
+- **The filter offers only the nodes its page can show**, and hides itself when there is nothing to
+  choose between — one shared option builder (`nodeFilterOptions`) for all three lists.
+- **A server row carries its node badge while the list spans nodes**, derived from the rows on
+  screen rather than from an app-wide scope.
+
+Groundwork for the cluster-transparency work in `PLAN-cluster.md`: the SPA drives a cluster, so a
+node is an attribute of the objects on screen, never a mode of the app.
+
 ### Fixed — the settings dropdowns save what you picked
 
 - **Backup cadence, restart cadence, backup/restart day, CPU priority and max consecutive restarts

@@ -1,11 +1,13 @@
 import React from "react";
 import { AlertCard, AlertSeverityTag } from "../components/AlertCard.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { alertInScope } from "../components/ContextualAlerts.jsx";
+import { nodeFilterOptions } from "../components/host-helpers.jsx";
 import { alertBuckets, useAlerts } from "../components/NeedsAttention.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { useStore } from "../lib/store.js";
-import { hostsStore, selectedHostStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
 
 // AlertsPage — the "what's wrong right now" board (Model A, condition-mirror).
 
@@ -46,6 +48,8 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   const [query, setQuery] = React.useState("");
   const [sev, setSev] = React.useState("all");
   const [source, setSource] = React.useState("all");
+  // Node is a filter over THIS board, held locally like every other filter here.
+  const [node, setNode] = React.useState("all");
   // serverFilter pins the board to a single game server (set when you arrive
   // from that server's overview "View all"). Surfaced as a dismissible chip.
   const [serverFilter, setServerFilter] = React.useState(initialServerId || "all");
@@ -53,6 +57,7 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   const dq = useDebouncedValue(query, 250);
   const searchPending = query.trim() !== dq.trim();
   const { all, firing, resolved } = alertBuckets(selectedId);
+  const nodeOptions = nodeFilterOptions(hosts, selectedId);
   const now = new Date();
 
   // Ordering (escalated → severity → recency) now comes from alertBuckets, the
@@ -65,10 +70,11 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   const match = (i) =>
     (sev === "all" || i.severity === sev) &&
     (source === "all" || i.source === source) &&
+    (node === "all" || alertInScope(i, node)) &&
     (serverFilter === "all" || i.serverId === serverFilter) &&
     (!q || i.title.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q));
   const ff = firingSorted.filter(match), fr = resolved.filter(match);
-  const filtering = !!q || sev !== "all" || source !== "all" || serverFilter !== "all";
+  const filtering = !!q || sev !== "all" || source !== "all" || node !== "all" || serverFilter !== "all";
   const shownCount = ff.length + fr.length;
   const total = firing.length + resolved.length;
 
@@ -118,9 +124,7 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
               { value: "warn",   label: "Warning",  count: sevCounts.warn },
               { value: "info",   label: "Info",     count: sevCounts.info },
             ] },
-            { id: "host", label: "Host", value: selectedId, onChange: v => selectedHostStore.set(v), default: "all", hidden: hosts.length <= 1, options: [
-              { value: "all", label: "All hosts" }, ...hosts.map(h => ({ value: h.id, label: h.name })),
-            ] },
+            { id: "node", label: "Node", value: node, onChange: setNode, default: "all", options: nodeOptions, hidden: nodeOptions.length <= 2 },
             { id: "source", label: "Source", value: source, onChange: setSource, default: "all", options: [
               { value: "all", label: "All sources" }, ...sources.map(s => ({ value: s, label: s, count: sourceCounts[s] })),
             ] },
@@ -142,12 +146,12 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
         <div className="alerts-sections">
           <AlertsSection
             title="Active" icon="triangle-alert" items={ff} defaultOpen now={now}
-            resetKey={q + "|" + sev + "|" + source + "|" + serverFilter + "|" + selectedId}
+            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter + "|" + selectedId}
             onAsk={onAsk} onOpenServer={onOpenServer} onOpenHost={onOpenHost} onOpenAudit={onOpenAudit}
             emptyHint={filtering ? "No firing conditions match your filters." : "All clear — nothing needs you right now."} />
           <AlertsSection
             title="Recently resolved" subtitle="last 24h" icon="history" items={fr} defaultOpen now={now}
-            resetKey={q + "|" + sev + "|" + source + "|" + serverFilter + "|" + selectedId}
+            resetKey={q + "|" + sev + "|" + source + "|" + node + "|" + serverFilter + "|" + selectedId}
             onAsk={onAsk} onOpenServer={onOpenServer} onOpenHost={onOpenHost} onOpenAudit={onOpenAudit}
             emptyHint={filtering ? "Nothing resolved here matches your filters." : "Nothing has resolved in the last day."}
             footer={
