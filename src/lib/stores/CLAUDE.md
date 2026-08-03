@@ -22,7 +22,7 @@ scatter hydrate calls into the domain stores.
 |---|---|
 | `servers.js` | game servers, jobs, command actions (`commandServer`, `confirmCommand`, `awaitJob`), install/delete, settings fetch/patch, console input, game-name resolution |
 | `hosts.js` | hosts/diagnostics store + metrics & capability subscriptions (`subscribeHostMetrics`, `subscribeServerMetrics`, `syncCapabilitySubscriptions`, metrics history/events) |
-| `audit.js` | the **selected-host GLOBAL scope** (`selectedHostStore`, `useSelectedHostId`, `scopeServers`) + the audit log store |
+| `audit.js` | the cluster-wide audit log, plus the node-attribution helpers every surface labels or filters rows with (`auditEventHost`, `auditInScope`, `serverHostId`). **There is no app-wide node scope** — a node is an attribute of a row, and narrowing is local to the list that offers it |
 | `diagnostics.js` | host logs, log sources, services, leaf provisioning/config (`logsStore`, `servicesStore`, `applyLeafConfig`) |
 | `files.js` | per-server working-dir file tree + editor cache (self-contained; only `api.host()`, no WS channel) |
 | `library.js` | the installable game catalog (mostly static; hydrate from `/library`) |

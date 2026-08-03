@@ -9,7 +9,7 @@ import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, To
 import { serverCapUsable } from "../lib/capabilities.js";
 import { can } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
-import { favoritesStore, hostsStore, scopeServers, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { favoritesStore, hostsStore, serversStore } from "../lib/stores.js";
 
 // ServersPage — the dedicated home for every installed game server.
 //
@@ -114,8 +114,9 @@ function FavoritesSection({ items, onOpenServer, onAction }) {
 }
 
 function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
-  const selectedHostId = useSelectedHostId();
-  const servers = scopeServers(useStore(serversStore, s => s.list), selectedHostId);
+  // Every node's servers, always. The Node field below narrows THIS list and
+  // nothing else.
+  const servers = useStore(serversStore, s => s.list);
   const hosts = useStore(hostsStore, s => s.list);
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState(initialStatus || "all");
@@ -147,7 +148,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // Cold-load only: skeletons appear when we have NO data yet. A background
   // refresh (everLoaded) keeps showing the current list instead of flashing.
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  const nodeOptions = nodeFilterOptions(hosts, selectedHostId);
+  const nodeOptions = nodeFilterOptions(hosts);
   const multiNode = nodeOptions.length > 2;
   // The rows carry a node badge only while the list actually spans nodes —
   // pinned to one (or a one-node cluster), the badge repeats itself on every
@@ -247,7 +248,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // ---- Pagination (25 / page) ----
   const PAGE_SIZE = 25;
   const [page, setPage] = React.useState(0);
-  React.useEffect(() => { setPage(0); }, [q, status, game, node, selectedHostId, sort, sortDir]);
+  React.useEffect(() => { setPage(0); }, [q, status, game, node, sort, sortDir]);
   const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = ordered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — there is no "current node" any more
+
+The sidebar's host switcher is gone, and so is everything behind it: the selected-node store, the
+hook that read it, the helper that narrowed lists by it, and the setting that persisted it. The
+panel shows the whole cluster on every surface, so there was nothing left for it to mean — and
+while it existed, any new feature could quietly bind to it without anyone noticing.
+
+- **In its place, a chip that reports:** `Cluster · N nodes · M online`, plus a count of the ones
+  that are degraded. It opens the Cluster page and changes nothing about what you are looking at.
+  Collapsed to the rail it shows the node count.
+- **Servers and the audit log now show the whole cluster.** Each still has its own Node field,
+  which narrows that list and nothing else.
+- **Picking a node on the Cluster page** no longer reframes the app; the page's subject is the node
+  you opened, which is in the URL.
+
+### Changed — a node that refuses you is reported, not a wall
+
+Losing access to one node used to replace the entire panel with a notice about it. Now it is a row
+above the content naming the node, with the one action that helps — *Re-authorize* for a lapsed
+sign-in, *Details* for a role you don't have there — and the rest of the cluster keeps working.
+A node that simply couldn't be reached is not listed there: not answering says nothing about
+whether you'd be let in, and the reachability footnote already covers it.
+
+### Fixed — a node refusing your role was reported as an expired session
+
+The identity check treated every failure that wasn't a 401 the same way, so a node answering *"your
+role doesn't grant access here"* came back as *"your session expired — try re-authorizing"*.
+Re-authorizing could never have fixed it. The three answers are now kept apart: refused, lapsed,
+and no answer at all.
+
+### Changed — federating names the node it federates through
+
+Adding a node to the cluster edits one node's peer list. With more than one node you can manage,
+"Add node" asks which one to go through instead of picking for you.
+
 ### Changed — a call names the node it is for, or it fails
 
 - **Routing is exact.** Reaching a node the browser doesn't hold now fails — loudly in development,

@@ -1,24 +1,31 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
+import { Select } from "../../components/Select.jsx";
 import { api } from "../../lib/apiClient.js";
 import { addConnection, connectHost, normalizeHostUrl, registryEntry, setAppUser } from "../../lib/connect.js";
 import { clusterStore } from "../../lib/stores.js";
 
 // AddNodeModal — the Cluster page's single "Add node" flow. Bringing another
 // kgsm-api node into this panel means two independent things at once:
-//   1. FEDERATE the backends — POST /peers on the local node so the two
-//      kgsm-api nodes join one gossip mesh/trust domain. Admin-only
-//      (`canFederate`, resolved by the caller from `canOn("host.manage", …)`
-//      plus the local node's own admin standing in the cluster).
+//   1. FEDERATE the backends — POST /peers on ONE node so the two kgsm-api
+//      nodes join one gossip mesh/trust domain. That write edits a specific
+//      node's peer list, so the flow names it: a sole manageable node is it,
+//      and with several the modal asks rather than picking. Admin-only
+//      (`canFederate`, the caller's `canOn("host.manage", …)` plus the
+//      cluster's own admin standing).
 //   2. CONNECT this browser — register the node in the client-side connection
 //      registry and resolve a session on it, exactly like `AddHostPage`.
 // The two steps are independent and each is reported on honestly: a failure
 // in one never masks or blocks the other, and a node that federates but can't
 // be reached from this browser right now is shown as exactly that — federated,
 // not yet connected — rather than silently dropped or faked as connected.
-function AddNodeModal({ localHostId, canFederate, onClose }) {
+function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
   const [url, setUrl] = React.useState("");
+  // The node whose peer list this federation joins. Preselected only when it is
+  // the only choice; beyond that it is named here.
+  const [localHostId, setLocalHostId] = React.useState(
+    () => (federateHosts.length === 1 ? federateHosts[0].id : null));
   const [nickname, setNickname] = React.useState("");
   const [federate, setFederate] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -29,7 +36,9 @@ function AddNodeModal({ localHostId, canFederate, onClose }) {
   const [ghosted, setGhosted] = React.useState(false); // federated but unreachable from here
 
   const normalized = normalizeHostUrl(url);
-  const valid = !!normalized;
+  // Federating with no node named is not a thing to guess at, so the form waits.
+  const needsFederateNode = canFederate && federate && !localHostId;
+  const valid = !!normalized && !needsFederateNode;
 
   const submit = async () => {
     if (!valid || busy) return;
@@ -126,10 +135,25 @@ function AddNodeModal({ localHostId, canFederate, onClose }) {
           </label>
 
           {canFederate ? (
-            <label className="cluster-addnode-check">
-              <input type="checkbox" checked={federate} disabled={busy || federated} onChange={(e) => setFederate(e.target.checked)} />
-              <span>Join my cluster (federate)</span>
-            </label>
+            <>
+              <label className="cluster-addnode-check">
+                <input type="checkbox" checked={federate} disabled={busy || federated} onChange={(e) => setFederate(e.target.checked)} />
+                <span>Join my cluster (federate)</span>
+              </label>
+              {federate && federateHosts.length > 1 && (
+                <label className="host-field">
+                  <span className="host-field__label">Federate through</span>
+                  <Select
+                    value={localHostId || ""}
+                    disabled={busy || federated}
+                    onChange={(e) => setLocalHostId(e.target.value || null)}>
+                    <option value="">Choose a node…</option>
+                    {federateHosts.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </Select>
+                  <span className="host-field__hint">This node adds the peer; the cluster gossips it to the rest.</span>
+                </label>
+              )}
+            </>
           ) : (
             <div className="cluster-addnode-note">
               <Icon name="info" size={13} />

@@ -61,40 +61,14 @@
     margin-left: 0;
   }
 
-  /* Host switcher → stacked dot/glyph + 2-letter code */
-  .sidebar--rail .host-switch {
-    margin: 2px 0 8px;
-  }
-
-  .sidebar--rail .host-switch__trigger {
+  /* Cluster chip → glyph over the node count */
+  .sidebar--rail .cluster-status {
     flex-direction: column;
     gap: 4px;
     height: auto;
     padding: 8px 4px;
     justify-content: center;
-  }
-
-  .sidebar--rail .host-switch__name,
-  .sidebar--rail .host-switch__sep,
-  .sidebar--rail .host-switch__meta,
-  .sidebar--rail .host-switch__caret {
-    display: none;
-  }
-
-  .sidebar--rail .host-switch__code {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--fg-3);
-    font-family: var(--font-mono);
-    line-height: 1;
-  }
-
-  /* Popover can't inherit the 64px trigger width — give it room, anchored left */
-  .sidebar--rail .host-switch__menu {
-    left: 0;
-    right: auto;
-    min-width: 252px;
+    margin: 2px 0 8px;
   }
 
   /* Nav groups → hide labels, separate sections with a hairline */

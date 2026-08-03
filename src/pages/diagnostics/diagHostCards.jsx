@@ -12,7 +12,7 @@ import { Modal } from "../../components/Modal.jsx";
 import { canOn } from "../../lib/persona.js";
 import { uptimeShort } from "./diagHelpers.js";
 
-function HostMenu({ host, isActive, onSetActive, onEdit, onToggle, onRemove }) {
+function HostMenu({ host, onEdit, onToggle, onRemove }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -30,9 +30,6 @@ function HostMenu({ host, isActive, onSetActive, onEdit, onToggle, onRemove }) {
       </button>
       {open && (
         <div className="host-menu__pop">
-          <button className="host-menu__item" onClick={act(() => onSetActive(host.id))} disabled={isActive}>
-            <Icon name="eye" size={14} />{isActive ? "Active scope" : "Set as active scope"}
-          </button>
           {canManage && (
             <>
               <button className="host-menu__item" onClick={act(() => onEdit(host))}><Icon name="pencil" size={14} />Edit host</button>
@@ -49,7 +46,7 @@ function HostMenu({ host, isActive, onSetActive, onEdit, onToggle, onRemove }) {
   );
 }
 
-function FleetHostCard({ host, serverCount, alerts, isActive, onInspect, menuProps }) {
+function FleetHostCard({ host, serverCount, alerts, onInspect, menuProps }) {
   const { denied, metricsDown, hasTelemetry, meters, tone } = hostHealth(host);
   const alertTone = alerts.length ? alertsTone(alerts) : null;
   return (
@@ -58,14 +55,13 @@ function FleetHostCard({ host, serverCount, alerts, isActive, onInspect, menuPro
         <span className={"fleet-card__dot fleet-card__dot--" + tone}></span>
         <span className="fleet-card__name">{host.name}</span>
         <span className="fleet-card__region">{host.region}</span>
-        {isActive && <span className="fleet-card__active"><Icon name="circle-check" size={11} strokeWidth={2.4} />active</span>}
         <span style={{ flex: 1 }}></span>
         {alerts.length > 0 && (
           <span className={"fleet-card__alerts fleet-card__alerts--" + alertTone}><Icon name="triangle-alert" size={11} strokeWidth={2.4} />{alerts.length}</span>
         )}
         {denied && <HostAuthBadge hostId={host.id} size="sm" />}
         {host.online && !denied && <HostConnection hostId={host.id} />}
-        <HostMenu host={host} isActive={isActive} {...menuProps} />
+        <HostMenu host={host} {...menuProps} />
       </div>
       <div className="fleet-card__hostname"><code>{host.hostname}</code></div>
       {denied ? (

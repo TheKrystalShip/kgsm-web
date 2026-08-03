@@ -3,12 +3,10 @@
 
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
-import { HostDeniedNotice } from "../components/host-helpers.jsx";
-import { HostExpiredNotice } from "../pages/HostReauth.jsx";
 import { ContentError, ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { KrystalRouter } from "../lib/router.js";
 import { can } from "../lib/persona.js";
-import { selectedHostStore, serversStore } from "../lib/stores.js";
+import { serversStore } from "../lib/stores.js";
 import { useAssistantDock } from "./AssistantDockContext.jsx";
 import { ServerGate } from "../pages/ServerGate.jsx";
 
@@ -25,8 +23,7 @@ const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("../pages/SettingsPage.jsx"));
 
 function AppRouter({ route, setRoute, user, activeGame, serverForRender,
-  handleAction, openGame, handleInstall,
-  deniedHost, denyGate, expiredHost, expiredGate, setReauthHostId,
+  handleAction, openGame, handleInstall, setReauthHostId,
   handleLogout, setInstalling }) {
 
   // Assistant/dock state is provided by AssistantDockProvider (an ancestor of this
@@ -39,15 +36,6 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     <ErrorBoundary
       resetKey={KrystalRouter.routeToHash(route)}
       fallback={(reset, error) => <ContentError error={error} onRetry={reset} onHome={() => setRoute({ kind: "home" })} />}>
-    {denyGate ? (
-      <HostDeniedNotice host={deniedHost}
-        onBack={() => selectedHostStore.set("all")}
-        onManage={() => setRoute({ kind: "cluster", hostId: deniedHost.id })} />
-    ) : expiredGate ? (
-      <HostExpiredNotice host={expiredHost}
-        onReauth={() => setReauthHostId(expiredHost.id)}
-        onBack={() => selectedHostStore.set("all")} />
-    ) : (<>
     <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{"Loading\u2026"}</div></div>}>
     <div className="page" key={KrystalRouter.routeToHash(route)}>
     {route.kind === "home" && <DashboardPage
@@ -134,7 +122,6 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     )}
     </div>
     </React.Suspense>
-    </>)}
     </ErrorBoundary>
   );
 }

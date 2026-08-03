@@ -10,39 +10,13 @@ import { OAuthIcon } from "../components/host-helpers.jsx";
 // whenever the discord.com SSO anchor is alive. When it can't — the anchor is
 // gone, so silent SSO answers `login_required` — re-auth needs a real user
 // gesture (a Discord consent popup), which can't fire from inside a fetch. So
-// the seam surfaces the host as `expired` and these two surfaces let the user
-// re-confirm:
+// the seam surfaces that node as `expired`, NodeAccessNotice reports it beside
+// the nodes that are fine, and its "Re-authorize" opens the modal here.
 //
-//   HostExpiredNotice — inline, non-terminal surface shown when you're SCOPED to
-//                       a host whose session lapsed (parallel to HostDeniedNotice,
-//                       but amber + recoverable). Offers "Re-authorize".
-//   HostReauthModal   — the gesture-bound modal. NAMES the host, reuses the login
-//                       card's Discord button, and drives the interactive
-//                       bootstrap. NB: labelled "Re-authorize" — deliberately
-//                       distinct from the realtime-socket "Reconnect" (#04),
-//                       which is a different thing on the same host.
-
-function HostExpiredNotice({ host, onReauth, onBack }) {
-  const name = (host && host.name) || "this host";
-  return (
-    <div className="host-expired">
-      <div className="host-expired__icon"><Icon name="rotate-cw" size={24} strokeWidth={1.8} /></div>
-      <h2 className="host-expired__title">Your session for {name} expired</h2>
-      <p className="host-expired__body">
-        Krystal couldn’t renew your session on <b>{name}</b> in the background —
-        your Discord sign-in needs a quick re-confirm. Your other hosts are
-        unaffected. Re-authorize to pick up right where you left off.
-      </p>
-      <div className="host-expired__actions">
-        <button className="host-btn host-btn--primary" onClick={onReauth}>
-          <OAuthIcon provider="discord" size={15} /> Re-authorize with Discord
-        </button>
-        {onBack && <button className="host-btn" onClick={onBack}><Icon name="layers" size={14} /> Back to all hosts</button>}
-      </div>
-      <div className="host-expired__hint"><Icon name="info" size={12} /> Only {name} is affected — sessions are issued per host.</div>
-    </div>
-  );
-}
+// HostReauthModal NAMES the node, reuses the login card's Discord button and
+// drives the interactive bootstrap. NB: labelled "Re-authorize" — deliberately
+// distinct from the realtime-socket "Reconnect", a different thing on the same
+// node.
 
 function HostReauthModal({ host, onClose, onDone }) {
   const name = (host && host.name) || "this host";
@@ -110,4 +84,4 @@ function HostReauthModal({ host, onClose, onDone }) {
   );
 }
 
-export { HostExpiredNotice, HostReauthModal };
+export { HostReauthModal };

@@ -56,7 +56,7 @@ function AlertsPage({ onOpenServer, onOpenHost, onAsk, onOpenAudit, initialServe
   const dq = useDebouncedValue(query, 250);
   const searchPending = query.trim() !== dq.trim();
   const { all, firing, resolved } = alertBuckets("all");
-  const nodeOptions = nodeFilterOptions(hosts, "all");
+  const nodeOptions = nodeFilterOptions(hosts);
   const now = new Date();
 
   // Ordering (escalated → severity → recency) now comes from alertBuckets, the

@@ -554,7 +554,7 @@
   background: var(--danger);
 }
 
-/* History popover — matches the host-switch / account menus. */
+/* History popover — matches the sidebar account menu. */
 .chat-hist {
   position: relative;
   display: inline-flex;
@@ -2723,7 +2723,7 @@ a.ev-search__src:hover {
   color: var(--krystal-teal);
 }
 
-/* ---------- host-switch / checkpoint notice ---------- */
+/* ---------- host-scope / checkpoint notice ---------- */
 .chat-scope-notice {
   display: flex;
   align-items: center;

@@ -11,7 +11,7 @@ import { api } from "../lib/apiClient.js";
 import { canOn } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
-import { clusterStore, hostsStore, selectedHostStore, serversStore, subscribeHostMetrics, useSelectedHostId } from "../lib/stores.js";
+import { clusterStore, hostsStore, serversStore, subscribeHostMetrics } from "../lib/stores.js";
 import { pingStore, startPingLoop } from "../lib/stores/ui.js";
 
 // Imports from extracted modules
@@ -34,7 +34,6 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
   const servers = useStore(serversStore, s => s.list);
-  const activeId = useSelectedHostId();
   const tab = tabProp || "overview";
   const setTab = onTabChange || (() => {});
   const [, setClock] = React.useState(0);
@@ -48,19 +47,25 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   const [removing, setRemoving] = React.useState(null);
   const [addingNode, setAddingNode] = React.useState(false);
 
-  // Constellation + node list: the local node is the active scope (or the
-  // first connected node under "all"), federation data enriches it, ping
-  // gives the link-latency radius. All read here once and threaded to both
+  // Constellation + node list: federation data enriches the node rows and ping
+  // gives the link-latency radius. Both read here once and threaded to the two
   // BriefCards so they render from the exact same merged node array.
   const [hoveredNode, setHoveredNode] = React.useState(null);
-  const localHostId = activeId !== "all" ? activeId : (hosts[0] && hosts[0].id);
+  // Peer writes (federate, enable/disable, unfederate) edit ONE node's peer list,
+  // which then propagates — so they name the node they act on: the one you have
+  // open, else the only one you can manage. With several manageable and none
+  // open, the acting node is unset and those controls wait to be told.
+  const manageable = hosts.filter(h => canOn("host.manage", h.id));
+  const localHostId = (focusHostId && manageable.some(h => h.id === focusHostId))
+    ? focusHostId
+    : (manageable.length === 1 ? manageable[0].id : null);
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterErrored = useStore(clusterStore, s => s.status === "error");
-  // "Add node" federates the local node's peer roster (admin-only) as part of
-  // the unified add flow — scoped the same way ClusterNodeList gates its own
-  // per-row peer actions.
-  const canFederate = !!localHostId && canOn("host.manage", localHostId) && !!clusterAdmin;
+  // "Add node" federates through one node's peer roster (admin-only) as part of
+  // the unified add flow. The modal names that node itself — a sole manageable
+  // node is it, otherwise it asks — so the flow never guesses where to federate.
+  const canFederate = manageable.length > 0 && !!clusterAdmin;
   const pingByHost = useStore(pingStore, s => s.byHost);
   React.useEffect(() => { startPingLoop(); }, []);
   // The roster has ONE owner: cluster discovery keeps clusterStore current for
@@ -94,12 +99,10 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
     if (!removing) return;
     const id = removing.id;
     hostsStore.remove(id);
-    if (activeId === id) selectedHostStore.set("all");
     if (focusHostId === id) onFocusHost(null);
     setRemoving(null);
   };
   const menuProps = {
-    onSetActive: (id) => selectedHostStore.set(id),
     onEdit: (host) => setEditing(host),
     onToggle: toggleHost,
     onRemove: (host) => setRemoving(host),
@@ -108,7 +111,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
     <>
       {editing && <HostEditorModal host={editing} onSave={saveHost} onClose={() => setEditing(null)} />}
       {removing && <RemoveHostDialog host={removing} serverCount={countFor(removing.id)} onConfirm={confirmRemove} onClose={() => setRemoving(null)} />}
-      {addingNode && <AddNodeModal localHostId={localHostId} canFederate={canFederate} onClose={() => setAddingNode(false)} />}
+      {addingNode && <AddNodeModal federateHosts={manageable} canFederate={canFederate} onClose={() => setAddingNode(false)} />}
     </>
   );
 
@@ -161,10 +164,9 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
               onHover={setHoveredNode}
               onSelect={selectNode}
               hostId={localHostId}
-              canManage={!!localHostId && canOn("host.manage", localHostId)}
+              canManage={!!localHostId}
               admin={clusterAdmin}
               clusterError={clusterErrored}
-              activeId={activeId}
               menuProps={menuProps}
             />
           </>
@@ -175,7 +177,6 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   }
 
   const host = hosts.find(h => h.id === focusHostId);
-  const isActive = activeId === host.id;
 
   if (sessionStore.isDenied(host.id)) {
     return (
@@ -192,8 +193,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
           </div>
         </div>
         <HostDeniedNotice host={host} embedded
-          onBack={() => onFocusHost(null)}
-          onManage={() => selectedHostStore.set("all")} />
+          onBack={() => onFocusHost(null)} />
         {modals}
       </>
     );
@@ -206,7 +206,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
       </button>
       <div className="diag-head">
         <div className="diag-head__title">
-          <h1>{host.name}{isActive && <span className="host-picker__active-tag">active</span>}</h1>
+          <h1>{host.name}</h1>
           <div className="dash-head__sub">{host.hostname} · {host.region} — host machine health, distinct from per-game-server metrics.</div>
         </div>
         {host.online && <HostConnection hostId={host.id} full />}

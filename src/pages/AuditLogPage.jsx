@@ -7,7 +7,7 @@ import { AuditSkeleton } from "../components/Skeletons.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { ACTION_META, CATEGORY_LABEL, actionCategory, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
-import { auditEventHost, auditInScope, auditStore, hostsStore, serversStore, useSelectedHostId } from "../lib/stores.js";
+import { auditEventHost, auditStore, hostsStore, serversStore } from "../lib/stores.js";
 
 // AuditLogPage — searchable, filterable timeline of every action taken on
 // Krystal. Same data feeds the small "Recent activity" panel on the
@@ -117,15 +117,11 @@ function AuditLogPage({ initialSeverity, initialServer }) {
   const loadingMore = useStore(auditStore, s => s.loadingMore);
   const allServers = useStore(serversStore, s => s.list);
   const hosts = useStore(hostsStore, s => s.list);
-  const selectedId = useSelectedHostId();
-  // Soft host scope: under a specific host, the log shows that host's server
-  // events plus global/account events (auth, tokens) — see auditInScope.
-  const scoped = React.useMemo(
-    () => all.filter(ev => auditInScope(ev, selectedId)),
-    [all, selectedId]
-  );
-  const servers = selectedId === "all" ? allServers : allServers.filter(s => s.hostId === selectedId);
-  const nodeOptions = nodeFilterOptions(hosts, selectedId);
+  // The whole cluster's log. The Node field in the toolbar narrows the rows
+  // below, and nothing outside this page.
+  const scoped = all;
+  const servers = allServers;
+  const nodeOptions = nodeFilterOptions(hosts);
   const actorOpts = React.useMemo(() => {
     const set = new Set(scoped.map(e => e.actor.name));
     return ["all", ...Array.from(set)];

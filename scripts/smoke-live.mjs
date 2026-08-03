@@ -1943,6 +1943,12 @@ try {
     try { cfg.apiV1Of(null); } catch { threw = true; }
     assert(threw, "routing guard: a node-less routed call throws in dev once the cluster has two nodes");
 
+    // Nothing can express "the current node" any more: the store, the hook and
+    // the persisted key are gone, so no surface can be silently reframed to one
+    // node and no code can bind to a selection that isn't there.
+    const st = await vite.ssrLoadModule("/src/lib/stores.js");
+    assert(st.selectedHostStore === undefined && st.useSelectedHostId === undefined && st.scopeServers === undefined,
+      "the selected-node store, hook and scope helper no longer exist");
     assert(!w.localStorage.getItem("krystal:selectedHost"), "no selected-node state is persisted");
     const twoNodeHtml = await nav("#/servers");
     assert(twoNodeHtml.includes(PROBE.id), "servers roster renders with two connections and no selection");

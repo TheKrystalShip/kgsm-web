@@ -2,6 +2,7 @@ import React from "react";
 import { AssistantDockProvider, useAssistantDock } from "./components/AssistantDockContext.jsx";
 import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
 import { ColdStartDown, ConnectivityBanner } from "./components/ErrorBoundary.jsx";
+import { NodeAccessNotice } from "./components/host-helpers.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
 import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
@@ -13,7 +14,7 @@ import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { commandServer, hostsStore, installServer, libraryStore, selectedHostStore, serversStore, useSelectedHostId } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, serversStore } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
@@ -60,7 +61,6 @@ function AppInner({ user, setUser, route, setRoute }) {
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
     openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
-  const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
 
   // --- Auth ---
@@ -213,8 +213,6 @@ function AppInner({ user, setUser, route, setRoute }) {
     log: [...activeServer.log, ...(extraLog[activeServer.id] || [])],
   } : null;
 
-  const selectHost = (id) => selectedHostStore.set(id);
-
   // --- Render ---
   useAlerts();
 
@@ -244,7 +242,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     return <AddHostPage
       user={user}
       firstRun={hosts.length === 0}
-      onAdded={(id) => { selectedHostStore.set(id); setRoute({ kind: "home" }); }}
+      onAdded={() => setRoute({ kind: "home" })}
       onCancel={hosts.length ? () => setRoute({ kind: "home" }) : null}
       onLogout={handleLogout} />;
   }
@@ -256,14 +254,6 @@ function AppInner({ user, setUser, route, setRoute }) {
   if (!landingResolved) {
     return <BootLanding />;
   }
-
-  const deniedHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
-  const scopedDenied = !!(deniedHost && sessionStore.isDenied(selectedHostId));
-  const denyGate = scopedDenied && !["cluster", "settings", "addHost"].includes(route.kind);
-
-  const expiredHost = selectedHostId !== "all" ? hosts.find(h => h.id === selectedHostId) : null;
-  const scopedExpired = !!(expiredHost && sessionStore.needsReauth(selectedHostId));
-  const expiredGate = scopedExpired && !["cluster", "settings", "addHost"].includes(route.kind);
 
   const sidebarCollapsed = desktop ? collapsed : false;
   const railReserve = railMode && !assistantOpen ? 56 : 0;
@@ -290,8 +280,6 @@ function AppInner({ user, setUser, route, setRoute }) {
         user={user}
         onLogout={handleLogout}
         hosts={hosts}
-        selectedHostId={selectedHostId}
-        onSelectHost={selectHost}
         open={drawerOpen}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setCollapsed(c => !c)}
@@ -303,6 +291,12 @@ function AppInner({ user, setUser, route, setRoute }) {
       <main className="app__main">
         <div className="content">
           <ConnectivityBanner conn={conn} onRetry={retryConnection} />
+          {/* Per-node access, reported rather than gated: a node refusing this
+              session takes its own rows off the aggregated surfaces, not the
+              panel. Sessions are per node, so the rest of the cluster works. */}
+          <NodeAccessNotice
+            onReauth={(h) => setReauthHostId(h.id)}
+            onManage={(h) => setRoute({ kind: "cluster", hostId: h.id })} />
           <Breadcrumb
             route={route}
             onNavigate={setRoute}
@@ -316,10 +310,6 @@ function AppInner({ user, setUser, route, setRoute }) {
             handleAction={handleAction}
             openGame={openGame}
             handleInstall={handleInstall}
-            deniedHost={deniedHost}
-            denyGate={denyGate}
-            expiredHost={expiredHost}
-            expiredGate={expiredGate}
             setReauthHostId={setReauthHostId}
             handleLogout={handleLogout}
             setInstalling={setInstalling}

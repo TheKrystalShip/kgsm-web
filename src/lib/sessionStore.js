@@ -2,7 +2,7 @@ import { api } from "./apiClient.js";
 import { takePendingTokens } from "./authRedirect.js";
 import { REGISTRY_KEY, originOfHost } from "./config.js";
 import { createStore } from "./store.js";
-import { hostsStore, selectedHostStore } from "./stores.js";
+import { hostsStore } from "./stores.js";
 
 // sessionStore.js — per-host identity sessions (Model A: per-host auth-code
 // flow + silent SSO). See architecture.html §6·a.
@@ -167,8 +167,14 @@ import { hostsStore, selectedHostStore } from "./stores.js";
       }, true);
       return "live";
     }, err => {
-      const unauth = err && (err.code === 401 || err.status === 401);
-      setRec(id, { status: "expired", error: unauth ? "login_required" : "unreachable" });
+      // Three different answers, kept apart. 403 is the node ANSWERING and
+      // refusing the role — terminal, and re-signing in changes nothing. 401 is
+      // a lapsed sign-in, which one gesture fixes. Anything else means we never
+      // got an answer, so we know nothing about whether we'd be let in and say
+      // exactly that rather than guessing at either.
+      const code = err && (typeof err.code === "number" ? err.code : err.status);
+      if (code === 403) { setRec(id, { status: "denied", error: "forbidden" }); return "denied"; }
+      setRec(id, { status: "expired", error: code === 401 ? "login_required" : "unreachable" });
       return "expired";
     });
   }
@@ -331,7 +337,6 @@ import { hostsStore, selectedHostStore } from "./stores.js";
     writeRegistry([]);
     store.setState({ byHost: {} });
     hostsStore.setState(s => ({ ...s, list: [] }));
-    selectedHostStore.set("all");
   }
   // Sign out: drop EVERY per-host credential (access in sessionStorage + the long-lived
   // refresh token in localStorage) so a reload can't silently rotate back in — but KEEP

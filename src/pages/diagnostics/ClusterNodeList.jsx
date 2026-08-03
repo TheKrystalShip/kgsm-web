@@ -100,7 +100,7 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
   );
 }
 
-function ClusterNodeList({ nodes, hovered, onHover, onSelect, hostId, canManage, admin, clusterError, activeId, menuProps }) {
+function ClusterNodeList({ nodes, hovered, onHover, onSelect, hostId, canManage, admin, clusterError, menuProps }) {
   const canManagePeers = canManage && admin;
 
   return (
@@ -164,7 +164,7 @@ function ClusterNodeList({ nodes, hovered, onHover, onSelect, hostId, canManage,
                 {n.fed && <StatusChip status={n.fed.status} enabled={n.fed.enabled} />}
                 {canAct && <NodeRowActions hostId={hostId} node={n} />}
                 <span className="cluster-node-row__spacer" />
-                <HostMenu host={n.host} isActive={activeId === n.host.id} {...menuProps} />
+                <HostMenu host={n.host} {...menuProps} />
               </div>
             </div>
           );

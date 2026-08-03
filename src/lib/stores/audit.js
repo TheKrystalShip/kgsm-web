@@ -1,47 +1,24 @@
-// stores/audit.js — Selected host scope + audit log.
+// stores/audit.js — the audit log, aggregated over the cluster.
 
 import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
 import * as merge from "../merge.js";
-import { createStore, useStore } from "../store.js";
-import { hostsStore } from "./hosts.js";
+import { createStore } from "../store.js";
 import { serversStore } from "./servers.js";
 
-// ---- Selected host (GLOBAL scope) ----
-const SELECTED_HOST_KEY = "krystal:selectedHost";
-function readSelectedHost() {
-  try {
-    const list = (hostsStore && hostsStore.getState().list) || [];
-    const v = localStorage.getItem(SELECTED_HOST_KEY);
-    if (!v) return list.length === 1 ? list[0].id : "all";
-    if (v !== "all" && !hostsStore.find(v)) return "all";
-    return v;
-  } catch { return "all"; }
-}
-const selectedHostStore = createStore({ id: readSelectedHost() });
-selectedHostStore.set = (id) => {
-  try { localStorage.setItem(SELECTED_HOST_KEY, id); } catch {}
-  selectedHostStore.setState({ id });
-};
-hostsStore.subscribe(() => {
-  try {
-    if (localStorage.getItem(SELECTED_HOST_KEY)) return;
-    const list = hostsStore.getState().list || [];
-    const want = list.length === 1 ? list[0].id : "all";
-    if (selectedHostStore.getState().id !== want) selectedHostStore.setState({ id: want });
-  } catch {}
-});
-const useSelectedHostId = () => useStore(selectedHostStore, s => s.id);
-
-// Scope helpers
-const scopeServers = (servers, hostId) =>
-  (!hostId || hostId === "all") ? servers : servers.filter(s => s.hostId === hostId);
+// ---- Node attribution -----------------------------------------------------
+// An event's node is a property OF THE EVENT: the node that recorded it, or the
+// node the server it names runs on. Nothing here scopes the app — these resolve
+// the node dimension so a surface can label a row or a list can filter itself.
 const serverHostId = (serverId) => {
   const s = serversStore.find(serverId);
   return s ? s.hostId : null;
 };
 
 const auditEventHost = (ev) => ev.hostId || (ev.serverId ? serverHostId(ev.serverId) : null);
+// Does this event belong to `hostId`? A LIST filter, applied by the list that
+// owns the choice. An event with no resolvable node (account/auth events are
+// cluster-wide) belongs to every view — it is never hidden by a node filter.
 const auditInScope = (ev, hostId) => {
   if (!hostId || hostId === "all") return true;
   const h = auditEventHost(ev);
@@ -135,7 +112,6 @@ api.stream.subscribe(["audit"], (m) => {
 });
 
 export {
-  selectedHostStore, useSelectedHostId,
-  scopeServers, serverHostId, auditEventHost, auditInScope,
+  serverHostId, auditEventHost, auditInScope,
   auditStore,
 };

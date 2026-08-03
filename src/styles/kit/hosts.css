@@ -1,230 +1,129 @@
 /* ============================================================================
-   kit/hosts.css — host switcher, fleet board, hosts management
+   kit/hosts.css — cluster chip, fleet board, hosts management
    Split out of the monolithic kit.css; imported by it in cascade order.
    ============================================================================ */
 /* ============================================================= */
-/* Host scope — sidebar switcher, fleet board, hosts management   */
+/* Cluster — sidebar chip, fleet board, hosts management          */
 /* ============================================================= */
 
-/* ---- Sidebar host switcher (global scope selector) ---- */
-.host-switch {
-  position: relative;
+/* ---- Sidebar cluster chip (reports; sets nothing) ---- */
+.cluster-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
   margin: 2px 0 10px;
-}
-
-.host-switch__trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 6px;
-  background: transparent;
-  border: none;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  text-align: left;
-  color: var(--fg-3);
-  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
-}
-
-.host-switch__trigger:hover {
-  background: var(--surface-2);
-  color: var(--fg-2);
-}
-
-.host-switch__trigger--open {
-  background: var(--surface-2);
-  color: var(--fg-1);
-}
-
-.host-switch__lead {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--fg-3);
-  width: 12px;
-}
-
-.host-switch__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.host-switch__dot--online {
-  background: var(--success);
-}
-
-.host-switch__dot--off {
-  background: var(--fg-4);
-}
-
-.host-switch__name {
-  color: var(--fg-2);
-  font-weight: 600;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.host-switch__trigger:hover .host-switch__name {
-  color: var(--fg-1);
-}
-
-.host-switch__sep {
-  width: 1px;
-  height: 12px;
-  background: var(--border-subtle);
-  flex-shrink: 0;
-}
-
-.host-switch__meta {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--fg-4);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  flex: 1;
-}
-
-.host-switch__caret {
-  color: var(--fg-4);
-  flex-shrink: 0;
-}
-
-.host-switch__menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 40;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
-  box-shadow: var(--shadow-2);
-  padding: 4px;
-  animation: k-fade var(--d-fast) var(--ease-out);
-}
-
-.host-switch__menu-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--fg-4);
-  padding: 6px 8px 3px;
-}
-
-.host-switch__opt {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border-radius: var(--r-sm);
-  background: transparent;
-  border: none;
+  color: var(--fg-2);
   cursor: pointer;
   text-align: left;
-  transition: background var(--d-fast) var(--ease-out);
+  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }
 
-.host-switch__opt:hover {
+.cluster-status:hover {
   background: var(--surface-2);
+  border-color: var(--border-2);
   color: var(--fg-1);
 }
 
-.host-switch__opt--active {
-  background: var(--krystal-teal-dim);
-}
-
-.host-switch__opt-lead {
-  width: 12px;
+.cluster-status__lead {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: none;
   color: var(--fg-3);
 }
 
-.host-switch__opt--active .host-switch__opt-lead {
-  color: var(--krystal-teal);
+.cluster-status--warn .cluster-status__lead { color: var(--warning); }
+.cluster-status--down .cluster-status__lead { color: var(--danger); }
+.cluster-status--ok .cluster-status__lead { color: var(--success); }
+
+.cluster-status__name {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--fg-1);
+  white-space: nowrap;
 }
 
-.host-switch__opt-text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+.cluster-status__sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-1);
+  flex: none;
+}
+
+.cluster-status__meta {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
 }
 
-.host-switch__opt-name {
-  color: var(--fg-1);
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.host-switch__opt--active .host-switch__opt-name {
-  color: var(--krystal-teal);
-}
-
-.host-switch__opt-sub {
-  color: var(--fg-4);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
+.cluster-status__flag {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--warning);
   white-space: nowrap;
-  margin-left: auto;
 }
 
-.host-switch__opt-check {
-  color: var(--krystal-teal);
-  flex-shrink: 0;
-  margin-left: 4px;
+.cluster-status__code {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  line-height: 1;
 }
 
-.host-switch__opt-flag {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--fg-4);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
+/* ---- Per-node access degradation (reported, never a gate) ---- */
+.node-access {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
 }
 
-.host-switch__foot {
-  border-top: 1px solid var(--border-subtle);
-  margin-top: 4px;
-  padding-top: 4px;
-}
-
-.host-switch__manage {
-  width: 100%;
+.node-access__row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border-radius: var(--r-sm);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--fg-2);
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
   font-size: 12.5px;
-  font-weight: 600;
+  color: var(--fg-2);
+  line-height: 1.45;
 }
 
-.host-switch__manage:hover {
+.node-access__row--expired { border-color: color-mix(in srgb, var(--warning) 40%, var(--border-1)); }
+.node-access__row--expired > svg { color: var(--warning); }
+.node-access__row--denied { border-color: color-mix(in srgb, var(--danger) 34%, var(--border-1)); }
+.node-access__row--denied > svg { color: var(--danger); }
+
+.node-access__text { flex: 1; }
+.node-access__text b { color: var(--fg-1); font-weight: 650; }
+
+.node-access__act {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--fg-1);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
 }
+
+.node-access__act:hover { background: var(--surface-3); }
 
 /* ---- Server tile top-right corner: host badge + favorite star ---- */
 /* Both live in one right-aligned flex row so they never collide; the host badge
@@ -604,20 +503,7 @@
   transition: color var(--d-fast) var(--ease-out);
 }
 
-/* ---- Per-host ⋯ management menu + active tags ---- */
-.fleet-card__active {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--krystal-teal);
-  background: var(--krystal-teal-dim);
-  padding: 2px 7px;
-  border-radius: 999px;
-}
+/* ---- Per-host ⋯ management menu ---- */
 
 .host-menu {
   position: relative;
@@ -701,19 +587,6 @@
   height: 1px;
   background: var(--border-subtle);
   margin: 5px 0;
-}
-
-.host-picker__active-tag {
-  margin-left: 8px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--krystal-teal);
-  background: var(--krystal-teal-dim);
-  padding: 1px 6px;
-  border-radius: 999px;
-  vertical-align: middle;
 }
 
 /* ---- Hosts management page ---- */
@@ -1154,6 +1027,14 @@
   font-weight: 500;
   color: var(--fg-4);
   font-size: 11px;
+}
+
+/* The one-line "why this field exists" under a picker that can't be guessed. */
+.host-field__hint {
+  font-weight: 500;
+  color: var(--fg-4);
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 .host-field__input {

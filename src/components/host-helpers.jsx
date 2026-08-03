@@ -53,16 +53,76 @@ function ClusterReach({ className = "" }) {
   );
 }
 
+// ---------- Per-node access degradation ----------
+
+// The nodes that refuse this session, reported as a list rather than as a gate.
+//
+// A node can refuse in two ways, and they are not the same thing: `denied` is
+// terminal (your Discord role grants nothing there — re-logging in changes
+// nothing), `expired` is recoverable with one gesture. Neither is a reason to
+// take the whole panel away: sessions are per node, so the rest of the cluster
+// is still yours to use, and the surfaces already disclose the rows that node
+// would have contributed (ClusterReach). What is owed is naming the node and
+// offering the one action that fixes it.
+//
+// A node we couldn't REACH is not a node that refused us, so it is not reported
+// here — its session lands on `expired/unreachable`, which says nothing about
+// whether we'd be let in. That is ClusterReach's story ("didn't answer"), and
+// offering "Re-authorize" for it would be a diagnosis we never measured.
+//
+// Driven by the SESSION records, not by the host list: a node that refuses us
+// contributes no row to `GET /hosts`, so reading the host list would silently
+// drop the very nodes this exists to name. The list is only consulted for a
+// display name, with the connection's own label behind it.
+//
+// Silent when every node accepts us.
+function NodeAccessNotice({ onReauth, onManage }) {
+  const hosts = useStore(hostsStore, s => s.list);
+  const sessions = useStore(sessionStore, s => s.byHost);
+  const nameOf = (id) => {
+    const h = hosts.find(x => x.id === id);
+    if (h && h.name) return h.name;
+    const c = CONNECTIONS.find(x => x.id === id);
+    return (c && c.name) || id;
+  };
+  const refused = Object.keys(sessions).filter(id => {
+    const rec = sessions[id];
+    if (rec.status === "denied") return true;
+    return rec.status === "expired" && rec.error !== "unreachable";
+  });
+  if (!refused.length) return null;
+  return (
+    <div className="node-access" role="status">
+      {refused.map(id => {
+        const denied = sessions[id].status === "denied";
+        const name = nameOf(id);
+        return (
+          <div key={id} className={"node-access__row node-access__row--" + (denied ? "denied" : "expired")}>
+            <Icon name={denied ? "lock" : "rotate-cw"} size={14} />
+            <span className="node-access__text">
+              {denied
+                ? <><b>{name}</b> doesn{"’"}t grant your Discord role access. Its servers aren{"’"}t shown.</>
+                : <><b>{name}</b> needs your sign-in re-confirmed. Its servers aren{"’"}t shown until it is.</>}
+            </span>
+            {denied
+              ? <button className="node-access__act" onClick={() => onManage && onManage({ id, name })}>Details</button>
+              : <button className="node-access__act" onClick={() => onReauth && onReauth({ id, name })}>Re-authorize</button>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ---------- The Node list-filter ----------
 
 // Option list for a toolbar's "Node" field. This is a LIST filter: it narrows
-// the rows on its own page and touches nothing outside it. Options are the
-// nodes the page can actually show, so the choice can never contradict what is
-// already on screen, and a filter with nothing to choose between hides itself
-// (`nodeFilterOptions(...).length <= 2` — "All nodes" plus a lone node).
-function nodeFilterOptions(hosts, scopeId) {
-  const list = (!scopeId || scopeId === "all") ? (hosts || []) : (hosts || []).filter(h => h.id === scopeId);
-  return [{ value: "all", label: "All nodes" }, ...list.map(h => ({ value: h.id, label: h.name }))];
+// the rows on its own page and touches nothing outside it. The options are every
+// node the panel drives, because every node's rows are on the page, and a filter
+// with nothing to choose between hides itself (`nodeFilterOptions(...).length
+// <= 2` — "All nodes" plus a lone node).
+function nodeFilterOptions(hosts) {
+  return [{ value: "all", label: "All nodes" }, ...(hosts || []).map(h => ({ value: h.id, label: h.name }))];
 }
 
 // ---------- Capacity meters (from DiagnosticsPage.jsx) ----------
@@ -244,4 +304,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };
+export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };

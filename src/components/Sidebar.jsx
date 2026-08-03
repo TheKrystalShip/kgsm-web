@@ -4,7 +4,8 @@ import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { coverArtBg } from "../lib/art.js";
-import { HostAuthBadge, OAuthIcon } from "./host-helpers.jsx";
+import { OAuthIcon } from "./host-helpers.jsx";
+import { useStore } from "../lib/store.js";
 
 // Sidebar component — brand, primary nav, quick actions.
 
@@ -12,115 +13,45 @@ import { HostAuthBadge, OAuthIcon } from "./host-helpers.jsx";
 // dashboard's "Recently added" band or the breadcrumb. See labels.js KRYSTAL_LABELS.
 const CATALOG_LABEL = KRYSTAL_LABELS.catalog || "Catalog";
 
-// HostSwitcher — GLOBAL scope selector. Lives above the nav and reframes the
-// entire panel to one host, or "All hosts" (aggregate). Styled after the old
-// diagnostics host card, but it's a real popover so it can carry the All-hosts
-// entry and a link to the dedicated Hosts page. CRUD lives there, not here, to
-// keep the sidebar clean.
-function HostSwitcher({ hosts, selectedId, onSelect, onManage, collapsed }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-
-  const all = selectedId === "all";
-  const current = all ? null : (hosts.find(h => h.id === selectedId) || hosts[0]);
-  const onlineCount = hosts.filter(h => h.online).length;
-  const currentDenied = current && sessionStore.isDenied(current.id);
-  const dotClass = (h) => "host-switch__dot host-switch__dot--" + (h.online ? "online" : "off");
-
-  const pick = (id) => { onSelect(id); setOpen(false); };
-
-  // Two-letter abbreviation for the rail (initials, else first two chars).
-  const codeOf = (h) => {
-    const n = (h && h.name) ? h.name : "";
-    const parts = n.split(/[\s-]+/).filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return (n || "??").slice(0, 2).toUpperCase();
-  };
+// ClusterChip — the ambient reachability signal, and the only node-shaped thing
+// in the chrome. It REPORTS: how many nodes the panel drives, how many are
+// online, and how many are degraded (offline, refusing this session, or needing
+// a re-auth). Clicking it opens Cluster.
+//
+// It sets nothing. The panel shows the whole cluster on every surface, so there
+// is no scope to pick here — a node is chosen where it belongs to the object
+// being acted on (which node an install lands on, whose blueprint file to open),
+// never as a mode the rest of the app inherits.
+function ClusterChip({ hosts, onOpen, collapsed }) {
+  const sessions = useStore(sessionStore, s => s.byHost);
+  const online = hosts.filter(h => h.online).length;
+  const degraded = hosts.filter(h => {
+    const rec = sessions[h.id];
+    return !h.online || (rec && (rec.status === "denied" || rec.status === "expired"));
+  }).length;
+  const tone = !hosts.length ? "muted" : degraded === hosts.length ? "down" : degraded ? "warn" : "ok";
+  const summary = hosts.length === 1
+    ? (online ? "1 node · online" : "1 node · offline")
+    : hosts.length + " nodes · " + online + " online";
 
   return (
-    <div className="host-switch" ref={ref}>
-      <button
-        className={"host-switch__trigger" + (open ? " host-switch__trigger--open" : "")}
-        onClick={() => setOpen(o => !o)}
-        data-tip={collapsed && !open ? (all ? "All hosts" : current.name) : undefined}
-        aria-haspopup="listbox" aria-expanded={open} aria-label="Switch host scope">
-        <span className="host-switch__lead">
-          {all
-            ? <Icon name="layers" size={16} />
-            : currentDenied
-              ? <Icon name="lock" size={14} />
-              : <span className={dotClass(current)}></span>}
-        </span>
-        {collapsed ? (
-          <span className="host-switch__code">{all ? "ALL" : codeOf(current)}</span>
-        ) : (
-          <>
-            <span className="host-switch__name">
-              {all ? "All hosts" : current.name}
-            </span>
-            <span className="host-switch__sep"></span>
-            <span className="host-switch__meta">
-              {all
-                ? hosts.length + " hosts · " + onlineCount + " online"
-                : (current.hostname || "") + " · " + (current.region || "")}
-            </span>
-            <Icon name="chevrons-up-down" size={12} className="host-switch__caret" />
-          </>
-        )}
-      </button>
-
-      {open && (
-        <div className="host-switch__menu" role="listbox">
-          {hosts.length > 1 && (
-            <>
-              <div className="host-switch__menu-label">Scope</div>
-              <button
-                className={"host-switch__opt" + (all ? " host-switch__opt--active" : "")}
-                onClick={() => pick("all")} role="option" aria-selected={all}>
-                <span className="host-switch__opt-lead"><Icon name="layers" size={15} /></span>
-                <span className="host-switch__opt-text">
-                  <span className="host-switch__opt-name">All hosts</span>
-                  <span className="host-switch__opt-sub">Aggregate every connected host</span>
-                </span>
-                {all && <Icon name="check" size={15} className="host-switch__opt-check" />}
-              </button>
-              <div className="host-switch__menu-label">Hosts</div>
-            </>
-          )}
-          {hosts.map(h => {
-            const active = h.id === selectedId;
-            return (
-              <button
-                key={h.id}
-                className={"host-switch__opt" + (active ? " host-switch__opt--active" : "")}
-                onClick={() => pick(h.id)} role="option" aria-selected={active}>
-                <span className="host-switch__opt-lead"><span className={dotClass(h)}></span></span>
-                <span className="host-switch__opt-text">
-                  <span className="host-switch__opt-name">{h.name}</span>
-                  <span className="host-switch__opt-sub">{h.hostname} · {h.region}</span>
-                </span>
-                {!h.online && <span className="host-switch__opt-flag">offline</span>}
-                <HostAuthBadge hostId={h.id} size="sm" />
-                {active && <Icon name="check" size={15} className="host-switch__opt-check" />}
-              </button>
-            );
-          })}
-
-          <div className="host-switch__foot">
-            <button className="host-switch__manage" onClick={() => { setOpen(false); onManage && onManage(); }}>
-              <Icon name="settings-2" size={14} />
-              Manage hosts
-            </button>
-          </div>
-        </div>
+    <button
+      className={"cluster-status cluster-status--" + tone}
+      onClick={onOpen}
+      data-tip={collapsed ? summary + (degraded ? " · " + degraded + " degraded" : "") : undefined}
+      aria-label={"Cluster: " + summary}>
+      <span className="cluster-status__lead"><Icon name="layers" size={16} /></span>
+      {collapsed ? (
+        <span className="cluster-status__code">{hosts.length || "—"}</span>
+      ) : (
+        <>
+          <span className="cluster-status__name">Cluster</span>
+          <span className="cluster-status__sep"></span>
+          <span className="cluster-status__meta">{summary}</span>
+          {degraded > 0 && <span className="cluster-status__flag">{degraded} degraded</span>}
+        </>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -190,7 +121,7 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
   );
 }
 
-function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info", clusterCount = 0, clusterTone = "info", attentionCount = 0, attentionTone = "info", user, onLogout, hosts = [], selectedHostId = "all", onSelectHost, open, collapsed, onToggleCollapse }) {
+function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info", clusterCount = 0, clusterTone = "info", attentionCount = 0, attentionTone = "info", user, onLogout, hosts = [], open, collapsed, onToggleCollapse }) {
   // Routing is the ONE contract from App: `route` (the current route) in, a single
   // `onNavigate({ kind })` out. Active state derives from route.kind here rather
   // than a bespoke boolean per entry plumbed down from App.
@@ -220,7 +151,7 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
           <Icon name={collapsed ? "panel-left-open" : "panel-left-close"} size={16} />
         </button>
       </div>
-      <HostSwitcher hosts={hosts} selectedId={selectedHostId} onSelect={onSelectHost} onManage={go("cluster")} collapsed={collapsed} />
+      <ClusterChip hosts={hosts} onOpen={go("cluster")} collapsed={collapsed} />
       <nav className="sidebar__nav">
         <div className="sidebar__group">
           <div className="sidebar__group-label">Workspace</div>
@@ -350,4 +281,4 @@ function TopNav({ tab, onTab, user, onLogout, onMenu, onHome, onAssistant, assis
   );
 }
 
-export { AccountAvatar, HostSwitcher, ServerListItem, Sidebar, SidebarAccount, TopNav };
+export { AccountAvatar, ClusterChip, ServerListItem, Sidebar, SidebarAccount, TopNav };

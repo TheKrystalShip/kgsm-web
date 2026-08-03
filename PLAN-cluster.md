@@ -37,71 +37,55 @@ Authority for the federation contracts this builds on: `kgsm-api/PLAN-peers.md`
   editing and inspecting nodes lives on Cluster/Diagnostics, gated on
   `host.manage`. Viewers and operators never pick a node to use the panel.
 
-## 2 · Blast radius
+## 2 · Where the node dimension lives
 
-### a · The scope store
+Nothing holds "the current node". These are the places a node is named, and what
+names it.
 
-| Site | What it is |
+### a · Named by the object
+
+| Site | The node is |
 |---|---|
-| `src/lib/stores/audit.js:10-34` | `selectedHostStore`, the `krystal:selectedHost` key, `useSelectedHostId`, the N=1 auto-pin, the `hostsStore` subscription |
-| `src/lib/stores/index.js:11`, `src/lib/stores.js:5` | re-exports |
+| every row on an aggregated list (servers, audit, alerts) | the node that owns it, carried on the row and rendered as a badge when the list actually spans nodes |
+| a server action, its console, files, settings, metrics | `server.hostId` |
+| a blueprint file read or write | the node whose disk holds that copy — picked on the card, since copies can differ |
+| an install | the install modal's measured placement pick (`lib/placement.js`) |
+| an assistant turn | the server, blueprint or conversation behind it, else the dock's own picker |
+| a peer write (federate, enable/disable, unfederate) | the node whose peer list it edits — the one you have open, else the only one you can manage, else asked for |
+| a stream frame | the node whose socket delivered it (`hostId`, stamped by `adaptStreamMessage`) |
 
-20 files, 68 references.
+### b · Named by the URL
 
-### b · Ambient-scope consumers
+`route.hostId` is the subject of the node-subject pages (Cluster overview → node
+detail → leaf config). It is a route, not a scope: leaving the page leaves it
+behind, and no other surface reads it.
 
-| Site | Reads scope for |
-|---|---|
-| `src/App.jsx:63,216,247` | sidebar wiring, the deny/expired gates |
-| `src/components/Sidebar.jsx:15-90,193,223` | `HostSwitcher` — the control itself |
-| `src/components/AppRouter.jsx:44,49` | deny/expired "back to all hosts" |
-| `src/pages/DiagnosticsPage.jsx:37,97,102,196` | the active node on the node-subject page |
-| `src/pages/ServersPage.jsx:117`, `AuditLogPage.jsx:120` | the sidebar's scope still narrows these two lists upstream |
-| `src/lib/sessionStore.js:334` | clears the scope on sign-out |
+### c · Named by a local filter
 
-### c · Implicit first-node fallbacks — the latent-bug class
+The "Node" field on Servers, Alerts and Audit is `React.useState` on that page.
+It narrows its own list and touches nothing else, and hides itself when there is
+nothing to choose between.
 
-These are the sites that make a missing node *look* like it works: each one is a
-place a future feature silently binds to node 1. The routing layer no longer has
-any (P4) — what remains is the selector's own.
+### d · Named by the connection set
 
-| Site | Fallback |
-|---|---|
-| `src/pages/DiagnosticsPage.jsx:57`, `Sidebar.jsx:31` | selected-else-first-node |
+`CONNECTIONS` (`config.js`) is the node set the app drives: seeded from the
+localStorage registry, then **grown in place** by cluster discovery
+(`clusterStore.discover`, started from `stores/boot.js`), which asks any
+reachable node for the converged roster and registers the nodes it names. So the
+membership is the *cluster's*, not "whichever addresses this browser was pointed
+at by hand", and it does not depend on which page you visited.
 
-### d · Where N comes from (the structural gap)
-
-Two node lists exist and only one drives the app:
-
-- `CONNECTIONS` (`config.js:13,53`) — a **localStorage registry of manually
-  added hosts**, read once at module load. `hostsStore.refresh` fans `/hosts`
-  out over it, one host per connection.
-- `clusterStore` (`stores/cluster.js`) — the **converged cluster roster**
-  (`GET /peers`, falling back to the viewer-safe `GET /peers/roster`).
-
-`mirrorRosterToRegistry` (`connect.js:78`) closes the loop, but it runs **only
-from the Cluster page** (`DiagnosticsPage.jsx:77-84`), anchored on the selected
-node, and takes effect only after a full page reload. A federated node the user
-never opened Cluster to see is invisible to every other surface.
-
-**A cluster whose membership depends on which page you visited is not a
-cluster.** Roster-driven discovery at boot is the load-bearing change; the
-selector removal is cosmetic next to it.
+Every read fans out over that set (`api.fanOut` → `lib/merge.js`), and every
+fan-out records its per-node outcome so a node dropping out is disclosed
+(`ClusterReach`) rather than looking like deleted data.
 
 ### e · Auth and tier
 
-`persona.js` is already correct: `can(cap)` is the aggregate union across nodes,
-`canOn(cap, host)` is scoped. sessionStore already authorizes **every** known
-node (`sessionStore.js:397-398`) and `api.vouch` (`apiClient.js:786`) implements
-lazy vouch-on-first-use (peers decision 15). One violation:
-`SettingsSessions.jsx:133` reads `tierOf(hostId)` for a single node instead of
-the aggregate rule.
-
-### f · Docs, styles, tests
-
-`WIRING.md:300` (selected-node bearer), `src/lib/stores/CLAUDE.md:25` (the
-global scope), `src/styles/kit/{extras,hosts,chat}.css` (`host-switch`),
-`scripts/smoke-live.mjs`.
+`persona.js` is the policy: `can(cap)` is the aggregate union across nodes for
+nav/reach, `canOn(cap, host)` is scoped for actions. sessionStore authorizes
+**every** known node and `api.vouch` implements lazy vouch-on-first-use (peers
+decision 15). A node that refuses is named by `NodeAccessNotice`, never by taking
+the panel away.
 
 ## 3 · Non-goals
 
@@ -125,16 +109,13 @@ filters* on Servers re-scopes Home, the assistant's target node and the install
 default. The `host` field on Servers, Alerts and Audit is local page state,
 named **Node**, and writes nothing outside its own list.
 
-- `nodeFilterOptions(hosts, scopeId)` (`components/host-helpers.jsx`) builds the
-  option list from the nodes the page can actually show, so a filter choice can
-  never contradict what is already on screen. It is the one place P5 rewrites
-  when the app-wide scope disappears.
+- `nodeFilterOptions(hosts)` (`components/host-helpers.jsx`) builds the option
+  list from the nodes the page can actually show, so a filter choice can never
+  contradict what is already on screen.
 - A filter with nothing to choose between hides itself — a property of the
   options (`length <= 2`), not a host-count special case.
 - Servers derives the per-row node badge from whether the list actually spans
-  nodes, rather than from the app scope.
-- The sidebar selector still works and still narrows these pages; the local
-  filter narrows further within it.
+  nodes, rather than from any app-wide state.
 
 **Done when:** changing or resetting a list filter provably leaves every other
 surface untouched. — *Verified: no `selectedHostStore` reference remains in the
@@ -159,8 +140,7 @@ N is the cluster's N, on every load, for every tier.
   the live connection set, so a seeded node is never registered a second time
   under whatever address the roster advertises for it.
 - `CONNECTIONS` grows **in place** — the array identity never changes, so every
-  holder of the import sees a new node at once, and `API_BASE`/`API_V1` (bound
-  to index 0 at module load) stay valid because discovery only appends.
+  holder of the import sees a new node at once.
   `subscribeConnections()` notifies holders of per-connection resources:
   `apiClient` opens the new node's primary stream (pushed in order, so
   `primaryStreams` stays index-aligned with `CONNECTIONS` for `reconnectHost`)
@@ -327,24 +307,52 @@ last phase is the permanent regression test: grow to two connections at runtime
 (P1's append path), then assert exact routing, both guards firing, no persisted
 selection, and the app still rendering.*
 
-### P5 — Remove the selector · `planned`
+### P5 — Remove the selector · `built`
 
-- Delete `HostSwitcher` (`Sidebar.jsx:15-90`) and its props; delete the
-  `host-switch` styles.
-- Delete `selectedHostStore`, `useSelectedHostId`, the `krystal:selectedHost`
-  key and the re-exports.
-- Replace it in the sidebar with a **cluster health chip**: `N nodes · M online`
-  plus a degraded count, which navigates to Cluster and **sets nothing**. This
-  keeps the ambient reachability signal (the only one in the collapsed rail)
-  without scoping semantics.
-- Deny/expired gates (`App.jsx:259-264`, `AppRouter.jsx:44,49`) become a
-  per-node degradation list rather than a full-page gate on "the current node":
-  under lazy vouch (peers decision 15) a missing session self-heals, so what
-  remains is honest reporting of the nodes that genuinely refuse.
-- Update `WIRING.md:300` and `src/lib/stores/CLAUDE.md:25` to present-tense
-  canon describing the fan-out model.
+**Nothing can express "the current node".** `selectedHostStore`,
+`useSelectedHostId`, `scopeServers`, the `krystal:selectedHost` key and every
+re-export are gone, along with `HostSwitcher` and the `host-switch` styles. There
+is no store to read, no hook to call and no key to persist, so a future surface
+cannot bind to a selection by accident — the shape that made the P4 fallbacks
+invisible is no longer expressible.
 
-**Done when:** no code can express "the current node".
+- **The sidebar reports instead of scoping.** `ClusterStatus` is a chip reading
+  `Cluster · N nodes · M online`, plus a degraded count (offline, refusing this
+  session, or needing a re-auth). It navigates to Cluster and sets nothing. In
+  the collapsed rail it degrades to the glyph and the node count, keeping the
+  only ambient reachability signal that rail ever had.
+- **A node that refuses the session is reported, not a gate.** `NodeAccessNotice`
+  lists those nodes above the content with the one action each admits —
+  *Re-authorize* for a lapsed session, *Details* for a terminal role refusal —
+  while the rest of the cluster stays usable. It is driven by the SESSION
+  records, not the host list: a node that refuses us contributes no `GET /hosts`
+  row, so reading the host list would drop the very nodes it exists to name.
+  - **A node we couldn't REACH is not a node that refused us** and is absent
+    here. Its session lands on `expired/unreachable`, which says nothing about
+    whether we'd be let in; that is `ClusterReach`'s "didn't answer".
+  - The identity probe now separates the three answers it can get. A **403** is
+    the node answering and refusing the role — terminal, `denied`. A 401 is a
+    lapsed sign-in. Anything else is unreachable. Every 403 used to be recorded
+    as `expired/unreachable`, which made `denied` unreachable in practice and
+    offered a re-auth that could not have helped.
+- **Servers and Audit read the whole cluster.** The sidebar's scope no longer
+  narrows them upstream; each keeps its own local Node field, which narrows that
+  list and nothing else.
+- **Cluster keeps a node subject, taken from the URL.** Peer writes (federate,
+  enable/disable, unfederate) edit one node's peer list, so they name it: the
+  node you have open, else the only one you can manage. `AddNodeModal` asks which
+  node to federate through when several are manageable, and blocks until told —
+  the same sole-candidate rule as the install modal. The per-node "Set as active
+  scope" menu item and the "active" tags went with the store.
+
+**Done when:** no code can express "the current node". — *Verified live in
+Chromium (14 checks): with two nodes and no selection the switcher is absent, the
+chip reads `2 nodes · 2 online`, both nodes' servers render, clicking the chip
+navigates to Cluster and writes nothing, the collapsed rail fits, and the Servers
+toolbar still offers its own three-option Node filter. A node stubbed to refuse
+with 403 is reported as a named row while the healthy node's servers stay on
+screen — no full-page takeover. Lint 0 errors, build clean, smoke 257/257, which
+now also asserts the store, the hook and the scope helper no longer exist.*
 
 ---
 
