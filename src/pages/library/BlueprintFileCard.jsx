@@ -29,20 +29,23 @@ function BlueprintFileCard({ game, offeringHosts }) {
   const hosts = React.useMemo(() => offeringHosts || [], [offeringHosts]);
 
   // ---- host selection (§5.2) -----------------------------------------------
-  const [selectedHostId, setSelectedHostId] = React.useState(() => {
-    if (hosts.length === 1) return hosts[0].id;
-    return hosts.length > 0 ? hosts[0].id : null;
-  });
+  // A blueprint file lives on ONE node's disk and the copies can differ, so the
+  // node is named. A sole offering node is taken because it is the only one;
+  // with several, nothing is preselected — opening whichever node sorted first
+  // would present one node's copy as if it were the blueprint.
+  const [selectedHostId, setSelectedHostId] = React.useState(() => (hosts.length === 1 ? hosts[0].id : null));
   // Sync when offering hosts change (e.g. catalog refresh).
   React.useEffect(() => {
     if (hosts.length === 1) setSelectedHostId(hosts[0].id);
-    else if (hosts.length > 0 && !hosts.some(h => h.id === selectedHostId)) setSelectedHostId(hosts[0].id);
+    else if (selectedHostId && !hosts.some(h => h.id === selectedHostId)) setSelectedHostId(null);
   }, [hosts, selectedHostId]);
 
   const hostId = selectedHostId;
 
   // ---- gating (§5.3) -------------------------------------------------------
-  const canRead = hostId ? canOn("server.operate", hostId) : false;
+  // The card is offered when the user can read this blueprint on ANY node that
+  // holds it; what they can do once a node is picked is that node's own answer.
+  const canRead = hostId ? canOn("server.operate", hostId) : hosts.some(h => canOn("server.operate", h.id));
   const canWrite = hostId ? isAdmin(hostId) : false;
 
   // ---- store data -----------------------------------------------------------
@@ -166,7 +169,12 @@ function BlueprintFileCard({ game, offeringHosts }) {
 
       {/* Editor */}
       <div className="bp-editor__monaco-wrap">
-        {loading ? (
+        {!hostId ? (
+          <div className="fb-editor__empty">
+            <Icon name="server" size={16} />
+            &nbsp;{hosts.length} nodes hold this blueprint — pick one above to open its copy.
+          </div>
+        ) : loading ? (
           <div className="fb-editor__empty"><span className="oauth-spinner" /> Loading blueprint…</div>
         ) : (
           <React.Suspense fallback={<div className="fb-editor__empty"><span className="oauth-spinner" /> Loading editor…</div>}>

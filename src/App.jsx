@@ -38,7 +38,6 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 
 function App() {
   const [user, setUser] = React.useState(() => readStoredUser());
-  const selectedHostId = useSelectedHostId();
   const hosts = useStore(hostsStore, s => s.list);
   const [route, setRouteRaw] = React.useState(() => {
     const hashRoute = KrystalRouter.routeFromHash();
@@ -48,7 +47,7 @@ function App() {
     setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
   }, []);
   return (
-    <AssistantDockProvider hosts={hosts} selectedHostId={selectedHostId} setRoute={setRoute}>
+    <AssistantDockProvider hosts={hosts} setRoute={setRoute}>
       <AppInner user={user} setUser={setUser} route={route} setRoute={setRoute} />
     </AssistantDockProvider>
   );
@@ -398,11 +397,14 @@ function AppInner({ user, setUser, route, setRoute }) {
       {installing && (
         <InstallModal
           game={installing}
+          // The nodes that can actually take this install: online, the user may
+          // create there, and the session isn't refused. `server.create` is the
+          // capability that gates installing (persona.js) — every other create
+          // surface gates on the same one.
           hosts={hosts.filter(h => {
             const s = sessionsByHost[h.id];
-            return h.online && canOn("server.manage", h.id) && (!s || !s.denied);
+            return h.online && canOn("server.create", h.id) && (!s || !s.denied);
           })}
-          defaultHostId={selectedHostId !== "all" ? selectedHostId : (hosts[0] && hosts[0].id)}
           onInstall={confirmInstall}
           onClose={() => setInstalling(null)}
         />

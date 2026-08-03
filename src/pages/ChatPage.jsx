@@ -27,7 +27,7 @@ import { ChatThread } from "./chat/ChatThread.jsx";
 function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
   const assistantCap = assistantHost ? hostCapability(assistantHost, "assistant") : null;
   const conn = !assistantHost
-    ? { tone: "muted",  label: "No assistant" }
+    ? { tone: "muted", label: assistantHosts.length ? "No node chosen" : "No assistant" }
     : assistantCap.state === "operational" ? { tone: "online", label: "Connected \u00b7 " + assistantHost.name }
     : assistantCap.state === "degraded"    ? { tone: "warn",   label: "Degraded \u00b7 " + assistantHost.name }
     : { tone: "danger", label: "Unavailable \u00b7 " + assistantHost.name };
@@ -153,6 +153,20 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
         ? { ...c, messages: [...c.messages, { role: "scope", label: "Now talking to " + next.name + "\u2019s assistant" }] }
         : c));
     }
+  };
+
+  // A conversation lives on the node that holds it, so opening one targets that
+  // node — the subject decides where we're talking. A conversation whose node
+  // isn't among the assistant-capable ones is opened without retargeting; the
+  // history load below then declines it rather than asking the wrong node.
+  const pickChat = (id) => {
+    const c = convos.find(x => x.id === id);
+    const want = c && c.hostId;
+    if (want && want !== (assistantHost && assistantHost.id)
+        && onSelectAssistantHost && (assistantHosts || []).some(h => h.id === want)) {
+      onSelectAssistantHost(want);
+    }
+    setActiveId(id);
   };
 
   const newChat = () => {
@@ -468,7 +482,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           {convos.map(c => (
             <div key={c.id}
               className={"chat-rail__item" + (c.id === activeId ? " chat-rail__item--active" : "")}
-              onClick={() => setActiveId(c.id)}>
+              onClick={() => pickChat(c.id)}>
               <Icon name="message-square" size={14} />
               <span className="chat-rail__title">{c.title || "New chat"}</span>
               <button className="chat-rail__del" onClick={(e) => deleteChat(c.id, e)} title="Delete">
@@ -496,7 +510,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
               </button>
-              <ChatHistory convos={convos} activeId={activeId} onPick={setActiveId} onDelete={deleteChat} conn={conn} onOpen={loadServerHistory} loading={histLoading} />
+              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} conn={conn} onOpen={loadServerHistory} loading={histLoading} />
             </div>
             {docked && (
               <div className="chat-head__win">
@@ -613,7 +627,11 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               {!assistantUsable && (
                 <div className="chat-composer__downhint">
                   <span className="status-led status-led--down"></span>
-                  {(assistantHost ? assistantHost.name + "\u2019s assistant is unavailable" : "Assistant unavailable") + " \u2014 your message will send once it\u2019s back."}
+                  {assistantHost
+                    ? assistantHost.name + "\u2019s assistant is unavailable \u2014 your message will send once it\u2019s back."
+                    : assistantHosts.length
+                      ? "Pick which node\u2019s assistant to talk to \u2014 several can answer."
+                      : "Assistant unavailable \u2014 your message will send once it\u2019s back."}
                 </div>
               )}
             </div>

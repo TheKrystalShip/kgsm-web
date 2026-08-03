@@ -515,18 +515,24 @@ const FINALIZE_IDLE_MS = 60000;
   // Reshape a server→client frame into the FE shapes the stores hold. Unknown
   // topics/types pass through untouched — a new server message must never crash an
   // old client (forward-compatible).
-  function adaptStreamMessage(msg) {
+  //
+  // `hostId` is the node whose socket delivered the frame, stamped on every
+  // message: an event carries its origin so a listener never has to guess which
+  // node produced it. Null only when the frame didn't come from a node's stream
+  // (the dev __dispatch hook).
+  function adaptStreamMessage(msg, hostId = null) {
     if (!msg) return msg;
     const { topic, type, data } = msg;
-    if (topic === "servers" && type === "server.patch") return { topic, type, data: adapt.adaptServer(data) };
-    if (topic === "jobs" && type === "job.patch") return { topic, type, data: adapt.adaptJob(data) };
-    if (topic === "alerts" && type === "alert.raise") return { topic, type, data: adapt.adaptAlert(data) };
-    if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptHostMetrics(data) };
-    if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return { topic, type, data: adapt.adaptCapabilities(data) };
-    if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return { topic, type, data: adapt.adaptServerMetrics(data) };
-    if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return { topic, type, data: adapt.adaptLogLine(data) };
-    if (type === "service.patch" && /^hosts\/[^/]+\/services$/.test(topic || "")) return { topic, type, data: adapt.adaptService(data) };
-    return msg;
+    const at = (d) => ({ topic, type, data: d, hostId });
+    if (topic === "servers" && type === "server.patch") return at(adapt.adaptServer(data));
+    if (topic === "jobs" && type === "job.patch") return at(adapt.adaptJob(data));
+    if (topic === "alerts" && type === "alert.raise") return at(adapt.adaptAlert(data));
+    if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return at(adapt.adaptHostMetrics(data));
+    if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return at(adapt.adaptCapabilities(data));
+    if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return at(adapt.adaptServerMetrics(data));
+    if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return at(adapt.adaptLogLine(data));
+    if (type === "service.patch" && /^hosts\/[^/]+\/services$/.test(topic || "")) return at(adapt.adaptService(data));
+    return { ...msg, hostId };
   }
 
   // On every (re)open of the primary stream, re-hydrate the REST stores to catch
@@ -563,7 +569,7 @@ const FINALIZE_IDLE_MS = 60000;
       url,
       bearer: () => authorizedBearer(conn.id),
       onOpen: () => rehydrateAll(),
-      onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+      onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
       onMode: (m) => setLiveRealtime(conn.id, m),
       onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
     });
@@ -579,7 +585,7 @@ const FINALIZE_IDLE_MS = 60000;
         url,
         bearer: () => authorizedBearer(conn.id),
         onOpen: () => {},  // dynamic streams self-hydrate via REST
-        onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+        onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
         onMode: () => {},  // dynamic streams don't touch realtimeStore
         onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
       });
@@ -645,7 +651,7 @@ const FINALIZE_IDLE_MS = 60000;
             url,
             bearer: () => authorizedBearer(conn.id),
             onOpen: () => {},
-            onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw)),
+            onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
             onMode: () => {},
             onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
           }),

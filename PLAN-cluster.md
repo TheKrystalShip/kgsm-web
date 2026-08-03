@@ -73,9 +73,8 @@ a place a future feature silently binds to node 1.
 | `src/lib/config.js:72-74` | `connOf()` — an unknown or absent id routes to `CONNECTIONS[0]`. The deepest one: it makes every other fallback survivable |
 | `src/lib/apiClient.js:150,164,188` | `liveBearer` / `authorizedBearer` / `freshBearer` — no id ⇒ the selected node's bearer |
 | `src/lib/apiClient.js:507` | `liveHostId()` → `list[0]`, keys realtime state |
-| `src/lib/stores/servers.js:109` | an install phantom row is attributed to `list[0]` — a **fabricated node attribution** |
 | `src/lib/stores/servers.js:243` | `installServer` falls back to `list[0]` |
-| `src/pages/DashboardPage.jsx:121-122`, `DiagnosticsPage.jsx:57`, `Sidebar.jsx:31`, `library/BlueprintFileCard.jsx:33-39`, `library/LibraryCreatePage.jsx:47` | selected-else-first-node |
+| `src/App.jsx:405`, `DiagnosticsPage.jsx:57`, `Sidebar.jsx:31` | selected-else-first-node |
 
 ### d · Where N comes from (the structural gap)
 
@@ -231,29 +230,62 @@ healthy nodes aggregate to 4 servers with per-node badges and no notice; a node
 that joins and then stops answering produces the disclosure on all three list
 surfaces. Lint 0 errors, build clean, smoke 247/247.*
 
-### P3 — Entity-derived node targets · `planned`
+### P3 — Entity-derived node targets · `built`
 
 Where the user genuinely picks a node, it is a **placement decision**, presented
-as such:
+as such.
 
-- **Install modal** — a Node field that defaults to a *recommendation*, not to
-  node 1. Compute it from peers decision 22/23 inputs: blueprint-declared
-  RAM/disk against each node's live free RAM/disk, CPU saturation as a coarse
-  gate. **Undeclared requirement ⇒ "unknown fit", never a guess** — an
-  unknown-fit node is selectable with the honesty shown, never silently ranked.
-  `GET /peers/{id}/resources` is `built` (peers P2), so this needs no backend
-  work; the API-side advisory redirect (peers P3) refines it later.
-- **Library create / blueprint push** — keep the existing local node pickers
-  (`LibraryCreatePage.jsx:44`, `BlueprintFileCard.jsx:32`); remove their
-  first-node defaults in favour of an explicit choice when N > 1.
-- **Assistant dock** — target node derives from the conversation's subject (the
-  server or blueprint being discussed), falling back to an explicit picker
-  among assistant-capable nodes, never to the ambient selection.
-- **Install phantom rows** (`servers.js:109`) carry the node from the job event.
-  No node ⇒ `hostId: null` rendered as unknown.
+- **`lib/placement.js` is the rule.** A blueprint's declared RAM/disk (advisory
+  MB integers on `specs`) against each node's live headroom (GiB doubles on the
+  host record, sampled by the monitor); units reconcile at 1 GiB = 1024 MiB.
+  Verdicts are `fits｜tight｜insufficient｜unknown｜offline`, each carrying the
+  numbers that produced it so the UI shows the reasoning, not a bare word.
+  - **CPU is not a dimension** — the blueprint schema has no CPU requirement and
+    won't get one: a single number can't represent CPU capability.
+  - Free disk is the **roomiest mount**, named in the summary. The SPA can't know
+    which filesystem KGSM installs into, so the claim is "this node has room
+    somewhere, here", never a silent guess at the target mount.
+  - **Only a measured fit is recommended.** `unknown` is an absence of evidence,
+    so it is selectable with its honesty shown and never ranked as if it fit;
+    ties break on measured free RAM, never list order.
+- **Install modal** — a Node field carrying each node's verdict, and a summary
+  line stating the measurement (*"Fits — 16.7 GB RAM free of 8 GB wanted · 670.5
+  GB free on / for a 15 GB install"*). A sole candidate is preselected because it
+  is the only choice; beyond that only a measured fit is. Nothing measurable ⇒
+  **no preselection, Install disabled until a node is named**. A half-declared
+  blueprint still gets its measured dimension, with the undeclared one stated.
+  - The field had never rendered: it gated on `canOn("server.manage")`, a
+    capability that does not exist in `persona.js`, so the host list was always
+    empty and every install fell through to the `list[0]` default underneath. It
+    gates on `server.create` — the capability every other create surface uses.
+  - The SPA reads each node's own capacity directly (it is a direct multi-host
+    client). `GET /peers/{id}/resources` is the admin-gated server-side relay and
+    stays off the SPA.
+- **Library create / blueprint push** keep their local node pickers and preselect
+  only a sole candidate. A blueprint file lives on ONE node's disk and the copies
+  can differ, so opening whichever node sorted first would present one node's copy
+  as if it were *the* blueprint; unpicked, the surface says so and mounts no
+  editor. The card is offered when the user can read on ANY node holding it.
+- **Assistant dock** — the target derives from the subject: the server behind
+  `askAssistant`, the blueprint behind `askCreateBlueprint`, the node a picked
+  conversation lives on. With no subject, a node is taken only when it is the
+  only assistant-capable one; otherwise the target stays unset and the dock's
+  host picker reads *"Choose a node"* and opens (it renders that unset state
+  rather than disappearing, which would leave no way to choose).
+- **Install phantom rows** carry the node whose stream delivered the job —
+  `adaptStreamMessage` stamps `hostId` on every frame, since a node's socket is
+  proof of the frame's origin. No origin ⇒ `hostId: null`, rendered as unknown.
 
 **Done when:** every node-valued input on screen is either a user choice or a
-measured recommendation, and none is a positional default.
+measured recommendation, and none is a positional default. — *Verified live in
+Chromium (55 checks): against the real node, 7dtd reads `fits` with its real
+numbers and barotrauma (declaring nothing) reads `fit unknown`; against a stubbed
+two-node cluster, a node measured too small and a node with no telemetry are both
+stated and neither is preselected, and with neither node measurable the modal
+asks and Install is blocked. The fit matrix is asserted against the app's own
+`placement.js`. An install job pushed on node B's primary stream lands on a
+phantom row attributed to node B, not to the first connection. Lint 0 errors,
+build clean, smoke 247/247.*
 
 ### P4 — Delete the implicit fallbacks · `planned`
 

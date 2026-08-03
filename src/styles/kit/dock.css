@@ -285,6 +285,11 @@
   background: var(--danger);
 }
 
+/* No node chosen yet — nothing to report the health of. */
+.asst-host__dot--muted {
+  background: var(--fg-4);
+}
+
 .asst-host__name {
   white-space: nowrap;
   color: var(--fg-2);

@@ -21,7 +21,9 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   `api.host(id)` (401-retry / silent renew), `api.fanOut` (multi-host roll-up),
   `api.stream` (subscribe), the SSE assistant `turn`. Owns `connectionStore`
   (REST reachability → cold-start/banner) and `realtimeStore` (per-host SSE
-  state). **Every call site only ever sees `api`.**
+  state). **Every call site only ever sees `api`.** Every stream frame it
+  dispatches carries `hostId` — the node whose socket delivered it — so a
+  listener never has to guess which node produced an event.
 - `liveStream.js` — fetch-based SSE (migrated off WebSocket 2026-07-02). One
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
@@ -35,6 +37,13 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   ecosystem-wide "never fabricate a metric" rule at the frontend edge.
 - `merge.js` — pure per-host → aggregated roll-up; every row carries its owning
   host id; merge only unions/de-dups, never invents attribution.
+- `placement.js` — which node an install should land on, **measured**: the
+  blueprint's declared RAM/disk (advisory MB) against each node's live headroom
+  (GiB — reconcile at ×1024). Verdicts `fits｜tight｜insufficient｜unknown｜
+  offline` carry the numbers behind them. **CPU is not a dimension** (no such
+  blueprint field, by design). Only a measured fit is ever recommended — an
+  `unknown` node is selectable with its honesty shown, never ranked as if it fit,
+  and no measurable node means no preselection at all.
 
 **Stores** — see `stores/CLAUDE.md`. `store.js` is the tiny reactive primitive
 (`createStore` + `useStore`, React 18 `useSyncExternalStore`). `stores.js` is a

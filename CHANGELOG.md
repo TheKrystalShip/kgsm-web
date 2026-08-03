@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — where a server lands is a measured decision
+
+- **The install modal recommends a node from what it can measure**: the blueprint's declared RAM
+  and disk against each node's live free RAM and disk. Every node shows its verdict and the numbers
+  behind it — *"Fits — 16.7 GB RAM free of 8 GB wanted · 670.5 GB free on / for a 15 GB install"*.
+- **A blueprint that declares nothing reads "fit unknown"**, and an unknown node is never
+  recommended — it stays pickable with that shown. When nothing measures as having room, the modal
+  asks you to choose and Install waits until you do.
+- **CPU isn't part of it**, deliberately: a single number can't represent CPU capability.
+
+### Fixed — the install modal's Host field was never rendered
+
+It gated on a permission that doesn't exist, so the field's node list was always empty and every
+install silently landed on whichever node came first. The field (now **Node**) gates on the same
+create permission every other create surface uses.
+
+### Changed — nothing binds to "the first node" any more
+
+- **A blueprint file names its node.** Each node keeps its own copy, so with several holding one,
+  the editor and the create page ask which before opening anything rather than showing one node's
+  copy as if it were the blueprint. A single node is still opened straight away.
+- **The assistant follows the conversation**: the server you asked about, the blueprint you're
+  authoring, the node a picked chat lives on. With several assistants and nothing to go on, the
+  dock asks instead of quietly picking one — and opening a past conversation switches to the node
+  that holds it.
+- **An install in progress shows the node it's actually running on**, taken from the node that
+  reported the job. Unknown stays unknown.
+
 ### Added — a node that goes quiet says so, instead of its servers just vanishing
 
 - **Every aggregated list discloses which nodes didn't answer.** Home, Servers, Alerts and Audit

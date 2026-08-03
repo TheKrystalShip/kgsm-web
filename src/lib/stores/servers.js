@@ -106,7 +106,11 @@ api.stream.subscribe(["jobs"], (m) => {
           cover:       gameEntry?.cover ?? null,
           hero:        gameEntry?.hero  ?? null,
           displayName: gameEntry?.name  ?? blueprint,
-          hostId:      hostsStore.getState().list[0]?.id ?? null,
+          // The node is the one whose stream delivered this job — the install is
+          // running there, measured, not inferred from list order. A frame with no
+          // origin leaves the row's node unknown; the real one arrives with the
+          // server.patch that replaces this placeholder.
+          hostId:      m.hostId ?? null,
         });
       }
       if (state === "done") {

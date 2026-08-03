@@ -4,6 +4,7 @@ import { Modal } from "./Modal.jsx";
 import { Select } from "./Select.jsx";
 import { artBg } from "../lib/art.js";
 import { fmtFootprintMb } from "../lib/formatting.js";
+import { FIT_LABEL, fitSummary, nodeFit, recommendedNode } from "../lib/placement.js";
 import { offeringHosts } from "../lib/servers.js";
 import { Toggle } from "./settings-primitives.jsx";
 
@@ -24,7 +25,7 @@ function shortId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = null }) {
+function InstallModal({ game, onClose, onInstall, hosts = [] }) {
   const id = React.useMemo(shortId, []);
   // Seed the form from the backend blueprint DTO — never a hardcoded per-game
   // map. `ports` is served today so the game port pre-fills for real; the query
@@ -37,9 +38,13 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
   // the fleet, so a game added by one host alone is installable only there.
   const offered = offeringHosts(game, hosts);
   const restricted = offered.length > 0 && offered.length < hosts.length;
-  // Default to the requested host only if it actually offers the game.
-  const initialHost = (offered.some(h => h.id === defaultHostId) ? defaultHostId : null)
-    || (offered.find(h => h.online) || offered[0] || {}).id || null;
+  // Which node this server lands on is a PLACEMENT decision, measured: the
+  // blueprint's declared RAM/disk against each node's live headroom. A sole
+  // candidate is preselected because it is the only choice (its fit is still
+  // shown, however it reads); beyond that, only a node measured to have room is
+  // preselected. Nothing measurable ⇒ no preselection and the user picks — never
+  // a fall back to whichever node sorted first.
+  const initialHost = offered.length === 1 ? offered[0].id : recommendedNode(game, offered);
   const [form, setForm] = React.useState({
     name:    `My ${game.name.split(":")[0]} Server`,
     version: "stable",
@@ -56,17 +61,26 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
 
 
   // If the offering changes while the modal is open (a host syncs its catalog)
-  // and the picked host no longer offers the game, fall back to a valid one.
+  // and the picked node no longer offers the game, re-derive by the same measured
+  // rule rather than pinning whatever is left at the top of the list.
   const offeredIds = offered.map(h => h.id).join(",");
   React.useEffect(() => {
     if (form.hostId && !offered.some(h => h.id === form.hostId)) {
-      set("hostId", (offered.find(h => h.online) || offered[0] || {}).id || null);
+      set("hostId", offered.length === 1 ? offered[0].id : recommendedNode(game, offered));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-validate the picked host only when the offering (offeredIds) changes; form.hostId is read fresh at that point
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-validate the picked node only when the offering (offeredIds) changes; form.hostId and the fit inputs are read fresh at that point
   }, [offeredIds]);
+
+  // Fit is recomputed every render rather than memoised: it reads live host
+  // capacity, so a cached verdict would go stale against the next metrics tick.
+  const fits = {};
+  for (const h of offered) fits[h.id] = nodeFit(game, h);
+  const picked = form.hostId ? fits[form.hostId] : null;
+  const needsPick = offered.length > 1 && !form.hostId;
 
   const submit = (e) => {
     e.preventDefault();
+    if (offered.length > 0 && !form.hostId) return;
     onInstall({ game, ...form, id });
   };
 
@@ -92,15 +106,25 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
         <div className="k-modal__body">
           {offered.length > 0 && (
             <div className="k-field">
-              <label>Host</label>
-              <Select value={form.hostId || ""} onChange={e => set("hostId", e.target.value)} disabled={offered.length <= 1}>
-                {offered.map(h => <option key={h.id} value={h.id}>{h.name} — {h.hostname}{h.online ? "" : " (offline)"}</option>)}
+              <label>Node</label>
+              <Select value={form.hostId || ""} onChange={e => set("hostId", e.target.value || null)} disabled={offered.length <= 1}>
+                {needsPick && <option value="">Choose a node…</option>}
+                {offered.map(h => (
+                  <option key={h.id} value={h.id}>
+                    {h.name} — {h.hostname} · {FIT_LABEL[fits[h.id].fit]}
+                  </option>
+                ))}
               </Select>
               <span className="k-field__help">
-                {restricted
-                  ? <><Icon name="server" size={11} />&nbsp; Only {offered.map(h => h.name).join(", ")} {offered.length === 1 ? "offers" : "offer"} {game.name.split(":")[0]}.</>
-                  : offered.length <= 1 ? "The only connected host — its KGSM defaults fill the fields below." : "Which machine this server runs on — its KGSM config supplies the defaults below."}
+                {picked
+                  ? fitSummary(picked)
+                  : "No node measures as having room for this blueprint — pick where it should land."}
               </span>
+              {restricted && (
+                <span className="k-field__help">
+                  <Icon name="server" size={11} />&nbsp; Only {offered.map(h => h.name).join(", ")} {offered.length === 1 ? "offers" : "offer"} {game.name.split(":")[0]}.
+                </span>
+              )}
             </div>
           )}
 
@@ -172,7 +196,7 @@ function InstallModal({ game, onClose, onInstall, hosts = [], defaultHostId = nu
               : "Download size unknown"}
           </span>
           <button type="button" className="k-modal__btn k-modal__btn--secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="k-modal__btn k-modal__btn--primary">
+          <button type="submit" className="k-modal__btn k-modal__btn--primary" disabled={offered.length > 0 && !form.hostId}>
             <Icon name="download" size={14} strokeWidth={2.2} />&nbsp;Install
           </button>
         </div>

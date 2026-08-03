@@ -30,7 +30,7 @@ function alertAssistantPrompt(item) {
     + ". What's likely causing it, and how do I fix it?";
 }
 
-function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
+function AssistantDockProvider({ hosts, setRoute, children }) {
   // ===== State =====
   const [assistantOpen, setAssistantOpen] = React.useState(false);
   const [assistantSeed, setAssistantSeed] = React.useState(null);
@@ -109,11 +109,13 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     });
   }, [hosts]);
 
+  // Opening the dock with nothing in hand names no node. The target comes from
+  // the subject — the server behind askAssistant, the blueprint behind
+  // askCreateBlueprint, the node a picked conversation lives on — or, absent a
+  // subject, from the dock's own host picker.
   const openAssistant = React.useCallback(() => {
-    const sh = hosts.find(h => h.id === selectedHostId);
-    if (!assistantHostId && sh && capUsable(sh, "assistant")) setAssistantHostId(sh.id);
     setAssistantOpen(true);
-  }, [hosts, selectedHostId, assistantHostId]);
+  }, []);
 
   // ===== Effects =====
   React.useEffect(() => {
@@ -142,7 +144,15 @@ function AssistantDockProvider({ hosts, selectedHostId, setRoute, children }) {
     () => assistantHosts(hosts),
     [hosts]
   );
-  const assistantHost = hosts.find(h => h.id === assistantHostId) || usableAssistants[0] || assistantHostList[0] || null;
+  // With no subject to derive from, a node is taken only when it is the ONLY
+  // one that can answer — that is the sole candidate, not a positional default.
+  // Several assistant-capable nodes and no subject leaves the target unset, and
+  // the dock renders that as its host picker rather than binding to whichever
+  // node happened to sort first.
+  const soleAssistant =
+    usableAssistants.length === 1 ? usableAssistants[0]
+    : (usableAssistants.length === 0 && assistantHostList.length === 1 ? assistantHostList[0] : null);
+  const assistantHost = hosts.find(h => h.id === assistantHostId) || soleAssistant || null;
 
   React.useEffect(() => {
     if (!assistantHostId && assistantHost) setAssistantHostId(assistantHost.id);

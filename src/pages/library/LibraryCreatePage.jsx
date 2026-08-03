@@ -41,10 +41,13 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
     () => (allHosts || []).filter(h => canOn("server.operate", h.id)),
     [allHosts],
   );
+  // A sole qualifying node is taken because it is the only one. With several,
+  // nothing is preselected: the file lands on ONE node's disk, and which one is
+  // a decision, not a list position.
   const [selectedHostId, setSelectedHostId] = React.useState(null);
   React.useEffect(() => {
-    if (hosts.length === 0) { setSelectedHostId(null); return; }
-    if (!hosts.some(h => h.id === selectedHostId)) setSelectedHostId(hosts[0].id);
+    if (hosts.length === 1) { setSelectedHostId(hosts[0].id); return; }
+    if (selectedHostId && !hosts.some(h => h.id === selectedHostId)) setSelectedHostId(null);
   }, [hosts, selectedHostId]);
 
   const hostId = selectedHostId;
@@ -205,7 +208,12 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
 
       {/* Editor */}
       <div className="bp-editor__monaco-wrap">
-        {loadError ? (
+        {!hostId ? (
+          <div className="fb-editor__empty">
+            <Icon name="server" size={16} />
+            &nbsp;Pick the node to create it on — the file lands on that node{"'"}s disk.
+          </div>
+        ) : loadError ? (
           <div className="fb-editor__empty">
             <Icon name="alert-triangle" size={16} />
             {errText(loadError, "Couldn’t load the blueprint template from this host.")}
@@ -273,7 +281,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
         </div>
         <div className="library-head__sub">
           A blueprint is the complete definition of a game server — how it installs, launches, and
-          is configured. It lands on {hostObj ? hostObj.name : "the selected host"}.
+          is configured. It lands on {hostObj ? hostObj.name : "the node you pick"}.
         </div>
       </div>
 
