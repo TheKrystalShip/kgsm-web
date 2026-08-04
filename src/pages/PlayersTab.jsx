@@ -2,12 +2,14 @@ import React from "react";
 import { CardTable } from "../components/CardTable.jsx";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
+import { PlayerModeration } from "../components/PlayerModeration.jsx";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
+import { moderatePlayer } from "../lib/stores.js";
 
 // PlayersTab — the permanent player roster for one server, wired to
 // player-presence-contract.md §5:
 //
-//   REST  GET /servers/{id}/players → { detection, players[] }
+//   REST  GET /servers/{id}/players → { detection, players[], moderation }
 //   WS    topic "players" → { type:"players.join"|"players.leave"|"players.ban", data:{ serverId, player } }
 //         or { type:"players.reset", data:{ serverId } }
 //
@@ -55,7 +57,9 @@ function StatusDot({ status }) {
     online: "var(--krystal-teal)",
     unknown: "var(--fg-3)",
     offline: "var(--fg-4)",
-    banned: "var(--krystal-red)",
+    // --danger, not a bespoke red: it is the semantic token every theme defines,
+    // so the banned dot has a colour in all of them.
+    banned: "var(--danger)",
   };
   const labels = {
     online: "Online",
@@ -86,6 +90,33 @@ function PlayersEmpty({ icon, title, sub }) {
 function PlayersTab({ server, readOnly, roster }) {
   const internalRoster = usePlayerRoster(server);
   const state = roster || internalRoster;
+
+  // The action in flight, as { playerIdentity, action } — one at a time, so a
+  // double-click can't fire two moderation calls at the same player.
+  const [busy, setBusy] = React.useState(null);
+  const [err, setErr] = React.useState(null);
+
+  const runModeration = React.useCallback((player, action) => {
+    if (busy) return;
+    setBusy({ playerIdentity: player.playerIdentity, action });
+    setErr(null);
+    moderatePlayer(server, player.playerIdentity, action).then(
+      () => {
+        // No optimistic status write here. The engine emits the event, the API
+        // updates its roster and pushes a players.* frame — so the row changes
+        // because the action actually landed, not because we asked for it.
+        setBusy(null);
+      },
+      (e) => {
+        setBusy(null);
+        setErr({
+          who: player.playerName || player.playerIdentity,
+          action,
+          message: (e && (e.userMessage || e.message)) || "The action didn't go through.",
+        });
+      }
+    );
+  }, [busy, server]);
 
   if (state.status === "loading") {
     return (
@@ -152,11 +183,40 @@ function PlayersTab({ server, readOnly, roster }) {
       } },
   ];
 
+  // Moderation is an operator action, so the read-only (player-facing) overview
+  // never gets the column. The capability block decides the rest: a game that
+  // declares no moderation commands gets no column at all rather than an empty
+  // one implying the feature is merely unavailable right now.
+  const mod = state.moderation;
+  const canModerate = !readOnly && mod && (mod.kick || mod.ban || mod.unban);
+  if (canModerate) {
+    columns.push({
+      key: "actions", label: "", width: "minmax(150px, auto)", align: "right",
+      render: (p) => (
+        <PlayerModeration
+          player={p}
+          moderation={mod}
+          pending={busy && busy.playerIdentity === p.playerIdentity ? busy.action : null}
+          onRun={(action) => runModeration(p, action)} />
+      ),
+    });
+  }
+
   return (
-    <div className="players-tab">
+    <div className={"players-tab" + (canModerate ? " players-tab--actions" : "")}>
       <CardTable icon="users" title="Players" count={players.length}
         columns={columns} rows={players} getKey={(p) => p.playerIdentity}
         defaultSort={{ key: "status", dir: "asc" }} empty="No players match." />
+      {err ? (
+        <div className="players-tab__error" role="alert">
+          <Icon name="triangle-alert" size={12} />
+          <span>Couldn’t {err.action} {err.who} — {err.message}</span>
+          <button type="button" className="players-tab__error-dismiss"
+            onClick={() => setErr(null)} aria-label="Dismiss">
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

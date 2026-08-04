@@ -5,7 +5,7 @@ import { adaptServerMetrics } from "../adapters.js";
 
 export { adaptServerMetrics };
 
-export { __setJobTiming, serversStore, jobsStore, resolveGameNames, commandServer, sendConsoleInput, awaitJob, confirmCommand, installServer, confirmInstall, confirmUninstall, fetchSettings, patchSettings, deleteServer, saveServerNote } from "./servers.js";
+export { __setJobTiming, serversStore, jobsStore, resolveGameNames, commandServer, sendConsoleInput, moderatePlayer, awaitJob, confirmCommand, installServer, confirmInstall, confirmUninstall, fetchSettings, patchSettings, deleteServer, saveServerNote } from "./servers.js";
 export { hostsStore, syncCapabilitySubscriptions, subscribeHostMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents } from "./hosts.js";
 export { filesKey, filesStore } from "./files.js";
 export { serverHostId, auditEventHost, auditInScope, auditStore } from "./audit.js";

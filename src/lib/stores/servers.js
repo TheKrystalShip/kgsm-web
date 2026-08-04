@@ -187,6 +187,22 @@ function sendConsoleInput(server, text, origin = "ui") {
   return api.host(server.hostId).post("/servers/" + server.id + "/console", { input: text, origin });
 }
 
+// Moderate one player: action is "kick" | "ban" | "unban".
+//
+// We send the roster's playerIdentity and NOTHING else — no address, no name.
+// The API resolves the identity against its own record of who has been on this
+// server and builds the game's command from that, so a browser cannot name a
+// target the roster never saw. Do not "helpfully" pass the address along here;
+// the backend would rightly ignore it, and sending it invites the next reader
+// to think the client is the authority on who gets banned.
+function moderatePlayer(server, playerIdentity, action, origin = "ui") {
+  if (!server || !server.hostId) return Promise.reject(new Error("moderatePlayer: server.hostId required"));
+  if (!playerIdentity) return Promise.reject(new Error("moderatePlayer: playerIdentity required"));
+  const path = "/servers/" + server.id + "/players/"
+    + encodeURIComponent(playerIdentity) + "/" + action + "?origin=" + origin;
+  return api.host(server.hostId).post(path, null);
+}
+
 // ---- Job awaiting -------------------------------------------------------
 let _jobPollMs = 3000;
 let _jobDeadMs = 30000;
@@ -309,7 +325,7 @@ function deleteServer(hostId, serverId, origin) {
 
 export {
   __setJobTiming, serversStore, jobsStore, resolveGameNames,
-  commandServer, sendConsoleInput, awaitJob, confirmCommand, installServer,
+  commandServer, sendConsoleInput, moderatePlayer, awaitJob, confirmCommand, installServer,
   confirmInstall, confirmUninstall,
   fetchSettings, patchSettings, deleteServer, saveServerNote,
 };

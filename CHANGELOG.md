@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — player moderation in the roster
+
+Kick / ban / unban per player, on the Players band of a server's overview.
+Operator-only: the read-only (player-facing) view never renders the column.
+
+**The browser never names who gets moderated.** A request sends the roster's
+opaque `playerIdentity` and nothing else — no address, no name. The API resolves
+that against its own record of who has been on this server and builds the game's
+command from it, so a client cannot aim a ban at someone the roster never saw.
+`moderatePlayer()` carries a comment saying so, because the "helpful" change here
+is to pass the address along, and it would quietly move the authority for who
+gets banned into the browser.
+
+**Only real actions are offered.** The roster response's `moderation` block
+({ kick, ban, unban, targetKind }) says what the game's blueprint actually
+declares, so a game with no ban command shows no ban button instead of one that
+409s on click. It defaults to nothing, so a backend that predates the field
+renders no controls rather than broken ones. Beyond that:
+
+- A banned player is offered **unban** and not ban — offering both would state a
+  change that wouldn't happen. Kick appears only while the player is online,
+  since there is nobody to disconnect otherwise.
+- A player carrying no identity of the kind the game addresses (a Steam-relay
+  player on an `ip`-keyed game) gets a disabled control that says why, rather
+  than a click that fails. This mirrors the API's own resolution as a courtesy —
+  the API re-resolves on every request and remains free to refuse.
+- Kick and ban arm-then-confirm (the existing `useConfirmAction` misclick guard);
+  unban doesn't, because restoring access is not destructive.
+- No optimistic status write. The row changes when the engine's event comes back
+  through the `players` topic — because the action landed, not because it was
+  asked for.
+
+**On phones the three controls collapse into a "⋯" menu** that keeps both icons
+and labels; a row of unlabelled destructive icons is the worst place to guess.
+The panel is portalled to `<body>` and positioned from the trigger's rect,
+because the roster card and its cells both clip overflow — an in-row panel is cut
+off, most visibly on the last row. It flips above the trigger when the viewport
+is short, and closes on scroll or resize rather than pointing at a stale rect.
+The mobile column rule now hides the two date columns by name instead of
+"everything past the second", so the actions column survives at phone width —
+where an operator is most likely to need it.
+
+### Fixed
+
+- **The `banned` status dot was invisible in every theme.** It referenced
+  `--krystal-red`, a token no theme defines (the only use of that name in the
+  codebase), so the dot rendered with no colour. It now uses `--danger`, the
+  semantic token all 18 themes carry. Latent until now — nothing in the SPA could
+  put a player into `banned` before this release.
+
 ### Removed — there is no "current node" any more
 
 The sidebar's host switcher is gone, and so is everything behind it: the selected-node store, the

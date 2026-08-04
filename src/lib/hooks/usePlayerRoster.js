@@ -26,10 +26,16 @@ export function usePlayerRoster(server) {
     if (!server.hostId) return;
     setState({ status: "loading" });
     let alive = true, hydrated = false, broken = false, detection = "unknown";
+    // What the game can be asked to do, as the backend reports it. Defaults to
+    // "nothing" so a backend that has not shipped the field yet renders no
+    // moderation controls, rather than buttons that would 409 on click.
+    let moderation = { kick: false, ban: false, unban: false, targetKind: null };
     let roster = new Map();
     const buffered = [];
 
-    const flush = () => { if (alive) setState({ status: "ready", detection, players: [...roster.values()] }); };
+    const flush = () => {
+      if (alive) setState({ status: "ready", detection, moderation, players: [...roster.values()] });
+    };
 
     const dispose = api.stream.subscribe(["players"], (m) => {
       if (!alive || broken || !m || !m.data || m.data.serverId !== server.id) return;
@@ -41,6 +47,7 @@ export function usePlayerRoster(server) {
     api.host(server.hostId).get("/servers/" + server.id + "/players").then(
       (res) => {
         detection = (res && res.detection) || "unknown";
+        if (res && res.moderation) moderation = res.moderation;
         ((res && res.players) || []).forEach((p) => {
           if (p && p.playerIdentity) roster.set(p.playerIdentity, { ...p, _serverId: server.id });
         });
