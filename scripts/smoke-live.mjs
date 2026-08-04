@@ -9,77 +9,34 @@ import { createServer } from "vite";
 import { JSDOM } from "jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { writeFileSync, unlinkSync, existsSync, readFileSync } from "node:fs";
 
 const API = process.env.KGSM_API || "http://127.0.0.1:8097";
 
-// The instance name this smoke emits SYNTHETIC `instance-started` events for, to drive
-// the live audit/realtime checks below. The rows must exist in the backend during the run
-// (Phase 8 walks them back through the real keyset pager), so they are real persisted
-// events — but teardown purges them (see purgeProbeEvents) so a run leaves nothing behind.
-// The name is deliberately synthetic (not a real instance like factorio-test) as a second
-// layer of safety: should a purge ever be skipped, a `server.start` row for
-// "__smoke_probe__" reads as test data, never a phantom factorio-test start in the
-// operator's audit trail. kgsm `events emit` does not validate the name, so no such
-// instance need exist.
-const AUDIT_PROBE = "__smoke_probe__";
-
-// kgsm-monitor's append-only engine-event store, where the AUDIT_PROBE rows come to rest
-// (kgsm emit → monitor persists). Teardown deletes them from here — override the path if
-// the monitor keeps its db elsewhere.
-const EVENTS_DB = process.env.KGSM_EVENTS_DB || "/var/lib/kgsm-monitor/events.db";
-
-// kgsm connects OUTBOUND to the consumer sockets its config lists, so an event only
-// reaches the backend under test if that backend's socket is on the list. The visual
-// harness's dev api deliberately binds a SANDBOXED socket under its own .state dir
-// (so it never touches the running prod api), which is not in the host config — the
-// audit round trip below would silently never arrive. Name the extra socket here and
-// the emit runs under a throwaway config that includes it; the host's own config is
-// never modified. Empty (a backend whose socket is already listed, e.g. prod) → the
-// emit runs plain.
-const EXTRA_EVENT_SOCKET = process.env.KGSM_EVENT_SOCKET
-  || (existsSync("/home/heisen/tks/scripts/visual-harness/.state/kgsm-events.sock")
-      ? "/home/heisen/tks/scripts/visual-harness/.state/kgsm-events.sock" : "");
-
-// Build the throwaway config, if one is needed. kgsm reads its config dir out of
-// XDG_CONFIG_HOME, so a copy of the real config with one socket appended, handed to the
-// emit through that variable alone, redirects nothing else and mutates nothing.
-let emitEnv = process.env;
-let emitConfigDir = null;
-if (EXTRA_EVENT_SOCKET) {
-  const src = join(process.env.XDG_CONFIG_HOME || join(process.env.HOME, ".config"), "kgsm", "config.ini");
-  try {
-    emitConfigDir = mkdtempSync(join(tmpdir(), "kgsm-smoke-cfg-"));
-    mkdirSync(join(emitConfigDir, "kgsm"));
-    writeFileSync(join(emitConfigDir, "kgsm", "config.ini"),
-      readFileSync(src, "utf8").replace(/^(event_socket_filenames=.*)$/m, `$1,${EXTRA_EVENT_SOCKET}`));
-    emitEnv = { ...process.env, XDG_CONFIG_HOME: emitConfigDir };
-  } catch (e) {
-    console.log(`  ⚠ couldn't stage an event-socket override (${e.message}) — the audit round trip may not arrive`);
-    emitConfigDir = null;
-  }
-}
-const cleanEmitConfig = () => { try { if (emitConfigDir) rmSync(emitConfigDir, { recursive: true, force: true }); } catch {} };
-
-// Best-effort teardown: delete ONLY the synthetic probe rows this smoke emitted, so they
-// don't accumulate in the operator's audit trail. WAL mode → a concurrent DELETE is safe
-// alongside the running daemon (busy_timeout rides out a mid-write lock). A remote/missing
-// db or no sqlite3 CLI just no-ops — cleanup must never fail the smoke. Co-located with the
-// engine, the same assumption the `kgsm.sh events emit` seeding already makes.
-const purgeProbeEvents = async () => {
-  try {
-    const { execSync } = await import("node:child_process");
-    const out = execSync(
-      `sqlite3 ${EVENTS_DB} "PRAGMA busy_timeout=3000; DELETE FROM event WHERE instance='${AUDIT_PROBE}'; SELECT changes();"`,
-      { encoding: "utf8" }
-    );
-    // busy_timeout echoes its value as a row before SELECT changes() — take the last line.
-    const n = parseInt(out.trim().split("\n").pop(), 10) || 0;
-    if (n) console.log(`  ✓ teardown: purged ${n} synthetic ${AUDIT_PROBE} audit row(s) from ${EVENTS_DB}`);
-  } catch { /* remote/missing db or no sqlite3 — nothing to clean here */ }
-};
+// ── THE ONE RULE: this smoke never mutates the host ───────────────────────────
+// It is a FRONT-END suite. It proves the SPA's module graph, adapters, stores and
+// components behave against REAL backend shapes — it is not the place to prove the
+// engine's or the api's write contracts (those belong to kgsm-api's own suite, which
+// owns a disposable instance and its own db).
+//
+// So every assertion below is one of exactly two kinds:
+//   • a READ against the live backend, or
+//   • a WRITE INTERCEPTED at the fetch seam (assert the request the SPA *builds*,
+//     answer it synthetically) — the pattern already used for install/uninstall/
+//     commands/blueprint writes.
+//
+// This is not fastidiousness. kgsm's event transport is a single host-wide journal
+// (/var/lib/kgsm/events/*.ndjson) indexed by ONE kgsm-monitor, and every kgsm-api on
+// the box — including the operator's :8097 — merges its engine history from that one
+// monitor. There is no such thing as a write scoped to the backend under test: anything
+// reaching the engine lands in the operator's real audit log, permanently, and rides the
+// live consumer out to their notification integrations. A run must leave NOTHING behind,
+// which is achieved by writing nothing — not by cleaning up afterwards.
+//
+// Corollary: no `kgsm.sh events emit`, no engine-touching PUT/DELETE, and nothing that
+// needs this process to be co-located with the engine or to hold a sqlite3 CLI.
+// The live-transport and note-round-trip proofs this rule gives up are covered by
+// kgsm-api's ServerNoteWriteTests / AuditJournalRelayTests.
 
 // Preflight: the backend must be reachable, else this smoke is meaningless.
 try {
@@ -518,15 +475,17 @@ try {
   for (let i = 0; i < 30; i++) { tier = ss.sessionStore.tierOf(hid); if (tier && tier !== "none") break; await sleep(100); }
   assert(tier === "admin", `tier resolved from GET /me (${hid} → ${tier}); gates via /me, not a persona lens`);
 
-  // ---- Phase 4: realtime (real WebSocket) ---------------------------------
-  // The app boots a real WS to /api/v1/stream (createLiveStream). Prove the
-  // transport is live (audit.append flows end-to-end from a kgsm emit) and that
-  // the server.patch/server.removed/job.patch remaps mutate the stores. kgsm
-  // `events emit` only drives audit.append, so the other three are injected at
-  // the dispatch seam (api.__dispatch — RAW server frame → adapt → dispatch),
-  // exactly as the socket would deliver them.
+  // ---- Phase 4: realtime (real stream) ------------------------------------
+  // The app boots a real stream to /api/v1/stream (createLiveStream). Prove the
+  // transport reaches "live" against the real backend, then that the audit.append/
+  // server.patch/server.removed/job.patch remaps mutate the stores. The four frames
+  // are injected at the dispatch seam (api.__dispatch — RAW server frame → adapt →
+  // dispatch), exactly as the socket would deliver them: what belongs to the SPA is
+  // the reshape-and-store step, and driving it from a real engine event would mean
+  // writing to the host's journal (see THE ONE RULE). That the api relays a journal
+  // event onto this topic at all is kgsm-api's contract, covered by its
+  // AuditJournalRelayTests.
   const { api, realtimeStore } = await vite.ssrLoadModule("/src/lib/apiClient.js");
-  const { execSync } = await import("node:child_process");
 
   // (a) the socket reaches "live"
   let rtMode = null;
@@ -535,20 +494,27 @@ try {
     if (rtMode === "live") break;
     await sleep(150);
   }
-  assert(rtMode === "live", `realtime WS connected (mode=${rtMode})`);
+  assert(rtMode === "live", `realtime stream connected (mode=${rtMode})`);
 
-  // (b) audit.append end-to-end: a real kgsm event → WS → prepended row.
-  // Emitted for the synthetic AUDIT_PROBE, not a real instance; teardown purges the
-  // persisted row so this append leaves nothing behind in the audit log.
+  // (b) audit.append → auditStore prepends. The frame carries the real AuditRecord wire
+  // shape (id/ts/origin/actor/action/severity/target/serverId/summary); audit is NOT in
+  // adaptStreamMessage's remap table, so the store holds the wire row as-is and this
+  // asserts exactly that passthrough + the prepend.
   const beforeTop = (st.auditStore.getState().list[0] || {}).id;
-  execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`, { env: emitEnv });
-  let appended = false;
-  for (let i = 0; i < 40; i++) {
-    const top = st.auditStore.getState().list[0];
-    if (top && top.id !== beforeTop && top.action === "server.start") { appended = true; break; }
-    await sleep(150);
-  }
-  assert(appended, "audit.append e2e: kgsm emit → WS → auditStore prepends a server.start row");
+  const injectedId = "evt_smoke_" + Date.now().toString(36);
+  api.__dispatch({
+    topic: "audit", type: "audit.append",
+    data: {
+      id: injectedId, ts: new Date().toISOString(), origin: "ui",
+      actor: { kind: "user", name: "smoke", provider: "discord" },
+      action: "server.start", severity: "info",
+      target: { kind: "server", id: PROBE.id, name: PROBE.id },
+      serverId: PROBE.id, hostId: PROBE.hostId, summary: "started " + PROBE.id, meta: null,
+    },
+  });
+  const top = st.auditStore.getState().list[0];
+  assert(top && top.id === injectedId && top.id !== beforeTop && top.action === "server.start",
+    "audit.append: a stream frame prepends a server.start row onto auditStore (wire shape passes through unadapted)");
 
   // (c) server.patch remap: RAW API status 'running' → adapted 'online'. Patched onto a
   // REAL roster row so this proves the merge-by-id path, not an insert — then the row's
@@ -1193,63 +1159,93 @@ try {
     "ChatCommand: a non-API verb (update) renders disabled with an honest reason (no 400-bound button)");
 
   // ---- server note (MOTD) -------------------------------------------------
-  // The note is engine-owned (it lives in the kgsm instance's own config), so this
-  // is a real write against the live backend. NON-DESTRUCTIVE: the probe's existing
-  // note is captured first and restored at the end, whatever it was.
-  const noteApi = api.host(hmId);
-  const notePath = "/servers/" + PROBE.id + "/note";
-  const noteBefore = (await noteApi.get(notePath)).note;
+  // The note is ENGINE-owned (it lives in the kgsm instance's own config), so writing one
+  // is a journal event on the operator's real host — see THE ONE RULE. Split accordingly:
+  // the READ path is proven against a server that genuinely has a note (found on the live
+  // roster, never written here), and the WRITE path is proven by intercepting what the SPA
+  // sends. That the body survives the SOURCED config verbatim is the engine+api contract,
+  // covered by kgsm-api's ServerNoteWriteTests.
+  const noteRow = st.serversStore.getState().list.find((s) => s.notice);
+  if (noteRow) {
+    // The note must ride the LIST DTO, not just the dedicated endpoint — the dashboard tile
+    // renders one without ever fetching a detail. This row came from GET /servers, so its
+    // populated .notice IS that proof.
+    assert(typeof noteRow.notice === "string" && noteRow.notice.length > 0,
+      `server note: rides the /servers list DTO (adaptServer → .notice on ${noteRow.id}), so a tile needs no detail fetch`);
 
-  const NOTE_TEXT = "smoke: mods v1 — quotes \" $dollars `ticks`\nand a second line";
-  const written = await st.saveServerNote(hmId, PROBE.id, NOTE_TEXT);
-  assert(written && written.body === NOTE_TEXT,
-    "server note: a body with quotes/$/backticks/newlines round-trips verbatim (the config file is SOURCED — encoding is what keeps it intact)");
-  assert(written.updatedBy && written.updatedAt,
-    `server note: the backend stamps who wrote it and when (${written.updatedBy})`);
+    // The dedicated endpoint agrees with the list, and carries the backend's attribution.
+    const detail = (await api.host(noteRow.hostId || hmId).get("/servers/" + noteRow.id + "/note")).note;
+    assert(detail && detail.body === noteRow.notice,
+      "server note: GET /servers/{id}/note agrees with the list DTO (one decoded body, not two)");
+    assert(detail.updatedBy && detail.updatedAt,
+      `server note: the backend stamps who wrote it and when (${detail.updatedBy})`);
 
-  // It must ride the LIST DTO, not just the dedicated endpoint — the dashboard tile
-  // renders a note without ever fetching a detail. The write triggers a roster refresh
-  // that is deliberately NON-blocking (the editing client already has the authoritative
-  // value from the PUT response), so poll briefly rather than assuming it lands instantly.
-  let noteRow = null;
-  for (let i = 0; i < 20; i++) {
-    const rows = adapt.adaptServers(await (await fetch(API + "/api/v1/servers")).json());
-    noteRow = rows.find((s) => s.id === PROBE.id);
-    if (noteRow && noteRow.notice === NOTE_TEXT) break;
-    await sleep(250);
+    // The card itself renders the text and the byline — the component, not just the store.
+    const { ServerNotice } = await vite.ssrLoadModule("/src/components/ServerNotice.jsx");
+    const renderNote = async (server, canEdit) => {
+      const node = w.document.createElement("div");
+      const root = createRoot(node);
+      root.render(React.createElement(ServerNotice, { server, canEdit }));
+      await sleep(30);
+      const html = node.innerHTML;
+      root.unmount();
+      return html;
+    };
+    const noteHtml = await renderNote(noteRow, true);
+    assert(noteHtml.includes(noteRow.notice.split("\n")[0].slice(0, 24)) && noteHtml.includes("Server note"),
+      "ServerNotice: renders the live note body inside the card");
+    assert(noteHtml.includes("edited by"),
+      "ServerNotice: renders the backend's attribution byline (never a guessed author)");
+    const noteEmptyHtml = await renderNote({ ...noteRow, notice: "", note: null }, false);
+    assert(noteEmptyHtml === "",
+      "ServerNotice: a player viewing a server with no note gets nothing at all (no dead box)");
+  } else {
+    console.log("• server note: no server on this host has a note set — skipped the read-path proofs "
+      + "(set one from the panel to cover them; this smoke will not write one)");
   }
-  assert(noteRow && noteRow.notice === NOTE_TEXT,
-    "server note: rides the /servers list DTO (adaptServer → .notice), so a tile needs no detail fetch");
 
-  // The card itself renders the text and the byline — the component, not just the store.
-  const { ServerNotice } = await vite.ssrLoadModule("/src/components/ServerNotice.jsx");
-  const renderNote = async (server, canEdit) => {
-    const node = w.document.createElement("div");
-    const root = createRoot(node);
-    root.render(React.createElement(ServerNotice, { server, canEdit }));
-    await sleep(30);
-    const html = node.innerHTML;
-    root.unmount();
-    return html;
-  };
-  const noteHtml = await renderNote(noteRow, true);
-  assert(noteHtml.includes("mods v1") && noteHtml.includes("Server note"),
-    "ServerNotice: renders the live note body inside the card");
-  assert(noteHtml.includes("edited by"),
-    "ServerNotice: renders the backend's attribution byline (never a guessed author)");
-  const noteEmptyHtml = await renderNote({ ...noteRow, notice: "", note: null }, false);
-  assert(noteEmptyHtml === "",
-    "ServerNotice: a player viewing a server with no note gets nothing at all (no dead box)");
-
-  // An empty save is a CLEAR (routed to DELETE — the backend refuses an empty write,
-  // so an accidentally-emptied editor can never silently wipe a note).
-  const cleared = await st.saveServerNote(hmId, PROBE.id, "");
-  assert(cleared === null, "server note: saving an empty body clears it (DELETE, not an empty PUT)");
-  assert((await noteApi.get(notePath)).note === null, "server note: the clear persisted (re-read is honestly null)");
-
-  // Restore whatever the probe had before this suite touched it.
-  await st.saveServerNote(hmId, PROBE.id, noteBefore ? noteBefore.body : "");
-  assert(true, `  ✓ teardown: restored ${PROBE.id}'s original note (${noteBefore ? "had one" : "had none"})`);
+  // The write path, intercepted: a body PUTs with origin:'ui', and an EMPTY body routes to
+  // DELETE rather than an empty PUT — that routing decision is the SPA's own (the backend
+  // refuses an empty write), so an accidentally-emptied editor can never silently wipe a
+  // note. Both are asserted on the request the FE builds; neither reaches the engine.
+  {
+    const realFetch = globalThis.fetch;
+    // saveServerNote patches the local roster row on resolve, so snapshot the probe's real
+    // note and put it back afterwards — the store must keep matching the backend for every
+    // later render (nothing on the host is touched either way).
+    const probeNoteBefore = st.serversStore.find(PROBE.id);
+    const restoreProbeNote = () => st.serversStore.find(PROBE.id) && st.serversStore.patch(PROBE.id,
+      { note: probeNoteBefore.note ?? null, notice: probeNoteBefore.notice ?? "" });
+    let noteReq = null;
+    globalThis.fetch = async (url, opts) => {
+      const u = typeof url === "string" ? url : (url && url.url) || "";
+      if (/\/api\/v1\/servers\/[^/]+\/note(\?|$)/.test(u) && opts && /^(PUT|DELETE)$/.test(opts.method || "")) {
+        noteReq = { url: u, method: opts.method, body: opts.body ? JSON.parse(opts.body) : null };
+        const isPut = opts.method === "PUT";
+        return new Response(JSON.stringify({ note: isPut
+          ? { body: (noteReq.body || {}).body, updatedBy: "discord:smoke", updatedAt: "2026-06-20T00:00:00Z" }
+          : null }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return realFetch(url, opts);
+    };
+    try {
+      const NOTE_TEXT = "smoke: mods v1 — quotes \" $dollars `ticks`\nand a second line";
+      const written = await st.saveServerNote(hmId, PROBE.id, NOTE_TEXT);
+      assert(noteReq && noteReq.method === "PUT" && noteReq.url.endsWith("/servers/" + PROBE.id + "/note")
+        && noteReq.body.body === NOTE_TEXT && noteReq.body.origin === "ui",
+        "saveServerNote → PUT /servers/{id}/note { body, origin:'ui' } (the body is sent verbatim, unescaped)");
+      assert(written && written.body === NOTE_TEXT,
+        "saveServerNote: resolves with the backend's authoritative note (not the string it was handed)");
+      noteReq = null;
+      const cleared = await st.saveServerNote(hmId, PROBE.id, "");
+      assert(noteReq && noteReq.method === "DELETE" && noteReq.url.includes("origin=ui"),
+        "saveServerNote: an empty body routes to DELETE /servers/{id}/note?origin=ui (never an empty PUT)");
+      assert(cleared === null, "saveServerNote: a clear resolves null (the store drops the notice)");
+    } finally {
+      globalThis.fetch = realFetch;
+      restoreProbeNote();
+    }
+  }
 
   // ---- Phase 7: integrations (Discord) wiring -----------------------------
   // (a) The webhook-PATCH footgun is the one place a bug = silent data loss: the
@@ -1351,9 +1347,36 @@ try {
       const read = await api.host(hmId).get(p);
       assert(read && typeof read.content === "string" && /^sha256:/.test(read.etag || ""),
         "Files read: raw text + sha256 etag");
-      const saved = await api.host(hmId).put(p, { content: read.content, etag: read.etag, origin: "ui" });
-      assert(saved && saved.etag === read.etag,
-        "Files save: identical-bytes PUT → 200 + unchanged etag (put seam works end-to-end)");
+      // The SUCCESS path is not exercised live: a 200 save writes a file.write audit row
+      // (ServerFilesController writes audit only on FileOp.Ok), so it is a mutation — see
+      // THE ONE RULE. What belongs to the SPA is the request it builds, asserted at the
+      // fetch seam; that a real 200 leaves the bytes and etag intact is kgsm-api's contract,
+      // covered by its ServerFilesWriteTests against a disposable instance.
+      {
+        const realFetch = globalThis.fetch;
+        let putReq = null;
+        globalThis.fetch = async (url, opts) => {
+          const u = typeof url === "string" ? url : (url && url.url) || "";
+          if (opts && opts.method === "PUT" && /\/api\/v1\/servers\/[^/]+\/files\/content\?/.test(u)) {
+            putReq = { url: u, body: JSON.parse(opts.body || "null") };
+            return new Response(JSON.stringify({ path: cfg.name, sizeBytes: read.content.length,
+              mtime: "2026-06-20T00:00:00Z", etag: read.etag }),
+              { status: 200, headers: { "content-type": "application/json" } });
+          }
+          return realFetch(url, opts);
+        };
+        try {
+          await st.filesStore.saveFile(hmId, fSv, cfg.name, read.content, read.etag).catch(() => {});
+          assert(putReq && putReq.url.includes("path=" + encodeURIComponent(cfg.name))
+            && putReq.body.content === read.content && putReq.body.etag === read.etag
+            && putReq.body.origin === "ui",
+            "saveFile → PUT /servers/{id}/files/content?path= { content, etag, origin:'ui' } (etag-conditional, never blind)");
+        } finally { globalThis.fetch = realFetch; }
+      }
+
+      // The REJECTION paths run for real — both are refused before any byte is written
+      // (kgsm-lib's expected-etag write returns EtagMismatch without touching the file, and
+      // the controller audits only on Ok), so they mutate nothing.
       let staleErr = null;
       await api.host(hmId).put(p, { content: read.content + "\n", etag: "sha256:deadbeef", origin: "ui" })
         .catch((e) => { staleErr = e; });
@@ -1376,18 +1399,17 @@ try {
   // looks exhaustive when it isn't; (2) the structured filters (severity incl.
   // attention=warn,danger / serverId / actor / since / category) PUSH DOWN to the
   // backend so the cursor walks the FILTERED log (old matching events stay
-  // reachable behind newer noise). DB was wiped (Ts storage changed to ticks), so
-  // seed it deterministically first.
-  // Seed against the synthetic AUDIT_PROBE (not a real instance): these rows must exist in
-  // the backend for the paging walk below, and teardown purges them when the run ends.
-  for (let i = 0; i < 6; i++) execSync(`/home/heisen/tks/kgsm/kgsm.sh events emit instance-started ${AUDIT_PROBE}`);
-  let seeded = 0;
-  for (let i = 0; i < 50; i++) {
-    seeded = (await api.get("/audit?limit=200")).rows.length;
-    if (seeded >= 6) break;
-    await sleep(150);
-  }
-  assert(seeded >= 6, `audit seed: ${seeded} rows landed (kgsm emit → socket → audit) — need ≥6 for paging tests`);
+  // reachable behind newer noise).
+  //
+  // Paged against the host's REAL log — a live host accumulates one continuously and this
+  // suite writes nothing into it (THE ONE RULE). That also makes the pushdown proof
+  // stronger than a synthetic seed could: the filter runs over a log holding OTHER servers'
+  // rows, so a serverId that comes back clean actually demonstrates filtering.
+  const auditPool = (await api.get("/audit?limit=200")).rows;
+  const enoughRows = auditPool.length >= 6;
+  if (!enoughRows)
+    console.log(`• audit paging: the live log holds ${auditPool.length} rows (<6) — skipping the paging/pushdown `
+      + "proofs. A host that has run anything at all has enough; a brand-new one will after its first action.");
 
   // (a) adaptAudit preserves the page envelope (both wire shapes + the empty case)
   const env = adapt.adaptAudit({ data: [{ id: "evt_x" }], nextCursor: "42" });
@@ -1417,6 +1439,7 @@ try {
   assert(Object.keys(ASP({ severity: "all", server: "all", actor: "all", range: "all", category: "all" }, NOW)).length === 0,
     "auditServerParams: all-default filter → empty params (no query string)");
 
+  if (enoughRows) {
   // (b) the server genuinely pages — a tiny limit yields a cursor (older exist)
   const tiny = await api.get("/audit?limit=1");
   assert(tiny.rows.length === 1 && tiny.nextCursor != null,
@@ -1424,20 +1447,32 @@ try {
 
   // (b2) PUSHDOWN through the store: a serverId filter walks only that server's
   // rows; an unknown server → 0 (filtered server-side, not client-trimmed); a
-  // future `since` → 0 while a 1h-ago `since` returns the recent rows (a real
+  // future `since` → 0 while a bound just under the newest row returns rows (a real
   // bound, not all-or-nothing). Proves the params reach the backend + filter there.
-  const fScoped = await st.auditStore.refresh({ serverId: AUDIT_PROBE });
-  assert(fScoped.length > 0 && fScoped.every(r => r.serverId === AUDIT_PROBE),
-    `audit pushdown: refresh({serverId}) → ${fScoped.length} rows, all scoped to ${AUDIT_PROBE}`);
+  // Both the scoped id and the `since` bound are DERIVED from the live log — the most
+  // active server in it, and its own newest timestamp — so the assertions hold on any
+  // host without this suite writing a row to make them true.
+  const busiest = Object.entries(auditPool.reduce((acc, r) => {
+    if (r.serverId) acc[r.serverId] = (acc[r.serverId] || 0) + 1;
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1])[0];
+  if (busiest) {
+    const fScoped = await st.auditStore.refresh({ serverId: busiest[0] });
+    assert(fScoped.length > 0 && fScoped.every(r => r.serverId === busiest[0]),
+      `audit pushdown: refresh({serverId}) → ${fScoped.length} rows, all scoped to ${busiest[0]} `
+      + `(filtered out of a log holding ${new Set(auditPool.map(r => r.serverId).filter(Boolean)).size} servers' rows)`);
+  }
   const fNone = await st.auditStore.refresh({ serverId: "no-such-server-xyz" });
   assert(fNone.length === 0 && st.auditStore.getState().nextCursor === null,
     "audit pushdown: refresh({serverId:unknown}) → 0 rows (filtered server-side, cursor null)");
   const fFuture = await st.auditStore.refresh({ since: new Date(Date.now() + 3600e3).toISOString() });
   assert(fFuture.length === 0,
     "audit pushdown: refresh({since:future}) → 0 rows (?since= is a real server-side lower bound)");
-  const fRecent = await st.auditStore.refresh({ since: new Date(Date.now() - 3600e3).toISOString() });
+  const newestTs = new Date(auditPool[0].ts).getTime();
+  const fRecent = await st.auditStore.refresh({ since: new Date(newestTs - 1000).toISOString() });
   assert(fRecent.length > 0,
-    "audit pushdown: refresh({since:1h-ago}) → the recent rows (since bounds, not all-or-nothing)");
+    "audit pushdown: refresh({since:just-before-the-newest-row}) → that row (since bounds, not all-or-nothing)");
+  }
 
   // (b3) END-TO-END through the PAGE — the glue between the pure mapper and
   // refresh(params). The Alerts→audit deep-link (?severity=attention) must drive
@@ -1961,9 +1996,10 @@ try {
 } finally {
   console.error = origErr;
   await vite.close();
+  // The only teardown there is: put back this repo's own env file. Nothing on the host was
+  // written, so there is nothing on the host to clean up (THE ONE RULE) — and no cleanup
+  // step that can silently fail and leave residue in the operator's audit log.
   restoreEnv();
-  cleanEmitConfig();
-  await purgeProbeEvents();
 }
 console.log(fail ? `\n✗ ${fail} live check(s) failed` : `\n✓ live wiring verified against ${API}`);
 process.exit(fail ? 1 : 0);

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the live smoke never mutates the host
+
+`scripts/smoke-live.mjs` is read-only against the backend, plus interception at the fetch seam for
+every write. Each run previously left ~10 permanent rows in the operator's audit log: seven synthetic
+`server.start` events emitted through `kgsm.sh events emit`, and three `config.set` rows from real
+note writes on whichever server happened to be first on the live roster.
+
+The teardown that was supposed to absorb this could not. kgsm's event transport is a single host-wide
+journal indexed by one kgsm-monitor, and every kgsm-api on the box — including the operator's `:8097`
+— merges its engine history from that one monitor, so pointing the smoke at the auth-disabled dev api
+never scoped its writes. The purge deleted probe rows from the monitor's index only: the journal kept
+the raw lines (a rebuild resurrects them), the note rows were never covered by the predicate at all,
+and the "restore" put the note body back but not its attribution. A run now leaves nothing behind
+because it writes nothing.
+
+What changed, assertion by assertion:
+
+- `audit.append` is injected at the dispatch seam, like `server.patch`/`server.removed`/`job.patch`
+  already were. The stream still has to reach `mode: "live"` against the real backend.
+- Audit paging and pushdown run against the host's real log instead of a seeded one, and the scoped
+  `serverId` and the `since` bound are derived from it. This is a stronger proof than the synthetic
+  seed gave: the filter now runs over a log that holds other servers' rows.
+- The note read path is proven against a server that genuinely has one; the write path asserts the
+  request the SPA builds, including the empty-body → DELETE routing.
+- The file editor keeps its read, stale-etag `412` and traversal `404` — all non-mutating — and
+  asserts the save request at the seam rather than performing a 200 that writes an audit row.
+
+The dead socket-isolation block went with it (kgsm dropped the socket transport; it staged a config
+override for a key that no longer exists). The smoke no longer needs `sqlite3` or to run next to the
+engine. Coverage deliberately handed to kgsm-api's own suite: the journal→api→stream relay and the
+note's verbatim round trip through a SOURCED config.
+
 ### Added — player moderation in the roster
 
 Kick / ban / unban per player, on the Players band of a server's overview.

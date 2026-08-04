@@ -60,8 +60,20 @@ against a RUNNING kgsm-api and asserts real backend data renders without crashin
 data-layer or route change, run `npm run lint` (0 errors), `npm run build` (no
 import dangles), and `npm run smoke` against a live api.
 
-Four things about the smoke are load-bearing enough to state outright:
+Five things about the smoke are load-bearing enough to state outright:
 
+- **It never mutates the host.** Every assertion is either a READ against the live backend or a
+  WRITE INTERCEPTED at the fetch seam (assert the request the SPA builds, answer it synthetically).
+  This is not fastidiousness: kgsm's event transport is a single host-wide journal
+  (`/var/lib/kgsm/events/*.ndjson`) indexed by ONE kgsm-monitor, and **every** kgsm-api on the box —
+  including the operator's `:8097` — merges its engine history from that one monitor. There is no
+  such thing as a write scoped to the backend under test; anything reaching the engine lands in the
+  operator's real audit log permanently and rides the live consumer out to their notification
+  integrations. So: no `kgsm.sh events emit`, no engine-touching PUT/DELETE, and nothing requiring
+  this process to sit next to the engine. A run leaves nothing behind because it writes nothing —
+  not because it cleans up afterwards. Coverage this gives up (the journal→api→stream relay, the
+  note's verbatim round trip through a SOURCED config) lives in kgsm-api's `AuditJournalRelayTests`
+  / `ServerNoteRoundTripTests`, which own a disposable fixture.
 - **It needs an AUTH-DISABLED backend.** It sends no bearer, so a real auth-enabled host
   401s every gated read. The backend it expects is `scripts/visual-harness/dev-api.sh`
   (`:8096`); the prod unit on `:8097` has auth ON, and the smoke refuses it up front with a
