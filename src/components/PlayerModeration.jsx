@@ -23,6 +23,14 @@ import { useConfirmAction } from "./ServerActions.jsx";
 // the panel's ghost row action) on desktop, and a "⋯" menu on phones, where the
 // menu keeps both icon AND label. CSS picks which trigger is visible; both drive
 // the same `onRun`.
+//
+// An action the game declares is always RENDERED, and disabled when the moment
+// is wrong — a control that vanishes tells the operator nothing, while a
+// disabled one that says why is the difference between "this game can't" and
+// "not right now". The three gates, broadest first: the server has to be running
+// (moderation is a console command — a stopped server has no console, and the
+// engine refuses the call outright), the player has to carry an identity of the
+// kind the game addresses, and a kick needs them actually connected.
 
 // Which field of a roster row satisfies the game's declared target kind. Mirrors
 // the API's own resolution so the control state matches what the call would do —
@@ -87,9 +95,12 @@ function ModerationButton({ action, disabled, reason, pending, onRun }) {
 // One row of the "⋯" menu. Arming keeps the menu OPEN and swaps the label in
 // place, so the second tap lands on the same target the first one did — a menu
 // that closed on arming would ask the operator to re-open it and aim again.
-function ModerationMenuItem({ action, disabled, reason, pending, onRun, onDone }) {
+// `why` is this item's own reason for being disabled — rendered as a second line
+// rather than a tooltip, since a touch screen never shows one.
+function ModerationMenuItem({ action, why, pending, onRun, onDone }) {
   const def = ACTION[action];
   const { armed, trigger } = useConfirmAction(() => { onRun(action); onDone(); });
+  const disabled = !!why;
 
   const click = (e) => {
     e.stopPropagation();
@@ -101,10 +112,12 @@ function ModerationMenuItem({ action, disabled, reason, pending, onRun, onDone }
   return (
     <button type="button"
       className={"pmod-menu__item pmod-menu__item--" + def.tone + (armed ? " is-armed" : "")}
-      disabled={disabled || pending} title={disabled && reason ? reason : undefined}
-      onClick={click}>
+      disabled={disabled || pending} onClick={click}>
       <Icon name={armed ? "check" : def.icon} size={14} strokeWidth={armed ? 2.6 : 2.2} />
-      <span>{pending ? def.pending : armed ? "Tap again to confirm" : def.label}</span>
+      <span className="pmod-menu__text">
+        <span>{pending ? def.pending : armed ? "Tap again to confirm" : def.label}</span>
+        {why ? <span className="pmod-menu__why">{why}</span> : null}
+      </span>
     </button>
   );
 }
@@ -113,22 +126,25 @@ function ModerationMenuItem({ action, disabled, reason, pending, onRun, onDone }
 // the roster's card frame and its cells both clip their overflow, so an
 // absolutely-positioned panel inside the row would be cut off — most visibly on
 // the last row, which is where a ban is as likely to be aimed as any other.
-function ModerationMenu({ anchorRef, actions, disabled, reason, pending, onRun, onClose }) {
+function ModerationMenu({ anchorRef, items, shared, pending, onRun, onClose }) {
   const [pos, setPos] = React.useState(null);
   const panelRef = React.useRef(null);
+  // Rough panel height, used only to decide which side of the trigger to open
+  // on: a base row each, plus the extra lines the reasons add.
+  const height = 12 + items.length * 38 + (shared ? 34 : 0)
+    + items.filter((i) => !shared && i.reason).length * 30;
 
   React.useLayoutEffect(() => {
     const el = anchorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const height = 12 + actions.length * 38;
     // Flip above the trigger when there isn't room below, so the panel is never
     // pushed off the bottom of a short viewport.
     const below = window.innerHeight - r.bottom;
     const top = below < height + 12 ? Math.max(8, r.top - height - 6) : r.bottom + 6;
     const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
     setPos({ top, left });
-  }, [anchorRef, actions.length]);
+  }, [anchorRef, height]);
 
   React.useEffect(() => {
     const onDocDown = (e) => {
@@ -156,19 +172,20 @@ function ModerationMenu({ anchorRef, actions, disabled, reason, pending, onRun, 
   return createPortal(
     <div className="pmod-menu" role="menu" ref={panelRef}
       style={{ top: pos.top + "px", left: pos.left + "px", width: MENU_WIDTH + "px" }}>
-      {disabled && reason ? <div className="pmod-menu__note">{reason}</div> : null}
-      {actions.map((a) => (
-        <ModerationMenuItem key={a} action={a} disabled={disabled} reason={reason}
-          pending={pending === a} onRun={onRun} onDone={onClose} />
+      {shared ? <div className="pmod-menu__note">{shared}</div> : null}
+      {items.map((i) => (
+        <ModerationMenuItem key={i.action} action={i.action} why={shared ? null : i.reason}
+          pending={pending === i.action} onRun={onRun} onDone={onClose} />
       ))}
     </div>,
     document.body
   );
 }
 
-// player: the roster row · moderation: the capability block · pending: the action
-// currently in flight for THIS player (or null) · onRun(action)
-function PlayerModeration({ player, moderation, pending, onRun }) {
+// player: the roster row · moderation: the capability block · serverRunning: is
+// the instance up · pending: the action currently in flight for THIS player (or
+// null) · onRun(action)
+function PlayerModeration({ player, moderation, serverRunning, pending, onRun }) {
   const [open, setOpen] = React.useState(false);
   const triggerRef = React.useRef(null);
   const close = React.useCallback(() => setOpen(false), []);
@@ -178,35 +195,46 @@ function PlayerModeration({ player, moderation, pending, onRun }) {
 
   // A banned player gets the counterpart action, never both — offering "ban" on
   // someone already banned states a change that wouldn't happen.
-  const actions = [];
+  const offered = [];
   if (moderation) {
     if (banned) {
-      if (moderation.unban) actions.push("unban");
+      if (moderation.unban) offered.push("unban");
     } else {
-      // Kicking someone who isn't connected does nothing; the game has nobody to
-      // disconnect. Offer it only when they're actually here.
-      if (moderation.kick && online) actions.push("kick");
-      if (moderation.ban) actions.push("ban");
+      if (moderation.kick) offered.push("kick");
+      if (moderation.ban) offered.push("ban");
     }
   }
 
   // Close the menu if this row's action set empties out from under it (a ban
   // landing turns "kick/ban" into "unban" while the panel is open).
-  React.useEffect(() => { if (!actions.length) setOpen(false); }, [actions.length]);
+  React.useEffect(() => { if (!offered.length) setOpen(false); }, [offered.length]);
 
-  if (!moderation || !actions.length) return null;
+  if (!moderation || !offered.length) return null;
 
   const usable = hasTargetIdentity(player, moderation.targetKind);
-  const reason = usable ? null
-    : "This game moderates by " + (KIND_LABEL[moderation.targetKind] || "an identity")
-      + ", which this player has none of.";
+  const identityReason = "This game moderates by "
+    + (KIND_LABEL[moderation.targetKind] || "an identity") + ", which this player has none of.";
+
+  // Broadest gate first, so the reason names the thing the operator would have
+  // to change first.
+  const items = offered.map((action) => ({
+    action,
+    reason: !serverRunning ? "The server isn't running, so there's no console to send this to."
+      : !usable ? identityReason
+        : action === "kick" && !online ? "This player isn't connected — there's nobody to disconnect."
+          : null,
+  }));
+
+  // A reason every action shares belongs at the top of the menu once, not
+  // repeated under each item.
+  const shared = items.every((i) => i.reason && i.reason === items[0].reason) ? items[0].reason : null;
 
   return (
     <span className="pmod">
       <span className="pmod__inline">
-        {actions.map((a) => (
-          <ModerationButton key={a} action={a} disabled={!usable} reason={reason}
-            pending={pending === a} onRun={onRun} />
+        {items.map((i) => (
+          <ModerationButton key={i.action} action={i.action} disabled={!!i.reason} reason={i.reason}
+            pending={pending === i.action} onRun={onRun} />
         ))}
       </span>
 
@@ -219,8 +247,8 @@ function PlayerModeration({ player, moderation, pending, onRun }) {
           <Icon name="ellipsis" size={15} />
         </button>
         {open && (
-          <ModerationMenu anchorRef={triggerRef} actions={actions} disabled={!usable}
-            reason={reason} pending={pending} onRun={onRun} onClose={close} />
+          <ModerationMenu anchorRef={triggerRef} items={items} shared={shared}
+            pending={pending} onRun={onRun} onClose={close} />
         )}
       </span>
     </span>

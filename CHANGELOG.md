@@ -27,12 +27,18 @@ declares, so a game with no ban command shows no ban button instead of one that
 renders no controls rather than broken ones. Beyond that:
 
 - A banned player is offered **unban** and not ban — offering both would state a
-  change that wouldn't happen. Kick appears only while the player is online,
-  since there is nobody to disconnect otherwise.
-- A player carrying no identity of the kind the game addresses (a Steam-relay
-  player on an `ip`-keyed game) gets a disabled control that says why, rather
-  than a click that fails. This mirrors the API's own resolution as a courtesy —
-  the API re-resolves on every request and remains free to refuse.
+  change that wouldn't happen.
+- **An action the game declares is always rendered, and disabled when the moment
+  is wrong** — a control that vanishes tells the operator nothing, while a
+  disabled one that says why separates "this game can't" from "not right now".
+  Three gates, broadest first: the server has to be **running** (moderation is a
+  console command, and the engine refuses one for a stopped instance — `starting`
+  and `unknown` are not running either); the player has to carry an identity of
+  the kind the game addresses (a Steam-relay player on an `ip`-keyed game has
+  none); and **kick** needs them currently connected. The reason rides the
+  tooltip on desktop and a second line in the menu on touch, where no tooltip
+  exists. This mirrors the API's own resolution as a courtesy — the API
+  re-resolves on every request and remains free to refuse.
 - Kick and ban arm-then-confirm (the existing `useConfirmAction` misclick guard);
   unban doesn't, because restoring access is not destructive.
 - No optimistic status write. The row changes when the engine's event comes back

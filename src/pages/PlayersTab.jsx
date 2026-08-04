@@ -189,6 +189,11 @@ function PlayersTab({ server, readOnly, roster }) {
   // one implying the feature is merely unavailable right now.
   const mod = state.moderation;
   const canModerate = !readOnly && mod && (mod.kick || mod.ban || mod.unban);
+  // Moderation is a console command, so it needs a console: only a server that
+  // is actually up can take one. "starting" and "unknown" are not a running
+  // server — the engine refuses both, and claiming otherwise on a control would
+  // promise something the click can't deliver.
+  const serverRunning = server && server.status === "online";
   if (canModerate) {
     columns.push({
       key: "actions", label: "", width: "minmax(84px, auto)", align: "right",
@@ -196,6 +201,7 @@ function PlayersTab({ server, readOnly, roster }) {
         <PlayerModeration
           player={p}
           moderation={mod}
+          serverRunning={serverRunning}
           pending={busy && busy.playerIdentity === p.playerIdentity ? busy.action : null}
           onRun={(action) => runModeration(p, action)} />
       ),
