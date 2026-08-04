@@ -19,11 +19,10 @@ import { useConfirmAction } from "./ServerActions.jsx";
 // player who carries no identity of that kind can't be moderated at all, and we
 // say so on a disabled control instead of letting the click fail.
 //
-// Two presentations of the same action set: inline buttons on desktop, and a
-// "⋯" menu on phones, where three labelled buttons cannot share a table row with
-// the player's name. CSS picks which trigger is visible; both drive the same
-// `onRun`. The menu keeps the labels — an icon-only row of destructive actions
-// on a small screen is exactly where a mis-tap is most likely.
+// Two presentations of the same action set: square icon buttons (`.icon-btn`,
+// the panel's ghost row action) on desktop, and a "⋯" menu on phones, where the
+// menu keeps both icon AND label. CSS picks which trigger is visible; both drive
+// the same `onRun`.
 
 // Which field of a roster row satisfies the game's declared target kind. Mirrors
 // the API's own resolution so the control state matches what the call would do —
@@ -40,13 +39,13 @@ function hasTargetIdentity(player, targetKind) {
 const KIND_LABEL = { ip: "an IP address", name: "a player name", id: "an account id" };
 
 const ACTION = {
-  kick: { label: "Kick", icon: "log-out", tone: "warn", confirm: true,
-    pending: "Kicking…", title: "Disconnect this player" },
+  kick: { label: "Kick", icon: "user-x", tone: "warn", confirm: true,
+    pending: "Kicking…", title: "Kick — disconnect this player" },
   ban: { label: "Ban", icon: "ban", tone: "danger", confirm: true,
-    pending: "Banning…", title: "Disconnect and block this player" },
+    pending: "Banning…", title: "Ban — disconnect and block this player" },
   // Restoring access is not destructive, so it doesn't need a misclick guard.
-  unban: { label: "Unban", icon: "rotate-ccw", tone: "safe", confirm: false,
-    pending: "Unbanning…", title: "Lift this player's ban" },
+  unban: { label: "Unban", icon: "user-check", tone: "safe", confirm: false,
+    pending: "Unbanning…", title: "Unban — lift this player's ban" },
 };
 
 const MENU_WIDTH = 196;
@@ -61,21 +60,26 @@ function ModerationButton({ action, disabled, reason, pending, onRun }) {
     if (def.confirm) trigger(); else onRun(action);
   };
 
-  const cls = "pmod-btn pmod-btn--" + def.tone
+  const cls = "icon-btn pmod-btn pmod-btn--" + def.tone
     + (armed ? " is-armed" : "")
     + (pending ? " is-pending" : "");
 
+  // An icon-only control has to carry its meaning in the tooltip and the
+  // accessible name, and both have to follow the state — an armed button that
+  // still announces "Ban" hides the fact that the next click commits.
+  const title = pending ? def.pending
+    : armed ? "Click again to confirm"
+      : disabled && reason ? reason
+        : def.title;
+  const label = pending ? def.pending
+    : armed ? "Confirm " + def.label.toLowerCase()
+      : def.label;
+
   return (
     <button type="button" className={cls} disabled={disabled || pending}
-      title={armed ? "Click again to confirm" : (disabled && reason ? reason : def.title)}
-      aria-label={def.label} onClick={click}>
-      {pending ? (
-        <><span className="act-spin" /><span className="pmod-btn__label">{def.pending}</span></>
-      ) : armed ? (
-        <><Icon name="check" size={11} strokeWidth={2.6} /><span className="pmod-btn__label">Confirm?</span></>
-      ) : (
-        <><Icon name={def.icon} size={11} strokeWidth={2.2} /><span className="pmod-btn__label">{def.label}</span></>
-      )}
+      title={title} aria-label={label} onClick={click}>
+      {pending ? <span className="act-spin" />
+        : <Icon name={armed ? "check" : def.icon} size={15} strokeWidth={armed ? 2.6 : 1.9} />}
     </button>
   );
 }
@@ -208,7 +212,7 @@ function PlayerModeration({ player, moderation, pending, onRun }) {
 
       <span className="pmod__compact">
         <button type="button" ref={triggerRef}
-          className={"pmod-kebab" + (open ? " is-open" : "")}
+          className={"icon-btn pmod-kebab" + (open ? " icon-btn--on" : "")}
           aria-haspopup="menu" aria-expanded={open}
           aria-label={"Moderate " + (player.playerName || player.playerIdentity)}
           onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>

@@ -104,26 +104,6 @@
   position: relative;
 }
 
-.pmod-kebab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg-2);
-  cursor: pointer;
-}
-
-.pmod-kebab.is-open,
-.pmod-kebab:hover {
-  color: var(--fg-1);
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-}
-
 /* Portalled to <body> and positioned from the trigger's rect, because the roster
    card and its cells both clip overflow. Fixed, so it tracks the viewport the
    coordinates were measured against. */
@@ -206,31 +186,11 @@
   color: var(--success-fg);
 }
 
+/* The controls ARE .icon-btn — the panel's ghost square row action. Only the
+   tone and the confirm state are moderation-specific, so this adds those and
+   inherits the geometry (including the responsive touch-target bump). */
 .pmod-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg-2);
-  font-size: 12px;
-  font-weight: 550;
-  line-height: 1;
-  cursor: pointer;
-  white-space: nowrap;
   transition: background var(--d-fast) ease, border-color var(--d-fast) ease, color var(--d-fast) ease;
-}
-
-.pmod-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  color: var(--fg-1);
-}
-
-.pmod-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .pmod-btn--warn:hover:not(:disabled) {
@@ -252,7 +212,8 @@
 }
 
 /* Armed = the misclick guard is waiting for a second click. It must read as
-   clearly different from the resting state, not merely hovered. */
+   clearly different from the resting state, not merely hovered — the button
+   carries no label, so the tint is most of what says "this one is live". */
 .pmod-btn.is-armed {
   background: var(--danger-bg);
   border-color: var(--danger);
@@ -2536,10 +2497,10 @@
     display: none;
   }
 
-  /* At phone width the labelled buttons can't share a row with the player's
-     name, so they collapse into a "⋯" menu that keeps both icon AND label —
-     stripping the labels instead would leave a row of unlabelled destructive
-     icons, which is the worst place to guess. */
+  /* One "⋯" trigger instead of the action set: a phone row already carries the
+     player's name, address and status, and the menu's labelled items name the
+     action outright — a tooltip, which is what labels an icon button, is not
+     something a touch screen offers. */
   .pmod__inline {
     display: none;
   }

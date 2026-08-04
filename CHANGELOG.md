@@ -39,8 +39,15 @@ renders no controls rather than broken ones. Beyond that:
   through the `players` topic — because the action landed, not because it was
   asked for.
 
-**On phones the three controls collapse into a "⋯" menu** that keeps both icons
-and labels; a row of unlabelled destructive icons is the worst place to guess.
+**The controls are the panel's square ghost icon buttons** (`.icon-btn`, the same
+row action the backups list and the host cards use), tinted by tone on hover —
+amber for kick, red for ban, green for unban. The label lives in the tooltip and
+the accessible name, and both follow the state, so an armed button announces the
+confirm rather than the action it still shows.
+
+**On phones the controls collapse into a "⋯" menu** that keeps both icons and
+labels — a tooltip, which is what labels an icon button, is not something a touch
+screen offers.
 The panel is portalled to `<body>` and positioned from the trigger's rect,
 because the roster card and its cells both clip overflow — an in-row panel is cut
 off, most visibly on the last row. It flips above the trigger when the viewport

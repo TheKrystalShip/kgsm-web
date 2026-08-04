@@ -191,7 +191,7 @@ function PlayersTab({ server, readOnly, roster }) {
   const canModerate = !readOnly && mod && (mod.kick || mod.ban || mod.unban);
   if (canModerate) {
     columns.push({
-      key: "actions", label: "", width: "minmax(150px, auto)", align: "right",
+      key: "actions", label: "", width: "minmax(84px, auto)", align: "right",
       render: (p) => (
         <PlayerModeration
           player={p}
