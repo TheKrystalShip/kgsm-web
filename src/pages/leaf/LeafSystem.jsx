@@ -7,11 +7,15 @@
 // question worth interrupting another tab for: is this thing up.
 //
 // Every fact is the services row's, rendered or admitted. An absent one is never a zero.
+//
+// The facts are what the unit IS right now; the charts below them are what it has BEEN, read from
+// kgsm-monitor's recorded history. Two sources, two cadences, kept visibly apart.
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { fmtBytes, leafStatus, uptimeShort } from "../diagnostics/diagHelpers.js";
 import { leafIcon } from "../leafConfig/leafConfigHelpers.js";
+import { LeafResources } from "./LeafResources.jsx";
 
 // A runtime fact (pid, memory, start time) is absent for two different reasons, and the difference is
 // measured rather than guessed: a unit that isn't running HAS no pid, whereas a running unit whose pid
@@ -26,7 +30,7 @@ function startedAt(since) {
   return isNaN(d.getTime()) ? "unknown" : d.toLocaleString();
 }
 
-function LeafSystem({ leafId, svc }) {
+function LeafSystem({ hostId, leafId, svc }) {
   if (!svc) {
     return (
       <div className="proc-unavailable">
@@ -117,6 +121,8 @@ function LeafSystem({ leafId, svc }) {
           {facts(reach)}
         </BriefCard>
       </div>
+
+      <LeafResources hostId={hostId} leafId={leafId} running={running} onDemand={svc.onDemand} />
     </>
   );
 }

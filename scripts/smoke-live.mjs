@@ -1708,6 +1708,46 @@ try {
     console.log("· leaf System tab: every leaf is active, so the stopped-unit rendering wasn't exercised");
   }
 
+  // The System tab's charts read the monitor's per-leaf history through the api's proxy. Assert the
+  // request the SPA actually builds — the `leaf` entity kind is what makes these rows a leaf's rather
+  // than a server's, and the route is the same one the leaf page is addressed by.
+  const leafHist = await fetch(API + "/api/v1/hosts/" + hmId + "/services/monitor/metrics/history?range=1h")
+    .then(r => r.json());
+  assert(leafHist.kind === "leaf" && leafHist.entityId === "monitor",
+    `leaf resource history: the api answers the leaf entity kind (kind=${leafHist.kind}, tier=${leafHist.tier})`);
+  // The metric names are deliberately the server vocabulary — same quantities, same units — which is
+  // what lets one chart component render either. If they ever diverge, the shared grid draws nothing.
+  const leafSeries = Object.keys(leafHist.series || {});
+  assert(leafSeries.includes("cpuPctCore") && leafSeries.includes("memBytes"),
+    `leaf resource history: shares the server metric vocabulary (${leafSeries.join(", ") || "no series yet"})`);
+  // A leaf has no per-instance network meter by design, so the grid must not render the empty Network
+  // card it shows a server — "never measured here" is a different claim from "nothing recorded yet".
+  assert(!leafSeries.includes("rxBps") && !leafSeries.includes("txBps"),
+    "leaf resource history: carries no network series — the eBPF meter is scoped to kgsm.slice");
+  assert(sysHtml.includes("leaf-res") && sysHtml.includes("Resource history"),
+    "leaf System tab: renders the recorded-history section beside the unit facts");
+  // There is no per-leaf metrics tick to subscribe to, so the range selector must not offer Live — a
+  // button that could only re-read the history store would be advertising a feed that doesn't exist.
+  assert(!/>Live</.test(sysHtml),
+    "leaf System tab: the range selector offers recorded windows only, no Live");
+
+  // A leaf that is down has nothing to record, but a socket-activated one is RESTING, not stopped —
+  // which is what the Activation hint one card up says. The two must not contradict each other.
+  const onDemandLeaf = svc.find(s => s.onDemand && s.state !== "active");
+  if (onDemandLeaf) {
+    const idleHtml = await nav(`#/cluster/${hmId}/services/${onDemandLeaf.id}/system`);
+    assert(idleHtml.includes("Idle — nothing to record") && !idleHtml.includes("A stopped leaf has no"),
+      `leaf resource history: an idle socket-activated leaf (${onDemandLeaf.id}) reads as resting, not stopped`);
+  } else {
+    console.log("· leaf resource history: no idle socket-activated leaf, so the resting copy wasn't exercised");
+  }
+
+  // An unknown leaf is a 404 (no such entity), while a known one with no rows is an empty 200 — the SPA
+  // renders an honest "no history yet" for the second, so conflating them would hide a real backend fault.
+  const unknownLeaf = await fetch(API + "/api/v1/hosts/" + hmId + "/services/not-a-leaf/metrics/history");
+  assert(unknownLeaf.status === 404,
+    `leaf resource history: an unknown leaf is a 404, not an empty series (${unknownLeaf.status})`);
+
   // The Logs tab reads ONE leaf's journal (?source=<leaf>) instead of filtering the merged host feed:
   // that feed is capped across every leaf at once, so a quiet leaf can hold none of it. Measure both
   // and assert the scoped read is not the poorer view.

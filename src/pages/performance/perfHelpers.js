@@ -6,13 +6,18 @@ export const BUFFER_CAP = 150;
 export const STALE_MS   = 10000;
 export const NO_SOURCE_MS = 9000;
 
-export const RANGES = [
-  { key: "live", label: "Live" },
+// The recorded windows the history store serves. `live` is a separate thing entirely — a subscription to
+// a metrics tick, not a query — so it is kept out of this list and prepended only where such a feed
+// actually exists. A surface with no live source must never offer the button: a "Live" range that
+// quietly re-read history would be claiming a feed that isn't there.
+export const HISTORY_RANGES = [
   { key: "1h",   label: "1h" },
   { key: "24h",  label: "24h" },
   { key: "7d",   label: "7d" },
   { key: "30d",  label: "30d" },
 ];
+
+export const RANGES = [{ key: "live", label: "Live" }, ...HISTORY_RANGES];
 
 export const RANGE_MS = { "1h": 3600e3, "24h": 86400e3, "7d": 7 * 86400e3, "30d": 30 * 86400e3 };
 

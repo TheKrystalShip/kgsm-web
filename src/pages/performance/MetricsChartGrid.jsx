@@ -17,7 +17,13 @@ import { MetricChartCard } from "./PerfCards.jsx";
 // `compact` trims it for the narrow chat column: a single-column grid, shorter
 // charts, and no always-on empty Network card (only metrics with real data
 // render, so a chat card never shows a placeholder chart).
-function MetricsChartGrid({ series, tier, step, range, events = [], domain, compact = false }) {
+//
+// `network={false}` says network is not a dimension for this KIND of entity at
+// all — a KGSM leaf has no per-instance meter by design, since the eBPF meter is
+// attached to kgsm.slice and never sees a unit in system.slice. That is a
+// different fact from a server whose meter simply has nothing recorded yet, and
+// the two get different treatment: no card at all versus the honest empty one.
+function MetricsChartGrid({ series, tier, step, range, events = [], domain, compact = false, network = true }) {
   const isRollup = tier === "rollup";
   const chartHeight = compact ? 96 : 120;
 
@@ -81,8 +87,9 @@ function MetricsChartGrid({ series, tier, step, range, events = [], domain, comp
   const ioWriteStats = ioWriteSeries.length ? seriesStats(ioWriteSeries.map(p => p.value)) : null;
 
   // The full page keeps the honest empty Network card so the grid never has a
-  // hole; the compact chat card drops it (only metrics with data appear).
-  const showNet = netAvail || !compact;
+  // hole; the compact chat card drops it (only metrics with data appear), and an
+  // entity that has no network dimension never shows it either way.
+  const showNet = network && (netAvail || !compact);
 
   return (
     <div className={"chart-grid" + (compact ? " chart-grid--compact" : "")}>

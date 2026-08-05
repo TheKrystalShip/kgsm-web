@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Resource history on a leaf's System tab** — recorded CPU, memory and disk I/O for the leaf itself,
+  under the unit facts. kgsm-monitor samples every running leaf's cgroup the way it samples a game
+  server's, so this is the Performance tab's historical view pointed at a different entity: the same
+  fetch shape, the same `MetricsChartGrid`, the same range selector. The facts above are live and the
+  charts are recorded — two sources on two cadences, kept visibly apart.
+  - **History windows only, no Live button.** There is no per-leaf metrics tick to subscribe to, and a
+    Live range that re-read the history store would be advertising a feed that doesn't exist.
+    `RangeSelector` takes a `ranges` prop for this; `HISTORY_RANGES` is the set without it.
+  - **No Network card.** A leaf has no per-instance meter by design — the eBPF meter is attached to
+    `kgsm.slice` and never sees a unit in `system.slice` — which is a different fact from a server whose
+    meter has nothing recorded yet. `MetricsChartGrid` takes `network={false}` for the first; the second
+    keeps its honest empty card.
+  - **Empty reads three ways, matching what the page already says.** Running with no rows means history
+    hasn't accrued; a stopped leaf has nothing to record; a socket-activated one is *resting*, not
+    stopped — the same distinction the Activation hint one card up makes.
 - Thumbs up/down under every assistant answer, live and in replayed history. The vote is recorded on
   click; a thumbs-down then offers an optional one-line "what went wrong". Read-only transcripts in the
   review dock show the owner's verdict as a badge and offer no control.

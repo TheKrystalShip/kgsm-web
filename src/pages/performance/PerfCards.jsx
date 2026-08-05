@@ -134,10 +134,13 @@ function MetricChartCard({
   );
 }
 
-function RangeSelector({ range, setRange }) {
+// `ranges` defaults to the full set (history + Live). A surface with no live feed to subscribe to passes
+// HISTORY_RANGES instead — offering a Live button it can only answer from the history store would be
+// advertising a source that doesn't exist.
+function RangeSelector({ range, setRange, ranges = RANGES }) {
   return (
     <div style={{ display: "flex", gap: 2, background: "var(--surface-2)", borderRadius: 6, padding: 2 }}>
-      {RANGES.map(r => (
+      {ranges.map(r => (
         <button key={r.key}
           onClick={() => setRange(r.key)}
           style={{

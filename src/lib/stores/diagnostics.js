@@ -179,6 +179,17 @@ function fetchLeafConfig(hostId, leaf) {
   return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/config");
 }
 
+// One leaf's resource history, from the monitor's `leaf` entity kind by way of the api's proxy. The
+// response is the same shape a server's history has, down to the metric names — they are the same
+// quantities in the same units — which is what lets the leaf page render it through the very chart grid
+// the Performance tab uses. No adapter: the series map IS the view shape, and inventing a point to fill
+// a gap is exactly what the backend refuses to do.
+function fetchLeafMetricsHistory(hostId, leaf, range) {
+  if (!hostId || !leaf) return Promise.resolve(null);
+  const r = range || "1h";
+  return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/metrics/history?range=" + r);
+}
+
 function applyLeafConfig(hostId, leaf, body) {
   if (!hostId || !leaf) return Promise.reject(new Error("applyLeafConfig: hostId required"));
   return api.host(hostId).put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
@@ -187,5 +198,5 @@ function applyLeafConfig(hostId, leaf, body) {
 export {
   logsStore, logSourcesStore, leafLogsStore, servicesStore,
   subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned,
-  fetchLeafConfig, applyLeafConfig,
+  fetchLeafConfig, applyLeafConfig, fetchLeafMetricsHistory,
 };

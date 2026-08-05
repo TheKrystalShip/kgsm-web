@@ -77,7 +77,7 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   const bodyProps = { hostId, leafId, svc, host, onReviewConversation };
 
   const renderBody = () => {
-    if (active === "system") return <LeafSystem leafId={leafId} svc={svc} />;
+    if (active === "system") return <LeafSystem hostId={hostId} leafId={leafId} svc={svc} />;
     if (active === "logs") return <LeafLogs hostId={hostId} leafId={leafId} svc={svc} />;
     if (active === "settings") return <LeafSettingsTab hostId={hostId} leafId={leafId} />;
     const extra = extraTabs.find(t => t.id === active);

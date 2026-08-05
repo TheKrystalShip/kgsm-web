@@ -72,3 +72,26 @@
   line-height: var(--lh-normal);
   color: var(--fg-4);
 }
+
+/* The recorded-history section under the fact cards. Spaced away from them
+   because it answers a different question on a different cadence: the cards are
+   what the unit is now, these are what it has been. */
+.leaf-res {
+  margin-top: 22px;
+}
+
+.leaf-res__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-2);
+}
+
+.leaf-res__meta {
+  font-size: 12.5px;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  margin-right: 10px;
+}
