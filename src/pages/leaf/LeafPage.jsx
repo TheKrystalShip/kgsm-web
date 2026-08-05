@@ -10,7 +10,9 @@
 // renders for every route — this page names its place there rather than drawing a second one.
 //
 // Adding a leaf's own tabs is therefore a body, not a page: register it in LEAF_TABS below. A leaf
-// with nothing special still gets Overview + System + Logs + Settings and needs no code at all.
+// with nothing special still gets Overview + System + Logs + Settings and needs no code at all. The
+// Commands tab is the one that registers itself — it follows the manifest a leaf ships rather than a
+// list of leaves kept here, so it arrives with the file.
 //
 // Admin-only end to end (persona.ROUTE_CAP.leaf = host.manage): every surface it aggregates — the
 // service row, the config, the assistant's conversation review — is Admin-policy in kgsm-api.
@@ -20,10 +22,11 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useStore } from "../../lib/store.js";
-import { hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
+import { fetchLeafCommands, hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
+import { LeafCommands } from "./LeafCommands.jsx";
 import { LeafLogs } from "./LeafLogs.jsx";
 import { LeafOverview } from "./LeafOverview.jsx";
 import { LeafSettingsTab } from "./LeafSettingsTab.jsx";
@@ -58,7 +61,33 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   const ready = servicesFor === hostId;
   const svc = ready && Array.isArray(services) ? services.find(s => s.id === leafId) || null : null;
 
-  const extraTabs = LEAF_TABS[leafId] || [];
+  // The Commands tab is NOT in the map above: which leaves take commands is the leaves' own answer,
+  // shipped as a manifest kgsm-api scans for, so the tab follows the file rather than a list kept
+  // here. A leaf that grows a command surface gains the tab with no change to this page.
+  // A leaf that ships none, and a host that could not be asked, both come back with nothing to show —
+  // so neither gets a tab. Claiming a command surface we have not read would be the worse answer.
+  const [commands, setCommands] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!hostId || !leafId) return undefined;
+    let cancelled = false;
+    setCommands(null);
+    fetchLeafCommands(hostId, leafId).then(
+      (m) => { if (!cancelled) setCommands(m); },
+      () => { if (!cancelled) setCommands(null); },
+    );
+    return () => { cancelled = true; };
+  }, [hostId, leafId]);
+
+  const extraTabs = [
+    ...(LEAF_TABS[leafId] || []),
+    // Only once a manifest is actually in hand — a tab that appears and then turns out to be empty
+    // is worse than one that appears a moment late.
+    ...(commands ? [{
+      id: "commands", label: "Commands", icon: "terminal",
+      render: (p) => <LeafCommands {...p} />,
+    }] : []),
+  ];
   // System and Logs are here for every leaf, not per-leaf like the map above: each one is a systemd
   // unit, so each one has both a unit to report on and a journal.
   const tabs = [
@@ -73,7 +102,7 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   // The service row is the authority on liveness. Until it arrives the header shows the leaf id and
   // nothing else — an unknown state is left blank rather than guessed at.
   const status = svc ? leafStatus(svc) : null;
-  const bodyProps = { hostId, leafId, svc, host, onReviewConversation };
+  const bodyProps = { hostId, leafId, svc, host, onReviewConversation, commands };
 
   const renderBody = () => {
     if (active === "system") return <LeafSystem hostId={hostId} leafId={leafId} svc={svc} />;

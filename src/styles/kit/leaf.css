@@ -95,3 +95,108 @@
   font-family: var(--font-mono);
   margin-right: 10px;
 }
+
+/* ── Commands tab ──────────────────────────────────────────────────────────
+   The commands a leaf answers to, in two cards: what reads, and what acts. Each
+   row is a usage line with the leaf's own description under it, and one block
+   per option — so the page can be read as "what do I type" rather than as a
+   table of fields. */
+.leaf-cmds>.chat-brief+.chat-brief {
+  margin-top: 16px;
+}
+
+.leaf-cmd__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.leaf-cmd {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leaf-cmd:last-child {
+  border-bottom: 0;
+}
+
+.leaf-cmd__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+/* The line a person types. Mono and full-width-wrapping: a long option list must
+   wrap inside the card rather than push a scrollbar onto the page. */
+.leaf-cmd__usage {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.leaf-cmd__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--veil-1);
+  font-size: 10.5px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.leaf-cmd__desc {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: var(--lh-normal);
+  color: var(--fg-3);
+}
+
+.leaf-cmd__opts {
+  margin-top: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Name, then what it is, then what it means — on one line where there is room and
+   stacked where there is not. */
+.leaf-cmd__opt {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  font-size: 11.5px;
+  line-height: var(--lh-normal);
+}
+
+.leaf-cmd__optname {
+  font-family: var(--font-mono);
+  color: var(--fg-2);
+}
+
+/* Pushed to the end of the line so what the option MEANS is read before what it
+   is: the description is the answer, the type and requiredness qualify it. */
+.leaf-cmd__optmeta {
+  color: var(--fg-4);
+  margin-left: auto;
+}
+
+.leaf-cmd__optdesc {
+  color: var(--fg-3);
+  min-width: 0;
+}
+
+/* Narrow enough that the meta wraps onto its own line, where pushing it right
+   leaves it floating away from the option it belongs to. Let it sit under the
+   name instead. */
+@media (max-width: 760px) {
+  .leaf-cmd__optmeta {
+    margin-left: 0;
+  }
+}

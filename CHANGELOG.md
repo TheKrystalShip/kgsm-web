@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a leaf's Commands tab
+
+- **The leaf page carries a Commands tab for a leaf that answers to commands**, listing every one
+  with what it does, what it takes, and which options are required — split into what reads and what
+  acts. For kgsm-bot that is the eleven real slash commands, replacing the invented `/krystal …` grid
+  the retired Discord page used to show.
+
+  Nothing on the tab is written here. The list comes from the manifest the leaf ships and kgsm-api
+  serves, down to the command's own description and the honest note about who may run the ones that act
+  — for the bot today, anyone Discord lets invoke them, because it checks no role.
+
+  The tab **registers itself from that read**: which leaves take commands is the leaves' answer, so a
+  leaf that grows a command surface gains the tab with no change to the SPA, and a leaf that ships no
+  manifest — or a host that could not be asked — gets no tab rather than an empty promise.
+
 ### Fixed
 - **A leaf's boolean setting renders from what it MEANS, not how it is spelled.** The toggle compared the
   live value against the literal `"true"`, so a leaf running with `True`, `1`, `yes` or `on` — three tiers

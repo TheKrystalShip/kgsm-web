@@ -179,6 +179,18 @@ function fetchLeafConfig(hostId, leaf) {
   return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/config");
 }
 
+// The commands a leaf answers to, from the manifest it ships. A 404 is the ordinary answer — most
+// leaves take no commands at all — so it resolves null rather than rejecting; a real failure still
+// rejects, because "we couldn't ask" and "there are none" are different facts and the tab says which.
+function fetchLeafCommands(hostId, leaf) {
+  if (!hostId || !leaf) return Promise.resolve(null);
+  return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/commands")
+    .catch(err => {
+      if (err && err.code === 404) return null;
+      throw err;
+    });
+}
+
 // One leaf's resource history, from the monitor's `leaf` entity kind by way of the api's proxy. The
 // response is the same shape a server's history has, down to the metric names — they are the same
 // quantities in the same units — which is what lets the leaf page render it through the very chart grid
@@ -198,5 +210,5 @@ function applyLeafConfig(hostId, leaf, body) {
 export {
   logsStore, logSourcesStore, leafLogsStore, servicesStore,
   subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned,
-  fetchLeafConfig, applyLeafConfig, fetchLeafMetricsHistory,
+  fetchLeafConfig, fetchLeafCommands, applyLeafConfig, fetchLeafMetricsHistory,
 };

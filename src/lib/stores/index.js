@@ -11,7 +11,7 @@ export { filesKey, filesStore } from "./files.js";
 export { serverHostId, auditEventHost, auditInScope, auditStore } from "./audit.js";
 export { libraryStore } from "./library.js";
 export { blueprintFileStore } from "./blueprintFile.js";
-export { logsStore, logSourcesStore, leafLogsStore, servicesStore, subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig, fetchLeafMetricsHistory } from "./diagnostics.js";
+export { logsStore, logSourcesStore, leafLogsStore, servicesStore, subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, fetchLeafCommands, applyLeafConfig, fetchLeafMetricsHistory } from "./diagnostics.js";
 export { fetchAssistantStats, fetchAssistantReviewUsers, fetchAssistantConversations, fetchAssistantTranscript } from "./assistantReview.js";
 export { favoritesStore, useIsFavorite, pingStore, startPingLoop } from "./ui.js";
 export { clusterStore } from "./cluster.js";

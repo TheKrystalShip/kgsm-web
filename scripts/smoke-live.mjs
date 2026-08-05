@@ -1689,6 +1689,26 @@ try {
   assert(!ovHtml.includes("svc-summary") && !ovHtml.includes("Enabled at boot"),
     "leaf Overview: no longer repeats the unit strip — the header's status chip is what stays visible");
 
+  // The Commands tab follows the manifest a leaf ships, not a list of leaves in the SPA: the bot ships
+  // one and gets the tab, the monitor ships none and must not. Both halves matter — a tab that appears
+  // for every leaf would be a promise the leaf never made. The command text is the LEAF's, read from
+  // the live endpoint, so this asserts the page prints what the file says rather than a fixture.
+  const botCmds = await fetch(API + "/api/v1/hosts/" + hmId + "/services/bot/commands")
+    .then(r => (r.ok ? r.json() : null));
+  if (botCmds) {
+    const acts = botCmds.commands.filter(c => c.mutates);
+    const cmdHtml = await nav(`#/cluster/${hmId}/services/bot/commands`);
+    assert(cmdHtml.includes("leaf-cmd__usage") && botCmds.commands.every(c => cmdHtml.includes("/" + c.name)),
+      `leaf Commands tab: every command the bot's manifest declares is rendered (${botCmds.commands.length}, ${acts.length} of them acting)`);
+    assert(acts.length > 0 && cmdHtml.includes("acts") && cmdHtml.includes("Read-only") && cmdHtml.includes("Control"),
+      "leaf Commands tab: split into what reads and what acts, from the manifest's own `mutates` flag");
+  }
+  let cmds404 = 0;
+  await fetch(API + "/api/v1/hosts/" + hmId + "/services/monitor/commands").then(r => { cmds404 = r.status; });
+  const monitorCmdHtml = await nav(`#/cluster/${hmId}/services/monitor`);
+  assert(cmds404 === 404 && !monitorCmdHtml.includes(">Commands<"),
+    "leaf Commands tab: a leaf that ships no manifest is a 404 and gets no tab (most leaves take no commands)");
+
   // A stopped unit still carries `since` (ActiveEnterTimestamp, from its last run), so reading elapsed
   // time off it would claim a dead service had been up for hours. Exercise it against whichever leaf is
   // actually down rather than naming one, since which leaves run is the host's business, not ours.
