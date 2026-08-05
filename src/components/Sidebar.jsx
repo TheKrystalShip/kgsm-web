@@ -27,7 +27,9 @@ function ClusterChip({ hosts, onOpen, collapsed }) {
   const online = hosts.filter(h => h.online).length;
   const degraded = hosts.filter(h => {
     const rec = sessions[h.id];
-    return !h.online || (rec && (rec.status === "denied" || rec.status === "expired"));
+    // `reauthDue`, not `expired`: the routine token renewal writes `expired` for
+    // one round-trip, and the chip must not tick a node into "degraded" for it.
+    return !h.online || (rec && (rec.status === "denied" || rec.reauthDue));
   }).length;
   const tone = !hosts.length ? "muted" : degraded === hosts.length ? "down" : degraded ? "warn" : "ok";
   const summary = hosts.length === 1

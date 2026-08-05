@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a lapsed session is reported only once it stays lapsed
+
+An access token lives 15 minutes, and the seam heals it reactively: the API answers `401`, the host is
+marked `expired`, one `POST /auth/session/refresh` rotates a fresh token and the rejected call replays.
+Every surface keyed on that status therefore appeared four times an hour for the ~100ms of the
+rotation — the node-access notice ("needs your sign-in re-confirmed") flashing at the top of the page
+being the visible one, with the auth badge, the cluster chip's degraded count and the stale-credential
+auto-logout all reading the same transient state.
+
+The session record now carries `reauthDue`: an `expired` that has *persisted* past a 30s surfacing
+window, i.e. one the silent rotation did not heal. Everything that asks the user for something keys
+on that; the raw `status` stays instantaneous and is what the seam itself keeps gating on. The routine
+renewal now passes under the window silently, and a session that genuinely needs re-authorizing is
+still named — 30s later, which is the honest cost of not claiming a failure that hasn't happened.
+
+`denied` is untouched: it is terminal, not a state a rotation can heal, and is surfaced immediately.
+
 ### Changed — the live smoke never mutates the host
 
 `scripts/smoke-live.mjs` is read-only against the backend, plus interception at the fetch seam for

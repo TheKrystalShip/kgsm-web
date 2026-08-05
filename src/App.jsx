@@ -140,13 +140,15 @@ function AppInner({ user, setUser, route, setRoute }) {
   }, [authzReady, landingResolved]);
 
   // Auto-logout: when hosts finished loading (or auth-blocked) and every known
-  // session is expired/denied, the user can't proceed — clear the stale credential
-  // so the auth gate (!user) renders LoginPage.
+  // session is unrecoverable, the user can't proceed — clear the stale credential
+  // so the auth gate (!user) renders LoginPage. A lapsed session counts only once
+  // it's `reauthDue` (the seam's silent rotation didn't heal it) — logging someone
+  // out over the 15-minute token renewal would be the same flicker, with teeth.
   React.useEffect(() => {
     if (!hostsLoaded || hosts.length > 0) return;
     const sessions = Object.values(sessionsByHost);
     if (!sessions.length) return;
-    if (!sessions.every(s => s && (s.status === "expired" || s.status === "denied"))) return;
+    if (!sessions.every(s => s && (s.reauthDue || s.status === "denied"))) return;
     writeStoredUser(null);
     setUser(null);
   }, [hostsLoaded, hosts, sessionsByHost, setUser]);

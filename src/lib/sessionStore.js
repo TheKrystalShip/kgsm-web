@@ -42,6 +42,12 @@ import { hostsStore } from "./stores.js";
 //                 offers Re-authorize (NOT terminal)
 //   denied        identity verified but role insufficient on this host (403) —
 //                 TERMINAL. Never auto-re-auth (that would loop forever).
+//
+// `expired` is written on EVERY 401 the seam then heals: an access token lives 15
+// minutes, so an open panel passes through it four times an hour and is back to
+// `live` one rotation later. The status itself is instantaneous and true — the
+// seam needs it that way — but a surface that ASKS THE USER to re-authorize must
+// not appear for a round-trip. That is what `reauthDue` below is for.
 
   const TOKEN_PREFIX = "krystal:hostsession:";    // sessionStorage (access token + meta)
   const REFRESH_PREFIX = "krystal:hostrefresh:";  // localStorage (long-lived refresh token)
@@ -84,7 +90,48 @@ import { hostsStore } from "./stores.js";
   function setRec(id, partial, persist) {
     store.setState(s => ({ byHost: { ...s.byHost, [id]: { ...(s.byHost[id] || {}), ...partial } } }));
     if (persist) writeSession(id);
+    syncReauthSurfacing(id);
     return getRec(id);
+  }
+
+  // ---- reauthDue: the SURFACING gate for `expired` ------------------------
+  // The record carries `reauthDue` — an expired session that has stayed expired
+  // for REAUTH_SURFACE_MS, i.e. one the reactive rotate did NOT heal. Every
+  // surface that reports a lapsed session to the user (the node-access notice,
+  // the auth badge, the cluster chip's degraded count, the auto-logout) keys on
+  // THIS, never on `status === "expired"`; the seam's own gating keeps keying on
+  // the raw status, which stays instant. The delay is longer than any rotation
+  // (one POST /auth/session/refresh) by orders of magnitude, so the routine
+  // 15-minute renewal passes under it silently, while a session that genuinely
+  // needs the user is still named — 30s later, with the panel meanwhile showing
+  // the last state it measured rather than a wrong one.
+  const REAUTH_SURFACE_MS = 30000;
+  const surfaceTimers = {};
+
+  function clearSurfaceTimer(id) {
+    if (!surfaceTimers[id]) return;
+    clearTimeout(surfaceTimers[id]);
+    delete surfaceTimers[id];
+  }
+  function setReauthDue(id, due) {
+    const rec = getRec(id);
+    if (!rec || !!rec.reauthDue === due) return;
+    store.setState(s => (s.byHost[id]
+      ? { byHost: { ...s.byHost, [id]: { ...s.byHost[id], reauthDue: due } } }
+      : s));
+  }
+  // Called after every record write: start the countdown on entering `expired`,
+  // cancel it (and drop the flag) on leaving. Writes through store.setState
+  // directly — routing it back through setRec would recurse.
+  function syncReauthSurfacing(id) {
+    if (statusOf(id) !== "expired") { clearSurfaceTimer(id); setReauthDue(id, false); return; }
+    const rec = getRec(id);
+    if (rec.reauthDue || surfaceTimers[id]) return;   // already surfaced, or already counting
+    surfaceTimers[id] = setTimeout(() => {
+      delete surfaceTimers[id];
+      if (statusOf(id) !== "expired") return;         // healed while we waited
+      setReauthDue(id, true);
+    }, REAUTH_SURFACE_MS);
   }
 
   // ---- sessionStorage (access token) -------------------------------------
@@ -109,7 +156,7 @@ import { hostsStore } from "./stores.js";
       return r;
     } catch { return null; }
   }
-  function forgetSession(id) { try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch {} forgetRefresh(id); }
+  function forgetSession(id) { clearSurfaceTimer(id); try { sessionStorage.removeItem(TOKEN_PREFIX + id); } catch {} forgetRefresh(id); }
 
   // ---- refresh token (localStorage — survives a browser close) -----------
   // The long-lived credential. Stored ONLY here (never in the sessionStorage
@@ -325,8 +372,10 @@ import { hostsStore } from "./stores.js";
   // that still 401s drives the UI back to the Discord OAuth bounce.
   function reauthorize(id) { return bootstrap(id); }
   // A host whose session lapsed and could NOT be silently renewed → the UI shows the
-  // expired surface + Re-authorize. (denied is terminal and handled apart.)
-  function needsReauth(id) { return statusOf(id) === "expired"; }
+  // expired surface + Re-authorize. (denied is terminal and handled apart.) Keyed on
+  // `reauthDue`, so a lapse the seam rotates away in a round-trip never asks the user
+  // for anything — see the surfacing gate above.
+  function needsReauth(id) { const r = getRec(id); return !!(r && r.reauthDue); }
 
   // Mark a host's session expired (apiClient's withRetry calls this on a mid-flight
   // 401 before its one silent-rotate replay).

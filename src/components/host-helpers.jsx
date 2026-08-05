@@ -70,6 +70,11 @@ function ClusterReach({ className = "" }) {
 // whether we'd be let in. That is ClusterReach's story ("didn't answer"), and
 // offering "Re-authorize" for it would be a diagnosis we never measured.
 //
+// The expired rows read `reauthDue`, not the raw status: an access token lapses
+// every 15 minutes and the seam rotates it away in one round-trip, and a notice
+// that asks for a sign-in the user doesn't owe is worse than no notice at all.
+// A lapse that outlives the surfacing delay is reported as it always was.
+//
 // Driven by the SESSION records, not by the host list: a node that refuses us
 // contributes no row to `GET /hosts`, so reading the host list would silently
 // drop the very nodes this exists to name. The list is only consulted for a
@@ -88,7 +93,7 @@ function NodeAccessNotice({ onReauth, onManage }) {
   const refused = Object.keys(sessions).filter(id => {
     const rec = sessions[id];
     if (rec.status === "denied") return true;
-    return rec.status === "expired" && rec.error !== "unreachable";
+    return !!rec.reauthDue && rec.error !== "unreachable";
   });
   if (!refused.length) return null;
   return (
@@ -231,7 +236,12 @@ function HostAuthBadge({ hostId, size }) {
     denied:        { tone: "danger", icon: "lock",       label: "No access" },
     none:          { tone: "muted", icon: "plug",        label: "Not connected" },
   };
-  const m = map[rec.status] || map.none;
+  // A session the seam is mid-rotation on reads as connected: `expired` is written
+  // on every 401, including the one the 15-minute token renewal produces, and the
+  // badge speaks only once that lapse has outlived the surfacing delay (reauthDue)
+  // — a "Reconnecting…" that resolves in 100ms reports nothing the user can act on.
+  const shown = (rec.status === "expired" && !rec.reauthDue) ? "live" : rec.status;
+  const m = map[shown] || map.none;
   return (
     <span className={"host-auth host-auth--" + m.tone + (size === "sm" ? " host-auth--sm" : "")} title={m.label}>
       <Icon name={m.icon} size={size === "sm" ? 11 : 12} className={m.spin ? "is-spinning" : ""} />
