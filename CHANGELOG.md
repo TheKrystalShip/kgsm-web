@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A leaf's boolean setting renders from what it MEANS, not how it is spelled.** The toggle compared the
+  live value against the literal `"true"`, so a leaf running with `True`, `1`, `yes` or `on` — three tiers
+  write these, and a leaf's own parser accepts them — rendered as **Disabled** while the leaf had it
+  enabled. Reading is now permissive and writing stays canonical (`true`/`false`), and a bool's dirty
+  check compares meaning too, so re-affirming a value spelled differently no longer stages an override
+  that changes nothing and restarts the leaf to apply it.
+
 ### Removed — the Discord integration page
 
 - **The host's Discord tab, `DiscordPage.jsx` and `DiagDiscord.jsx` are gone**, with the `nav.discord`

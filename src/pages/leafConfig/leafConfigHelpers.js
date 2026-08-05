@@ -22,6 +22,18 @@ function valueText(f, effective) {
   if (effective === "") return "empty";
   return String(effective) + (f.unit ? " " + f.unit : "");
 }
+// Whether a bool field's wire value reads as on. Deliberately permissive on READ and canonical on
+// WRITE: the value can come from a settings file, a unit's Environment= line or a hand-edited env
+// file — three different authors — and a leaf's own parser accepts more spellings than one of them
+// happens to use. A live value the leaf reads as on must render as on; the alternative is a switch
+// that says Disabled about a leaf that has it enabled, which is the panel misreporting what is
+// running. Anything else, including a blank or absent value, is off.
+function boolish(v) {
+  if (typeof v === "boolean") return v;
+  if (v == null) return false;
+  return ["true", "1", "yes", "on"].includes(String(v).trim().toLowerCase());
+}
+
 function isBlank(f, effective) {
   const t = valueText(f, effective);
   return t == null || t === "empty" || t === "not set";
@@ -41,7 +53,12 @@ function isDirty(f, drafts, resets) {
   if (resets.has(f.key)) return true;
   if (f.isSecret) return typeof drafts[f.key] === "string" && drafts[f.key] !== "";
   const d = drafts[f.key];
-  return d !== undefined && String(d) !== currentOf(f);
+  if (d === undefined) return false;
+  // A bool compares on MEANING, not spelling. The leaf may be running with a value spelled
+  // differently from the canonical one the toggle produces, and calling that a change would stage an
+  // override that alters nothing — then restart the leaf to apply it.
+  if (f.type === "bool") return boolish(d) !== boolish(currentOf(f));
+  return String(d) !== currentOf(f);
 }
 function dirtyFields(fields, drafts, resets) {
   return (fields || []).filter(f => isDirty(f, drafts, resets));
@@ -101,6 +118,6 @@ function groupFields(config, fields) {
 }
 
 export {
-  SOURCE_TITLE, valueText, isBlank, currentOf, draftOf, isDirty, dirtyFields, isOverridden,
+  SOURCE_TITLE, valueText, boolish, isBlank, currentOf, draftOf, isDirty, dirtyFields, isOverridden,
   buildPayload, filterFields, groupFields,
 };

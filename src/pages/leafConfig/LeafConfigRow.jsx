@@ -6,7 +6,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Select } from "../../components/Select.jsx";
 import { Toggle } from "../../components/settings-primitives.jsx";
-import { SOURCE_TITLE, draftOf, isBlank, isDirty, isOverridden, valueText } from "./leafConfigHelpers.js";
+import { SOURCE_TITLE, boolish, draftOf, isBlank, isDirty, isOverridden, valueText } from "./leafConfigHelpers.js";
 
 const RISK = {
   wiring: {
@@ -127,10 +127,15 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
   }
 
   if (f.type === "bool") {
+    // Read the value the way a leaf's own parser does, not the way one tier happens to spell it. A
+    // settings file, a unit's Environment= line and an operator's env file are three different authors,
+    // and a value that reads as on to the leaf must read as on here — rendering a live "True" as
+    // Disabled is the panel lying about what is running. We still WRITE the canonical "true"/"false".
+    const on = boolish(draft);
     return (
       <div className="lcf-bool">
-        <Toggle on={String(draft) === "true"} onChange={(on) => onChange(f.key, String(on))} />
-        <span className="lcf-bool__txt">{String(draft) === "true" ? "Enabled" : "Disabled"}</span>
+        <Toggle on={on} onChange={(next) => onChange(f.key, String(next))} />
+        <span className="lcf-bool__txt">{on ? "Enabled" : "Disabled"}</span>
       </div>
     );
   }
