@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — the assistant tells you its conversations are kept and reviewable
 
-A standing line under the chat composer, visible for the whole conversation rather than once on the
-empty screen: *"Conversations are saved and may be reviewed by an administrator to improve the
-assistant."* Conversations are stored server-side by the assistant leaf — they are its memory between
-turns and the record its tuning is judged from — and a user should learn that before they type, not
-after. Pinned rather than shown once because the fact stays true past the first message.
+A line on the fresh-conversation screen, under what the assistant can do: *"Conversations are saved
+and may be reviewed by an administrator to improve the assistant."* Conversations are stored
+server-side by the assistant leaf — they are its memory between turns and the record its tuning is
+judged from — and a user should learn that before they type, not after. It sits on the screen that
+opens every new chat, which costs the composer no height; a line pinned under the composer instead
+would push the input box up on every screen for the whole conversation.
 
 ### Changed — the empty chat screen greets and orients instead of labelling
 

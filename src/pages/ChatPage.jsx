@@ -562,6 +562,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               <span className="chat-empty__logo"><Icon name="bot" size={26} /></span>
               <h2>{assistantHost ? greeting : "No assistant available"}</h2>
               <p>{assistantHost ? primer : "No connected host is serving an assistant capability."}</p>
+              {/* On the fresh-conversation screen only — it opens every new chat, and the
+                  composer's own footprint stays exactly as it is without a pinned line. */}
+              {assistantHost && <p className="chat-empty__notice">{CHAT_PRIVACY_NOTICE}</p>}
               <ChatBriefingPanel onPick={startBriefingChat} />
               <div className="chat-suggestions">
                 {suggestions.map((s, i) => (
@@ -653,9 +656,6 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               ? <span>Recording a voice note · I'll transcribe it and reply</span>
               : <>Enter to send, Shift+Enter for newline</>}
           </div>
-          {/* Pinned, not shown once on the empty screen: the disclosure has to be true
-              while the user is mid-conversation, which is when they'd otherwise forget it. */}
-          <div className="chat-composer__notice">{CHAT_PRIVACY_NOTICE}</div>
         </div>
       </div>
     </div>

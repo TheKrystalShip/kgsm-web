@@ -2959,15 +2959,13 @@ a.ev-search__src:hover {
 
 /* Standing disclosure under the composer — visible for the whole conversation, so it
    sits a step quieter than the keyboard hint above it and never competes with the thread. */
-.chat-composer__notice {
-  margin: 3px auto 0;
-  max-width: 46ch;
-  padding: 0 8px;
-  font-size: 10.5px;
-  line-height: 1.35;
+/* The standing disclosure on the fresh-conversation screen — a step quieter than the
+   capability line above it, so it informs without competing for the opening glance. */
+.chat-empty .chat-empty__notice {
+  max-width: 44ch;
+  margin-top: 2px;
+  font-size: 11.5px;
   color: var(--fg-4);
-  opacity: 0.8;
-  text-align: center;
   text-wrap: balance;
 }
 
