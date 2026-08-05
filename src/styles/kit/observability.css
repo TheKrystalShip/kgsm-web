@@ -1841,7 +1841,7 @@
   flex-direction: column;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   overflow: hidden;
   transition: border-color var(--d-fast) var(--ease-out);
 }
