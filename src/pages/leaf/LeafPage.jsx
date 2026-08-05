@@ -1,7 +1,10 @@
 // LeafPage — one leaf on one node, with its own sub-tabs. The shell here is deliberately generic:
-// breadcrumb, identity header, the live service strip, the tab switcher, and Settings are IDENTICAL
-// for every leaf, because all of that comes from the services row and the leaf config descriptor the
+// identity header, the live service strip, the tab switcher, Logs and Settings are IDENTICAL for
+// every leaf, because all of that comes from the services row and the leaf config descriptor the
 // leaf already ships. Only the middle differs.
+//
+// The trail above the page is the app's own breadcrumb (`components/Breadcrumb.jsx`), which the shell
+// renders for every route — this page names its place there rather than drawing a second one.
 //
 // Adding a leaf's own tabs is therefore a body, not a page: register it in LEAF_TABS below. A leaf
 // with nothing special still gets Overview + Logs + Settings and needs no code at all.
@@ -37,7 +40,7 @@ const LEAF_OVERVIEW = {
   assistant: (p) => <AssistantOverview {...p} />,
 };
 
-function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenHostServices, onOpenCluster, onReviewConversation }) {
+function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   const hosts = useStore(hostsStore, s => s.list);
   const services = useStore(servicesStore, s => s.list);
   const servicesFor = useStore(servicesStore, s => s.hostId);
@@ -79,18 +82,6 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenHostServ
 
   return (
     <>
-      {/* The trail is the URL: cluster → node → its services → this leaf. Each crumb goes where its
-          word says, so the node crumb opens the node and the Services crumb opens that tab. */}
-      <div className="content__breadcrumb">
-        <a onClick={onOpenCluster}>Cluster</a>
-        <span>/</span>
-        <a onClick={() => onOpenHost && onOpenHost(hostId)}>{(host && host.name) || hostId}</a>
-        <span>/</span>
-        <a onClick={() => onOpenHostServices && onOpenHostServices(hostId)}>Services</a>
-        <span>/</span>
-        <b>{(svc && svc.displayName) || leafId}</b>
-      </div>
-
       <div className="dash-head dash-head--actions">
         <div className="dash-head__titles">
           <h1>

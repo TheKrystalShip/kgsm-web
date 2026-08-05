@@ -40,6 +40,12 @@ a full 300. A leaf the host publishes no log source for says so, which is a diff
 having been quiet. Since the journal is now a tab, the Settings body no longer carries its own Logs
 toggle when it is embedded there.
 
+**One breadcrumb, and it mirrors the URL.** The leaf page drew its own trail, which landed under the
+shell's rather than replacing it — two breadcrumbs, disagreeing. Its crumbs moved into the app's own
+`Breadcrumb`, which every route already renders: `Home / Cluster / {node} / Services / {leaf}`. A crumb
+now carries the route it opens rather than only a route kind, so a trail can step through a
+parameterised place — which is what lets the node and Services crumbs be real links back up the path.
+
 **Settings is the existing config surface, not a second one.** `LeafConfigPage` gained an `embedded`
 mode that renders its body without its own title and leaf strip — nesting those under the leaf page's
 tabs would stack two tab rows. Search, filters, grouped rows, provenance, review and apply are shared

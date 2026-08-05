@@ -1678,6 +1678,14 @@ try {
   assert(legacyLeaf.kind === "leaf" && legacyLeaf.hostId === hmId && legacyLeaf.leaf === "monitor",
     "leaf route: the flat #/leaf/<host>/<leaf> word still resolves, so an older link still lands");
 
+  // ONE breadcrumb, and it mirrors the URL. The shell renders the trail for every route, so a page
+  // drawing its own would stack a second one under it — assert both the count and the sequence.
+  const leafHtml = await nav(`#/cluster/${hmId}/services/monitor/logs`);
+  const crumbRows = (leafHtml.match(/content__breadcrumb/g) || []).length;
+  const crumbText = (leafHtml.match(/class="content__breadcrumb">([\s\S]*?)<\/div>/) || ["", ""])[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  assert(crumbRows === 1 && /Cluster \/ .+ \/ Services \/ Monitor$/.test(crumbText),
+    `leaf breadcrumb: exactly one trail, and it walks the URL ("${crumbText}")`);
+
   // The Logs tab reads ONE leaf's journal (?source=<leaf>) instead of filtering the merged host feed:
   // that feed is capped across every leaf at once, so a quiet leaf can hold none of it. Measure both
   // and assert the scoped read is not the poorer view.

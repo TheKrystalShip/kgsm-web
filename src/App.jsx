@@ -14,7 +14,7 @@ import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { commandServer, hostsStore, installServer, libraryStore, serversStore } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, serversStore, servicesStore } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
@@ -89,6 +89,9 @@ function AppInner({ user, setUser, route, setRoute }) {
   const libraryList = useStore(libraryStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
   const sessionsByHost = useStore(sessionStore, s => s.byHost);
+  // Read for the breadcrumb's leaf crumb only — the leaf page is what hydrates this board.
+  const services = useStore(servicesStore, s => s.list);
+  const servicesFor = useStore(servicesStore, s => s.hostId);
 
   const authzSettled = hosts.every(h => {
     const s = sessionsByHost[h.id];
@@ -266,6 +269,10 @@ function AppInner({ user, setUser, route, setRoute }) {
     serverName: serverForRender ? serverForRender.name : null,
     gameName: activeGame ? activeGame.name : null,
     hostName: route.hostId ? ((hosts.find(h => h.id === route.hostId) || {}).name || null) : null,
+    // The leaf's display name is the services board's to give, and that board is host-scoped — a row
+    // read while it still holds another host's list would name the wrong machine's leaf.
+    leafName: (route.leaf && servicesFor === route.hostId
+      ? (services.find(s => s.id === route.leaf) || {}).displayName : null) || null,
     catalogLabel: KRYSTAL_LABELS.catalog || "Catalog",
   };
 
