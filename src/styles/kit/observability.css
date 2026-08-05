@@ -3300,3 +3300,43 @@
   color: var(--fg-1);
   font-weight: 600;
 }
+/* A CardTable whose rows select something (the leaf page's people/conversation
+   lists). Only applied when the table was given an onRowClick, so a read-only
+   table keeps its flat, non-interactive look. */
+.card-table__row--click {
+  cursor: pointer;
+}
+
+.card-table__row--click:hover {
+  background: var(--surface-2);
+}
+
+.card-table__row--click:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* The row currently being viewed — the same left-edge accent the chat rail and
+   the triage list use for "this is the one you're looking at". */
+.card-table__row.is-active {
+  background: var(--krystal-teal-dim);
+  box-shadow: inset 2px 0 0 var(--krystal-teal);
+}
+
+/* The leaf page's people → conversations split. Not .dash-feed (an even 1fr 1fr):
+   the left list holds Discord snowflakes and the right holds conversation
+   titles, and splitting the width evenly truncates BOTH to the point of being
+   unreadable. The person column gets only what it needs; the titles take the
+   rest. */
+.leaf-split {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .leaf-split {
+    grid-template-columns: 1fr;
+  }
+}

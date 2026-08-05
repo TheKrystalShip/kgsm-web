@@ -75,6 +75,10 @@ import { hostsStore } from "./stores.js";
     // Leaf configuration is admin-only end to end: kgsm-api's whole leaf controller is
     // Admin-policy, so an operator reaching this route would meet a 403 on every read.
     leafConfig: CAP.HOST_MANAGE,
+    // A leaf's own page is admin-only for the same reason its config page is: every surface it
+    // aggregates — the service row, the config, and the assistant's conversation review — is
+    // Admin-policy in kgsm-api, so a lower tier would reach it and meet a 403 on every read.
+    leaf: CAP.HOST_MANAGE,
   };
 
   function storedUser() {

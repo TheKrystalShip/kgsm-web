@@ -6,6 +6,7 @@ import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { confirmCommand, confirmInstall, confirmUninstall, filesStore, serversStore } from "../lib/stores.js";
+import { fetchAssistantTranscript } from "../lib/stores.js";
 import { api } from "../lib/apiClient.js";
 
 // Imports from extracted modules
@@ -24,7 +25,7 @@ import { AssistantHostPicker } from "./chat/AssistantHostPicker.jsx";
 import { ChatHistory } from "./chat/ChatHistory.jsx";
 import { ChatThread } from "./chat/ChatThread.jsx";
 
-function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin }) {
+function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState, assistantHost, assistantHosts = [], onSelectAssistantHost, showPin, pinned, pinDisabled, onTogglePin, review, onExitReview }) {
   const assistantCap = assistantHost ? hostCapability(assistantHost, "assistant") : null;
   const conn = !assistantHost
     ? { tone: "muted", label: assistantHosts.length ? "No node chosen" : "No assistant" }
@@ -108,6 +109,30 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch history on every streamed message
   }, [activeId, assistantHost && assistantHost.id]);
+
+  // ===== Review mode =====
+  // Replaying someone ELSE's conversation, read-only. The admin transcript DTO is deliberately the
+  // same shape as the caller's own history, so it goes through the very same scaffoldHistory →
+  // ChatThread path — a reviewer sees what that person saw, drawn by the same components, and there
+  // is no second renderer able to drift from this one.
+  const [reviewMessages, setReviewMessages] = React.useState(null);
+  const [reviewState, setReviewState] = React.useState("idle");
+
+  React.useEffect(() => {
+    if (!review || !review.conversation) { setReviewMessages(null); setReviewState("idle"); return undefined; }
+    let cancelled = false;
+    setReviewState("loading");
+    setReviewMessages(null);
+    fetchAssistantTranscript(review.hostId, review.conversation.id).then(
+      (data) => {
+        if (cancelled) return;
+        setReviewMessages(scaffoldHistory(data && data.entries));
+        setReviewState("ready");
+      },
+      () => { if (!cancelled) setReviewState("error"); },
+    );
+    return () => { cancelled = true; };
+  }, [review]);
 
   const prevUsableRef = React.useRef(assistantUsable);
   const prevHostRef = React.useRef(assistantHost && assistantHost.id);
@@ -482,6 +507,74 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     return () => document.removeEventListener("mousedown", h);
   }, [railOpen]);
   React.useEffect(() => { setRailOpen(false); }, [activeId]);
+
+  // Review mode replaces the whole surface: no rail (there is no "your chats" here), no composer
+  // (there is no admin write, and a disabled input would still invite typing), and a banner that
+  // cannot be scrolled away — a dock that is usually YOUR chat now holds someone else's, and that has
+  // to be unmissable for as long as it is true.
+  if (review && review.conversation) {
+    const who = review.conversation.user
+      ? (review.conversation.user.displayName || review.conversation.user.userId)
+      : null;
+    return (
+      <div className={"chat-page chat-page--review" + (docked ? " chat-page--docked" : "")}>
+        <div className="chat-main">
+          <div className="chat-review__banner">
+            <Icon name="lock" size={13} />
+            <span>
+              Reading{who ? <> <b>{who}</b>’s</> : " someone else’s"} conversation — read-only.
+            </span>
+            <button className="chat-review__exit" onClick={onExitReview}>
+              Back to your chat
+            </button>
+          </div>
+
+          <div className="chat-main__head">
+            <div className="chat-id">
+              <span className="chat-id__mark"><Icon name="message-square" size={17} /></span>
+              <div className="chat-id__text">
+                <span className="chat-id__title">{review.conversation.title || "Untitled conversation"}</span>
+                <span className="chat-id__sub">
+                  {review.conversation.turnCount} turn{review.conversation.turnCount === 1 ? "" : "s"}
+                  {review.conversation.deleted ? " · deleted by its owner" : ""}
+                </span>
+              </div>
+            </div>
+            <div className="chat-head__actions">
+              <div className="chat-head__win">
+                <button className="chat-headbtn" onClick={onExitReview} title="Close review" aria-label="Close review">
+                  <Icon name="x" size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="chat-scroll">
+            {reviewState === "loading" && <div className="chat-empty"><p>Loading the transcript…</p></div>}
+            {reviewState === "error" && (
+              <div className="chat-empty">
+                <h2>Transcript unavailable</h2>
+                <p>This conversation could not be read. It may have been removed from the log.</p>
+              </div>
+            )}
+            {reviewState === "ready" && reviewMessages && reviewMessages.length === 0 && (
+              <div className="chat-empty"><p>This conversation has no turns.</p></div>
+            )}
+            {reviewState === "ready" && reviewMessages && reviewMessages.length > 0 && (
+              // Read-only: no onRun/onSaveBlueprint/onDraftEdit, so every actionable affordance a live
+              // chat would offer is simply absent rather than present-and-inert.
+              <ChatThread messages={reviewMessages} user={user}
+                onOpenServer={onOpenServer} onOpenView={onOpenView} />
+            )}
+          </div>
+
+          <div className="chat-review__foot">
+            You are reading a saved conversation. Replying, running actions and editing are not possible here.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={"chat-page" + (docked ? " chat-page--docked" : "")}>

@@ -17,6 +17,7 @@ const ClusterPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
 const GamePage = React.lazy(() => import("../pages/GamePage.jsx"));
 const Library = React.lazy(() => import("../pages/LibraryPage.jsx"));
 const LeafConfigPage = React.lazy(() => import("../pages/leafConfig/LeafConfigPage.jsx"));
+const LeafPage = React.lazy(() => import("../pages/leaf/LeafPage.jsx"));
 const LibraryCreatePage = React.lazy(() => import("../pages/library/LibraryCreatePage.jsx"));
 const ServerDetailPage = React.lazy(() => import("../pages/ServerDetailPage.jsx"));
 const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
@@ -30,7 +31,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
   // router), so read it from context here rather than threading it down from the
   // shell. Data (servers/hosts/scope) is likewise read by the pages themselves from
   // the singleton stores — this router only owns ROUTING (route → page + callbacks).
-  const { askAboutAlert, askCreateBlueprint } = useAssistantDock();
+  const { askAboutAlert, askCreateBlueprint, openReview } = useAssistantDock();
 
   return (
     <ErrorBoundary
@@ -96,13 +97,22 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onOpenServerSettings={(id) => setRoute({ kind: "server", id, tab: "settings" })}
       onViewAlerts={() => setRoute({ kind: "attention" })}
       onViewAudit={() => setRoute({ kind: "audit" })}
-      onConfigureLeaf={(hostId, leaf) => setRoute({ kind: "leafConfig", hostId, leaf })}
+      onConfigureLeaf={(hostId, leaf) => setRoute({ kind: "leaf", hostId, leaf })}
     />}
     {route.kind === "leafConfig" && <LeafConfigPage
       hostId={route.hostId}
       leafId={route.leaf}
       onSelectLeaf={(leaf) => setRoute({ kind: "leafConfig", hostId: route.hostId, leaf })}
       onBackToHost={() => setRoute({ kind: "cluster", hostId: route.hostId, tab: "services" })}
+    />}
+    {route.kind === "leaf" && <LeafPage
+      hostId={route.hostId}
+      leafId={route.leaf}
+      tab={route.tab || "overview"}
+      onSelectTab={(t) => setRoute({ kind: "leaf", hostId: route.hostId, leaf: route.leaf, tab: t === "overview" ? undefined : t })}
+      onOpenHost={(hostId) => setRoute({ kind: "cluster", hostId, tab: "services" })}
+      onOpenCluster={() => setRoute({ kind: "cluster" })}
+      onReviewConversation={(c) => openReview(route.hostId, c)}
     />}
     {route.kind === "settings" && <SettingsPage
       user={user} onLogout={handleLogout} />}

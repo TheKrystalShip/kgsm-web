@@ -67,6 +67,13 @@
       // and nesting that under the node page's tabs would stack two tab rows.
       case "leafConfig":
         return "#/config/" + enc(route.hostId || "") + (route.leaf ? "/" + enc(route.leaf) : "");
+      // One leaf on one node, with its own sub-tabs (overview / whatever that leaf offers / settings).
+      // The shape is the same for every leaf, so a new leaf needs no new route — only a body.
+      case "leaf": {
+        let h = "#/leaf/" + enc(route.hostId || "") + "/" + enc(route.leaf || "");
+        if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
+        return h;
+      }
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       case "settings":  return "#/settings";
@@ -119,6 +126,14 @@
         if (!segs[1]) return { kind: "cluster" };
         const r = { kind: "leafConfig", hostId: dec(segs[1]) };
         if (segs[2]) r.leaf = dec(segs[2]);
+        return r;
+      }
+      case "leaf": {
+        // Both a host and a leaf are required — a leaf page with neither has nothing to show, so it
+        // falls back to the grid rather than mounting an empty shell.
+        if (!segs[1] || !segs[2]) return { kind: "cluster" };
+        const r = { kind: "leaf", hostId: dec(segs[1]), leaf: dec(segs[2]) };
+        if (segs[3]) r.tab = dec(segs[3]);
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };

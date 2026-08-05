@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a page per leaf, starting with the assistant
+
+`#/leaf/{host}/{leaf}` is one leaf on one node, with its own sub-tabs. The shell is deliberately
+generic — breadcrumb, identity header, the live service strip, the tab switcher and Settings are
+identical for every leaf, because all of it comes from the services row and the leaf config
+descriptor each leaf already ships. A leaf with nothing special gets Overview + Settings and needs no
+code; a leaf with more to say registers a body in `LeafPage`. The Services board's leaf cards now
+open this page (the all-leaves config page is still at `#/config/{host}`).
+
+**Settings is the existing config surface, not a second one.** `LeafConfigPage` gained an `embedded`
+mode that renders its body without its own title and leaf strip — nesting those under the leaf page's
+tabs would stack two tab rows. Search, filters, grouped rows, provenance, review and apply are shared
+verbatim; a reimplementation would only be free to drift.
+
+**The assistant's Overview** shows how it is actually behaving, ordered by how often a panel would
+make you act: clean-answer rate, answer-time distribution, tool problems and people, then a measured
+"needs a look" queue and the latest conversations, then per-tool call counts / durations / failures,
+then prompt versions, context occupancy, tool steps and thinking share. Every figure is derived by the
+leaf from its conversation log and relayed verbatim; this surface formats and never fills in. An
+unmeasured distribution renders as "—", never `0` — a zero median would read as "instant".
+
+**The assistant's Conversations tab** walks people → their conversations → the transcript. Every
+conversation is listed, including soft-deleted ones (flagged) and the synthetic `dev`/probe actors:
+the corpus is what it is. A person with no recorded name shows their raw id — a name is never derived
+from a Discord snowflake.
+
+**Transcripts replay read-only in the assistant dock.** The admin transcript DTO is identical to a
+user's own history by design, so it goes through the very same `scaffoldHistory` → `ChatThread` path
+the person saw — no second renderer able to drift. Review mode removes the rail and the composer
+outright rather than disabling them (a greyed input still invites typing into a conversation that
+cannot be replied to) and carries a banner that cannot be scrolled away.
+
+`CardTable` gained an optional `onRowClick`, which hands the handler the **row record** rather than an
+index — the table sorts internally, so anything resolving a click by position picks the wrong record
+the moment a column header is used.
+
 ### Added — the assistant tells you its conversations are kept and reviewable
 
 A line on the fresh-conversation screen, under what the assistant can do: *"Conversations are saved

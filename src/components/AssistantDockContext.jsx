@@ -178,6 +178,29 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     try { localStorage.setItem("krystal:dock:open", assistantOpen ? "1" : "0"); } catch {}
   }, [assistantOpen]);
 
+  // ===== Review mode (read-only replay of someone else's conversation) =====
+  // An admin reviewing a transcript sees it in THIS dock, rendered by the very same components that
+  // drew it for the person who had the conversation — the transcript DTO is identical to a user's own
+  // history by design, so a second viewer would only be a copy free to drift.
+  //
+  // It is held here rather than in the reviewing page because the dock outlives that page: opening a
+  // transcript and then navigating elsewhere must not strand the dock in a mode with nothing in it.
+  const [review, setReview] = React.useState(null);
+
+  // Enter review mode. `conversation` carries the opaque handle, the owning user, and the summary the
+  // listing already had, so the header can render before the transcript arrives.
+  const openReview = React.useCallback((hostId, conversation) => {
+    if (!hostId || !conversation || !conversation.id) return;
+    setReview({ hostId, conversation });
+    setAssistantOpen(true);
+  }, []);
+
+  // Leave review mode and return the dock to the reviewer's own chat. Called by the banner's exit and
+  // whenever the dock is closed, so the dock can never reopen still showing someone else's chat.
+  const exitReview = React.useCallback(() => setReview(null), []);
+
+  React.useEffect(() => { if (!assistantOpen) setReview(null); }, [assistantOpen]);
+
   // ===== Layout derivations =====
   const desktop = vw > 768;
   const canPush = desktop && (vw - dockWidth) >= tw.contentFloor;
@@ -200,6 +223,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     assistantHostList, usableAssistants, assistantHost,
     dockResize, handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, askCreateBlueprint, openAssistant,
+    review, openReview, exitReview,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tw is a fresh-per-render literal with constant contents; depping it would rebuild the context value every render
   }), [
     assistantOpen, setAssistantOpen,
@@ -211,6 +235,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     assistantHostList, usableAssistants, assistantHost,
     dockResize, handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, askCreateBlueprint, openAssistant,
+    review, openReview, exitReview,
   ]);
 
   return (

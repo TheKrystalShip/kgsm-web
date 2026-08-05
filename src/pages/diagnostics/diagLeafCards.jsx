@@ -89,8 +89,10 @@ function LeafCard({ svc, hostId, canManage, onConfigure }) {
           {canManage && (
             <span className="svc-card__prov-actions">
               <LeafProvisionControl svc={svc} hostId={hostId} />
-              <button className="svc-cfg-btn" onClick={onConfigure} title={"Configure " + svc.displayName}>
-                <Icon name="sliders-horizontal" size={12} strokeWidth={2} /> Configure
+              {/* Opens the leaf's own page, where configuration is one tab among whatever else that
+                  leaf has to show. The all-leaves config page is still reachable at #/config/{host}. */}
+              <button className="svc-cfg-btn" onClick={onConfigure} title={"Open " + svc.displayName}>
+                <Icon name="arrow-right" size={12} strokeWidth={2} /> Open
               </button>
             </span>
           )}

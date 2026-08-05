@@ -3622,3 +3622,56 @@ a.ev-search__src:hover {
 .ev-bp__cta:hover {
   background: var(--krystal-teal-hover);
 }
+/* ===== Review mode — an admin replaying someone else's conversation ==========
+   The dock is normally YOUR chat. When it is holding a transcript belonging to
+   somebody else that has to be unmissable for as long as it is true, so the
+   banner is part of the column rather than something scrolled past, and the
+   composer is REMOVED (not disabled — a greyed input still invites typing into
+   a conversation that cannot be replied to). */
+.chat-review__banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 9px var(--s-4);
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--warning-fg);
+  font-size: var(--text-xs);
+  flex: none;
+}
+
+.chat-review__banner b {
+  font-weight: var(--w-semibold);
+}
+
+.chat-review__exit {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: var(--r-pill);
+  color: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chat-review__exit:hover {
+  background: var(--veil-1);
+}
+
+.chat-review__foot {
+  flex: none;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  padding: var(--s-3) var(--s-4);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--fg-4);
+}
+
+/* The review column owns the full dock width — there is no conversation rail,
+   because "your chats" is not what is being browsed here. */
+.chat-page--review .chat-main {
+  width: 100%;
+}

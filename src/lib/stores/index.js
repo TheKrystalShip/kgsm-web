@@ -12,6 +12,7 @@ export { serverHostId, auditEventHost, auditInScope, auditStore } from "./audit.
 export { libraryStore } from "./library.js";
 export { blueprintFileStore } from "./blueprintFile.js";
 export { logsStore, logSourcesStore, servicesStore, subscribeHostLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig } from "./diagnostics.js";
+export { fetchAssistantStats, fetchAssistantReviewUsers, fetchAssistantConversations, fetchAssistantTranscript } from "./assistantReview.js";
 export { favoritesStore, useIsFavorite, pingStore, startPingLoop } from "./ui.js";
 export { clusterStore } from "./cluster.js";
 

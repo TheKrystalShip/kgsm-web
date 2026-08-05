@@ -60,7 +60,8 @@ function AppInner({ user, setUser, route, setRoute }) {
   const { assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, setAssistantHostId,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    openAssistant, openView, handleAssistantNavigate, setManualPin } = dock;
+    openAssistant, openView, handleAssistantNavigate, setManualPin,
+    review, exitReview } = dock;
   const hosts = useStore(hostsStore, s => s.list);
 
   // --- Auth ---
@@ -342,6 +343,8 @@ function AppInner({ user, setUser, route, setRoute }) {
             assistantHost={assistantHost}
             assistantHosts={assistantHostList}
             onSelectAssistantHost={setAssistantHostId}
+            review={review}
+            onExitReview={exitReview}
           />
           </React.Suspense>
         )}

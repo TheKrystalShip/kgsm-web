@@ -39,7 +39,12 @@ const OUTCOME = {
   applied_unreachable: { tone: "warn", icon: "triangle-alert", title: "Applied — but unreachable" },
 };
 
-function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost }) {
+// `embedded` renders the configuration BODY only — no page title, no back button, no leaf tab strip.
+// It is what the per-leaf page's Settings tab mounts: that page already names the host and the leaf
+// and carries its own tabs, so repeating them here would stack two tab rows and two titles. Every
+// other behaviour (search, filters, grouped rows, review, apply, the logs panel) is shared verbatim,
+// which is the point of embedding rather than reimplementing.
+function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded = false }) {
   const hosts = useStore(hostsStore, s => s.list);
   const services = useStore(servicesStore, s => s.list);
   const servicesFor = useStore(servicesStore, s => s.hostId);
@@ -203,18 +208,20 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost }) {
 
   return (
     <>
-      <div className="lcf-head">
-        <button className="lcf-back" onClick={onBackToHost}>
-          <Icon name="arrow-left" size={14} /> {host ? (host.name || host.id) : "Host"}
-        </button>
-        <h1 className="lcf-head__title">Leaf configuration</h1>
-        <p className="lcf-head__sub">
-          Every setting each leaf on this host declares. Changes are layered on top of the leaf’s own
-          config and applied by restarting it — the leaf’s shipped files are never edited.
-        </p>
-      </div>
+      {!embedded && (
+        <div className="lcf-head">
+          <button className="lcf-back" onClick={onBackToHost}>
+            <Icon name="arrow-left" size={14} /> {host ? (host.name || host.id) : "Host"}
+          </button>
+          <h1 className="lcf-head__title">Leaf configuration</h1>
+          <p className="lcf-head__sub">
+            Every setting each leaf on this host declares. Changes are layered on top of the leaf’s own
+            config and applied by restarting it — the leaf’s shipped files are never edited.
+          </p>
+        </div>
+      )}
 
-      {tabs.length > 0 && (
+      {!embedded && tabs.length > 0 && (
         <SubTabs tabs={tabs} active={activeId} onChange={(id) => onSelectLeaf(id)} />
       )}
 

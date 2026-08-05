@@ -621,3 +621,110 @@ export function adaptIntegration(be) {
     events: Array.isArray(be.events) ? be.events : [],
   };
 }
+
+// ---- Assistant review (the leaf page's Overview + Conversations tabs) -----
+// GET /assistant/admin/conversations/stats|users|?user=…|/{handle}. The assistant leaf owns these
+// shapes and kgsm-api relays them verbatim, so these adapters only HARDEN — they never reshape.
+//
+// The honesty rule is the whole job here. The leaf deliberately distinguishes a COUNT (0 because the
+// thing did not happen) from an unmeasured DISTRIBUTION (null because nothing was measured), and that
+// distinction has to survive the boundary: coercing a null median to 0 would render "instant", which
+// is a fabricated measurement. `nullableNum` keeps null null; `count` floors a missing count at 0
+// because a count genuinely is zero when the log holds nothing.
+const nullableNum = (v) => (typeof v === "number" && isFinite(v) ? v : null);
+const count = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
+
+export function adaptAssistantStats(be) {
+  if (!be || typeof be !== "object") return null;
+  return {
+    conversations: count(be.conversations),
+    deletedConversations: count(be.deletedConversations),
+    actors: count(be.actors),
+    turns: count(be.turns),
+    okTurns: count(be.okTurns),
+    errorTurns: count(be.errorTurns),
+    capHitTurns: count(be.capHitTurns),
+    cancelledTurns: count(be.cancelledTurns),
+    unrecordedOutcomeTurns: count(be.unrecordedOutcomeTurns),
+    medianTurnMs: nullableNum(be.medianTurnMs),
+    p95TurnMs: nullableNum(be.p95TurnMs),
+    maxTurnMs: nullableNum(be.maxTurnMs),
+    medianIterations: nullableNum(be.medianIterations),
+    maxIterations: nullableNum(be.maxIterations),
+    medianContextPercent: nullableNum(be.medianContextPercent),
+    maxContextPercent: nullableNum(be.maxContextPercent),
+    contextWindow: nullableNum(be.contextWindow),
+    thinkingTurns: count(be.thinkingTurns),
+    turnsWithoutTool: count(be.turnsWithoutTool),
+    toolCalls: count(be.toolCalls),
+    tools: Array.isArray(be.tools) ? be.tools.map(t => ({
+      name: t && t.name ? String(t.name) : "",
+      // A tool the leaf's catalog does not define. Never inferred here — the SPA holds no catalog,
+      // and guessing would either hide a real invention or invent one.
+      known: t ? !!t.known : true,
+      calls: count(t && t.calls),
+      medianMs: nullableNum(t && t.medianMs),
+      maxMs: nullableNum(t && t.maxMs),
+      failedCalls: count(t && t.failedCalls),
+    })).filter(t => t.name) : [],
+    promptVersions: Array.isArray(be.promptVersions) ? be.promptVersions.map(p => ({
+      hash: p && p.hash ? String(p.hash) : null,
+      turns: count(p && p.turns),
+      okTurns: count(p && p.okTurns),
+      medianMs: nullableNum(p && p.medianMs),
+    })) : [],
+    activity: Array.isArray(be.activity) ? be.activity.map(a => ({
+      date: a && a.date ? String(a.date) : null,
+      turns: count(a && a.turns),
+    })).filter(a => a.date) : [],
+    // What the leaf is configured to be right now. Without it the numbers are unreadable — a median
+    // of 2 tool steps means nothing until you know the cap is 16.
+    runtime: be.runtime && typeof be.runtime === "object" ? {
+      model: be.runtime.model || null,
+      contextWindow: nullableNum(be.runtime.contextWindow),
+      maxIterations: nullableNum(be.runtime.maxIterations),
+      actionsEnabled: !!be.runtime.actionsEnabled,
+    } : null,
+  };
+}
+
+// One row per person who has talked to this assistant. `displayName` is null for conversations
+// recorded before names were captured — the surface shows the raw id then. NEVER derive a name from
+// an id: the id is a Discord snowflake and any "name" made from it would be fabricated.
+export function adaptAssistantReviewUser(be) {
+  if (!be || !be.userId) return null;
+  return {
+    userId: String(be.userId),
+    displayName: be.displayName != null ? String(be.displayName) : null,
+    conversationCount: count(be.conversationCount),
+    deletedCount: count(be.deletedCount),
+    turnCount: count(be.turnCount),
+    firstActivityAt: be.firstActivityAt || null,
+    lastActivityAt: be.lastActivityAt || null,
+  };
+}
+
+export function adaptAssistantReviewUsers(page) {
+  const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
+  return rows.map(adaptAssistantReviewUser).filter(Boolean);
+}
+
+// One reviewable conversation. `id` is the leaf's OPAQUE handle — never parsed or composed here.
+export function adaptAssistantConversation(be) {
+  if (!be || !be.id) return null;
+  return {
+    id: String(be.id),
+    title: be.title != null ? String(be.title) : null,
+    createdAt: be.createdAt || null,
+    lastActivityAt: be.lastActivityAt || null,
+    turnCount: count(be.turnCount),
+    deleted: !!be.deleted,
+    errorTurns: count(be.errorTurns),
+    capHitTurns: count(be.capHitTurns),
+  };
+}
+
+export function adaptAssistantConversations(page) {
+  const rows = page && Array.isArray(page.data) ? page.data : Array.isArray(page) ? page : [];
+  return rows.map(adaptAssistantConversation).filter(Boolean);
+}

@@ -24,13 +24,19 @@ import { Icon } from "./Icon.jsx";
 //   defaultSort: { key, dir } — initial ordering ("asc" | "desc").
 //   rowClass(row): optional — extra className appended to that row's element
 //                  (e.g. tint a "stuck" process row). Purely additive.
+//   onRowClick(row): optional — makes rows selectable. The handler receives the
+//                  ROW RECORD, not an index, because the table sorts internally:
+//                  anything resolving a click by position would silently pick the
+//                  wrong record the moment a column header is used. Omitted by
+//                  every consumer that doesn't want click behaviour, and the
+//                  clickable affordance only appears when it is supplied.
 //   max:     cap the number of rows shown AFTER sorting (so "show the top N by
 //            whatever column is active" works); omit to show every row.
 //
 // The card header (title / count / "View all") is only rendered when at least
 // one of title, count, or onViewAll is given — pass none to get a bare table
 // (just column heads + rows) that can sit under an external toolbar.
-function CardTable({ icon, title, count, onViewAll, viewAllLabel = "View all", columns, rows = [], getKey, max, defaultSort = null, rowClass, empty = "Nothing to show" }) {
+function CardTable({ icon, title, count, onViewAll, viewAllLabel = "View all", columns, rows = [], getKey, max, defaultSort = null, rowClass, onRowClick, empty = "Nothing to show" }) {
   const [sort, setSort] = React.useState(defaultSort);
   const template = columns.map(c => c.width || "1fr").join(" ");
   const keyFor = (row, i) => (getKey ? getKey(row) : (row.id != null ? row.id : i));
@@ -98,7 +104,14 @@ function CardTable({ icon, title, count, onViewAll, viewAllLabel = "View all", c
         {ordered.length === 0 ? (
           <div className="card-table__empty">{empty}</div>
         ) : ordered.map((row, i) => (
-          <div className={"card-table__row" + (rowClass ? " " + rowClass(row) : "")} key={keyFor(row, i)} style={{ gridTemplateColumns: template }}>
+          <div
+            className={"card-table__row" + (rowClass ? " " + rowClass(row) : "") + (onRowClick ? " card-table__row--click" : "")}
+            key={keyFor(row, i)}
+            style={{ gridTemplateColumns: template }}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            role={onRowClick ? "button" : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
+            onKeyDown={onRowClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onRowClick(row); } } : undefined}>
             {columns.map(c => (
               <span key={c.key} className={"card-table__cell" + (c.align ? " card-table__cell--" + c.align : "")}>
                 {c.render ? c.render(row) : row[c.key]}
