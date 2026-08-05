@@ -41,6 +41,40 @@ function cleanPercent(stats) {
   return Math.round(stats.okTurns / stats.turns * 100);
 }
 
+// Below this many votes a percentage is not a measurement, it is one person's mood scaled up by a
+// hundred: at a single vote the rate can only ever be 0% or 100%, and either renders as a verdict on
+// the whole assistant. The raw tally is shown instead, which says exactly as much as is known.
+const MIN_RATE_SAMPLE = 10;
+
+// The "Rated helpful" KPI, which is mostly a set of decisions about what NOT to claim. Coverage always
+// travels in the sub line: a rate read without its denominator is the single easiest way to come away
+// from this page believing something false about the assistant.
+function satisfactionKpi(stats) {
+  const coverage = stats.ratedTurns + " of " + stats.turns + " turns rated";
+  const bar = stats.turns ? (stats.ratedTurns / stats.turns) * 100 : undefined;
+
+  if (!stats.ratedTurns) {
+    // Not 0% — nobody voting is not everybody being dissatisfied.
+    return { value: "—", tone: "muted", sub: "no answers rated yet", barPct: bar };
+  }
+  if (stats.ratedTurns < MIN_RATE_SAMPLE) {
+    // The tally, uncoloured. A tone here would be the page asserting a judgement the sample can't carry.
+    return {
+      value: stats.positiveTurns + "/" + stats.ratedTurns,
+      tone: "muted",
+      sub: coverage,
+      barPct: bar,
+    };
+  }
+  const p = Math.round(stats.satisfactionPercent);
+  return {
+    value: p, unit: "%",
+    tone: p >= 80 ? "ok" : p >= 50 ? "warn" : "danger",
+    sub: coverage,
+    barPct: bar,
+  };
+}
+
 function AssistantOverview({ hostId, onReviewConversation }) {
   const [stats, setStats] = React.useState(null);
   const [state, setState] = React.useState("loading");
@@ -190,9 +224,7 @@ function AssistantOverview({ hostId, onReviewConversation }) {
           value={toolProblems} tone={toolProblems > 0 ? "warn" : "ok"}
           sub={plainToolErrors + " errored · " + inventedCalls + " call" + (inventedCalls === 1 ? "" : "s")
             + " to " + invented.length + " invented tool" + (invented.length === 1 ? "" : "s")} />
-        <KPI icon="users" label="People"
-          value={stats.actors}
-          sub={stats.conversations + " conversations · " + stats.deletedConversations + " deleted"} />
+        <KPI icon="thumbs-up" label="Rated helpful" {...satisfactionKpi(stats)} />
       </div>
 
       <div className="dash-feed">
@@ -212,6 +244,48 @@ function AssistantOverview({ hostId, onReviewConversation }) {
                     <span className="chat-brief__item-title"><span className="chat-brief__titletext">{a.title}</span></span>
                     <span className="chat-brief__detail">{a.detail}</span>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </BriefCard>
+
+        {/* The highest-value rows in the corpus: a person saying, in their own words, why an answer
+            failed them. A rating says a turn was bad; only this says what to change. Clicking one opens
+            the conversation it came from — the note is a pointer into the transcript, not a substitute
+            for reading it. */}
+        <BriefCard icon="message-circle-warning" title="What people said"
+          count={stats.feedbackNotes.length || null} countTone={stats.feedbackNotes.length ? "danger" : "neutral"}
+          meta="Written by the person the answer failed, on a thumbs-down.">
+          {stats.feedbackNotes.length === 0 ? (
+            <div className="chat-brief__empty chat-brief__empty--neutral">
+              <div className="chat-brief__empty-title">
+                {stats.negativeTurns > 0 ? "No explanations yet" : "Nothing reported"}
+              </div>
+              <div className="chat-brief__empty-sub">
+                {stats.negativeTurns > 0
+                  ? stats.negativeTurns + " answer" + (stats.negativeTurns === 1 ? " was" : "s were")
+                    + " marked unhelpful, but nobody wrote why."
+                  : "Nobody has marked an answer unhelpful."}
+              </div>
+            </div>
+          ) : (
+            <div className="chat-brief__list">
+              {stats.feedbackNotes.slice(0, 6).map(n => (
+                <div key={n.turnId} className="chat-brief__item chat-brief__item--danger"
+                  onClick={() => n.conversationId && onReviewConversation
+                    && onReviewConversation({ id: n.conversationId, title: n.prompt })}>
+                  <span className="chat-brief__icon"><Icon name="thumbs-down" size={14} /></span>
+                  <div className="chat-brief__body">
+                    <span className="chat-brief__item-title">
+                      <span className="chat-brief__titletext">{n.note}</span>
+                    </span>
+                    <span className="chat-brief__detail">
+                      {n.prompt ? "asked: " + n.prompt : "prompt not recorded"}
+                      {n.at ? " · " + fmtRelative(parseTs(n.at)) : ""}
+                    </span>
+                  </div>
+                  <span className="chat-brief__ask">Read <Icon name="arrow-right" size={12} strokeWidth={2.2} /></span>
                 </div>
               ))}
             </div>
@@ -275,12 +349,45 @@ function AssistantOverview({ hostId, onReviewConversation }) {
         defaultSort={{ key: "calls", dir: "desc" }}
         empty="No tool has been called yet." />
 
+      {/* The reason a prompt hash is recorded at all: edit the prompt, and the next bucket is directly
+          comparable to the last. The verdict columns are what turn that from a latency comparison into a
+          quality one — "rated" is the denominator, because one thumbs-down out of one vote is not a
+          worse prompt than ten out of a hundred. */}
+      <CardTable
+        icon="git-commit-horizontal" title="Prompt versions" count={stats.promptVersions.length}
+        columns={[
+          {
+            key: "hash", label: "Version", width: "minmax(0,1.4fr)", sort: r => r.hash || "",
+            render: r => (r.hash
+              ? <code className="lcf-key">{r.hash}</code>
+              : <span className="svc-fact svc-fact--unit">unversioned</span>),
+          },
+          { key: "turns", label: "Turns", width: "80px", align: "right", sort: r => r.turns, defaultDir: "desc" },
+          {
+            key: "okTurns", label: "Clean", width: "80px", align: "right", sort: r => (r.turns ? r.okTurns / r.turns : 0),
+            render: r => (r.turns ? Math.round(r.okTurns / r.turns * 100) + "%" : "—"),
+          },
+          { key: "medianMs", label: "Median", width: "100px", align: "right", sort: r => r.medianMs || 0, render: r => fmtMs(r.medianMs) },
+          {
+            key: "negativeTurns", label: "Unhelpful", width: "100px", align: "right", sort: r => r.negativeTurns,
+            // An unrated version reports "—", never "0 unhelpful": nobody having voted is not the same
+            // fact as everybody being satisfied, and the second would be a flattering invention.
+            render: r => (!r.ratedTurns
+              ? "—"
+              : r.negativeTurns > 0
+                ? <span className="cluster-chip cluster-chip--danger">{r.negativeTurns} of {r.ratedTurns}</span>
+                : <span className="svc-fact svc-fact--unit">0 of {r.ratedTurns}</span>),
+          },
+        ]}
+        rows={stats.promptVersions}
+        getKey={r => r.hash || "unversioned"}
+        defaultSort={{ key: "turns", dir: "desc" }}
+        empty="No turns recorded yet." />
+
       <div className="dash-summary">
-        <KPI icon="git-commit-horizontal" label="Prompt versions"
-          value={stats.promptVersions.length}
-          sub={stats.promptVersions.length
-            ? "largest: " + (stats.promptVersions[0].hash || "unversioned") + " · " + stats.promptVersions[0].turns + " turns"
-            : "no turns recorded yet"} />
+        <KPI icon="users" label="People"
+          value={stats.actors}
+          sub={stats.conversations + " conversations · " + stats.deletedConversations + " deleted"} />
         <KPI icon="gauge" label="Context used"
           value={pct(stats.medianContextPercent)} sub={
             stats.contextWindow

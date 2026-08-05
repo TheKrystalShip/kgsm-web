@@ -12,7 +12,8 @@
 import React from "react";
 
 import { CardTable } from "../../components/CardTable.jsx";
-import { Toolbar, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../../components/Toolbar.jsx";
+import { Icon } from "../../components/Icon.jsx";
+import { Toolbar, ToolbarButton, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../../components/Toolbar.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { fetchAssistantConversations, fetchAssistantReviewUsers } from "../../lib/stores.js";
 
@@ -23,6 +24,7 @@ function AssistantConversations({ hostId, onReviewConversation }) {
   const [conversations, setConversations] = React.useState([]);
   const [convState, setConvState] = React.useState("idle");
   const [query, setQuery] = React.useState("");
+  const [onlyRatedDown, setOnlyRatedDown] = React.useState(false);
 
   React.useEffect(() => {
     if (!hostId) return undefined;
@@ -55,9 +57,11 @@ function AssistantConversations({ hostId, onReviewConversation }) {
 
   const activeUser = users.find(u => u.userId === selected) || null;
   const q = query.trim().toLowerCase();
-  const shown = q
+  let shown = q
     ? conversations.filter(c => (c.title || "").toLowerCase().includes(q))
     : conversations;
+  if (onlyRatedDown) shown = shown.filter(c => c.negativeTurns > 0);
+  const flagged = conversations.filter(c => c.negativeTurns > 0).length;
 
   if (state === "loading") {
     return <div className="chat-brief"><div className="chat-brief__empty">Reading who has talked to this assistant…</div></div>;
@@ -97,6 +101,17 @@ function AssistantConversations({ hostId, onReviewConversation }) {
     <div className="lcf-body">
       <Toolbar>
         <ToolbarSearch value={query} onChange={setQuery} placeholder="Search conversation titles…" />
+        {/* Only offered when there is something to filter TO. A toggle that can only ever empty the
+            list is an invitation to conclude the data is broken. */}
+        {flagged > 0 && (
+          <ToolbarButton
+            icon="thumbs-down"
+            active={onlyRatedDown}
+            onClick={() => setOnlyRatedDown(v => !v)}
+            title="Show only conversations with an answer marked unhelpful">
+            {"Marked unhelpful (" + flagged + ")"}
+          </ToolbarButton>
+        )}
         <ToolbarSpacer />
         <ToolbarCount shown={shown.length} total={conversations.length} unit="conversations" />
       </Toolbar>
@@ -144,6 +159,16 @@ function AssistantConversations({ hostId, onReviewConversation }) {
                   {r.title || "Untitled conversation"}
                   {r.deleted && <span className="cluster-chip cluster-chip--muted" style={{ marginLeft: 8 }}>deleted</span>}
                   {r.errorTurns > 0 && <span className="cluster-chip cluster-chip--danger" style={{ marginLeft: 8 }}>{r.errorTurns} err</span>}
+                  {/* An answer this person marked unhelpful. Beside the error chip on purpose: a turn
+                      that ran cleanly and still failed its reader is the one a reviewer would otherwise
+                      never find, since nothing else in the row is wrong. */}
+                  {r.negativeTurns > 0 && (
+                    <span className="cluster-chip cluster-chip--danger" style={{ marginLeft: 8 }}>
+                      {/* The lucide glyph, not the emoji: an emoji here depends on a font the host may
+                          not have, and it rendered as a blank box rather than a thumb. */}
+                      <Icon name="thumbs-down" size={11} strokeWidth={2.4} /> {r.negativeTurns}
+                    </span>
+                  )}
                 </span>
               ),
             },

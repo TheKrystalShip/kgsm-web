@@ -660,6 +660,9 @@ function reduceTurnFrame(messages, ev) {
       }
       if (ev.text) done = { ...done, content: ev.text };
       if (ev.usage) done = { ...done, usage: ev.usage };
+      // The id the leaf recorded this turn under, so the answer can be rated the moment it lands rather
+      // than only after a reload. 0/absent means the turn was not persisted and is not addressable.
+      if (ev.turnId) done = { ...done, turnId: ev.turnId };
       if (ev.completedAt) done = { ...done, ts: Date.parse(ev.completedAt) || undefined };
       // Streaming is over — reveal the evidence cards below the finished answer.
       msgs[lastIdx] = promotePendingCards(done);
@@ -694,6 +697,12 @@ function scaffoldHistory(entries) {
     if (e.startedAt) userMsg.ts = Date.parse(e.startedAt) || undefined;
     out.push(userMsg);
     const bubble = { role: "assistant", content: t.final || "", ts: Date.parse(e.createdAt) || undefined };
+    // The turn's durable id + the verdict already on it. History is the bulk of any corpus, so without
+    // these a replayed answer could never be rated — only the newest one could.
+    if (e.turnId) bubble.turnId = e.turnId;
+    if (e.feedback && e.feedback.rating) {
+      bubble.feedback = { rating: e.feedback.rating, note: e.feedback.note || null };
+    }
     if (t.thinking) bubble.thinking = t.thinking;
     if (t.usage) bubble.usage = t.usage;
     const tools = Array.isArray(t.tools)

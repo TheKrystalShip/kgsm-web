@@ -7,8 +7,9 @@ import { VoiceNoteBubble } from "../../components/VoiceNote.jsx";
 import { renderMarkdown } from "./chatUtils.jsx";
 import { ChatThinking, ChatContextPill, ChatSteps, ChatPending } from "./ChatMessageParts.jsx";
 import { ChatEvidence } from "./EvidenceCards.jsx";
+import { ChatFeedback } from "./ChatFeedback.jsx";
 
-function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun }) {
+function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun, onRate, readOnlyFeedback }) {
   const isUser = msg.role === "user";
   return (
     <div className={"chat-msg" + (isUser ? " chat-msg--user" : " chat-msg--assistant")}>
@@ -36,6 +37,14 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun }) {
         </div>
         {!isUser && msg.cards && msg.cards.length > 0 && (
           <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
+        )}
+        {/* Only a finished answer can be judged: a bubble still streaming has nothing to rate yet. */}
+        {!isUser && msg.content && (onRate || readOnlyFeedback) && (
+          <ChatFeedback
+            turnId={msg.turnId}
+            feedback={msg.feedback}
+            readOnly={readOnlyFeedback}
+            onRate={(rating, note) => onRate && onRate(msg.turnId, rating, note)} />
         )}
       </div>
     </div>

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Thumbs up/down under every assistant answer, live and in replayed history. The vote is recorded on
+  click; a thumbs-down then offers an optional one-line "what went wrong". Read-only transcripts in the
+  review dock show the owner's verdict as a badge and offer no control.
+- Assistant leaf Overview: a "Rated helpful" KPI that reports its own coverage (a rate with no votes
+  renders "—", never 0%), a "What people said" card listing the thumbs-down notes, and a prompt-version
+  table whose verdict column makes "did that prompt edit help?" answerable.
+- Assistant leaf Conversations: a thumbs-down chip per conversation and a filter for the ones somebody
+  marked unhelpful.
+
+
 ### Added — a page per leaf, starting with the assistant
 
 `#/leaf/{host}/{leaf}` is one leaf on one node, with its own sub-tabs. The shell is deliberately

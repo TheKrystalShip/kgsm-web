@@ -672,6 +672,10 @@ export function adaptAssistantStats(be) {
       turns: count(p && p.turns),
       okTurns: count(p && p.okTurns),
       medianMs: nullableNum(p && p.medianMs),
+      // What people said about this prompt version. `rated` is the denominator: a bucket with one
+      // thumbs-down out of one vote is not a worse prompt than one with ten out of a hundred.
+      negativeTurns: count(p && p.negativeTurns),
+      ratedTurns: count(p && p.ratedTurns),
     })) : [],
     activity: Array.isArray(be.activity) ? be.activity.map(a => ({
       date: a && a.date ? String(a.date) : null,
@@ -685,6 +689,21 @@ export function adaptAssistantStats(be) {
       maxIterations: nullableNum(be.runtime.maxIterations),
       actionsEnabled: !!be.runtime.actionsEnabled,
     } : null,
+    // What people said about the answers. `ratedTurns` is a COUNT (0 is real — nobody voted), while
+    // `satisfactionPercent` is a DISTRIBUTION and stays null when nothing was rated: 0% would assert
+    // that every answer failed. The two must be read together, which is why the coverage travels with
+    // the rate rather than being derivable only from a ratio.
+    ratedTurns: count(be.ratedTurns),
+    positiveTurns: count(be.positiveTurns),
+    negativeTurns: count(be.negativeTurns),
+    satisfactionPercent: nullableNum(be.satisfactionPercent),
+    feedbackNotes: Array.isArray(be.feedbackNotes) ? be.feedbackNotes.map(n => ({
+      conversationId: n && n.conversationId ? String(n.conversationId) : null,
+      turnId: count(n && n.turnId),
+      note: n && n.note ? String(n.note) : "",
+      prompt: n && n.prompt != null ? String(n.prompt) : null,
+      at: (n && n.at) || null,
+    })).filter(n => n.note) : [],
   };
 }
 
@@ -721,6 +740,8 @@ export function adaptAssistantConversation(be) {
     deleted: !!be.deleted,
     errorTurns: count(be.errorTurns),
     capHitTurns: count(be.capHitTurns),
+    // Turns this person marked unhelpful — what makes a conversation worth opening.
+    negativeTurns: count(be.negativeTurns),
   };
 }
 

@@ -212,6 +212,30 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       return next;
     });
   };
+  // Record how the user judged one of their own answers. Applied to the bubble immediately and NOT
+  // rolled back on failure: the vote is a courtesy, and yanking a thumb back out from under someone
+  // mid-sentence is a worse outcome than a verdict that silently didn't reach the leaf. The next
+  // history load is authoritative either way, since the leaf is what the bubble is rebuilt from.
+  const rateTurn = (turnId, rating, note) => {
+    if (!turnId) return;
+    const chat = convos.find(c => c.id === activeId);
+    const hostId = (chat && chat.hostId) || (assistantHost && assistantHost.id);
+    if (!hostId) return;
+
+    setConvos(prev => prev.map(c => c.id !== activeId ? c : {
+      ...c,
+      messages: c.messages.map(m => m.turnId !== turnId ? m : {
+        ...m,
+        feedback: rating ? { rating, note: note || null } : null,
+      }),
+    }));
+
+    api.host(hostId)
+      .post("/assistant/conversations/" + encodeURIComponent(activeId)
+        + "/turns/" + turnId + "/feedback", { rating, note })
+      .catch(() => {});
+  };
+
   const setMessages = (updater) => {
     setConvos(prev => prev.map(c => {
       if (c.id !== activeId) return c;
@@ -563,8 +587,11 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             {reviewState === "ready" && reviewMessages && reviewMessages.length > 0 && (
               // Read-only: no onRun/onSaveBlueprint/onDraftEdit, so every actionable affordance a live
               // chat would offer is simply absent rather than present-and-inert.
+              // readOnlyFeedback shows what the OWNER said about an answer without offering the reader
+              // a way to say anything: a reviewer's opinion of someone else's conversation is a
+              // different fact from that person's satisfaction, and this surface collects only the latter.
               <ChatThread messages={reviewMessages} user={user}
-                onOpenServer={onOpenServer} onOpenView={onOpenView} />
+                onOpenServer={onOpenServer} onOpenView={onOpenView} readOnlyFeedback />
             )}
           </div>
 
@@ -671,7 +698,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             <ChatThread messages={active.messages} user={user}
               onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={runLiveCommand}
               onSaveBlueprint={onSaveBlueprint} onGiveUpBlueprint={onGiveUpBlueprint}
-              onDraftEdit={onDraftEdit} onDraftActive={onDraftActive} />
+              onDraftEdit={onDraftEdit} onDraftActive={onDraftActive} onRate={rateTurn} />
           )}
         </div>
 
