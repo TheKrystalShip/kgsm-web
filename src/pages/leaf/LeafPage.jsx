@@ -4,7 +4,7 @@
 // leaf already ships. Only the middle differs.
 //
 // Adding a leaf's own tabs is therefore a body, not a page: register it in LEAF_TABS below. A leaf
-// with nothing special still gets Overview + Settings and needs no code at all.
+// with nothing special still gets Overview + Logs + Settings and needs no code at all.
 //
 // Admin-only end to end (persona.ROUTE_CAP.leaf = host.manage): every surface it aggregates — the
 // service row, the config, the assistant's conversation review — is Admin-policy in kgsm-api.
@@ -19,6 +19,7 @@ import { fmtBytes, leafStatus, uptimeShort } from "../diagnostics/diagHelpers.js
 import { leafIcon } from "../leafConfig/leafConfigHelpers.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
+import { LeafLogs } from "./LeafLogs.jsx";
 import { LeafOverview } from "./LeafOverview.jsx";
 import { LeafSettingsTab } from "./LeafSettingsTab.jsx";
 
@@ -36,7 +37,7 @@ const LEAF_OVERVIEW = {
   assistant: (p) => <AssistantOverview {...p} />,
 };
 
-function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenCluster, onReviewConversation }) {
+function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenHostServices, onOpenCluster, onReviewConversation }) {
   const hosts = useStore(hostsStore, s => s.list);
   const services = useStore(servicesStore, s => s.list);
   const servicesFor = useStore(servicesStore, s => s.hostId);
@@ -52,9 +53,12 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenCluster,
   const svc = ready && Array.isArray(services) ? services.find(s => s.id === leafId) || null : null;
 
   const extraTabs = LEAF_TABS[leafId] || [];
+  // Logs is here for every leaf, not per-leaf like the map above: each one is a systemd unit and so
+  // each one has a journal.
   const tabs = [
     { id: "overview", label: "Overview", icon: "layout-dashboard" },
     ...extraTabs.map(t => ({ id: t.id, label: t.label, icon: t.icon })),
+    { id: "logs", label: "Logs", icon: "scroll-text" },
     { id: "settings", label: "Settings", icon: "sliders-horizontal" },
   ];
   const active = tabs.some(t => t.id === tab) ? tab : "overview";
@@ -65,6 +69,7 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenCluster,
   const bodyProps = { hostId, leafId, svc, host, onReviewConversation };
 
   const renderBody = () => {
+    if (active === "logs") return <LeafLogs hostId={hostId} leafId={leafId} svc={svc} />;
     if (active === "settings") return <LeafSettingsTab hostId={hostId} leafId={leafId} />;
     const extra = extraTabs.find(t => t.id === active);
     if (extra) return extra.render(bodyProps);
@@ -74,10 +79,14 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onOpenHost, onOpenCluster,
 
   return (
     <>
+      {/* The trail is the URL: cluster → node → its services → this leaf. Each crumb goes where its
+          word says, so the node crumb opens the node and the Services crumb opens that tab. */}
       <div className="content__breadcrumb">
         <a onClick={onOpenCluster}>Cluster</a>
         <span>/</span>
         <a onClick={() => onOpenHost && onOpenHost(hostId)}>{(host && host.name) || hostId}</a>
+        <span>/</span>
+        <a onClick={() => onOpenHostServices && onOpenHostServices(hostId)}>Services</a>
         <span>/</span>
         <b>{(svc && svc.displayName) || leafId}</b>
       </div>

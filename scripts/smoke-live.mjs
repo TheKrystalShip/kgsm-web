@@ -1661,6 +1661,43 @@ try {
   assert(st.servicesStore.getState().list.find(x => x.id === someLeaf.id).provisioned === (someLeaf.provisioned === true ? false : true),
     "servicesStore.applyRow: a wrong-host row is ignored (switch-guarded, like logsStore.prepend)");
 
+  // ---- One leaf's page: the nested route + its own journal ----------------------------------------
+  // A leaf page hangs off the node's Services tab, which is the only place it is opened from, so the
+  // URL keeps descending: #/cluster/<host>/services/<leaf>[/<tab>]. Assert the round trip and that the
+  // flat word a link may still carry resolves to the same place.
+  const rt = await vite.ssrLoadModule("/src/lib/router.js");
+  const leafHash = rt.KrystalRouter.routeToHash({ kind: "leaf", hostId: hmId, leaf: "monitor", tab: "logs" });
+  const leafRoute = rt.KrystalRouter.parseHash(leafHash);
+  assert(leafHash === `#/cluster/${hmId}/services/monitor/logs`
+    && leafRoute.kind === "leaf" && leafRoute.leaf === "monitor" && leafRoute.tab === "logs",
+    `leaf route: nests under the node's Services tab (${leafHash}) and parses back to the same leaf + tab`);
+  const bareServices = rt.KrystalRouter.parseHash(`#/cluster/${hmId}/services`);
+  assert(bareServices.kind === "cluster" && bareServices.tab === "services",
+    "leaf route: /services with no leaf named stays the NODE's Services tab (the drill-in needs a leaf)");
+  const legacyLeaf = rt.KrystalRouter.parseHash(`#/leaf/${hmId}/monitor`);
+  assert(legacyLeaf.kind === "leaf" && legacyLeaf.hostId === hmId && legacyLeaf.leaf === "monitor",
+    "leaf route: the flat #/leaf/<host>/<leaf> word still resolves, so an older link still lands");
+
+  // The Logs tab reads ONE leaf's journal (?source=<leaf>) instead of filtering the merged host feed:
+  // that feed is capped across every leaf at once, so a quiet leaf can hold none of it. Measure both
+  // and assert the scoped read is not the poorer view.
+  const WINDOW = 300;
+  const mergedWindow = adapt.adaptLogPage(await fetch(API + "/api/v1/hosts/" + hmId + "/logs?limit=" + WINDOW).then(r => r.json()));
+  const leafLogs = adapt.adaptLogPage(await fetch(API + "/api/v1/hosts/" + hmId + "/logs?source=monitor&limit=" + WINDOW).then(r => r.json()));
+  const inMerged = mergedWindow.rows.filter(r => r.source === "monitor").length;
+  assert(leafLogs.rows.length >= inMerged && leafLogs.rows.every(r => r.source === "monitor"),
+    `leaf logs (live): ?source=monitor spends the whole window on that leaf (${leafLogs.rows.length} line(s); the same-size merged window carried ${new Set(mergedWindow.rows.map(r => r.source)).size} source(s) and only ${inMerged} of monitor's)`);
+
+  // leafLogsStore.prepend is doubly guarded: the live topic carries EVERY source, so a frame for another
+  // leaf must not land in the open leaf's console, and neither must one for another host.
+  st.leafLogsStore.setState(s => ({ ...s, list: [], hostId: hmId, leaf: "monitor", status: "ready" }));
+  st.leafLogsStore.prepend(hmId, "monitor", { id: "l-own", at: new Date().toISOString(), source: "monitor", level: "info", text: "mine" });
+  st.leafLogsStore.prepend(hmId, "monitor", { id: "l-other", at: new Date().toISOString(), source: "watchdog", level: "info", text: "not mine" });
+  st.leafLogsStore.prepend("some-other-host", "monitor", { id: "l-host", at: new Date().toISOString(), source: "monitor", level: "info", text: "other host" });
+  const leafLog = st.leafLogsStore.getState().list;
+  assert(leafLog.length === 1 && leafLog[0].id === "l-own",
+    "leafLogsStore.prepend: a line from another leaf (or another host) is dropped — the shared topic never bleeds into the open leaf's journal");
+
   // capabilities.patch over the FULL WS chain: a raw frame → adaptStreamMessage → dispatch → the always-on
   // per-host capabilities subscription (wired when the host hydrated) → mergeCapabilities. Proves the
   // capability SET flips live (the runtime leaf-provisioning gate — Performance/assistant/watchdog UI grows

@@ -20,12 +20,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — a page per leaf, starting with the assistant
 
-`#/leaf/{host}/{leaf}` is one leaf on one node, with its own sub-tabs. The shell is deliberately
-generic — breadcrumb, identity header, the live service strip, the tab switcher and Settings are
-identical for every leaf, because all of it comes from the services row and the leaf config
-descriptor each leaf already ships. A leaf with nothing special gets Overview + Settings and needs no
-code; a leaf with more to say registers a body in `LeafPage`. The Services board's leaf cards now
-open this page (the all-leaves config page is still at `#/config/{host}`).
+`#/cluster/{host}/services/{leaf}` is one leaf on one node, with its own sub-tabs. The page hangs off
+the node's Services tab because that is the only place it is opened from, so the URL keeps descending
+instead of jumping to a sibling top-level word — the path reads as the trail you walked, and the
+breadcrumb names each step. The flat `#/leaf/{host}/{leaf}` word still resolves, so an older link
+still lands.
+
+The shell is deliberately generic — breadcrumb, identity header, the live service strip, the tab
+switcher, Logs and Settings are identical for every leaf, because all of it comes from the services
+row and the leaf config descriptor each leaf already ships. A leaf with nothing special gets Overview
++ Logs + Settings and needs no code; a leaf with more to say registers a body in `LeafPage`. The
+Services board's leaf cards open this page (the all-leaves config page is still at `#/config/{host}`).
+
+**Logs is a tab on the leaf, reading that leaf's journal alone.** It asks journald for the one source
+(`?source={leaf}`) rather than filtering the host's merged feed: that feed is capped across every leaf
+at once, so a quiet leaf beside a chatty one holds almost none of it — measured on this host, a
+300-line merged window carried four sources and none of the monitor's, while the scoped read returned
+a full 300. A leaf the host publishes no log source for says so, which is a different fact from
+having been quiet. Since the journal is now a tab, the Settings body no longer carries its own Logs
+toggle when it is embedded there.
 
 **Settings is the existing config surface, not a second one.** `LeafConfigPage` gained an `embedded`
 mode that renders its body without its own title and leaf strip — nesting those under the leaf page's

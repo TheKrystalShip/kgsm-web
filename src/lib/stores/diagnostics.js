@@ -49,6 +49,55 @@ function subscribeHostLogs(hostId) {
   });
 }
 
+// ---- One leaf's journal ----
+// The per-leaf logs tab reads its OWN window rather than filtering the host-wide one: the merged
+// feed is capped across every leaf at once, so a quiet leaf next to a chatty one can hold almost
+// none of it — filtering that would show an empty console for a service that has been logging all
+// day. Asking journald for the one source spends the whole window on the leaf you opened.
+const leafLogsStore = createStore({
+  list: [],
+  status: "loading",
+  error: null,
+  hostId: null,
+  leaf: null,
+});
+
+leafLogsStore.prepend = (hostId, leaf, line) =>
+  leafLogsStore.setState(s => {
+    if (!line || !line.id) return s;
+    if (s.hostId !== hostId || s.leaf !== leaf) return s;
+    if (line.source !== leaf) return s;
+    if (s.list.some(e => e.id === line.id)) return s;
+    const list = [line, ...s.list];
+    return { ...s, list: list.length > LOGS_MAX ? list.slice(0, LOGS_MAX) : list };
+  });
+
+let _leafLogsGen = 0;
+leafLogsStore.refresh = (hostId, leaf) => {
+  if (!hostId || !leaf) return Promise.resolve([]);
+  const gen = ++_leafLogsGen;
+  leafLogsStore.setState(s => ({ ...s, list: [], status: "loading", error: null, hostId, leaf }));
+  const path = "/hosts/" + hostId + "/logs?source=" + encodeURIComponent(leaf) + "&limit=" + LOGS_WINDOW;
+  return api.host(hostId).get(path).then(page => {
+    if (gen !== _leafLogsGen) return [];
+    const rows = (page && page.rows) || [];
+    leafLogsStore.setState(s => ({ ...s, list: rows, status: "ready", error: null, hostId, leaf }));
+    return rows;
+  }, err => {
+    if (gen === _leafLogsGen) leafLogsStore.setState(s => ({ ...s, status: "error", error: err, hostId, leaf }));
+    throw err;
+  });
+};
+
+// One live topic carries every source, so the frames are narrowed to this leaf on the way in.
+function subscribeLeafLogs(hostId, leaf) {
+  if (!hostId || !leaf) return () => {};
+  const topic = "hosts/" + hostId + "/logs";
+  return api.stream.subscribe([topic], (m) => {
+    if (m && m.type === "log.line" && m.data) leafLogsStore.prepend(hostId, leaf, m.data);
+  });
+}
+
 function subscribeHostServices(hostId) {
   if (!hostId) return () => {};
   const topic = "hosts/" + hostId + "/services";
@@ -136,6 +185,7 @@ function applyLeafConfig(hostId, leaf, body) {
 }
 
 export {
-  logsStore, logSourcesStore, servicesStore,
-  subscribeHostLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, applyLeafConfig,
+  logsStore, logSourcesStore, leafLogsStore, servicesStore,
+  subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned,
+  fetchLeafConfig, applyLeafConfig,
 };

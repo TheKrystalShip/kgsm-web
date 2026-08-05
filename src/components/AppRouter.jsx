@@ -110,7 +110,8 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       leafId={route.leaf}
       tab={route.tab || "overview"}
       onSelectTab={(t) => setRoute({ kind: "leaf", hostId: route.hostId, leaf: route.leaf, tab: t === "overview" ? undefined : t })}
-      onOpenHost={(hostId) => setRoute({ kind: "cluster", hostId, tab: "services" })}
+      onOpenHost={(hostId) => setRoute({ kind: "cluster", hostId })}
+      onOpenHostServices={(hostId) => setRoute({ kind: "cluster", hostId, tab: "services" })}
       onOpenCluster={() => setRoute({ kind: "cluster" })}
       onReviewConversation={(c) => openReview(route.hostId, c)}
     />}

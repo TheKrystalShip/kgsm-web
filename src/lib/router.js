@@ -24,12 +24,19 @@
 //   #/cluster                cluster grid
 //   #/cluster/<hostId>       a node's diagnostics deep-dive (overview)
 //   #/cluster/<hostId>/<tab> a node's diagnostics, a specific tab
+//   #/cluster/<hostId>/services/<leaf>[/<tab>]
+//                            one leaf on that node — the Services tab drilled in
 //   #/config/<hostId>        a node's leaf configuration (first configurable leaf)
 //   #/config/<hostId>/<leaf> one leaf's configuration surface
 //   #/settings               account settings
 //
-// The pre-cluster URL words #/diagnostics and #/hosts still resolve to #/cluster
-// so old links/bookmarks keep working.
+// A leaf page nests UNDER the node's Services tab because that is exactly where
+// you reach it from: the URL keeps descending instead of jumping to a sibling
+// top-level word, so the path reads as the trail you walked.
+//
+// The pre-cluster URL words #/diagnostics and #/hosts still resolve to #/cluster,
+// and #/leaf/<hostId>/<leaf> resolves to the nested leaf path, so old links and
+// bookmarks keep working.
 //
 // Internal route.kind names differ from a couple of URL words on purpose
 // (kind "attention" ↔ /alerts) — the URL speaks the user's language, the code
@@ -67,10 +74,11 @@
       // and nesting that under the node page's tabs would stack two tab rows.
       case "leafConfig":
         return "#/config/" + enc(route.hostId || "") + (route.leaf ? "/" + enc(route.leaf) : "");
-      // One leaf on one node, with its own sub-tabs (overview / whatever that leaf offers / settings).
-      // The shape is the same for every leaf, so a new leaf needs no new route — only a body.
+      // One leaf on one node, with its own sub-tabs (overview / whatever that leaf offers / logs /
+      // settings). The shape is the same for every leaf, so a new leaf needs no new route — only a
+      // body. It hangs off the node's Services tab, the one place it is opened from.
       case "leaf": {
-        let h = "#/leaf/" + enc(route.hostId || "") + "/" + enc(route.leaf || "");
+        let h = "#/cluster/" + enc(route.hostId || "") + "/services/" + enc(route.leaf || "");
         if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
         return h;
       }
@@ -117,6 +125,13 @@
       }
       case "cluster": {
         if (!segs[1]) return { kind: "cluster" };
+        // A leaf named under the Services tab is its own page, one level deeper. Bare
+        // /services stays the node's tab, so the drill-in only happens once a leaf is named.
+        if (segs[2] && segs[2].toLowerCase() === "services" && segs[3]) {
+          const l = { kind: "leaf", hostId: dec(segs[1]), leaf: dec(segs[3]) };
+          if (segs[4]) l.tab = dec(segs[4]);
+          return l;
+        }
         const r = { kind: "cluster", hostId: dec(segs[1]) };
         if (segs[2]) r.tab = dec(segs[2]);
         return r;
@@ -128,9 +143,10 @@
         if (segs[2]) r.leaf = dec(segs[2]);
         return r;
       }
+      // The flat leaf word still resolves, so a link made before the page was nested under its node
+      // still lands on it. Both a host and a leaf are required — a leaf page with neither has nothing
+      // to show, so it falls back to the grid rather than mounting an empty shell.
       case "leaf": {
-        // Both a host and a leaf are required — a leaf page with neither has nothing to show, so it
-        // falls back to the grid rather than mounting an empty shell.
         if (!segs[1] || !segs[2]) return { kind: "cluster" };
         const r = { kind: "leaf", hostId: dec(segs[1]), leaf: dec(segs[2]) };
         if (segs[3]) r.tab = dec(segs[3]);
