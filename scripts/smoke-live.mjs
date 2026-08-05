@@ -1686,6 +1686,28 @@ try {
   assert(crumbRows === 1 && /Cluster \/ .+ \/ Services \/ Monitor$/.test(crumbText),
     `leaf breadcrumb: exactly one trail, and it walks the URL ("${crumbText}")`);
 
+  // The unit's facts live on the System tab and ONLY there. They used to be rendered three times over
+  // — a strip above every tab, a card on the generic Overview, the config page's identity block — so
+  // assert both halves: System carries them, and the tab you were on a moment ago no longer repeats.
+  const sysHtml = await nav(`#/cluster/${hmId}/services/monitor/system`);
+  assert(sysHtml.includes("leaf-facts") && sysHtml.includes("Enabled at boot") && sysHtml.includes("kgsm-monitor.service"),
+    "leaf System tab: carries the unit's systemd facts (unit, activation, enabled-at-boot, runtime)");
+  const ovHtml = await nav(`#/cluster/${hmId}/services/monitor`);
+  assert(!ovHtml.includes("svc-summary") && !ovHtml.includes("Enabled at boot"),
+    "leaf Overview: no longer repeats the unit strip — the header's status chip is what stays visible");
+
+  // A stopped unit still carries `since` (ActiveEnterTimestamp, from its last run), so reading elapsed
+  // time off it would claim a dead service had been up for hours. Exercise it against whichever leaf is
+  // actually down rather than naming one, since which leaves run is the host's business, not ours.
+  const downLeaf = svc.find(s => s.state !== "active");
+  if (downLeaf) {
+    const downHtml = await nav(`#/cluster/${hmId}/services/${downLeaf.id}/system`);
+    assert(downHtml.includes("Last started") && !downHtml.includes(">Uptime<") && downHtml.includes("not running"),
+      `leaf System tab: a stopped unit (${downLeaf.id}) reports when it LAST started and no uptime, and its absent pid/memory read "not running" — never 0`);
+  } else {
+    console.log("· leaf System tab: every leaf is active, so the stopped-unit rendering wasn't exercised");
+  }
+
   // The Logs tab reads ONE leaf's journal (?source=<leaf>) instead of filtering the merged host feed:
   // that feed is capped across every leaf at once, so a quiet leaf can hold none of it. Measure both
   // and assert the scoped read is not the poorer view.

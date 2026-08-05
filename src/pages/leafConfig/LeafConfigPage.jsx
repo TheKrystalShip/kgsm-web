@@ -225,7 +225,11 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
         <SubTabs tabs={tabs} active={activeId} onChange={(id) => onSelectLeaf(id)} />
       )}
 
-      {active && (
+      {/* Embedded, this is the leaf page's Settings tab: that page's header already names the leaf and
+          its System tab owns the unit's state, uptime and memory — so this block would be the same row
+          again, one tab away from where it belongs. Standalone, it is the only thing naming which leaf
+          the settings below belong to. */}
+      {active && !embedded && (
         <div className="lcf-leaf">
           <div className="lcf-leaf__icon"><Icon name={leafIcon(activeId)} size={18} /></div>
           <div className="lcf-leaf__id">
@@ -248,15 +252,10 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
             </div>
           </div>
           <div className="lcf-leaf__acts">
-            {/* Embedded, this is the leaf page's Settings tab — that page carries its own Logs tab,
-                so the journal is one tab away and a second opener here would be the same surface
-                twice. Standalone, this button is the only way to reach it. */}
-            {!embedded && (
-              <button className={"lcf-btn lcf-btn--ghost" + (showLogs ? " is-on" : "")}
-                onClick={() => setShowLogs(v => !v)}>
-                <Icon name="scroll-text" size={13} /> Logs
-              </button>
-            )}
+            <button className={"lcf-btn lcf-btn--ghost" + (showLogs ? " is-on" : "")}
+              onClick={() => setShowLogs(v => !v)}>
+              <Icon name="scroll-text" size={13} /> Logs
+            </button>
             {/* Restarting a leaf on its own has no endpoint yet — it arrives with leaf lifecycle
                 actions. Shown disabled rather than hidden so the affordance's place is settled,
                 and never wired to an empty PUT, which returns `unchanged` and restarts nothing. */}

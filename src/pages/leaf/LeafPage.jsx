@@ -1,13 +1,16 @@
 // LeafPage — one leaf on one node, with its own sub-tabs. The shell here is deliberately generic:
-// identity header, the live service strip, the tab switcher, Logs and Settings are IDENTICAL for
-// every leaf, because all of that comes from the services row and the leaf config descriptor the
-// leaf already ships. Only the middle differs.
+// identity header, the tab switcher, System, Logs and Settings are IDENTICAL for every leaf, because
+// all of that comes from the services row and the leaf config descriptor the leaf already ships. Only
+// the middle differs.
+//
+// The header carries the leaf's name and its status chip and nothing else. Uptime, memory and pid are
+// System's; repeating them above every tab put the same row on the page two and three times over.
 //
 // The trail above the page is the app's own breadcrumb (`components/Breadcrumb.jsx`), which the shell
 // renders for every route — this page names its place there rather than drawing a second one.
 //
 // Adding a leaf's own tabs is therefore a body, not a page: register it in LEAF_TABS below. A leaf
-// with nothing special still gets Overview + Logs + Settings and needs no code at all.
+// with nothing special still gets Overview + System + Logs + Settings and needs no code at all.
 //
 // Admin-only end to end (persona.ROUTE_CAP.leaf = host.manage): every surface it aggregates — the
 // service row, the config, the assistant's conversation review — is Admin-policy in kgsm-api.
@@ -18,13 +21,14 @@ import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useStore } from "../../lib/store.js";
 import { hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
-import { fmtBytes, leafStatus, uptimeShort } from "../diagnostics/diagHelpers.js";
+import { leafStatus } from "../diagnostics/diagHelpers.js";
 import { leafIcon } from "../leafConfig/leafConfigHelpers.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
 import { LeafLogs } from "./LeafLogs.jsx";
 import { LeafOverview } from "./LeafOverview.jsx";
 import { LeafSettingsTab } from "./LeafSettingsTab.jsx";
+import { LeafSystem } from "./LeafSystem.jsx";
 
 // Per-leaf tabs, inserted between the always-present Overview and Settings. A leaf absent from this
 // map simply has none — which is the correct answer for most of them today.
@@ -56,11 +60,12 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   const svc = ready && Array.isArray(services) ? services.find(s => s.id === leafId) || null : null;
 
   const extraTabs = LEAF_TABS[leafId] || [];
-  // Logs is here for every leaf, not per-leaf like the map above: each one is a systemd unit and so
-  // each one has a journal.
+  // System and Logs are here for every leaf, not per-leaf like the map above: each one is a systemd
+  // unit, so each one has both a unit to report on and a journal.
   const tabs = [
     { id: "overview", label: "Overview", icon: "layout-dashboard" },
     ...extraTabs.map(t => ({ id: t.id, label: t.label, icon: t.icon })),
+    { id: "system", label: "System", icon: "server-cog" },
     { id: "logs", label: "Logs", icon: "scroll-text" },
     { id: "settings", label: "Settings", icon: "sliders-horizontal" },
   ];
@@ -72,6 +77,7 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
   const bodyProps = { hostId, leafId, svc, host, onReviewConversation };
 
   const renderBody = () => {
+    if (active === "system") return <LeafSystem leafId={leafId} svc={svc} />;
     if (active === "logs") return <LeafLogs hostId={hostId} leafId={leafId} svc={svc} />;
     if (active === "settings") return <LeafSettingsTab hostId={hostId} leafId={leafId} />;
     const extra = extraTabs.find(t => t.id === active);
@@ -102,27 +108,6 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
       </div>
 
       <SubTabs tabs={tabs} active={active} onChange={onSelectTab} />
-
-      {svc && (
-        <div className="players-toolbar">
-          <div className="svc-summary">
-            <span className="svc-summary__stat">
-              <span className={"status-led status-led--" + (svc.state === "active" ? "live" : "down")}></span>
-              <b>{svc.state}</b>{svc.subState ? " (" + svc.subState + ")" : ""}
-            </span>
-            {/* Each fact is shown only when the backend gave it — an absent one is omitted, never
-                rendered as a zero or a dash that reads like a measurement. */}
-            {svc.since && <><span className="svc-summary__sep">&middot;</span>
-              <span className="svc-summary__stat">up <b>{uptimeShort(svc.since)}</b></span></>}
-            {svc.memoryBytes != null && <><span className="svc-summary__sep">&middot;</span>
-              <span className="svc-summary__stat"><b>{fmtBytes(svc.memoryBytes)}</b></span></>}
-            {svc.mainPid != null && <><span className="svc-summary__sep">&middot;</span>
-              <span className="svc-summary__stat">pid <b>{svc.mainPid}</b></span></>}
-            {svc.enabled != null && <><span className="svc-summary__sep">&middot;</span>
-              <span className="svc-summary__stat">{svc.enabled ? "enabled at boot" : "not enabled at boot"}</span></>}
-          </div>
-        </div>
-      )}
 
       {renderBody()}
     </>

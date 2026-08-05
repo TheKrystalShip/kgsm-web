@@ -1,0 +1,74 @@
+/* ============================================================================
+   Leaf page — one KGSM leaf on one node.
+
+   The page's chrome (head, tab strip, cards) is the site's own; what lives here
+   is only the System tab's fact grid, which has no equivalent elsewhere: a
+   label/value list where the value is frequently an admission ("unknown", "not
+   running", "none for this leaf") rather than a reading.
+   ========================================================================= */
+
+/* Three even cards — unit identity, runtime, and how this panel reaches it.
+   Not .dash-feed, which is an even two-up and would leave the third orphaned. */
+.leaf-sysgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 12px;
+}
+
+.leaf-sysgrid>.chat-brief {
+  margin-top: 0;
+}
+
+@media (max-width: 1100px) {
+  .leaf-sysgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.leaf-facts {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The label takes its natural width and the VALUE takes the rest: a value column
+   sized `auto` cannot shrink, so a long one (a unit name) pushes straight out
+   through the card's edge instead of wrapping inside it. */
+.leaf-facts__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px 14px;
+  /* The card family carries its inset on the ROW, not the list (.chat-brief__item) —
+     matching it here is what keeps these values inside the card's edge. */
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leaf-facts__row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.leaf-facts__label {
+  font-size: 12.5px;
+  color: var(--fg-3);
+}
+
+.leaf-facts__value {
+  font-size: 12.5px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-1);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* The hint spans both columns under the pair it qualifies — it explains a value
+   that would otherwise read wrong (an idle socket unit, an absent probe). */
+.leaf-facts__hint {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  line-height: var(--lh-normal);
+  color: var(--fg-4);
+}

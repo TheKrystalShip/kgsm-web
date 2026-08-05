@@ -1,6 +1,6 @@
-// LeafOverview — the Overview any leaf gets for free. Built only from the service row and the leaf's
-// own config descriptor, both of which every leaf already publishes, so a leaf with no bespoke body
-// still has a useful page.
+// LeafOverview — the Overview any leaf gets for free: what it is configured to be, read from the
+// config descriptor every leaf already publishes, so a leaf with no bespoke body still has a useful
+// page. What it is DOING right now is the System tab's, which every leaf has too.
 //
 // A leaf that has more to say (the assistant's corpus roll-up) replaces this via LEAF_OVERVIEW in
 // LeafPage; it does not extend it, because "what is worth showing" is exactly the per-leaf part.
@@ -15,7 +15,7 @@ import { fetchLeafConfig } from "../../lib/stores.js";
 // this is the "what is this leaf configured to be" glance, not a second config page.
 const HIGHLIGHT_LIMIT = 8;
 
-function LeafOverview({ hostId, leafId, svc }) {
+function LeafOverview({ hostId, leafId }) {
   const [config, setConfig] = React.useState(null);
   const [state, setState] = React.useState("loading");
 
@@ -70,30 +70,6 @@ function LeafOverview({ hostId, leafId, svc }) {
             ))}
           </div>
         )}
-      </BriefCard>
-
-      <BriefCard icon="server-cog" title="Service"
-        meta="What systemd reports for this unit right now.">
-        <div className="chat-brief__list">
-          {[
-            ["Unit", svc && svc.unit],
-            ["State", svc && (svc.state + (svc.subState ? " (" + svc.subState + ")" : ""))],
-            ["Enabled at boot", svc && svc.enabled == null ? null : svc && (svc.enabled ? "yes" : "no")],
-            ["Health", svc && svc.health ? svc.health.status : null],
-            ["Reachable from this API", svc && svc.provisioned == null ? null : svc && (svc.provisioned ? "yes" : "no")],
-          ].map(([label, value]) => (
-            <div key={label} className="chat-brief__item chat-brief__item--info">
-              <span className="chat-brief__icon"><Icon name="dot" size={14} /></span>
-              <div className="chat-brief__body">
-                <span className="chat-brief__item-title">
-                  <span className="chat-brief__titletext">{label}</span>
-                </span>
-                {/* An absent fact says so. It is never filled in with a plausible-looking default. */}
-                <span className="chat-brief__detail">{value == null ? "unknown" : value}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </BriefCard>
     </div>
   );

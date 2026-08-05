@@ -40,6 +40,22 @@ a full 300. A leaf the host publishes no log source for says so, which is a diff
 having been quiet. Since the journal is now a tab, the Settings body no longer carries its own Logs
 toggle when it is embedded there.
 
+**A System tab owns the unit's facts, which three surfaces had been rendering.** The unit, its
+activation, whether it is enabled at boot, its state, when it started, uptime, memory and pid were
+split across a strip repeated above every tab, a "Service" card on the generic Overview, and the
+config page's identity block — none of them complete, and a leaf with a bespoke Overview (the
+assistant) got none of the middle one. They live on System now, which every leaf has. The page header
+keeps the leaf's name and its status chip: whether the thing is up is the one fact worth seeing from
+whatever tab you are on. The Settings body drops its identity block when embedded, since the page
+hosting it names the leaf already.
+
+The tab distinguishes what it cannot measure from what is simply absent: a unit that isn't running
+HAS no pid or memory and says "not running", while a running unit whose pid didn't come back is
+"unknown", and neither is ever a 0. A leaf the API runs no deep probe for reports "none for this leaf"
+rather than an unhealthy-looking blank. `since` is systemd's `ActiveEnterTimestamp` and a stopped unit
+still carries it from its last run, so a unit that is down reports when it LAST started and no uptime
+at all — reading elapsed time off it claims a dead service has been up for hours.
+
 **One breadcrumb, and it mirrors the URL.** The leaf page drew its own trail, which landed under the
 shell's rather than replacing it — two breadcrumbs, disagreeing. Its crumbs moved into the app's own
 `Breadcrumb`, which every route already renders: `Home / Cluster / {node} / Services / {leaf}`. A crumb
