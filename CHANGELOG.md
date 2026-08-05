@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A server being shut down reads as `Stopping…`** instead of staying `Online` until the process is
+  gone. It is the same join as `Updating…` — one entry in the store's verb→state map — and it covers
+  the whole shutdown, which for a game that saves its world on the way out is many seconds. Both are
+  states where the run-state alone reads wrong for as long as the operation lasts: a server draining
+  and saving is still genuinely "running", and an instance being updated is genuinely "stopped".
+  Start/Update/Restart stay shut while it lands, and the connect surface says `Stopping…` rather than
+  offering a Play button for a server on its way out.
 - **A server being updated reads as `Updating…` everywhere it appears** — the detail page's hero pill,
   its Update button, the server tiles, the sidebar dot and the Servers page's status filter — for the
   whole of the update, not just as a flash on the button that was clicked. It is one more state beside

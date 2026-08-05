@@ -28,6 +28,7 @@ const PILL_LABEL = {
   offline: "Offline",
   crashed: "Crashed",
   updating: "Updating",
+  stopping: "Stopping",
   installing: "Installing",
   error: "Error",
   unknown: "Unknown",

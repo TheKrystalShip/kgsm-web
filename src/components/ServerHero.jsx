@@ -10,7 +10,7 @@ import { artBg } from "../lib/art.js";
 // Nice labels for statuses whose raw backend word wouldn't read well verbatim.
 // Everything else (online/offline/unknown/crashed) falls back to the raw
 // lowercase status, matching how this pill already renders those.
-const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…" };
+const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…" };
 
 function StatusPill({ status, uptime, watchdogDown }) {
   // --glass swaps the pill's fill for the frosted dark backing so it stays legible
@@ -29,6 +29,8 @@ function StatusPill({ status, uptime, watchdogDown }) {
     online: "hero__status",
     offline: "hero__status hero__status--offline",
     updating: "hero__status hero__status--updating",
+    // On its way down — the process is still up, so this is deliberately NOT the offline tone.
+    stopping: "hero__status hero__status--stopping",
     crashed: "hero__status hero__status--offline",
     // Launched, not yet joinable — the backend flips this to "running" once the
     // game finishes booting (server.patch, same SSE frame as every other status).
@@ -51,6 +53,9 @@ function ServerHero({ server, onAction }) {
   // (a booting server can still be shut down). Restart stays online-only — it
   // makes no sense to "restart" something that hasn't finished starting.
   const isStarting = server.status === "starting";
+  // Shutting down — the process is still up but on its way out, so every lifecycle chip stays shut:
+  // there is nothing to start yet, nothing left to stop, and nothing to restart until it lands.
+  const isStopping = server.status === "stopping";
   // Can the signed-in user operate this server's host? Players (viewer / consumer
   // preview) get the Join + connect surface only — no lifecycle controls, no rename.
   const canOps = serverOperable(server);
@@ -67,9 +72,10 @@ function ServerHero({ server, onAction }) {
   // still arms on first click → "Confirm?" → fires on the second, so a lit chip needs two
   // deliberate presses; no accidental update.
   const hasUpdate = !!server.update_available;
-  const updateUnavailable = !hasUpdate || isOnline || isStarting;
+  const updateUnavailable = !hasUpdate || isOnline || isStarting || isStopping;
   let updReason;
   if (!hasUpdate) updReason = server.update_checked_at ? "On the latest build" : "Checking for updates…";
+  else if (isStopping) updReason = "Waiting for the server to finish shutting down";
   else if (isOnline || isStarting) updReason = "Server must be stopped before updating";
   // The cinematic background prefers the LANDSCAPE banner (`hero` = RAWG
   // background_image_additional), then falls back to the 2:3 portrait `cover`,
@@ -103,7 +109,7 @@ function ServerHero({ server, onAction }) {
           {canOps && (
             <>
               <div className="hero__group">
-                <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || isStarting || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
+                <ServerActionButton verb="start"   variant="glass" disabled={isOnline || isUpdating || isStarting || isStopping || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="update"  variant="glass" disabled={isUpdating || watchdogDown || updateUnavailable} reason={watchdogDown ? wdReason : (updateUnavailable ? updReason : null)} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="stop"    variant="glass" disabled={!(isOnline || isStarting) || watchdogDown} reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />
                 <ServerActionButton verb="restart" variant="glass" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? wdReason : null} pendingVerb={pendingVerb} onRun={onAction} />

@@ -102,6 +102,19 @@
   animation: kr-pulse 1.2s ease-in-out infinite;
 }
 
+/* On its way down: the process is still up, draining and saving, so this is the
+   in-transition amber — NOT the offline grey it will become. The faster pulse is
+   the same "actively working" cue as starting. Mirrors .server-tile__pill--stopping. */
+.hero__status--stopping {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.hero__status--stopping .dot {
+  background: var(--warning);
+  animation: kr-pulse 1.2s ease-in-out infinite;
+}
+
 .hero__status .timer {
   color: var(--fg-3);
   font-family: var(--font-mono);

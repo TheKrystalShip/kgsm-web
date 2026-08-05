@@ -22,7 +22,7 @@ const INSTALL_PHASE_LABEL = {
 // Nice label for the run-state pill's raw status word. The rest —
 // online/offline/unknown/crashed — read fine lowercase, and this pill renders
 // server.status verbatim.
-const PILL_LABEL = { starting: "Starting", updating: "Updating…" };
+const PILL_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…" };
 
 function ServerPhantomTile({ server }) {
   const art = artBg(server.hero, server.cover);
@@ -84,6 +84,8 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // Launched but not yet joinable — busy like isUpdating for Start, but a
   // booting server can still be stopped (see ServerHero, same rule).
   const isStarting = server.status === "starting";
+  // On its way down — like isUpdating, nothing lifecycle-shaped is available until it lands.
+  const isStopping = server.status === "stopping";
   const pendingVerb = server.job && server.job.state === "running" ? server.job.verb : null;
   // Live CPU/RAM are host-metrics — when the host's metrics feed is down they
   // go dark with a red status LED, matching the host diagnostics treatment.
@@ -145,7 +147,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         </div>
         {canOps && (
           <div className="server-tile__quick">
-            <ServerActionButton verb="start"   disabled={isOnline || isUpdating || isStarting || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
+            <ServerActionButton verb="start"   disabled={isOnline || isUpdating || isStarting || isStopping || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
             <ServerActionButton verb="restart" disabled={!isOnline || watchdogDown}              reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
             <ServerActionButton verb="stop"    disabled={!(isOnline || isStarting) || watchdogDown} reason={watchdogDown ? "Watchdog unavailable" : null} pendingVerb={pendingVerb} onRun={(v) => onAction(server.id, v)} />
           </div>

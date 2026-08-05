@@ -123,7 +123,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   const [game, setGame] = React.useState("all");
   // Node is a filter over THIS list, held locally like every other filter here.
   const [node, setNode] = React.useState("all");
-  // Ordering. Status-first by default (online → updating → crashed → offline) so
+  // Ordering. Status-first by default (online → in transition → crashed → offline) so
   // the page opens on the same triage order the dashboard uses; re-pick the
   // active key to flip direction. See ToolbarSort / sortByAccessor.
   const [sort, setSort] = React.useState("status");
@@ -179,9 +179,11 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
 
   // Sort axes. Numbers default to desc (most players / hottest first); name and
   // status read better ascending. Status uses the effective status (watchdog-
-  // down → unknown) so it matches the bucket order: online → updating → crashed
-  // → unknown → offline. Uptime is parsed from its human string.
-  const STATUS_RANK = { online: 0, updating: 1, crashed: 2, unknown: 3, offline: 4 };
+  // down → unknown) so it matches the bucket order: online → in transition →
+  // updating → crashed → unknown → offline. The transitional states sort high
+  // because they are the rows worth looking at — something is happening to them
+  // right now. Uptime is parsed from its human string.
+  const STATUS_RANK = { online: 0, starting: 1, stopping: 2, updating: 3, crashed: 4, unknown: 5, offline: 6 };
   const parseUptime = (u) => {
     if (!u || u === "\u2014") return 0;
     let s = 0; let m;

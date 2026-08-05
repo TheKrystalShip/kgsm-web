@@ -187,11 +187,12 @@ function AppInner({ user, setUser, route, setRoute }) {
       });
       return;
     }
-    if (action === "update") {
-      // An update runs for minutes. Show it as owning the server from the click rather than from the
-      // first frame that reports it, so the button that was just pressed never looks inert — and drop
-      // it again if the command is refused, since then nothing is running.
-      serversStore.patch(s.id, { job: { verb: "update", state: "running" } });
+    if (action === "update" || action === "stop") {
+      // Both run long enough to need showing: an update for minutes, a shutdown for as long as the
+      // game takes to drain and save. Mark the server as owned by the job from the click rather than
+      // from the first frame that reports it, so the button that was just pressed never looks inert —
+      // and drop it again if the command is refused, since then nothing is running.
+      serversStore.patch(s.id, { job: { verb: action, state: "running" } });
       commandServer(s, action).catch(err => {
         if (err && err.code === 401) setReauthHostId(s.hostId);
         serversStore.patch(s.id, { job: null });

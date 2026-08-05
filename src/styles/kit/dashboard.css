@@ -641,6 +641,18 @@
   animation: kr-pulse 1.8s ease-in-out infinite;
 }
 
+/* On its way down — still up, so the in-transition amber rather than the offline
+   grey underneath it. Mirrors .hero__status--stopping. */
+.server-tile__pill--stopping {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.server-tile__pill--stopping .dot {
+  background: var(--warning);
+  animation: kr-pulse 1.2s ease-in-out infinite;
+}
+
 .server-tile__pill--offline {
   background: var(--veil-1);
   color: var(--fg-3);
