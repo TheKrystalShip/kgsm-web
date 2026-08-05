@@ -2019,9 +2019,14 @@
   padding: 11px 14px 13px;
 }
 
+/* Exactly two lines, always — clamped from above and floored from below (2 × the 1.45
+   line-height). A one-line role reserves the second line rather than pulling everything
+   under it up, so the fact row, the lifecycle row and the footer land at the same height
+   on every card in the grid. */
 .svc-card__role {
   font-size: 12.5px;
   line-height: 1.45;
+  min-height: 2.9em;
   color: var(--fg-3);
   display: -webkit-box;
   -webkit-line-clamp: 2;

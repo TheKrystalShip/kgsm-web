@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Search and filters on the Services board** — the standard `Toolbar` the Servers and Catalog
+  pages use, so a node's leaves are found the same way its servers are. Search covers a leaf's
+  name, id, unit and role; the two filters are the two axes the cards themselves show — **State**
+  (Running · Attention · Idle · Stopped, folding the run-state tones, so a failing health probe and
+  a failed unit sit together) and **Link** (Connected · Disconnected · Not provisionable, where the
+  third is its own answer and not a kind of disconnected). Every option carries its count, the
+  summary reads `n of m leaves · k running`, and matching nothing is its own state with one button
+  back out of it.
 - **`LeafCard` — the Services board's leaf tile, rebuilt as shared UI** (`components/LeafCard.jsx`).
   A leaf is managed the way a game server is, so its card is built on the server tile's grammar:
   identity, run state, live facts, then the controls. Its one structural difference is the axes
@@ -19,7 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only as the tail of applying a config change. `Open` goes to the leaf's page, `Configure` to its
   Settings tab. The leaf vocabulary it needs (`lib/leaves.js`) and the two formatters
   (`lib/formatting.js`) moved out of the diagnostics page folder, since the leaf page and the leaf
-  configuration page read them too.
+  configuration page read them too. The role line is a fixed two lines whether the leaf's role is
+  one line, three or absent, so the facts, the lifecycle row and the footer land at the same height
+  on every card in the grid.
 - **A server being shut down reads as `Stopping…`** instead of staying `Online` until the process is
   gone. It is the same join as `Updating…` — one entry in the store's verb→state map — and it covers
   the whole shutdown, which for a game that saves its world on the way out is many seconds. Both are

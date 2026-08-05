@@ -124,7 +124,9 @@ function LeafCard({ svc, hostId, canManage, onOpen, onConfigure }) {
       </div>
 
       <div className="svc-card__body">
-        {svc.role && <div className="svc-card__role" title={svc.role}>{svc.role}</div>}
+        {/* Rendered even when the leaf reports no role: the slot is a fixed two lines, and it
+            holding its height for every card is what keeps the rows below it aligned. */}
+        <div className="svc-card__role" title={svc.role || undefined}>{svc.role}</div>
         {unhealthy && svc.health.message && (
           <div className="svc-card__health"><Icon name="triangle-alert" size={12} /> {svc.health.message}</div>
         )}
