@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — the Discord integration page
+
+- **The host's Discord tab, `DiscordPage.jsx` and `DiagDiscord.jsx` are gone**, with the `nav.discord`
+  capability and the now-dead `settings-discord-*` / `settings-cmd-*` styles.
+
+  The page configured kgsm-api's outbound Discord webhook, which no longer exists — Discord is kgsm-bot's
+  channel, and what it announces is configured on the bot's own page under a node's leaf configuration.
+  Half the page was never real anyway: the slash-command grid and the message preview were illustrative,
+  describing commands the control bot has rather than anything this webhook could do.
+
+  The smoke's integrations phase runs against the provider the API actually registers, and additionally
+  asserts that `/integrations/discord` is a 404 — the removal is now a contract, not an absence.
+
 ### Added
 - **Search and filters on the Services board** — the standard `Toolbar` the Servers and Catalog
   pages use, so a node's leaves are found the same way its servers are. Search covers a leaf's

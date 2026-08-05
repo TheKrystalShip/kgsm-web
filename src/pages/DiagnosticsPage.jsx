@@ -23,7 +23,6 @@ import { HostEditorModal, RemoveHostDialog } from "./diagnostics/diagComponents.
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
 import { DiagResources } from "./diagnostics/DiagResources.jsx";
 import { DiagServices } from "./diagnostics/DiagServices.jsx";
-import { DiagDiscord } from "./diagnostics/DiagDiscord.jsx";
 import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 
 // Re-export from shared modules so existing consumers don't break.
@@ -237,7 +236,6 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
     { id: "resources", label: "Resources", icon: "activity", ...badge(resourceAlerts) },
     { id: "services",  label: "Services",  icon: "server-cog", ...badge(serviceAlerts) },
-    { id: "discord",   label: "Discord",   icon: "message-circle" },
     { id: "logs",      label: "Logs",      icon: "scroll-text" },
   ];
 
@@ -248,7 +246,6 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
       {tab === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewServices={() => setTab("services")} />}
       {tab === "resources" && <DiagResources host={host} fresh={fresh} servers={servers} onOpenServerSettings={onOpenServerSettings} />}
       {tab === "services"  && <DiagServices host={host} onOpenLeaf={(leaf, leafTab) => onOpenLeaf && onOpenLeaf(host.id, leaf, leafTab)} />}
-      {tab === "discord"   && <DiagDiscord host={host} />}
       {tab === "logs"      && <DiagLogs host={host} />}
       {modals}
     </>

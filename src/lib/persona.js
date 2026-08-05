@@ -41,7 +41,6 @@ import { hostsStore } from "./stores.js";
     NAV_ALERTS:    "nav.alerts",      // the alerts board
     NAV_AUDIT:     "nav.audit",       // the audit log
     NAV_CLUSTER:   "nav.cluster",     // the cluster grid + node deep-dive
-    NAV_DISCORD:   "nav.discord",     // Discord integration config
     NAV_SETTINGS:  "nav.settings",    // account settings
     SERVER_OPERATE: "server.operate", // lifecycle, files, backups, settings, MOTD, moderation
     SERVER_CREATE:  "server.create",  // install/create a NEW game server (distinct from operating one)
@@ -55,7 +54,7 @@ import { hostsStore } from "./stores.js";
   //           SERVER_OPERATE.
   // Admin   — + cluster and host management.
   var VIEWER = [CAP.NAV_SERVERS, CAP.NAV_LIBRARY, CAP.NAV_SETTINGS];
-  var OPERATOR = VIEWER.concat([CAP.NAV_DASHBOARD, CAP.NAV_ALERTS, CAP.NAV_AUDIT, CAP.NAV_DISCORD, CAP.SERVER_CREATE, CAP.SERVER_OPERATE]);
+  var OPERATOR = VIEWER.concat([CAP.NAV_DASHBOARD, CAP.NAV_ALERTS, CAP.NAV_AUDIT, CAP.SERVER_CREATE, CAP.SERVER_OPERATE]);
   var ADMIN = OPERATOR.concat([CAP.NAV_CLUSTER, CAP.HOST_MANAGE]);
   var ROLE_CAPS = { none: [], viewer: VIEWER, operator: OPERATOR, admin: ADMIN };
   // Pre-resolved Sets for O(1) lookup.

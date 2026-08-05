@@ -118,7 +118,6 @@
   filter: none;
 }
 
-
 /* SettingsRow controls — right-side slot in each row */
 .settings-row__controls {
   display: flex;
@@ -198,27 +197,6 @@
   font-family: var(--font-mono);
 }
 
-/* DiscordPage header */
-.settings-discord-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.settings-discord-header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--fg-1);
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-.settings-discord-header p {
-  color: var(--fg-3);
-  font-size: 14px;
-  margin-top: 4px;
-}
-
 /* Standalone notice text inside a BriefCard (left-aligned, wraps, icon+text) */
 .settings-notice {
   display: flex;
@@ -232,126 +210,6 @@
 .settings-notice--danger { color: var(--danger); }
 .settings-notice--ok { color: var(--success); }
 
-/* Slash-command grid */
-.settings-cmd-grid {
-  padding: 8px 0 14px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 24px;
-}
-
-/* Section label inside a BriefCard (uppercase, muted, optional badge) */
-.settings-cmd-label {
-  padding: 10px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Single command entry in the grid */
-.settings-cmd-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 10px;
-}
-
-.settings-cmd-entry code {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--krystal-teal);
-}
-
-.settings-cmd-entry span {
-  color: var(--fg-3);
-  font-size: 12.5px;
-}
-
-/* Discord message preview */
-.settings-discord-msg {
-  background: #313338;
-  padding: 10px 14px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  font-family: var(--font-ui);
-}
-
-.settings-discord-msg__avatar {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  border-radius: 999px;
-  background: #1e1f22;
-}
-
-.settings-discord-msg__body {
-  flex: 1;
-}
-
-.settings-discord-msg__header {
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.settings-discord-msg__badge {
-  background: var(--krystal-teal);
-  color: var(--fg-inverse);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  letter-spacing: 0.04em;
-}
-
-.settings-discord-msg__time {
-  color: #949ba4;
-  font-size: 11px;
-  font-weight: 400;
-}
-
-.settings-discord-msg__embed {
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-left: 4px solid var(--krystal-teal);
-  background: #2b2d31;
-  border-radius: 0 4px 4px 0;
-  color: #dbdee1;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.settings-discord-msg__embed-title {
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 2px;
-}
-
-.settings-discord-msg__embed-detail {
-  color: #949ba4;
-  font-size: 12.5px;
-  margin-top: 6px;
-}
-
-.settings-discord-msg__embed-detail code {
-  font-family: var(--font-mono);
-  color: #dbdee1;
-}
-
-.settings-discord-msg__embed code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-}
-
 /* danger zone — BriefCard variant with red left border */
 .settings-danger {
   border-left: 3px solid var(--danger);
@@ -362,10 +220,6 @@
 }
 
 @media (max-width: 768px) {
-  .settings-cmd-grid {
-    grid-template-columns: 1fr;
-  }
-
   /* Stack each settings row on narrow screens: the icon + label/detail keep the
      first line to themselves (no more mid-word truncation), and the control(s)
      wrap onto a full-width second line — the same label→input rhythm the install
