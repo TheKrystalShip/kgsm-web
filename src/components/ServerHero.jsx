@@ -8,9 +8,9 @@ import { artBg } from "../lib/art.js";
 // Server hero card — top status, name, action chips, IP.
 
 // Nice labels for statuses whose raw backend word wouldn't read well verbatim.
-// Everything else (online/offline/unknown/updating/crashed) falls back to the
-// raw lowercase status, matching how this pill already renders those.
-const HERO_STATUS_LABEL = { starting: "Starting" };
+// Everything else (online/offline/unknown/crashed) falls back to the raw
+// lowercase status, matching how this pill already renders those.
+const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…" };
 
 function StatusPill({ status, uptime, watchdogDown }) {
   // --glass swaps the pill's fill for the frosted dark backing so it stays legible

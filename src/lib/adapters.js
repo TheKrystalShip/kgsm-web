@@ -15,12 +15,13 @@ const round = (n, d = 0) => {
 };
 
 // ---- Servers ------------------------------------------------------------
-// api status is the watchdog/Docker run-state (now a 4-state: running/stopped/
+// api status is the watchdog/Docker run-state (a 4-state: running/stopped/
 // starting/unknown — "starting" sits between launch and the game finishing boot
 // (joinable), then flips to "running"); the UI vocabulary is
-// online/offline/starting/unknown (+ installing/updating/crashed/error, which are
-// synthesized later from the job + alert streams — slice 5/6). Arrives over the
-// SAME server.patch SSE frame that already carries status — no new transport.
+// online/offline/starting/unknown. The states that describe what is being DONE to a
+// server rather than what it IS — installing, updating — are synthesized from the
+// job the server carries, in stores/servers.js (the one place that derivation lives).
+// Arrives over the SAME server.patch SSE frame that already carries status.
 const SERVER_STATUS = { running: "online", stopped: "offline", starting: "starting", unknown: "unknown" };
 
 export function adaptServer(be) {
@@ -94,6 +95,13 @@ export function adaptServer(be) {
     steamAppId: be.steamAppId,
     clientSteamAppId: be.clientSteamAppId,
     isSteamAccountRequired: be.isSteamAccountRequired,
+    // The long-running operation that owns this server right now (an update downloading and
+    // deploying, a backup being taken) or null when it's idle. Same shape as a `jobs` frame — it IS
+    // the backend's own job record — so the store keeps it in the SAME `job` field the jobs channel
+    // writes, and the two can only ever agree. Carrying it on the server is what lets a page opened
+    // (or reloaded) mid-update show the state: the jobs channel only ever delivers the transition,
+    // which a client that wasn't connected at the time never saw.
+    job: be.activeJob ? adaptJob(be.activeJob) : null,
   };
 }
 export const adaptServers = (arr) => (Array.isArray(arr) ? arr.map(adaptServer) : []);

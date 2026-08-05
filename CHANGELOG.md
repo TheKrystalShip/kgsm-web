@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A server being updated reads as `Updating…` everywhere it appears** — the detail page's hero pill,
+  its Update button, the server tiles, the sidebar dot and the Servers page's status filter — for the
+  whole of the update, not just as a flash on the button that was clicked. It is one more state beside
+  Installing and Starting: `stores/servers.js` is the single place a server's in-flight job is joined
+  onto its run-state, so no surface derives it on its own, and the state is dropped again the moment the
+  backend reports nothing is running. It covers an update someone else started, or one started from the
+  CLI or the assistant, and survives a reload mid-update, because kgsm-api now carries the active job on
+  the server itself (`activeJob`) rather than only announcing the transition.
+
 - **Resource history on a leaf's System tab** — recorded CPU, memory and disk I/O for the leaf itself,
   under the unit facts. kgsm-monitor samples every running leaf's cgroup the way it samples a game
   server's, so this is the Performance tab's historical view pointed at a different entity: the same
@@ -122,7 +131,10 @@ topology, which meant nothing to anyone who did not already know the architectur
 line follows the caller's own authority: without operator rights it does not offer to start or stop
 anything, so it never promises what the composer then refuses.
 
-### Fixed — a lapsed session is reported only once it stays lapsed
+### Fixed
+- A server's in-flight job no longer disappears when any unrelated server frame arrives mid-run (a
+  backup landing, a version changing), which is what made a long update look like nothing was happening.
+— a lapsed session is reported only once it stays lapsed
 
 An access token lives 15 minutes, and the seam heals it reactively: the API answers `401`, the host is
 marked `expired`, one `POST /auth/session/refresh` rotates a fresh token and the rejected call replays.

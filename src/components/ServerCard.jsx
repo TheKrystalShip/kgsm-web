@@ -19,10 +19,10 @@ const INSTALL_PHASE_LABEL = {
   deploying:   "Deploying…",
 };
 
-// Nice label for the run-state pill's raw status word. Only "starting" needs one
-// today (the rest — online/offline/unknown/updating/crashed — already read fine
-// lowercase, and this pill has always rendered server.status verbatim).
-const PILL_LABEL = { starting: "Starting" };
+// Nice label for the run-state pill's raw status word. The rest —
+// online/offline/unknown/crashed — read fine lowercase, and this pill renders
+// server.status verbatim.
+const PILL_LABEL = { starting: "Starting", updating: "Updating…" };
 
 function ServerPhantomTile({ server }) {
   const art = artBg(server.hero, server.cover);

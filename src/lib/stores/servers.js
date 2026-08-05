@@ -7,6 +7,46 @@ import { createStore } from "../store.js";
 import { libraryStore } from "./library.js";
 
 // ---- Game servers -------------------------------------------------------
+
+// A job is what is being DONE to a server; status is what the server IS. The backend keeps them apart
+// (its status vocabulary is run-state only — running/starting/stopped/unknown), and this module is the
+// ONE place they are joined: while a job owns a server, the row's status reads as that job's state, so
+// every surface — the hero pill, the tiles, the sidebar dot, the filters — shows an update in progress
+// without each of them re-deriving it. Verbs not listed here don't rename the state: `start` already has
+// its own honest run-state ("starting", from the backend), and stop/restart are too short to be worth a
+// state of their own. An in-flight install has no server row at all — it renders as a phantom tile.
+const JOB_STATUS = { update: "updating" };
+
+// How long a job we know about locally survives a server frame that carries none. The backend carries the
+// active job on every server read, so an in-flight job normally re-arrives with each frame; this window
+// only covers the gap between issuing a command and the first frame that includes it (a frame built
+// before the command landed would otherwise wipe the state the operator just triggered).
+const JOB_GRACE_MS = 15000;
+
+const jobIsLive = (job) => !!job && !!job.state && job.state !== "done";
+
+// Merge a partial into a row and re-derive its display status. `status` in the partial is the
+// authoritative run-state the backend just reported — it is kept verbatim as `runStatus` so the derived
+// value can never be mistaken for it, and so the real state comes back the moment the job settles.
+// `at` stamps when we last had evidence the job is live (see pickJob).
+function applyPatch(row, partial) {
+  const next = partial ? { ...row, ...partial } : { ...row };
+  next.runStatus = partial && "status" in partial ? partial.status : (row.runStatus ?? row.status);
+  const live = jobIsLive(next.job);
+  if (live && next.job.at == null) next.job = { ...next.job, at: Date.now() };
+  next.status = (live && JOB_STATUS[next.job.verb]) || next.runStatus;
+  return next;
+}
+
+// Which job a fresh backend frame leaves on the row. The frame is authoritative when it names one;
+// when it names none, a job we learned about moments ago is kept until the window lapses — after that
+// the backend's "nothing in flight" wins, so a settle we somehow never saw can't strand the row.
+function pickJob(existing, incoming) {
+  if (incoming) return { ...incoming, at: Date.now() };
+  if (jobIsLive(existing) && Date.now() - (existing.at || 0) < JOB_GRACE_MS) return existing;
+  return null;
+}
+
 const serversStore = createStore({
   list: [],
   status: "loading",
@@ -15,9 +55,9 @@ const serversStore = createStore({
 });
 
 serversStore.patch = (id, partial) =>
-  serversStore.setState(s => ({ ...s, list: s.list.map(x => (x.id === id ? { ...x, ...partial } : x)) }));
+  serversStore.setState(s => ({ ...s, list: s.list.map(x => (x.id === id ? applyPatch(x, partial) : x)) }));
 serversStore.add = (server) =>
-  serversStore.setState(s => ({ ...s, list: [...s.list, server] }));
+  serversStore.setState(s => ({ ...s, list: [...s.list, applyPatch(server, null)] }));
 serversStore.find = (id) =>
   serversStore.getState().list.find(x => x.id === id) || null;
 serversStore.remove = (id) =>
@@ -38,8 +78,17 @@ serversStore.refresh = () => {
         const cur = new Map(s.list.map(x => [x.id, x]));
         const next = list.map(srv => {
           const c = cur.get(srv.id);
-          if (!c || c._phantom) return srv;
-          return { ...srv, status: c.status, uptime: c.uptime, job: c.job, network: c.network };
+          if (!c || c._phantom) return applyPatch(srv, null);
+          // The stream is the fresher authority for the live fields, so a re-hydrate keeps what it put
+          // there — including the run-state, which is why `runStatus` and not the derived `status` is
+          // what carries over.
+          return applyPatch({
+            ...srv,
+            status: c.runStatus ?? c.status,
+            uptime: c.uptime,
+            job: pickJob(c.job, srv.job),
+            network: c.network,
+          }, null);
         });
         const phantoms = s.list.filter(x => x._phantom && !next.some(r => r.id === x.id));
         return { ...s, list: [...next, ...phantoms], status: "ready", error: null, everLoaded: true };
@@ -72,7 +121,10 @@ api.stream.subscribe(["servers"], (m) => {
         cover:   existing?.cover   ?? patch.cover   ?? null,
         hero:    existing?.hero    ?? patch.hero    ?? null,
         _phantom: false,
-        job: null,
+        // The frame carries whatever job the backend has in flight for this server, so it is what
+        // decides here — a running update survives every patch that lands mid-run, and the row goes
+        // idle again the moment the backend says nothing owns it.
+        job: pickJob(existing?.job, patch.job),
       });
     } else {
       serversStore.add(m.data);
@@ -113,9 +165,11 @@ api.stream.subscribe(["jobs"], (m) => {
         });
       }
       if (state === "done") {
-        if (m.data.error) {
-          serversStore.patch(serverId, { status: "install-failed", job: null });
-        }
+        // Clear the job on BOTH outcomes: a settled job never keeps owning the row, and the phantom
+        // tile hands over to the real server the moment the install's own server.patch lands.
+        serversStore.patch(serverId, m.data.error
+          ? { status: "install-failed", job: null }
+          : { job: null });
       } else {
         serversStore.patch(serverId, { job: { verb, state, phase: phase ?? null } });
       }

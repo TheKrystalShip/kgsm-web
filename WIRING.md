@@ -95,7 +95,7 @@ All BE routes are under `/api/v1`. ✅ aligned · ⚠️ remap needed · ❌ gap
 | FE call (`apiClient.js`) | Backend endpoint | Status | Notes |
 |---|---|---|---|
 | `GET /servers` | `GET /api/v1/servers` (Viewer) | ⚠️ | path prefix + **schema differs heavily** (§5) |
-| `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✅ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is **not** a BE verb (M3) → the Update chip is disabled in LIVE with an honest reason |
+| `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✅ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is a verb (Tier-1 ops); the chip lights only when the update-check probe found a newer version, and the server reads `Updating…` for the whole run |
 | `GET /hosts` | `GET /api/v1/hosts` (Viewer) | ⚠️ | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
 | `GET /library` | `GET /api/v1/library?q=&category=` (Viewer) | ⚠️ | **path agrees** (not `/catalog`); schema differs (§5) |
 | `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=&since=&category=` (Viewer) | ✅ **DONE (audit paging + filters slice)** | `adaptAudit` preserves the `{data,nextCursor}` envelope; the store **walks the keyset cursor** (1000-row cap) so events older than the first page are reachable (the real bug — LIVE fetched ONE page) + `loadMore()`; page discloses incompleteness + "Load older events", omits counts in LIVE. **Structured filters PUSH DOWN** (severity incl. `attention`→`warn,danger`, serverId, actor, range→`since`, category→action-prefix) so the cursor walks the FILTERED log; free-text search stays client-side. **kgsm-api extended:** multi-value severity + `since` + `category` params + a `Ts`→ticks value-converter (SQLite can't translate `DateTimeOffset >=`) |
@@ -151,7 +151,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 ### Server — large divergence
 | FE fixture field | BE field | Resolution |
 |---|---|---|
-| `status: online/offline/updating/installing/error/crashed` | `status: running/stopped/unknown` | **A**: map `running→online`, `stopped→offline`, `unknown→unknown`. `installing/updating` synthesize from the in-flight **job** verb; `crashed` from a firing **alert**; `error` from job `failed` |
+| `status: online/offline/updating/installing/error/crashed` | `status: running/stopped/unknown/starting` + `activeJob` | **A**: map `running→online`, `stopped→offline`, `starting→starting`, `unknown→unknown`. `updating` is synthesized in `stores/servers.js` from the in-flight **job** verb — which the backend carries on the server itself (`activeJob`) as well as announcing on the `jobs` topic, so it survives a cold read and a reload; `installing` renders as a phantom row (no server exists yet); `crashed` from a firing **alert**; `error` from job `failed` |
 | `players:{current,max}` | — | **F**: honest-unknown (presence tracking WIP). Render "—", not 0 |
 | `ip` ("host:port") | — | **F**: not exposed by kgsm; derive from host + `ports` if needed, else hide |
 | `uptime` (string) | — | **F**: not exposed; FE already has "—" fallback |
@@ -285,9 +285,9 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > (curation deferred upstream), so the game-name resolve is correct *wiring* with
 > **no visible change yet** — it self-heals the moment curated titles land.
 > **Deferred (named in the slice, deferred with cause):**
-> • *Job-derived status* (`installing`/`updating`/`crashed`/`error`) — no honest
->   source on a cold read (no `GET /jobs`; transient states exist only mid-command).
->   Needs the jobs WS (slice 5) + alerts GET (slice 3). Don't fabricate.
+> • *Job-derived status* — `updating` is **live**: the backend carries the in-flight job on the
+>   server (`activeJob`, kgsm-api 0.49.0), so a cold read has an honest source and the state
+>   survives a reload. `crashed`/`error` still wait on alerts GET (slice 3). Don't fabricate.
 > • *Server ports* — **not** a backend gap: `GET /servers/{id}` carries
 >   `network.required[]`, but the FE never calls the detail endpoint (list omits
 >   `network`; the detail GET is defined-but-unused, §3). Needs the detail-GET wired
