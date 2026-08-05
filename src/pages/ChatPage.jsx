@@ -15,7 +15,7 @@ import {
   uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
   latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
-import { API_COMMAND_VERBS, commandMeta } from "./chat/chatConstants.js";
+import { API_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } from "./chat/chatConstants.js";
 // ChatCommand is imported only to re-export it (see the export list below); the
 // message-role dispatch that used it now lives in ChatThread.
 import { ChatCommand } from "./chat/ChatMessageParts.jsx";
@@ -459,6 +459,18 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     ];
   }, [serverList]);
 
+  // A fresh greeting per conversation — drawn once and held, so a re-render (typing,
+  // a store tick) never swaps the wording out from under the reader.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeId is the POINT: it re-rolls the greeting per conversation, not a value read inside.
+  const greeting = React.useMemo(() => pickGreeting(), [activeId]);
+
+  // What the assistant can do for you, phrased to match what THIS caller may actually
+  // ask of it: a viewer can't have it act, so promising start/stop would be a promise
+  // the composer's own gating then breaks.
+  const primer = canSeeActions
+    ? "I can check server health, dig through logs and configuration, start or stop a server, and help work out what’s going wrong."
+    : "I can check server health, read through logs and configuration, and help work out what’s going wrong.";
+
   const ChatBriefingPanel = NeedsAttention;
 
   const [railOpen, setRailOpen] = React.useState(false);
@@ -548,10 +560,8 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           {(!active || active.messages.length === 0) ? (
             <div className="chat-empty">
               <span className="chat-empty__logo"><Icon name="bot" size={26} /></span>
-              <h2>{assistantHost ? "Ask " + assistantHost.name + "\u2019s assistant" : "No assistant available"}</h2>
-              <p>{assistantHost
-                ? "Routed by " + assistantHost.name + "\u2019s backend. Each host runs its own \u2014 there is no central assistant."
-                : "No connected host is serving an assistant capability."}</p>
+              <h2>{assistantHost ? greeting : "No assistant available"}</h2>
+              <p>{assistantHost ? primer : "No connected host is serving an assistant capability."}</p>
               <ChatBriefingPanel onPick={startBriefingChat} />
               <div className="chat-suggestions">
                 {suggestions.map((s, i) => (
@@ -643,6 +653,9 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
               ? <span>Recording a voice note · I'll transcribe it and reply</span>
               : <>Enter to send, Shift+Enter for newline</>}
           </div>
+          {/* Pinned, not shown once on the empty screen: the disclosure has to be true
+              while the user is mid-conversation, which is when they'd otherwise forget it. */}
+          <div className="chat-composer__notice">{CHAT_PRIVACY_NOTICE}</div>
         </div>
       </div>
     </div>

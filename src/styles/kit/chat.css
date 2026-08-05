@@ -2957,6 +2957,20 @@ a.ev-search__src:hover {
   font-weight: 600;
 }
 
+/* Standing disclosure under the composer — visible for the whole conversation, so it
+   sits a step quieter than the keyboard hint above it and never competes with the thread. */
+.chat-composer__notice {
+  margin: 3px auto 0;
+  max-width: 46ch;
+  padding: 0 8px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--fg-4);
+  opacity: 0.8;
+  text-align: center;
+  text-wrap: balance;
+}
+
 /* ---- mic button ---- */
 .chat-mic {
   flex-shrink: 0;

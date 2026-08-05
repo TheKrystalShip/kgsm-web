@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the assistant tells you its conversations are kept and reviewable
+
+A standing line under the chat composer, visible for the whole conversation rather than once on the
+empty screen: *"Conversations are saved and may be reviewed by an administrator to improve the
+assistant."* Conversations are stored server-side by the assistant leaf — they are its memory between
+turns and the record its tuning is judged from — and a user should learn that before they type, not
+after. Pinned rather than shown once because the fact stays true past the first message.
+
+### Changed — the empty chat screen greets and orients instead of labelling
+
+The heading is a greeting drawn at random per conversation ("Hi there — what can I help with?"),
+replacing a title that only restated the page. Beneath it, what the assistant can actually do —
+health, logs, configuration, lifecycle, troubleshooting — in place of a line describing the routing
+topology, which meant nothing to anyone who did not already know the architecture. The capability
+line follows the caller's own authority: without operator rights it does not offer to start or stop
+anything, so it never promises what the composer then refuses.
+
 ### Fixed — a lapsed session is reported only once it stays lapsed
 
 An access token lives 15 minutes, and the seam heals it reactively: the API answers `401`, the host is

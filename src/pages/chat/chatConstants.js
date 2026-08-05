@@ -19,4 +19,29 @@ function commandMeta(verb) {
   return COMMAND_META[verb] || { label: (verb || "Run").replace(/_/g, " "), icon: "zap", tone: "info" };
 }
 
-export { API_COMMAND_VERBS, COMMAND_META, commandMeta };
+// Greetings for the empty-chat screen. One is drawn at random per conversation so
+// opening a new chat feels like being greeted rather than reading a label. Keep them
+// short, warm, and free of host/product names — the header's host picker and the
+// composer placeholder already say WHICH assistant is answering.
+const CHAT_GREETINGS = [
+  "Hello, what can I do for you?",
+  "Hi there — what can I help with?",
+  "What can I do for you today?",
+  "Hey — what are we working on?",
+  "Ready when you are. What do you need?",
+  "Hi! What would you like to do?",
+  "Good to see you. What can I help with?",
+  "What's on your mind?",
+];
+function pickGreeting() {
+  return CHAT_GREETINGS[Math.floor(Math.random() * CHAT_GREETINGS.length)];
+}
+
+// The standing disclosure shown under the composer for the whole conversation, not
+// just on the empty screen: conversations are stored server-side (they are the
+// assistant's memory AND the corpus its tuning is judged from), so a user should
+// never discover after the fact that an administrator can read one back.
+const CHAT_PRIVACY_NOTICE =
+  "Conversations are saved and may be reviewed by an administrator to improve the assistant.";
+
+export { API_COMMAND_VERBS, CHAT_GREETINGS, CHAT_PRIVACY_NOTICE, COMMAND_META, commandMeta, pickGreeting };
