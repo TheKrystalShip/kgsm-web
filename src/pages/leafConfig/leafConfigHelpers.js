@@ -1,21 +1,6 @@
 // leafConfigHelpers — pure derivations for the leaf configuration page: the draft/reset
 // bookkeeping, the provenance vocabulary, and the filter predicates. No React, no API.
 
-// ---- Iconography --------------------------------------------------------
-// Purely presentational, like LOG_SOURCE_META's labels — the backend serves no icon and this is
-// not domain data. A leaf that isn't listed falls back to the generic one, so a leaf joining the
-// ecosystem later still renders without a frontend change.
-const LEAF_ICON = {
-  watchdog: "shield",
-  monitor: "gauge",
-  assistant: "bot",
-  firewall: "flame",
-  scheduler: "calendar-clock",
-  bot: "message-circle",
-  api: "server-cog",
-};
-const leafIcon = (id) => LEAF_ICON[id] || "box";
-
 // ---- Provenance ---------------------------------------------------------
 // Which tier a field's effective value came from. `unknown` is a state of its own: the host
 // could not read the source that would supply the value, so what the leaf is running with is
@@ -116,6 +101,6 @@ function groupFields(config, fields) {
 }
 
 export {
-  LEAF_ICON, leafIcon, SOURCE_TITLE, valueText, isBlank, currentOf, draftOf, isDirty, dirtyFields, isOverridden,
+  SOURCE_TITLE, valueText, isBlank, currentOf, draftOf, isDirty, dirtyFields, isOverridden,
   buildPayload, filterFields, groupFields,
 };

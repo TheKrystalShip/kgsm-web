@@ -89,8 +89,12 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 - `theme.js` — client-only theme preference (`auto｜dark｜light`); LIVE swap of
   `<html data-theme>`, no reload. Mirror the `index.html` boot script when you
   change it.
-- `formatting.js` / `labels.js` / `art.js` / `servers.js` — formatting,
-  display-label vocabulary, key-art helpers, server-shape helpers.
+- `formatting.js` / `labels.js` / `art.js` / `servers.js` / `leaves.js` —
+  formatting, display-label vocabulary, key-art helpers, server-shape helpers,
+  and the leaf vocabulary (run-state → tone+label, iconography, kind). `leaves.js`
+  lives here rather than beside any one surface because the Services board, the
+  leaf page and the leaf config page all read it — and because `components/`
+  may not import from a page.
 - `registerSW.js` — production-only PWA service-worker registration.
 
 ## The init-order landmine — do not "tidy"

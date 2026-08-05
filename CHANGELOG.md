@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`LeafCard` — the Services board's leaf tile, rebuilt as shared UI** (`components/LeafCard.jsx`).
+  A leaf is managed the way a game server is, so its card is built on the server tile's grammar:
+  identity, run state, live facts, then the controls. Its one structural difference is the axes
+  strip — a leaf has TWO independent states, the unit systemd reports and the link this panel holds
+  to it, and neither implies the other, so each gets a labelled half instead of one blended status
+  word. The strip carries the status accent, putting the card's colour on the row that means
+  something, and a leaf the API cannot provision says so rather than reading as "disconnected".
+  Lifecycle controls (start/restart/stop) are drawn disabled with the reason: a leaf restarts today
+  only as the tail of applying a config change. `Open` goes to the leaf's page, `Configure` to its
+  Settings tab. The leaf vocabulary it needs (`lib/leaves.js`) and the two formatters
+  (`lib/formatting.js`) moved out of the diagnostics page folder, since the leaf page and the leaf
+  configuration page read them too.
 - **A server being shut down reads as `Stopping…`** instead of staying `Online` until the process is
   gone. It is the same join as `Updating…` — one entry in the store's verb→state map — and it covers
   the whole shutdown, which for a game that saves its world on the way out is many seconds. Both are

@@ -5,7 +5,7 @@ import { KPI } from "../../components/KPI.jsx";
 import { NeedsAttention } from "../../components/NeedsAttention.jsx";
 import { RecentActivity } from "../../components/RecentActivity.jsx";
 import { useStore } from "../../lib/store.js";
-import { statusTone, uptimeFrom } from "../../lib/formatting.js";
+import { statusTone, uptimeShort } from "../../lib/formatting.js";
 import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { ServicesSummaryCard } from "./diagComponents.jsx";
 
@@ -79,7 +79,7 @@ function DiagOverview({ host, fresh, onAsk, onViewAlerts, onViewAudit, onViewSer
             sub={"highest of " + host.sensors.length + " sensors"} />
         )}
         <KPI icon="clock"        label="Uptime"      tone="ok" led="live"
-          value={uptimeFrom(host.boot_time)}
+          value={uptimeShort(host.boot_time)}
           sub={host.kernel} />
       </div>
 

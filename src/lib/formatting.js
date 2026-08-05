@@ -35,9 +35,12 @@ function statusTone(value, amber, red) {
 
 // ---------- Uptime ----------
 
-function uptimeFrom(bootTime) {
-  const boot = new Date(bootTime);
-  const ms = Date.now() - boot.getTime();
+// How long something has been up, in the two coarsest units that say anything —
+// a host's boot time or a leaf unit's activation stamp. A stamp in the future or
+// an unparseable one is an em-dash, never a negative duration.
+function uptimeShort(bootTime) {
+  const ms = Date.now() - new Date(bootTime).getTime();
+  if (ms < 0 || !isFinite(ms)) return "—";
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
   const mins = Math.floor((ms % 3600000) / 60000);
@@ -113,6 +116,17 @@ function formatBytes(n) {
   return Math.round(n) + " B";
 }
 
+// The compact form the leaf/services surfaces read in: binary-scaled like the above but
+// labelled in the units an operator says out loud ("52 MB"), and null-in / null-out so a
+// caller can tell "not measured" from a reading and render its own em-dash.
+function fmtBytes(n) {
+  if (n == null) return null;
+  if (n >= GIB) return (n / GIB).toFixed(1) + " GB";
+  if (n >= MIB) return Math.round(n / MIB) + " MB";
+  if (n >= KIB) return Math.round(n / KIB) + " KB";
+  return n + " B";
+}
+
 function formatBps(n) {
   if (n == null || !Number.isFinite(n)) return "—";
   if (n >= MIB) return (n / MIB).toFixed(1) + " MiB/s";
@@ -137,11 +151,12 @@ export {
   actionCategory,
   formatBytes,
   formatBps,
+  fmtBytes,
   fmtFootprintMb,
   fmtRelative,
   fmtTime,
   fmtTimeFull,
   parseTs,
   statusTone,
-  uptimeFrom,
+  uptimeShort,
 };

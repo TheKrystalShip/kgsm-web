@@ -29,7 +29,7 @@ import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
-function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit, onConfigureLeaf }) {
+function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onOpenServer, onOpenServerSettings, onViewAlerts, onViewAudit, onOpenLeaf }) {
   useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
@@ -247,7 +247,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
       <SubTabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewServices={() => setTab("services")} />}
       {tab === "resources" && <DiagResources host={host} fresh={fresh} servers={servers} onOpenServerSettings={onOpenServerSettings} />}
-      {tab === "services"  && <DiagServices host={host} onConfigureLeaf={(leaf) => onConfigureLeaf && onConfigureLeaf(host.id, leaf)} />}
+      {tab === "services"  && <DiagServices host={host} onOpenLeaf={(leaf, leafTab) => onOpenLeaf && onOpenLeaf(host.id, leaf, leafTab)} />}
       {tab === "discord"   && <DiagDiscord host={host} />}
       {tab === "logs"      && <DiagLogs host={host} />}
       {modals}

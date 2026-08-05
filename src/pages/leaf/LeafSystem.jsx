@@ -13,8 +13,8 @@
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
-import { fmtBytes, leafStatus, uptimeShort } from "../diagnostics/diagHelpers.js";
-import { leafIcon } from "../leafConfig/leafConfigHelpers.js";
+import { fmtBytes, uptimeShort } from "../../lib/formatting.js";
+import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { LeafResources } from "./LeafResources.jsx";
 
 // A runtime fact (pid, memory, start time) is absent for two different reasons, and the difference is

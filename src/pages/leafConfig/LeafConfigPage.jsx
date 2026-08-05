@@ -21,11 +21,12 @@ import {
   applyLeafConfig, fetchLeafConfig, hostsStore, logSourcesStore, logsStore,
   servicesStore, subscribeHostLogs, subscribeHostServices,
 } from "../../lib/stores.js";
-import { fmtBytes, leafStatus, uptimeShort } from "../diagnostics/diagHelpers.js";
+import { fmtBytes, uptimeShort } from "../../lib/formatting.js";
+import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { LeafConfigRow } from "./LeafConfigRow.jsx";
 import { LeafConfigReview } from "./LeafConfigReview.jsx";
 import {
-  buildPayload, dirtyFields, filterFields, groupFields, isDirty, isOverridden, leafIcon,
+  buildPayload, dirtyFields, filterFields, groupFields, isDirty, isOverridden,
 } from "./leafConfigHelpers.js";
 
 const FILTER_LABEL = { all: "All", modified: "Modified", risky: "Risky", unknown: "Unknown" };

@@ -10,7 +10,7 @@ import { HostAuthBadge } from "../../components/host-helpers.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { canOn } from "../../lib/persona.js";
-import { uptimeShort } from "./diagHelpers.js";
+import { uptimeShort } from "../../lib/formatting.js";
 
 function HostMenu({ host, onEdit, onToggle, onRemove }) {
   const [open, setOpen] = React.useState(false);

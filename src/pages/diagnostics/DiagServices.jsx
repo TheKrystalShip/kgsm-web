@@ -5,9 +5,9 @@ import { Icon } from "../../components/Icon.jsx";
 import { useStore } from "../../lib/store.js";
 import { canOn } from "../../lib/persona.js";
 import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
-import { LeafCard } from "./diagComponents.jsx";
+import { LeafCard } from "../../components/LeafCard.jsx";
 
-function DiagServices({ host, onConfigureLeaf }) {
+function DiagServices({ host, onOpenLeaf }) {
   const hostId = host && host.id;
   const list = useStore(servicesStore, s => s.list);
   const status = useStore(servicesStore, s => s.status);
@@ -40,7 +40,8 @@ function DiagServices({ host, onConfigureLeaf }) {
         <div className="svc-grid">
           {rows.map(svc => (
             <LeafCard key={svc.id} svc={svc} hostId={hostId} canManage={canManage}
-              onConfigure={() => onConfigureLeaf && onConfigureLeaf(svc.id)} />
+              onOpen={() => onOpenLeaf && onOpenLeaf(svc.id)}
+              onConfigure={() => onOpenLeaf && onOpenLeaf(svc.id, "settings")} />
           ))}
         </div>
       </>

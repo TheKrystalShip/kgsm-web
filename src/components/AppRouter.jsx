@@ -97,7 +97,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onOpenServerSettings={(id) => setRoute({ kind: "server", id, tab: "settings" })}
       onViewAlerts={() => setRoute({ kind: "attention" })}
       onViewAudit={() => setRoute({ kind: "audit" })}
-      onConfigureLeaf={(hostId, leaf) => setRoute({ kind: "leaf", hostId, leaf })}
+      onOpenLeaf={(hostId, leaf, leafTab) => setRoute({ kind: "leaf", hostId, leaf, tab: leafTab })}
     />}
     {route.kind === "leafConfig" && <LeafConfigPage
       hostId={route.hostId}

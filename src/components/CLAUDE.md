@@ -30,7 +30,7 @@ the shell thin. Don't re-inline them.
 
 ## The rest, by rough category
 
-- **Cards / lists:** `ServerCard`, `GameCard`, `AlertCard`, `BriefCard`,
+- **Cards / lists:** `ServerCard`, `LeafCard`, `GameCard`, `AlertCard`, `BriefCard`,
   `CardTable`, `HostCardBody`, `RecentActivity`, `NeedsAttention`,
   `ContextualAlerts`, `Skeletons`, `Pagination`.
 - **Server surfaces:** `ServerHero`, `ServerActions`, `ServerConnect`,
