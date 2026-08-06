@@ -22,6 +22,13 @@ A reachable, healthy leaf is the state the whole page already demonstrates, so a
 unavailable, or no node chosen — where it names the state and the node it means. The standalone
 assistant is always online by construction, so it never shows one.
 
+### Changed — the composer names a node only when there is a choice of them
+
+The placeholder read "Message Assistant's assistant…" on the standalone surface, which addresses
+one leaf and was restating its own name back at itself. It names the node where the surface carries
+a host picker — the panel, where "Message hotrod's assistant…" says which of several you are
+talking to — and is otherwise "Message the assistant…".
+
 ### Fixed — the chat fills the screen on a phone
 
 The composer sits at the bottom of the viewport on mobile, on both surfaces. Two separate causes:

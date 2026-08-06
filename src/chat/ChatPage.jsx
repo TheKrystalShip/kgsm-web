@@ -778,11 +778,17 @@ function ChatPage({
         <div className="chat-composer">
           {voice.phase === "idle" ? (
             <div className="chat-composer__box">
+              {/* Name the node only where there is a choice of them. HostPicker is the surface
+                  saying it addresses a cluster, so on the panel this reads "Message hotrod's
+                  assistant\u2026" and stays useful; a surface with one leaf has no node to
+                  disambiguate and would just be restating its own name back at itself. */}
               <textarea
                 ref={taRef}
                 rows={1}
                 value={input}
-                placeholder={assistantHost ? "Message " + assistantHost.name + "\u2019s assistant\u2026" : "Message the assistant\u2026"}
+                placeholder={HostPicker && assistantHost
+                  ? "Message " + assistantHost.name + "\u2019s assistant\u2026"
+                  : "Message the assistant\u2026"}
                 onChange={onInputChange}
                 onKeyDown={onKeyDown} />
               <div className="chat-composer__bar">
