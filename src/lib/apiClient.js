@@ -321,8 +321,9 @@ const FINALIZE_IDLE_MS = 60000;
   // ---- assistant turn (SSE) ------------------------------------------------
   // The assistant turn is neither a request/response call nor a WS topic: it's a
   // POST that returns a long-lived text/event-stream relaying the assistant's
-  // §5·a frames (text.delta / tool.start / tool.result / command.proposed /
-  // error / done — see kgsm-llm/docs/m7-sse-5a-spec.md). The backend (kgsm-api
+  // typed frames (text.delta / tool.start / tool.result / progress /
+  // command.proposed / error / done — the contract is
+  // kgsm-llm/docs/wire-contract.md). The backend (kgsm-api
   // AssistantController) relays the per-host assistant leaf verbatim and decides
   // the capability degrade (absent→404 / down→503 / relay-misconfig→502) BEFORE
   // the stream commits — so those land as a thrown apiError here, while a turn

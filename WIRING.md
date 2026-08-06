@@ -459,7 +459,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > `command.proposed` → Confirm → the M3 command path → an SPA-composed `command.verified`. **Frontend-only**
 > (kgsm-llm relays `command.proposed` verbatim through kgsm-api's `AssistantController`; the M3
 > `POST /servers/{id}/commands` + the `jobs` WS all already shipped). The contract is from
-> `kgsm-llm/docs/m7-sse-5a-spec.md §6` (fork (a)): the SPA executes a confirmed proposal via the M3 path
+> `kgsm-llm/docs/wire-contract.md`: the SPA executes a confirmed proposal via the M3 path
 > (NOT the assistant's `/confirm`), and `command.verified` is **not a backend frame** — the SPA composes it.
 > - **Reducer:** `reduceTurnFrame` gains a `command.proposed` case → splices a confirm-first card BEFORE the
 >   streaming bubble (the tool-pill-safe spot — bubble stays last for `text.delta`); on `done` the card is moved
