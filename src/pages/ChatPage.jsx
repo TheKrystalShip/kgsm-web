@@ -45,7 +45,15 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     return rec ? rec.status : "none";
   });
   const assistantAuthed = leafStatus === "live";
-  const needsAssistantSignIn = !!(assistantHost && assistantUsable && !assistantAuthed);
+  // Spend a held refresh token before asking for anything. A new tab has the long-lived credential
+  // in localStorage and no access token in sessionStorage, so without this the dock offers a
+  // sign-in to someone who never signed out.
+  React.useEffect(() => {
+    if (assistantHost) assistantSession.authorize(assistantHost.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the host id; the object is re-derived each render
+  }, [assistantHost && assistantHost.id, leafStatus]);
+  const needsAssistantSignIn = !!(
+    assistantHost && assistantUsable && !assistantAuthed && leafStatus !== "bootstrapping");
 
   const [convos, setConvos]     = React.useState(loadConversations);
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);

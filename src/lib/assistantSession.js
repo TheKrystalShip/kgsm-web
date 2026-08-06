@@ -136,6 +136,18 @@ function rotate(hostId) {
   return p;
 }
 
+// Ensure a live session for a host, silently, without asking the user for anything. A seeded
+// refresh token is spent here rather than at the first call, because the surfaces read `statusOf`
+// on their first render — healing only on demand shows a Sign in prompt to someone who is, in
+// every sense that matters, already signed in. Resolves to whether we now hold a session.
+function authorize(hostId) {
+  if (!hostId || !originOf(hostId)) return Promise.resolve(false);
+  const status = statusOf(hostId);
+  if (status === "live") return Promise.resolve(true);
+  if (status === "denied" || status === "none") return Promise.resolve(false);
+  return rotate(hostId).then((t) => !!t);
+}
+
 // Hand the browser to the leaf's Discord consent, asking to be returned HERE. The marker in
 // the return address is what tells the landing which service issued the fragment — the node
 // login lands on the same origin with the same key names, and without it the panel would
@@ -176,13 +188,17 @@ function seed() {
     const acc = readAccess(id);
     const ref = readRefresh(id);
     if (acc && acc.token) setRec(id, { status: "live", token: acc.token, tier: acc.tier || null, refresh: ref, error: null });
-    else if (ref) setRec(id, { status: "expired", token: null, tier: null, refresh: ref, error: null });
+    // A refresh token with no access token is the ORDINARY state of a new tab: sessionStorage is
+    // per-tab and localStorage is not. It is `bootstrapping`, not `expired` — the long-lived
+    // credential is exactly what spares the user another sign-in, and prompting for one while
+    // holding it is asking for something we already have.
+    else if (ref) setRec(id, { status: "bootstrapping", token: null, tier: null, refresh: ref, error: null });
   }
 }
 
 const assistantSession = Object.assign(store, {
   ASSISTANT_LOGIN_PARAM,
-  adopt, deny, hasRoute, isDenied, isLive, originOf, rotate, seed, signIn, signOut,
+  adopt, authorize, deny, hasRoute, isDenied, isLive, originOf, rotate, seed, signIn, signOut,
   statusOf, tierOf, tokenOf,
 });
 

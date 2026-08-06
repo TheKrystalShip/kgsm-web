@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a new tab no longer asks for an assistant sign-in it already has
+
+The access token lives in sessionStorage (per-tab) and the refresh token in localStorage (not), so
+a new tab holds the long-lived credential and no short-lived one. That state is `bootstrapping`,
+not `expired`: the dock spends the refresh token silently instead of offering a sign-in to someone
+who never signed out.
+
 ### Changed — the chat talks to the assistant leaf directly
 
 The assistant dock addresses the assistant on its own public origin, with a session the leaf issued.
