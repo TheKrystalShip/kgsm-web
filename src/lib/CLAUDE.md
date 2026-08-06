@@ -44,6 +44,13 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   own refresh rotation against the leaf's `/auth/session/refresh`, and the sign-in bounce.
   `originOf(hostId)` reads the address off the host's assistant capability, which is the only
   thing the aggregator contributes — discovery, not transport.
+  **The sign-in is silent.** Every surface on a host is the same Discord application, so a browser
+  signed into the panel has already authorized the assistant and `prompt=none` completes with
+  nothing rendered. `ensureSession(hostId)` is the one decision point, ranked by cost: live ⇒
+  nothing, a held refresh ⇒ a silent rotate, neither ⇒ a redirect. **One redirect per host per
+  tab** (a `sessionStorage` marker written before leaving, cleared only when a session arrives), so
+  a leaf that keeps refusing cannot loop the browser; the route travels in `sessionStorage` because
+  the fragment is the handoff's. `prompt=consent` is passed by the dock's fallback button alone.
 
 **The honesty boundary**
 - `adapters.js` — maps kgsm-api's narrow HONEST model to view shapes. A value the

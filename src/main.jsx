@@ -30,8 +30,28 @@ async function boot() {
     const { assistantSession } = await import("./lib/assistantSession.js");
     if (captured.access) assistantSession.adopt(captured.hostId, { token: captured.access, refresh: captured.refresh, tier: captured.tier });
     else if (captured.error === "denied") assistantSession.deny(captured.hostId);
+    // Discord declined a silent sign-in and wants a human. Recorded so the dock offers the one
+    // button that can work; the attempt marker stays set, so nothing bounces the browser again.
+    else if (captured.error === "consent_required" || captured.error === "login_required") {
+      assistantSession.markConsentNeeded(captured.hostId);
+    }
+    // Put the browser back on the route it left. The fragment was the handoff's, so the route
+    // travelled out of band — restoring it before mount means the router reads the right one and
+    // a sign-in never costs the user their place.
+    const route = assistantSession.takeRoute();
+    if (route) { try { history.replaceState(null, "", location.pathname + location.search + route); } catch {} }
   }
-  else if (captured && captured.access) await completeOAuthLogin(captured);
+  else if (captured && captured.access) {
+    const result = await completeOAuthLogin(captured);
+    // This node runs an assistant we owe a session to. The browser is already mid-redirect, so
+    // chaining the leaf's own (silent) round trip on now costs nothing visible — one sign-in, and
+    // the dock is ready. Navigating away instead of mounting; the node session is already stored.
+    if (result && result.chainAssistant) {
+      const { assistantSession } = await import("./lib/assistantSession.js");
+      const { hostId, origin } = result.chainAssistant;
+      if (assistantSession.signIn(hostId, { origin })) return;
+    }
+  }
   // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
   // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
   // into the app instead of stalling on the Discord LoginPage (which can't complete

@@ -793,6 +793,79 @@ try {
   assistantSession.adopt(hmId, { token: "smoke-leaf-token", refresh: null, tier: "admin" });
   assert(assistantSession.originOf(hmId) === LEAF && assistantSession.tokenOf(hmId) === "smoke-leaf-token",
     "assistant session: the leaf origin comes from the capability's info.url, with its own bearer");
+
+  // ---- silent sign-in: what it costs, and what stops it looping ----------------------------
+  // The assistant's sign-in is a full-page redirect, so `ensureSession` is ranked by cost and
+  // guarded so it can never navigate the browser twice. `signIn` is spied at the seam (jsdom will
+  // not navigate, and a real bounce would end the run).
+  const SIGNIN_HOST = "silent-sso-host";
+  st.hostsStore.add({
+    id: SIGNIN_HOST, name: "Silent", capabilities: {
+      assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
+  });
+  let signInCalls = [];
+  assistantSession.__setNavigator((url) => signInCalls.push(url));
+
+  // A live session buys nothing with a redirect.
+  assert((await assistantSession.ensureSession(hmId)) === true && signInCalls.length === 0,
+    "ensureSession: a live session neither rotates nor redirects");
+
+  // A held refresh token is one silent request; spending a page navigation on it would be absurd.
+  assistantSession.adopt(SIGNIN_HOST, { token: "t", refresh: "r", tier: "admin" });
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    if (opts && opts.method === "POST" && u === LEAF + "/auth/session/refresh")
+      return new Response(JSON.stringify({ access: "rotated", refresh: "r2", tier: "admin" }),
+        { status: 200, headers: { "content-type": "application/json" } });
+    return realFetch(url, opts);
+  };
+  sessionStorage.removeItem("krystal:assistant:session:" + SIGNIN_HOST);   // a new tab: refresh only, no access
+  assistantSession.seed();
+  assert(assistantSession.statusOf(SIGNIN_HOST) === "bootstrapping",
+    "seed: a refresh token with no access token is `bootstrapping`, not a reason to ask for a sign-in");
+  const rotated = await assistantSession.ensureSession(SIGNIN_HOST);
+  globalThis.fetch = realFetch;
+  assert(rotated === true && signInCalls.length === 0,
+    "ensureSession: a held refresh token is spent on a silent rotate, never on a redirect");
+
+  // Nothing held: this is what a redirect is for — exactly once per host per tab.
+  assistantSession.signOut(SIGNIN_HOST);
+  sessionStorage.removeItem("krystal:assistant:tried:" + SIGNIN_HOST);
+  await assistantSession.ensureSession(SIGNIN_HOST);
+  assert(signInCalls.length === 1
+      && signInCalls[0].startsWith(LEAF + "/auth/discord/start?return_to=")
+      && !signInCalls[0].includes("prompt=")
+      && decodeURIComponent(signInCalls[0]).includes("assistant_login=" + SIGNIN_HOST),
+    "ensureSession: no credential at all → ONE silent sign-in, no prompt param (⇒ the leaf's prompt=none) + the issuer marker");
+  await assistantSession.ensureSession(SIGNIN_HOST);
+  assert(signInCalls.length === 1,
+    "ensureSession: the attempt marker stops a second bounce — a leaf that always refuses can't loop the browser");
+
+  // A host with no public origin has nowhere to send the browser.
+  st.hostsStore.add({
+    id: "no-route-host", name: "NoRoute",
+    capabilities: { assistant: { provisioned: true, status: "operational" } },
+  });
+  await assistantSession.ensureSession("no-route-host");
+  assert(signInCalls.length === 1,
+    "ensureSession: a leaf with no public origin is never redirected to (nowhere to go)");
+
+  // Denied is terminal — retrying a role decision loops forever without changing the answer.
+  signInCalls = [];
+  assistantSession.deny(SIGNIN_HOST);
+  sessionStorage.removeItem("krystal:assistant:tried:" + SIGNIN_HOST);
+  await assistantSession.ensureSession(SIGNIN_HOST);
+  assert(signInCalls.length === 0, "ensureSession: `denied` is terminal — never redirected again");
+
+  // The visible fallback is the only thing that ever asks Discord for a consent screen.
+  signInCalls = [];
+  assistantSession.signIn(hmId, { prompt: "consent" });
+  assert(signInCalls.length === 1 && signInCalls[0].includes("prompt=consent"),
+    "signIn: the fallback button is the ONLY caller that asks for a consent screen");
+
+  assistantSession.__setNavigator(null);
+  st.hostsStore.remove(SIGNIN_HOST);
+  st.hostsStore.remove("no-route-host");
   const enc = new TextEncoder();
   const CANNED = [
     'event: text.delta\ndata: {"type":"text.delta","text":"Let me check "}\n\n',

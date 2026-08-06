@@ -23,6 +23,9 @@ import { hostsStore } from "./stores.js";
 
 const TOKEN_PREFIX = "krystal:assistant:session:";    // sessionStorage {token,tier}
 const REFRESH_PREFIX = "krystal:assistant:refresh:";  // localStorage (long-lived)
+const ATTEMPT_PREFIX = "krystal:assistant:tried:";    // sessionStorage — one silent bounce per tab
+const CONSENT_PREFIX = "krystal:assistant:consent:";  // sessionStorage — Discord wants a human
+const ROUTE_KEY = "krystal:assistant:route";          // sessionStorage — the route to come back to
 
 // The query key the leaf's return leg carries back, naming the host whose assistant issued
 // the tokens in the fragment. The boot-time fragment capture reads it to tell an assistant
@@ -73,9 +76,40 @@ function readRefresh(id) {
   try { return localStorage.getItem(REFRESH_PREFIX + id) || null; } catch { return null; }
 }
 
+// ---- the silent sign-in's guard rails ----
+// A silent sign-in navigates the whole page, so it gets exactly ONE attempt per host per tab. The
+// marker is written before leaving and cleared only on a session actually arriving; a landing that
+// came back empty leaves it set, which is what stops a leaf that always refuses from bouncing the
+// browser in a loop. sessionStorage, because the answer is only true of THIS tab's journey.
+function markAttempted(id) { try { sessionStorage.setItem(ATTEMPT_PREFIX + id, "1"); } catch {} }
+function clearAttempted(id) { try { sessionStorage.removeItem(ATTEMPT_PREFIX + id); } catch {} }
+function attempted(id) { try { return sessionStorage.getItem(ATTEMPT_PREFIX + id) === "1"; } catch { return false; } }
+
+// Discord declined a silent sign-in and wants a human. Recorded so the dock can offer the one
+// button that will work, rather than silently retrying something we know will be refused again.
+function markConsentNeeded(id) { try { sessionStorage.setItem(CONSENT_PREFIX + id, "1"); } catch {} }
+function needsConsent(id) { try { return sessionStorage.getItem(CONSENT_PREFIX + id) === "1"; } catch { return false; } }
+
+// The route the browser was on when it left. The fragment carries the handoff, so it cannot also
+// carry the route; keeping it out of the query too means a sign-in never writes where someone was
+// into an access log. One slot: only one sign-in can be in flight, since it navigates the page.
+function stashRoute(hash) {
+  try {
+    if (hash && hash !== "#") sessionStorage.setItem(ROUTE_KEY, hash);
+    else sessionStorage.removeItem(ROUTE_KEY);
+  } catch {}
+}
+function takeRoute() {
+  try { const r = sessionStorage.getItem(ROUTE_KEY); sessionStorage.removeItem(ROUTE_KEY); return r || null; }
+  catch { return null; }
+}
+
 // Adopt a session the leaf just issued (the OAuth return leg, or a rotation).
 function adopt(hostId, sess) {
   if (!hostId || !sess || !sess.token) return;
+  // A session arrived: whatever the last attempt cost, it is spent and the guards are done.
+  clearAttempted(hostId);
+  try { sessionStorage.removeItem(CONSENT_PREFIX + hostId); } catch {}
   writeAccess(hostId, sess.token, sess.tier);
   if (sess.refresh !== undefined) writeRefresh(hostId, sess.refresh || null);
   setRec(hostId, {
@@ -94,6 +128,9 @@ function deny(hostId) {
 }
 
 function signOut(hostId) {
+  // Signing out is a decision to be signed out. Leaving the attempt marker set is what stops the
+  // automatic sign-in from immediately undoing it.
+  markAttempted(hostId);
   try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
   writeRefresh(hostId, null);
   setRec(hostId, { status: "none", token: null, refresh: null, tier: null, error: null });
@@ -148,19 +185,50 @@ function authorize(hostId) {
   return rotate(hostId).then((t) => !!t);
 }
 
-// Hand the browser to the leaf's Discord consent, asking to be returned HERE. The marker in
-// the return address is what tells the landing which service issued the fragment — the node
-// login lands on the same origin with the same key names, and without it the panel would
-// present an assistant token to kgsm-api. `prompt=consent` because the first authorization
-// on a new client cannot be silent.
-function signIn(hostId) {
-  const origin = originOf(hostId);
+// The one decision point for "we want to be talking to this leaf". Ranked by what it costs the
+// user: a live session is free, a held refresh token is one silent request, and only a browser
+// with neither is worth a redirect. Called wherever a host becomes the assistant we address.
+function ensureSession(hostId) {
+  if (!hostId || !originOf(hostId)) return Promise.resolve(false);
+  const status = statusOf(hostId);
+  if (status === "live") return Promise.resolve(true);
+  if (status === "denied") return Promise.resolve(false);          // terminal; a retry loops forever
+  if (status === "bootstrapping") return authorize(hostId);        // spend the refresh token instead
+  if (attempted(hostId)) return Promise.resolve(false);            // already bounced this tab; the UI asks
+  signIn(hostId);
+  return Promise.resolve(false);                                   // we are navigating away
+}
+
+// Hand the browser to the leaf's Discord sign-in, asking to be returned HERE.
+//
+// **This is normally invisible.** Every surface on the host is the SAME Discord application — one
+// client id in /etc/kgsm/discord-auth.env, differing only in redirect URI — so a browser that
+// authorized the app to sign into the panel has already authorized it for the assistant. Discord
+// answers `prompt=none` with two 302s and renders nothing. `prompt=consent` is the fallback for the
+// one case that genuinely needs a human, and is passed only after a silent attempt asked for it.
+//
+// The marker in the return address is what tells the landing which service issued the fragment —
+// the node login lands on the same origin with the same key names, and without it the panel would
+// present an assistant token to kgsm-api.
+// The navigation itself, behind a seam. A sign-in leaves the page, which a test harness cannot let
+// happen and jsdom cannot perform — so the smoke swaps this to record the bounce it would have made
+// (the `__setJobTiming` pattern in stores/servers.js). Production never touches it.
+let navigate = (url) => { window.location.href = url; };
+function __setNavigator(fn) { navigate = fn || ((url) => { window.location.href = url; }); }
+
+function signIn(hostId, opts) {
+  // `origin` is passed by the caller that runs BEFORE the app mounts (the login chain), where the
+  // host roster is not loaded yet and there is nothing to resolve an address from.
+  const origin = (opts && opts.origin) || originOf(hostId);
   if (!origin) return false;
   const back = new URL(window.location.href);
+  // The fragment is the handoff's, so the route travels out of band and is put back after landing.
+  stashRoute(back.hash);
   back.hash = "";
   back.searchParams.set(ASSISTANT_LOGIN_PARAM, hostId);
-  window.location.href = origin + "/auth/discord/start?prompt=consent&return_to="
-    + encodeURIComponent(back.toString());
+  markAttempted(hostId);
+  const prompt = opts && opts.prompt ? "prompt=" + encodeURIComponent(opts.prompt) + "&" : "";
+  navigate(origin + "/auth/discord/start?" + prompt + "return_to=" + encodeURIComponent(back.toString()));
   return true;
 }
 
@@ -198,8 +266,9 @@ function seed() {
 
 const assistantSession = Object.assign(store, {
   ASSISTANT_LOGIN_PARAM,
-  adopt, authorize, deny, hasRoute, isDenied, isLive, originOf, rotate, seed, signIn, signOut,
-  statusOf, tierOf, tokenOf,
+  __setNavigator,
+  adopt, attempted, authorize, deny, ensureSession, hasRoute, isDenied, isLive, needsConsent,
+  markConsentNeeded, originOf, rotate, seed, signIn, signOut, statusOf, takeRoute, tierOf, tokenOf,
 });
 
 // Restore at module load: the surfaces read `statusOf` on their first render, and a store that

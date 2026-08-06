@@ -45,15 +45,16 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     return rec ? rec.status : "none";
   });
   const assistantAuthed = leafStatus === "live";
-  // Spend a held refresh token before asking for anything. A new tab has the long-lived credential
-  // in localStorage and no access token in sessionStorage, so without this the dock offers a
-  // sign-in to someone who never signed out.
-  React.useEffect(() => {
-    if (assistantHost) assistantSession.authorize(assistantHost.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the host id; the object is re-derived each render
-  }, [assistantHost && assistantHost.id, leafStatus]);
+  // The sign-in is normally automatic and invisible (AssistantDockContext → ensureSession): every
+  // surface on a host is the same Discord application, so a browser signed into the panel has
+  // already authorized the assistant. This bar is the FALLBACK for the one case that genuinely
+  // needs a person — Discord declined the silent round trip and wants a consent — plus the case
+  // where an attempt was already spent in this tab and came back with nothing.
+  const consentNeeded = !!(assistantHost && assistantSession.needsConsent(assistantHost.id));
   const needsAssistantSignIn = !!(
-    assistantHost && assistantUsable && !assistantAuthed && leafStatus !== "bootstrapping");
+    assistantHost && assistantUsable && !assistantAuthed
+    && leafStatus !== "bootstrapping"
+    && (consentNeeded || assistantSession.attempted(assistantHost.id)));
 
   const [convos, setConvos]     = React.useState(loadConversations);
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);
@@ -730,11 +731,14 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
             <span>
               {leafStatus === "denied"
                 ? "You don\u2019t have access to " + assistantHost.name + "\u2019s assistant."
-                : assistantHost.name + "\u2019s assistant needs its own sign-in."}
+                : consentNeeded
+                  ? assistantHost.name + "\u2019s assistant needs your permission once."
+                  : "Couldn\u2019t sign in to " + assistantHost.name + "\u2019s assistant."}
             </span>
             {leafStatus !== "denied" && (
-              <button type="button" className="chat-signin__go" onClick={() => assistantSession.signIn(assistantHost.id)}>
-                Sign in
+              <button type="button" className="chat-signin__go"
+                onClick={() => assistantSession.signIn(assistantHost.id, { prompt: "consent" })}>
+                Continue with Discord
               </button>
             )}
           </div>

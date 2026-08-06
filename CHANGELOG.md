@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the assistant signs you in by itself
+
+Signing into the Control Panel now leaves the dock ready. There is no second login to click through.
+
+Every surface on a host is the **same Discord application** — one client id in
+`/etc/kgsm/discord-auth.env`, differing only in redirect URI — so a browser that authorized the app
+for the panel has already authorized it for the assistant. Its OAuth round trip completes with
+`prompt=none`: two 302s, nothing rendered. The second login was never a decision the user was making,
+only a redirect we were making them click.
+
+- **Chained onto a panel login.** `completeOAuthLogin` already reads `/hosts`; if that node runs an
+  assistant with a public origin and the browser holds no session for it, the leaf's round trip is
+  chained on before the app mounts. The browser is already mid-redirect, so it costs nothing visible.
+- **Automatic afterwards**, for an assistant added later, one on another cluster node, or a lapsed
+  session — as soon as there is a targeted assistant host.
+- **Bounded by the host that is targeted.** No assistant in the cluster and nothing is targeted;
+  several and the target stays unset until the user picks one. At most one leaf is ever addressed,
+  and a `/hosts` response describes one node, so the login chain can name at most one assistant.
+- **Ranked by cost.** A live session does nothing, a held refresh token is spent on a silent rotate,
+  and only a browser with neither is worth a redirect.
+- ⚠ **One redirect per host per tab.** The marker is written before leaving and cleared only when a
+  session actually arrives, so a leaf that keeps refusing cannot loop the browser. `denied` stays
+  terminal, and a leaf that is down is never redirected to — that would land on a dead origin.
+- **The route survives.** The fragment carries the handoff, so the route travels in `sessionStorage`
+  and is restored before mount.
+- The sign-in bar is now the fallback for the one case that needs a person: Discord declining the
+  silent attempt. Its button is the only caller that ever asks for a consent screen.
+
 ### Fixed — a new tab no longer asks for an assistant sign-in it already has
 
 The access token lives in sessionStorage (per-tab) and the refresh token in localStorage (not), so

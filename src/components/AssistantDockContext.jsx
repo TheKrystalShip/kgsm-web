@@ -1,4 +1,5 @@
 import React from "react";
+import { assistantSession } from "../lib/assistantSession.js";
 import { assistantHosts, assistantHostsAll, capUsable } from "../lib/capabilities.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { serverHostId, serversStore } from "../lib/stores.js";
@@ -158,6 +159,24 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     if (!assistantHostId && assistantHost) setAssistantHostId(assistantHost.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived every render, so depping it would loop
   }, [assistantHost && assistantHost.id, assistantHostId]);
+
+  // Sign in to the targeted assistant's leaf without being asked to. Every surface on a host is the
+  // same Discord application, so a browser signed into the panel has already authorized the
+  // assistant and its round trip renders nothing — the second login is a redirect, not a decision.
+  //
+  // Keyed on the TARGETED host, which is what bounds this: no assistant in the cluster and there is
+  // nothing to target; several and the target stays unset until the user picks one, so at most one
+  // leaf is ever addressed. ensureSession spends a held refresh token before it spends a redirect,
+  // and takes at most one redirect per host per tab.
+  //
+  // Gated on the leaf being USABLE, not merely declared: a redirect to a leaf that is down lands the
+  // browser on a dead origin, which is a far worse answer than the dock saying it is unavailable.
+  // The flag is in the deps so a leaf that comes up later still gets its one attempt.
+  const assistantReachable = !!(assistantHost && capUsable(assistantHost, "assistant"));
+  React.useEffect(() => {
+    if (assistantHost && assistantReachable) assistantSession.ensureSession(assistantHost.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the targeted host id + reachability; the object is re-derived every render
+  }, [assistantHost && assistantHost.id, assistantReachable]);
 
   // Restore dock open/closed state across sessions
   const storedOpenRef = React.useRef(localStorage.getItem("krystal:dock:open"));

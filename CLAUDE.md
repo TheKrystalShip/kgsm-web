@@ -194,13 +194,18 @@ break boot. Read the comments before "tidying" an import.
   nav/reach; `canOn(cap, host)` = scoped for actions** — never substitute one for
   the other. `resolveRoute()` is the **routing chokepoint**: a forbidden route is
   mapped to the persona's home synchronously, so it never enters state or mounts.
-- **`assistantSession.js` — the session with the LEAF, separate from the node's.** The
-  assistant issues and revokes its own tokens, so a user signed in to the panel can still
-  owe the assistant a sign-in; the chat says so and offers it. Sign-in is a full-page bounce
-  to the leaf's `/auth/discord/start?return_to=…`, and the return leg lands here carrying an
-  **`assistant_login=<hostId>` marker in the query**. That marker is load-bearing: both
-  logins come back to this origin with the same `access`/`refresh`/`error` fragment keys, and
-  without it the panel hands a leaf token to kgsm-api and gets a 401.
+- **`assistantSession.js` — the session with the LEAF, separate from the node's, and obtained
+  silently.** The assistant issues and revokes its own tokens, but every surface on a host is the
+  **same Discord application** (one `KgsmAuth__ClientId`, differing only in redirect URI), so a
+  browser signed into the panel has already authorized the assistant: its round trip completes with
+  `prompt=none`, rendering nothing. It is chained onto a panel login (already mid-redirect, so it
+  costs nothing visible) and otherwise fires as soon as there is a targeted assistant host — which
+  is what bounds it, since no assistant means nothing targeted and several means nothing targeted
+  until the user picks. The return leg lands here carrying an **`assistant_login=<hostId>` marker
+  in the query**; that marker is load-bearing, because both logins come back to this origin with
+  the same `access`/`refresh`/`error` fragment keys and without it the panel hands a leaf token to
+  kgsm-api and gets a 401. ⚠ **One redirect per host per tab**, so a refusing leaf cannot loop the
+  browser.
 - **`capabilities.js` — per-host services** (metrics / assistant / watchdog), each
   with `provisioned` (offered?) × `status` (live health). **The assistant is
   per-host with no central fallback** — if a host doesn't expose it, that host has

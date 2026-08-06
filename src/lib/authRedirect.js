@@ -112,6 +112,35 @@ export function takeOAuthError() {
   catch { return null; }
 }
 
+// Does this node run an assistant the browser should be signed into, and can it be done without
+// asking the user for anything? Read from the `/hosts` row we just fetched rather than from
+// hostsStore, which is still empty this early.
+//
+// Every condition here is a reason NOT to bounce, and each is a real case:
+//   • no assistant on this node, or one the node reports no public address for → nowhere to go.
+//     A cluster with no assistants at all never bounces; neither does one whose leaf has no
+//     browser route.
+//   • the leaf is not answering → the round trip would fail; the dock says it is unavailable.
+//   • we already hold a session, or a refresh token to rotate → nothing to buy with a redirect.
+//   • this tab already tried → never twice, whatever the reason it did not take.
+// A node's `/hosts` describes that node alone, so this can name at most one assistant however
+// many the cluster runs; the others are picked up once the roster loads.
+async function assistantToChain(hostRow, hostId) {
+  if (!hostRow || !hostId) return null;
+  const cap = hostRow.capabilities && hostRow.capabilities.assistant;
+  if (!cap || cap.provisioned === false) return null;
+  if (cap.status !== "operational" && cap.status !== "degraded") return null;
+  const url = cap.info && typeof cap.info.url === "string" ? cap.info.url.trim() : "";
+  if (!url) return null;
+  try {
+    const { assistantSession } = await import("./assistantSession.js");
+    const status = assistantSession.statusOf(hostId);
+    if (status !== "none") return null;                 // live, bootstrapping or denied — not ours to fix
+    if (assistantSession.attempted(hostId)) return null;
+  } catch { return null; }
+  return { hostId, origin: url.replace(/\/+$/, "") };
+}
+
 // On a fresh OAuth landing, establish the session BEFORE the app mounts (so it
 // boots authed — no LoginPage flash, no reload), in three steps with the access
 // token as the bearer:
@@ -125,6 +154,12 @@ export function takeOAuthError() {
 //                   surfaces (the module-load cold refresh ran before login with
 //                   no token, so it loaded nothing).
 // On failure we drop the stash so we never half-authenticate, and record an error.
+//
+// Returns `{ chainAssistant: { hostId, origin } }` when this node runs an assistant the browser
+// still owes a session to. The caller bounces there instead of mounting: the browser is already
+// mid-redirect, so the assistant's own (silent) round trip costs nothing the user can see, and
+// signing into the panel ends with the dock ready. The `/hosts` read above is where we learn it,
+// which is also why this is bounded to ONE assistant — that response describes this node alone.
 export async function completeOAuthLogin(captured) {
   if (!CONNECTIONS.length || !captured || !captured.access) return;
   if (captured.issuer === "assistant") return;   // a leaf's token; kgsm-api can only 401 on it
@@ -153,12 +188,13 @@ export async function completeOAuthLogin(captured) {
     // 2 + 3: resolve the real host id, adopt the session under it, hydrate. Best-
     // effort — a hiccup here leaves the user signed in (identity is set) but with
     // data unloaded until the next call heals it, never a broken half-login.
-    let hostId = null, hostName = null;
+    let hostId = null, hostName = null, hostRow = null;
     try {
       const hr = await fetch(apiV1 + "/hosts", { headers: authHeaders });
       if (hr.ok) {
         const arr = await hr.json();
         const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]);
+        hostRow = h || null;
         hostId = (h && h.id) || null;
         hostName = (h && (h.label || h.name)) || null;
       }
@@ -184,6 +220,11 @@ export async function completeOAuthLogin(captured) {
           try { if (stores[n] && stores[n].refresh) stores[n].refresh().catch(() => {}); } catch {}
         });
       } catch {}
+
+      // The node session is written to storage synchronously above, so navigating away now cannot
+      // lose it. Hand the caller the assistant to chain to, if this node has one we owe a session.
+      const chainAssistant = await assistantToChain(hostRow, hostId);
+      if (chainAssistant) return { chainAssistant };
     }
   } catch {
     try { sessionStorage.removeItem(PENDING_KEY); } catch {}
