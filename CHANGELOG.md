@@ -22,13 +22,20 @@ A reachable, healthy leaf is the state the whole page already demonstrates, so a
 unavailable, or no node chosen — where it names the state and the node it means. The standalone
 assistant is always online by construction, so it never shows one.
 
-### Fixed — the standalone assistant fills the screen on a phone
+### Fixed — the chat fills the screen on a phone
 
-`.chat-page`'s mobile height subtracts the top bar and the content-area padding, which the
-standalone surface has neither of; being the later rule at equal specificity, it beat
-`.chat-page--solo` and left a gap the height of a top bar below the composer. The solo surface now
-restates its own height inside the mobile query, and drops its 14px inset there — at phone width
-that gutter read as a frame drawn around the conversation.
+The composer sits at the bottom of the viewport on mobile, on both surfaces. Two separate causes:
+
+- **The mobile grid declared two rows for one item.** `.chat-rail` is `display: none` below 768px
+  (its job is done by the in-header new-chat + history popover), and a `display: none` child
+  generates no grid item at all — so `.chat-main` was auto-placed in the `auto` track, sized to its
+  content, and the `1fr` track below it was empty. That leftover was the dead space, and it grew
+  with the viewport: 23px on an iPhone 13, **274px on a Galaxy S25 Ultra**. The track is now `1fr`,
+  which is what the docked chat has always used for the same rail-hidden layout.
+- **`.chat-page`'s mobile height subtracts a top bar and a content-area inset** that the standalone
+  surface has neither of; being the later rule at equal specificity it beat `.chat-page--solo`. The
+  solo surface restates its own height inside the mobile query, and drops its 14px inset there — at
+  phone width that gutter read as a frame drawn around the conversation.
 
 ### Added — the standalone assistant installs as its own app
 

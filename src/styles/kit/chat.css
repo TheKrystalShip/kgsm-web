@@ -3320,7 +3320,12 @@ a.ev-search__src:hover {
 @media (max-width: 768px) {
   .chat-page {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    /* ONE row, because there is one item: the rail is display:none here (its job is done by the
+       in-header new-chat + history popover), and a display:none child generates no grid item at
+       all. A second track would leave .chat-main auto-placed in the first one — sized to its
+       content instead of to the screen — and the leftover height would sit below the composer as
+       dead space that grows with the viewport. */
+    grid-template-rows: 1fr;
     height: calc(100dvh - var(--topbar-h) - 32px);
   }
 
