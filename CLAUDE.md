@@ -291,9 +291,10 @@ which re-cascades instantly; the picker is in Settings → Account). Landmines:
   (fetch-based; migrated off WebSocket 2026-07-02, `sse-migration-plan.md`) are
   **built and committed** (see `authRedirect.js`, `sessionStore.js`,
   `liveStream.js`, and the git log) — they are NOT "left". **PWA installability is
-  also built** (manifest + a production-only same-origin service worker — see the
-  "PWA / installability" section in `README.md`; `public/manifest.webmanifest`,
-  `public/sw.js`, `src/lib/registerSW.js`). Genuinely still deferred: TypeScript, a
+  also built, for BOTH surfaces** — each installs as its own app, with its own manifest,
+  production-only service worker and icons under `public-<surface>/` (see the
+  "PWA / installability" section in `README.md`, `scripts/public-overlay.js`, and
+  `src/lib/registerSW.js`). Genuinely still deferred: TypeScript, a
   unit-test runner, a full Workbox **precache** (`vite-plugin-pwa`; the current SW
   caches on demand, not the whole build manifest), the Files/Settings/Performance/
   Players backends (their tabs render a "work in progress" state), and parts of

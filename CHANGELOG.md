@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the standalone assistant installs as its own app
+
+The assistant surface is a PWA on the same terms the Control Panel is: Android Chrome offers
+**Install app**, and it runs standalone and full-screen from the home screen. The two install as
+**two separate apps** — two origins, two manifests — so the artwork has to tell them apart at a
+glance while still reading as one product.
+
+- **`public-assistant/`** carries the surface's own half: `assistant.webmanifest`,
+  `assistant-sw.js`, 192/512/maskable icons, three Safari home-screen icons and 13 iOS launch
+  images. `assistant.html` links them and `src/assistant/main.jsx` registers the worker;
+  `registerServiceWorker(script)` now takes the surface's own worker.
+- **The artwork is derived, not drawn twice.** `scripts/make-assistant-icons.mjs` composes it from
+  the panel's mark plus the `bot` badge the chat already uses for its replies, so the family
+  resemblance survives a change to the mark. It is an authoring tool — no build runs it.
+- ⚠ **The assistant's service worker ALLOWLISTS what it may cache**, where the panel's denies
+  `/api/` and `/auth/`. The leaf answers on unprefixed root paths (`/turn`, `/conversations`,
+  `/tools`, `/health`), so a denylist would cache every route the leaf grows until someone
+  remembered to add it — and a stale authenticated `200` masks token expiry and can serve one
+  person's conversation from another's cache. Only the shell and the static asset directories are
+  ever intercepted.
+- **`npm run check:assistant`** now also fails when the manifest, the worker or any icon they name
+  is missing from the build — the overlay not running would otherwise be silent.
+
+### Changed — `public/` is the shared floor; each surface owns its own half
+
+`public/` is copied into both bundles, which is right for the fonts and the brand mark and wrong for
+anything describing one app. The panel's manifest, worker, icons and launch images moved to
+**`public-panel/`**, and `scripts/public-overlay.js` lays each surface's directory over its own
+build output (and serves it in dev). Shared-by-default is preserved: a new shared asset needs no
+edit, and only a difference is declared. The panel's `dist/` is unchanged file for file; the
+assistant's no longer ships the Control Panel's manifest, worker and artwork.
+
 ### Added — the standalone assistant SPA, on the shared chat
 
 This repo now builds **two** surfaces from one source tree: the Control Panel, and the standalone

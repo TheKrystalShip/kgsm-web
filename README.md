@@ -61,8 +61,10 @@ kgsm-web/
   index.html              Vite entry → /src/main.jsx
   vite.config.js  package.json  .env.example
   public/
-    fonts/                self-hosted Inter + JetBrains Mono (variable)
-    assets/  icons/       brand mark + PWA icons
+    fonts/                self-hosted Inter + JetBrains Mono (variable)   } SHARED by both builds
+    assets/               brand mark                                      }
+  public-panel/           the Control Panel's manifest, service worker, icons, launch images
+  public-assistant/       the standalone assistant's — it installs as its own app
   src/
     main.jsx              mounts <App/> in the root ErrorBoundary; imports global CSS
     App.jsx               the shell: auth gate, hash routing, sidebar, assistant dock
@@ -145,25 +147,47 @@ build manifest up front.
 
 ## PWA / installability
 
-The Control Panel is a Progressive Web App: on Android Chrome it offers
-**Install app** (Add to Home Screen) and runs standalone, full-screen, with the
-brand icon. The pieces:
+**Both surfaces are Progressive Web Apps.** On Android Chrome each offers **Install app** (Add to
+Home Screen) and runs standalone and full-screen; they install as **two separate apps**, since
+they are two origins with two manifests. The pieces, per surface:
 
-- **`public/manifest.webmanifest`** — name/short_name, `start_url`/`scope` `/`,
-  `display: standalone`, the `#0B0F14` theme/background, and the 192/512/maskable
-  icons in `public/icons/`. Linked from `index.html`.
-- **`public/sw.js`** — a deliberately small service worker. It only intercepts
-  **same-origin GETs** (the app shell): navigations are network-first with an
-  offline fallback to the cached shell; Vite's content-hashed assets are
-  cache-first (stale-while-revalidate). Every cross-origin `kgsm-api` call and
-  WebSocket passes straight through — the SW never sits in the live data path.
-- **`src/lib/registerSW.js`** — registers the SW **in production builds only**
-  (`import.meta.env.PROD`), after `load`. Dev (`npm run dev`) and the jsdom smoke
-  run never register it, so HMR and tests are unaffected.
-- **`index.html`** — also carries the iOS install hints (`apple-touch-icon`,
-  `apple-mobile-web-app-*`), since iOS Safari ignores the manifest.
+| | Control Panel | standalone assistant |
+|---|---|---|
+| entry | `index.html` | `assistant.html` |
+| manifest | `public-panel/manifest.webmanifest` | `public-assistant/assistant.webmanifest` |
+| worker | `public-panel/sw.js` | `public-assistant/assistant-sw.js` |
+| artwork | `public-panel/icons/` + `splash/` | `public-assistant/icons/` + `splash/` |
+| served by | kgsm-api | the kgsm-assistant leaf |
 
-Installability requires the app be served over **HTTPS** (localhost is exempt) —
-serve `dist/` from an HTTPS origin and Chrome shows the install prompt. To check
-locally: `npm run build && npm run preview`, then open DevTools → Application →
-Manifest / Service Workers.
+`public/` holds only what both share (fonts, brand mark) and Vite copies it into both bundles; each
+surface's own half is laid over the top from `public-<surface>/` by `scripts/public-overlay.js`.
+Shared-by-default is the point — a new shared asset needs no edit, and only a difference is
+declared. `npm run check:assistant` fails the assistant build if its manifest, worker or any icon
+it names is missing from `dist-assistant/`.
+
+- **The manifests** carry name/short_name, `start_url`/`scope` `/`, `display: standalone`, the
+  `#0B0F14` theme/background and 192/512/maskable icons. Chrome will not offer an install without
+  the 192 **and** 512.
+- **The artwork** is DERIVED, not drawn twice: `scripts/make-assistant-icons.mjs` composes the
+  assistant's icons and its 13 iOS launch images from the panel's mark plus the `bot` badge the
+  chat already uses for its replies. Two apps that sit on one home screen have to be told apart at
+  a glance while still reading as one product; deriving keeps that true when the mark changes.
+  Run it by hand after changing the artwork — it needs `rsvg-convert` and no build invokes it.
+- **The two service workers differ in what they may cache, and the difference is load-bearing.**
+  The panel's DENIES `/api/` and `/auth/`, which is exhaustive for kgsm-api. The assistant's
+  **allowlists**, because the leaf's routes are unprefixed at the root (`/turn`, `/conversations`,
+  `/tools`, `/health`) — a denylist there caches every route the leaf grows until someone remembers
+  to add it, and a stale authenticated `200` both masks token expiry and serves one person's
+  conversation from another's cache. Both are network-first for navigations (a deploy lands on the
+  next online load) and cache-first for content-hashed assets; neither sits in a live data path.
+- **`src/lib/registerSW.js`** registers a surface's own worker **in production builds only**
+  (`import.meta.env.PROD`), after `load`. Dev and the jsdom smoke never register one, so HMR and
+  tests are unaffected.
+- **Each entry HTML** also carries the iOS install hints (`apple-touch-icon`,
+  `apple-mobile-web-app-*`, `apple-touch-startup-image`), since iOS Safari ignores the manifest.
+
+Installability requires **HTTPS** (localhost is exempt). To check a deployed surface the way Chrome
+does, `scripts/visual-harness/pwa-check.mjs` reads the parsed manifest and the worker's state out
+of a real headless Chromium, and `sw-cache-check.mjs` beside it asserts the assistant's worker
+leaves the leaf's API uncached. Locally: `npm run build && npm run preview`, then DevTools →
+Application → Manifest / Service Workers.

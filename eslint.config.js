@@ -9,7 +9,12 @@ import reactHooks from "eslint-plugin-react-hooks";
 import react from "eslint-plugin-react";
 
 export default [
-  { ignores: ["dist/**", "node_modules/**", "public/sw.js", "*.min.js"] },
+  // The two service workers run in a worker global scope (`self`, `caches`, `clients`), which this
+  // browser/React config does not describe.
+  { ignores: [
+    "dist/**", "dist-assistant/**", "node_modules/**",
+    "public/sw.js", "public-assistant/assistant-sw.js", "*.min.js",
+  ] },
 
   js.configs.recommended,
 

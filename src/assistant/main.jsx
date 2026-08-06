@@ -4,6 +4,7 @@ import { App, SELF } from "./App.jsx";
 import { AppCrash, ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { captureOAuthFragment } from "../lib/oauthFragment.js";
 import { assistantSession } from "../lib/assistantSession.js";
+import { registerServiceWorker } from "../lib/registerSW.js";
 
 // The standalone assistant's own token + kit styles. A per-surface barrel over the SAME partials
 // the Control Panel uses (src/styles/assistant.css), so the two look identical and cannot drift.
@@ -48,5 +49,10 @@ async function boot() {
       </ErrorBoundary>
     </React.StrictMode>
   );
+
+  // Install the PWA shell SW (production-only; see registerSW.js). Done after mount so it never
+  // contends with first paint. This surface gets its OWN worker — the leaf's routes are unprefixed
+  // at the root, so what may be cached is allowlisted rather than denied.
+  registerServiceWorker("/assistant-sw.js");
 }
 boot();

@@ -122,3 +122,48 @@ if (existsSync(CSS_DIR)) {
   }
   console.log(`✓ standalone assistant: ${used.size} classes rendered, all of them styled`);
 }
+
+// ---- and it is still installable ------------------------------------------------------------
+// The PWA artwork, manifest and service worker live in public-assistant/ and are laid over the
+// shared public/ directory by a plugin in vite.assistant.config.js. If that overlay does not run,
+// the build still succeeds and the page still works — it just quietly stops being installable, and
+// the icons the HTML points at 404. So every artefact the page references is resolved against what
+// the build actually wrote.
+
+const DIST = resolve(ROOT, "dist-assistant");
+if (existsSync(resolve(DIST, "assistant.html"))) {
+  const missing = [];
+  const need = (p, why) => { if (!existsSync(resolve(DIST, "." + p))) missing.push(`${p}  (${why})`); };
+
+  const html = readFileSync(resolve(DIST, "assistant.html"), "utf8");
+  for (const [, href] of html.matchAll(/(?:href|src)="(\/[^"]+)"/g)) {
+    if (!href.startsWith("/assets/")) need(href, "referenced by assistant.html");
+  }
+
+  need("/assistant-sw.js", "registered by src/assistant/main.jsx");
+
+  const manifestPath = resolve(DIST, "assistant.webmanifest");
+  if (!existsSync(manifestPath)) {
+    missing.push("/assistant.webmanifest  (the install manifest)");
+  } else {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    for (const i of manifest.icons || []) need(i.src, `declared by the manifest (${i.purpose})`);
+    // Android Chrome will not offer an install without both of these sizes.
+    for (const size of ["192x192", "512x512"]) {
+      if (!(manifest.icons || []).some((i) => i.sizes === size)) {
+        missing.push(`an icon at ${size}  (Chrome requires it to offer "Install app")`);
+      }
+    }
+  }
+
+  if (missing.length) {
+    console.error("\n✗ the standalone assistant is not installable — the build is missing:\n");
+    for (const m of missing) console.error(`    ${m}`);
+    console.error(
+      "\n  These come from public-assistant/, copied over the shared public/ by the overlay plugin\n"
+      + "  in vite.assistant.config.js. Check that it ran, and that scripts/make-assistant-icons.mjs\n"
+      + "  has been run if the artwork is what's absent.\n");
+    process.exit(1);
+  }
+  console.log("✓ standalone assistant: manifest, service worker and every icon it names are in the build");
+}

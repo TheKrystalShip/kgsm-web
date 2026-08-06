@@ -19,6 +19,11 @@ everything that differs between the surfaces is a PROP, with defaults describing
 server roster, per-host roles, review mode, node attribution); `src/assistant/` is the standalone
 shell and passes almost nothing.
 
+Static assets divide the same way: `public/` is the shared floor (fonts, brand mark) and each
+surface's own half — the manifest, service worker and icons that make it an **installable app in
+its own right** — is laid over the top from `public-panel/` / `public-assistant/` by
+`scripts/public-overlay.js`. Neither app's artwork ever ships in the other's bundle.
+
 ⚠ **The standalone surface must not reach the Control Panel's data layer** — no `apiClient`, no
 store barrel, no `config.js`/`CONNECTIONS`, no `persona`, no router. It talks to one leaf on its own
 origin and has no notion of a node. `npm run check:assistant` walks the import graph and fails on

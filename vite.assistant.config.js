@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
+import { publicOverlay } from "./scripts/public-overlay.js";
 
 // The standalone assistant's build — a SECOND target over the same source tree.
 //
@@ -12,8 +13,14 @@ import { fileURLToPath } from "node:url";
 //
 // It emits assistant.html; the leaf serves the directory and its index, so the served page is
 // renamed to index.html on deploy (deploy/deploy-assistant.sh).
+//
+// public-assistant/ carries this surface's own PWA half — manifest, service worker, icons and
+// launch images — laid over the shared public/ (see scripts/public-overlay.js).
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    publicOverlay(fileURLToPath(new URL("./public-assistant", import.meta.url))),
+  ],
   server: { port: 5174, open: "/assistant.html" },
   build: {
     outDir: "dist-assistant",
