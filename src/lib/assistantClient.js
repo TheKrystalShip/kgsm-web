@@ -1,0 +1,254 @@
+import { assistantSession } from "./assistantSession.js";
+import { parseSseEvent, readSseStream } from "./sse.js";
+
+// assistantClient.js — the seam onto an assistant LEAF, spoken directly.
+//
+// The chat addresses the assistant on its own public origin with a session the leaf issued,
+// so kgsm-api is not in the path of a turn, a confirmation, or a conversation read. The leaf's
+// wire contract is `kgsm-llm/docs/wire-contract.md`; the routes are the leaf's own, unprefixed
+// (`/turn`, `/confirm`, `/conversations`, …), not the aggregator's `/api/v1/assistant/*`.
+//
+// A host with no browser route for its assistant has no chat: `routeError` is thrown rather
+// than falling back to the node's relay. The relay still exists in kgsm-api, but it is peer
+// transport for reaching ANOTHER node's assistant — taking it for the local node restores the
+// coupling this path removes, and kgsm-api logs a warning when anything does.
+//
+// Auth is reactive, the same shape the node seam uses: send the token we hold, and let the
+// leaf be the judge. A 401 rotates the leaf's refresh token once and replays — EXCEPT for the
+// two calls that are not replayable (a turn consumes context and a confirm consumes a
+// single-use token), which rotate BEFORE the call instead if the access token has lapsed.
+
+const IDLE_MS = 60000;   // a confirm stream may sit silent through a download; ≫ the leaf's 15s heartbeat
+
+function leafError(status, body) {
+  const env = (body && body.error) || {};
+  const message = typeof env === "string" ? env : (env.message || body?.message);
+  const e = new Error(message || "HTTP " + status);
+  e.code = status;
+  e.status = status;
+  e.envCode = (typeof env === "object" && env.code) || body?.error || null;
+  e.userMessage = message || "The assistant returned an error.";
+  return e;
+}
+function routeError() {
+  const e = new Error("This host reports no public address for its assistant.");
+  e.code = "ENOROUTE";
+  e.userMessage = "This host's assistant has no address the browser can reach.";
+  return e;
+}
+function netError() {
+  const e = new Error("Can't reach the assistant (network).");
+  e.code = "ECONNREFUSED";
+  e.userMessage = "Can't reach the assistant.";
+  return e;
+}
+function authError() {
+  const e = new Error("No assistant session on this host.");
+  e.code = 401;
+  e.status = 401;
+  e.userMessage = "Sign in to this host's assistant to continue.";
+  return e;
+}
+
+// Decode a JWT's `exp` (seconds → ms); null when the token isn't a parseable JWT. Used only to
+// decide a PROACTIVE rotation ahead of the two calls a 401 cannot be replayed through.
+function jwtExpMs(token) {
+  try {
+    const part = String(token).split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const exp = JSON.parse(json).exp;
+    return typeof exp === "number" ? exp * 1000 : null;
+  } catch { return null; }
+}
+function lapsed(token) {
+  const exp = jwtExpMs(token);
+  return exp !== null && exp <= Date.now();
+}
+
+function baseOf(hostId) {
+  const origin = assistantSession.originOf(hostId);
+  if (!origin) throw routeError();
+  return origin;
+}
+
+// Ensure we hold a usable token before a non-replayable call. A lapsed one is rotated first,
+// because replaying a turn would spend the user's prompt twice and replaying a confirm would
+// present a token the leaf has already burned.
+async function freshToken(hostId) {
+  let token = assistantSession.tokenOf(hostId);
+  if (!token || lapsed(token)) token = await assistantSession.rotate(hostId);
+  if (!token) throw authError();
+  return token;
+}
+
+// A plain JSON call, healed reactively: on 401 rotate once and replay. Replay is safe here —
+// these are reads, a soft delete, a compact and a feedback vote, all idempotent in effect.
+async function json(hostId, method, path, body, opts) {
+  const base = baseOf(hostId);
+  const send = async (token) => {
+    const headers = { Accept: "application/json" };
+    if (body !== undefined && body !== null) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = "Bearer " + token;
+    try {
+      return await fetch(base + path, {
+        method,
+        headers,
+        body: body === undefined || body === null ? undefined : JSON.stringify(body),
+        signal: opts && opts.signal,
+      });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      throw netError();
+    }
+  };
+
+  let token = assistantSession.tokenOf(hostId);
+  if (!token && assistantSession.statusOf(hostId) !== "none") token = await assistantSession.rotate(hostId);
+  if (!token) throw authError();
+
+  let res = await send(token);
+  if (res.status === 401) {
+    const rotated = await assistantSession.rotate(hostId);
+    if (!rotated) throw authError();
+    res = await send(rotated);
+  }
+  if (res.status === 204) return null;
+  let payload = null;
+  try { payload = await res.json(); } catch { payload = null; }
+  if (!res.ok) throw leafError(res.status, payload);
+  return payload;
+}
+
+// POST /turn — the conversation itself. Frames stream until the terminal `done`/`error`; a
+// transport drop just ends the pump, because the text already delivered is real and we never
+// invent a `done` that did not arrive. An abort rethrows so the caller can render "stopped".
+async function turn(hostId, body, opts) {
+  const base = baseOf(hostId);
+  const { onEvent, signal } = opts || {};
+  const token = await freshToken(hostId);
+  let res;
+  try {
+    res = await fetch(base + "/turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: "Bearer " + token },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (e) {
+    if (e && e.name === "AbortError") throw e;
+    throw netError();
+  }
+  if (!res.ok) {
+    let payload = null; try { payload = await res.json(); } catch { payload = null; }
+    throw leafError(res.status, payload);
+  }
+  await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
+}
+
+// POST /confirm — executing what a turn staged. Every confirmation kind streams: `progress`
+// steps drive the live sub-label, the leaf's 15s heartbeats keep the socket warm through a
+// download or a settling wait, and a terminal `result` carries the whole ConfirmResponse.
+//
+// An idle watchdog resets on every received byte (heartbeats included) and aborts if the stream
+// goes quiet — a half-dead socket then surfaces as a failure the user can retry rather than an
+// endless spinner. The confirmation token is single-use, so this never replays on 401.
+async function confirm(hostId, body, opts) {
+  const base = baseOf(hostId);
+  const { onProgress, signal } = opts || {};
+  const token = await freshToken(hostId);
+
+  const ctrl = new AbortController();
+  let idleTimer = null;
+  const armIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => ctrl.abort(new DOMException("confirm idle timeout", "TimeoutError")), IDLE_MS);
+  };
+  const onAbort = () => ctrl.abort(signal.reason);
+  if (signal) { if (signal.aborted) ctrl.abort(signal.reason); else signal.addEventListener("abort", onAbort); }
+
+  let res;
+  try {
+    res = await fetch(base + "/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: "Bearer " + token },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    if (signal) signal.removeEventListener("abort", onAbort);
+    if (idleTimer) clearTimeout(idleTimer);
+    if (signal && signal.aborted) throw e;
+    throw netError();
+  }
+  if (!res.ok) {
+    if (signal) signal.removeEventListener("abort", onAbort);
+    if (idleTimer) clearTimeout(idleTimer);
+    let payload = null; try { payload = await res.json(); } catch { payload = null; }
+    throw leafError(res.status, payload);
+  }
+
+  let result = null, streamErr = null;
+  try {
+    armIdle();
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const chunk = await reader.read();
+      armIdle();                              // any byte (data OR heartbeat) → still alive
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const evt = parseSseEvent(block);     // heartbeats (comment-only) → null, skipped
+        if (!evt) continue;
+        if (evt.type === "result") result = evt;
+        else if (evt.type === "progress" && onProgress) onProgress(evt);
+        else if (evt.type === "error") streamErr = evt.message || "The action failed.";
+      }
+    }
+  } catch (e) {
+    if (e && e.name === "TimeoutError") {
+      throw leafError(0, { error: { message: "The action's stream went quiet — it may still be running on the host. Check the server, or try again." } });
+    }
+    if (signal && signal.aborted) throw e;
+    throw netError();
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (signal) signal.removeEventListener("abort", onAbort);
+  }
+
+  if (streamErr) throw leafError(0, { error: { message: streamErr } });
+  if (!result) throw leafError(0, { error: { message: "The action ended without a result — it may still be running on the host. Check the server, or try again." } });
+  return result;
+}
+
+// Everything the chat surfaces need from a leaf, scoped to one host.
+function host(hostId) {
+  return {
+    hostId,
+    hasRoute: () => assistantSession.hasRoute(hostId),
+    conversations: (opts) => json(hostId, "GET", "/conversations", null, opts),
+    conversation: (id, opts) => json(hostId, "GET", "/conversations/" + encodeURIComponent(id), null, opts),
+    deleteConversation: (id) => json(hostId, "DELETE", "/conversations/" + encodeURIComponent(id)),
+    compact: (id) => json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/compact"),
+    feedback: (id, turnId, body) =>
+      json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/turns/" + turnId + "/feedback", body),
+    // The admin review surfaces, on the leaf's own /admin group.
+    reviewUsers: (opts) => json(hostId, "GET", "/admin/conversations/users", null, opts),
+    reviewStats: (query, opts) => json(hostId, "GET", "/admin/conversations/stats" + (query || ""), null, opts),
+    reviewConversations: (user, opts) =>
+      json(hostId, "GET", "/admin/conversations?user=" + encodeURIComponent(user), null, opts),
+    reviewConversation: (handle, opts) =>
+      json(hostId, "GET", "/admin/conversations/" + encodeURIComponent(handle), null, opts),
+    turn: (body, opts) => turn(hostId, body, opts),
+    confirm: (body, opts) => confirm(hostId, body, opts),
+  };
+}
+
+const assistant = { host };
+
+export { assistant };

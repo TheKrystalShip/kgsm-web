@@ -5,7 +5,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { commandMeta } from "./chatConstants.js";
-import { API_COMMAND_VERBS } from "./chatConstants.js";
+import { LEAF_COMMAND_VERBS } from "./chatConstants.js";
 
 function ChatContextPill({ msg }) {
   const pending = msg.state === "pending";
@@ -92,7 +92,7 @@ function ChatThinking({ text, streaming }) {
 function ChatCommand({ msg, onRun }) {
   const [armed, setArmed] = React.useState(false);
   const meta = commandMeta(msg.verb);
-  const apiBacked = API_COMMAND_VERBS.has(msg.verb);
+  const runnable = LEAF_COMMAND_VERBS.has(msg.verb);
   // Install's subject is the blueprint; prefer the custom instance name the user asked for when set.
   const target = msg.instanceName || msg.subjectId || "this server";
 
@@ -121,7 +121,7 @@ function ChatCommand({ msg, onRun }) {
         </div>
       )}
       <div className="chat-actions__row">
-        {!apiBacked ? (
+        {!runnable ? (
           <button className="chat-action chat-action--disabled" disabled
             title="This action isn’t available from the panel yet.">
             <Icon name={meta.icon} size={13} strokeWidth={2.2} />
@@ -361,10 +361,12 @@ function ChatToggleNotice({ msg }) {
 
 function ChatVerify({ msg }) {
   if (msg.state === "pending") {
+    // The leaf narrates the slow parts (a download, a settling wait); show its latest step so a
+    // multi-minute action reads as advancing rather than as a spinner that might have died.
     return (
       <div className="chat-verify chat-verify--pending">
         <span className="oauth-spinner"></span>
-        <span>Verifying {msg.action.label.toLowerCase()}…</span>
+        <span>{msg.progress || ("Verifying " + msg.action.label.toLowerCase() + "…")}</span>
       </div>
     );
   }

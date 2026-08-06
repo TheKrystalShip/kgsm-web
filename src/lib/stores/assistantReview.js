@@ -8,32 +8,29 @@
 // assistant, which no admin surface needs to watch live. The pages own the request state, exactly as
 // the leaf-config page owns its own (fetchLeafConfig, same shape).
 //
-// Everything is admin-gated end to end: kgsm-api's review endpoints are Admin-policy and the leaf is
-// fail-closed on the relayed admin assertion, so a non-admin never gets past the API.
+// Everything is admin-gated by the leaf itself: its /admin group is fail-closed on the tier it
+// derives from the caller's own session, so a non-admin never gets a row.
 
 import * as adapt from "../adapters.js";
-import { api } from "../apiClient.js";
+import { assistant } from "../assistantClient.js";
 
-const BASE = "/assistant/admin/conversations";
-
-/// The whole-corpus roll-up for one host. Null when the host serves no assistant (the API degrades to
-/// a 404 rather than a 500) — the caller renders that as "no assistant here", never as zeroes.
+/// The whole-corpus roll-up for one host. A host with no assistant, or one with no browser route to
+/// it, rejects here — the caller renders that as "no assistant here", never as zeroes.
 function fetchAssistantStats(hostId) {
   if (!hostId) return Promise.resolve(null);
-  return api.host(hostId).get(BASE + "/stats").then(adapt.adaptAssistantStats);
+  return assistant.host(hostId).reviewStats().then(adapt.adaptAssistantStats);
 }
 
 /// Everyone who has talked to this host's assistant.
 function fetchAssistantReviewUsers(hostId) {
   if (!hostId) return Promise.resolve([]);
-  return api.host(hostId).get(BASE + "/users").then(adapt.adaptAssistantReviewUsers);
+  return assistant.host(hostId).reviewUsers().then(adapt.adaptAssistantReviewUsers);
 }
 
 /// One person's conversations, soft-deleted ones included and flagged by the leaf.
 function fetchAssistantConversations(hostId, userId) {
   if (!hostId || !userId) return Promise.resolve([]);
-  return api.host(hostId).get(BASE + "?user=" + encodeURIComponent(userId))
-    .then(adapt.adaptAssistantConversations);
+  return assistant.host(hostId).reviewConversations(userId).then(adapt.adaptAssistantConversations);
 }
 
 /// One transcript, addressed by the opaque handle the listing minted. The response is the SAME shape
@@ -41,7 +38,7 @@ function fetchAssistantConversations(hostId, userId) {
 /// through the existing render path instead of a second one built to drift from it.
 function fetchAssistantTranscript(hostId, handle) {
   if (!hostId || !handle) return Promise.resolve(null);
-  return api.host(hostId).get(BASE + "/" + encodeURIComponent(handle));
+  return assistant.host(hostId).reviewConversation(handle);
 }
 
 export {

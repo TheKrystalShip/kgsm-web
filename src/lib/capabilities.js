@@ -53,6 +53,13 @@ import { hostsStore, serverHostId } from "./stores.js";
   var TONE = { absent: "muted", operational: "success", degraded: "warn", down: "danger", unknown: "muted" };
   var STATE_LABEL = { absent: "Not offered", operational: "Operational", degraded: "Degraded", down: "Down", unknown: "Unknown" };
 
+  // The assistant leaf's public origin, as the host's capability reports it. The browser talks to
+  // the leaf itself, so this is the only address a chat can use; blank or absent means no route.
+  function assistantUrlOf(rec) {
+    var url = rec && rec.info && typeof rec.info.url === "string" ? rec.info.url.trim() : "";
+    return url || null;
+  }
+
   function isDenied(host) {
     try { return !!(host && sessionStore.isDenied(host.id)); }
     catch { return false; }
@@ -71,6 +78,16 @@ import { hostsStore, serverHostId } from "./stores.js";
     // A denied or offline host can't have its capability health determined.
     if (provisioned && (isDenied(host) || (host && host.online === false))) status = STATUS.UNKNOWN;
 
+    // The assistant is spoken to DIRECTLY, on its own public origin, so a leaf the host reports no
+    // browser address for is not usable here however healthy it is — the panel has nowhere to send
+    // a turn. Reported as down with the reason, rather than shown as operational and then failing
+    // on every message, and never papered over by routing through the node's relay instead.
+    var message = rec ? (rec.message || null) : null;
+    if (provisioned && capId === CAPS.ASSISTANT && !assistantUrlOf(rec)) {
+      status = STATUS.DOWN;
+      message = "This host reports no public address for its assistant.";
+    }
+
     var state = !provisioned ? STATE.ABSENT : status; // statuses map 1:1 onto state
     return {
       id: meta.id, label: meta.label, icon: meta.icon, blurb: meta.blurb,
@@ -79,7 +96,7 @@ import { hostsStore, serverHostId } from "./stores.js";
       state: state,
       tone: TONE[state] || "muted",
       stateLabel: STATE_LABEL[state] || status,
-      message: rec ? (rec.message || null) : null,
+      message: message,
       since: rec ? (rec.since || null) : null,
       info: rec ? (rec.info || {}) : {},
     };

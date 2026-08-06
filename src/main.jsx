@@ -23,7 +23,15 @@ import "./lib/theme.js";
 // already signed in (no LoginPage flash). A normal load is a synchronous no-op.
 async function boot() {
   const captured = captureOAuthFragment();
-  if (captured && captured.access) await completeOAuthLogin(captured);
+  // An assistant-leaf landing carries the same fragment keys as a node one and is told apart
+  // by the marker its sign-in put in the return address. Its tokens belong to the leaf session,
+  // never to kgsm-api, so it is adopted here and completeOAuthLogin is not run for it.
+  if (captured && captured.issuer === "assistant") {
+    const { assistantSession } = await import("./lib/assistantSession.js");
+    if (captured.access) assistantSession.adopt(captured.hostId, { token: captured.access, refresh: captured.refresh, tier: captured.tier });
+    else if (captured.error === "denied") assistantSession.deny(captured.hostId);
+  }
+  else if (captured && captured.access) await completeOAuthLogin(captured);
   // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
   // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
   // into the app instead of stalling on the Discord LoginPage (which can't complete

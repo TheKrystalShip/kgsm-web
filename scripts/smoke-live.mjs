@@ -777,14 +777,22 @@ try {
   assert(updEnabled ? shownReason === null : shownReason !== null,
     `server detail: Update chip gated on live state (${updEnabled ? "enabled — stopped with a newer build" : "disabled: " + shownReason})`);
 
-  // ---- Phase 6: assistant turn SSE (slice 9a) -----------------------------
-  // The assistant turn is an SSE relay (kgsm-api POST /assistant/turn → §5·a
-  // frames). NON-LEAF + deterministic: intercept the outbound POST and feed a
-  // canned §5·a stream, so the seam's SSE parser + frame translation are asserted
-  // regardless of whether an assistant leaf is running. (The REAL relay through
-  // kgsm-api's AssistantController + the capability gate flipping operational were
-  // validated live this session against a thin SSE stub at KGSM_API_ASSISTANT_URL;
-  // the real-leaf / Ollama round-trip is owed-to-human.)
+  // ---- Phase 6: assistant turn SSE ----------------------------------------
+  // The turn goes STRAIGHT to the assistant leaf on its own public origin, with a session the
+  // leaf issued — kgsm-api is not in the path. NON-LEAF + deterministic: seed the route (the
+  // capability's info.url) and a session, then intercept the outbound POST and feed a canned
+  // stream, so the seam's SSE parser + frame translation are asserted whether or not a leaf is
+  // running. Seeding touches only this process's stores; nothing reaches a backend.
+  const { assistant } = await vite.ssrLoadModule("/src/lib/assistantClient.js");
+  const { assistantSession } = await vite.ssrLoadModule("/src/lib/assistantSession.js");
+  const LEAF = "https://assistant.smoke.invalid";
+  st.hostsStore.patch(hmId, {
+    capabilities: { ...(st.hostsStore.find(hmId).capabilities || {}),
+      assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
+  });
+  assistantSession.adopt(hmId, { token: "smoke-leaf-token", refresh: null, tier: "admin" });
+  assert(assistantSession.originOf(hmId) === LEAF && assistantSession.tokenOf(hmId) === "smoke-leaf-token",
+    "assistant session: the leaf origin comes from the capability's info.url, with its own bearer");
   const enc = new TextEncoder();
   const CANNED = [
     'event: text.delta\ndata: {"type":"text.delta","text":"Let me check "}\n\n',
@@ -796,9 +804,11 @@ try {
   // Split the canned bytes at a boundary that falls MID-FRAME, to prove the parser
   // buffers across reads (a §5·a frame can arrive split over two chunks).
   const half = Math.floor(CANNED.length / 2) + 13;
+  let leafTurnAuth = null;
   globalThis.fetch = async (url, opts) => {
     const u = typeof url === "string" ? url : (url && url.url) || "";
-    if (opts && opts.method === "POST" && /\/api\/v1\/assistant\/turn$/.test(u)) {
+    if (opts && opts.method === "POST" && u === LEAF + "/turn") {
+      leafTurnAuth = (opts.headers || {}).Authorization || null;
       const parts = [CANNED.slice(0, half), CANNED.slice(half)];
       const stream = new ReadableStream({ start(c) { for (const p of parts) c.enqueue(enc.encode(p)); c.close(); } });
       return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
@@ -806,9 +816,11 @@ try {
     return realFetch(url, opts);
   };
   const frames = [];
-  await api.host(hmId).turn({ prompt: "is factorio-test healthy?" }, { onEvent: (e) => frames.push(e) })
+  await assistant.host(hmId).turn({ prompt: "is factorio-test healthy?" }, { onEvent: (e) => frames.push(e) })
     .catch((e) => frames.push({ type: "__throw__", message: e.message }));
   globalThis.fetch = realFetch;
+  assert(leafTurnAuth === "Bearer smoke-leaf-token",
+    "assistant turn: POSTed to the LEAF origin with the leaf's own bearer (no kgsm-api in the path)");
   const types = frames.map((f) => f.type).join(",");
   assert(types === "text.delta,text.delta,tool.start,tool.result,done",
     `assistant turn: SSE parsed into the ordered §5·a frames (${types})`);
@@ -826,13 +838,13 @@ try {
   // SPA can render the honest reason instead of an empty bubble.
   globalThis.fetch = async (url, opts) => {
     const u = typeof url === "string" ? url : (url && url.url) || "";
-    if (opts && opts.method === "POST" && /\/api\/v1\/assistant\/turn$/.test(u))
+    if (opts && opts.method === "POST" && u === LEAF + "/turn")
       return new Response(JSON.stringify({ error: { code: "unavailable", message: "the assistant is currently unavailable" } }),
         { status: 503, headers: { "content-type": "application/json" } });
     return realFetch(url, opts);
   };
   let turnErr = null;
-  await api.host(hmId).turn({ prompt: "x" }, { onEvent: () => {} }).catch((e) => { turnErr = e; });
+  await assistant.host(hmId).turn({ prompt: "x" }, { onEvent: () => {} }).catch((e) => { turnErr = e; });
   globalThis.fetch = realFetch;
   assert(turnErr && turnErr.code === 503,
     `assistant turn: pre-stream degrade (503) throws an apiError the SPA renders (code=${turnErr && turnErr.code})`);
@@ -943,11 +955,12 @@ try {
   assert(A({ tool: "search", subject: { id: "q" }, data: { query: "q", state: "empty", passages: [] } }) === null,
     "adaptResultCard: an empty search (no passages) surfaces no card — summary-only, honest");
 
-  // ---- Phase 6b: command proposals — fork (a) / slice 9b ------------------
-  // A §5·a command.proposed → a confirm-first card; Confirm runs the M3 path
-  // (origin:"assistant", NO double-write/fabricated audit); the SPA composes the
-  // command.verified block from the job outcome the WS carries back.
-  const { API_COMMAND_VERBS: AV, composeVerified: CV } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+  // ---- Phase 6b: command proposals ---------------------------------------
+  // A command.proposed → a confirm-first card; Confirm hands the staged token back to the LEAF,
+  // which performs the action and answers a verdict (no double-write, no fabricated audit row);
+  // the SPA renders the verified block from that verdict.
+  const { LEAF_COMMAND_VERBS: LEAF_VERBS, composeVerified: CV } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
+  const { capUsable } = await vite.ssrLoadModule("/src/lib/capabilities.js");
 
   // (1) the reducer splices the card FROM THE PROPOSAL (not a store lookup), and
   //     `done` reorders it BELOW the reply (reply → action).
@@ -965,10 +978,11 @@ try {
   assert(bi >= 0 && ci === bi + 1 && cm[bi].content === "Ready when you are.",
     "reduceTurnFrame: done moves the command card BELOW the reply (reply → action)");
 
-  // (2) verb gating — API-backed vs proposed-but-not-executable (spec §6 matrix).
-  assert(["start", "stop", "restart", "open_ports", "install", "uninstall"].every((v) => AV.has(v))
-    && !AV.has("update") && !AV.has("backup") && !AV.has("set_config"),
-    "command verbs: start/stop/restart/open_ports/install/uninstall are API-backed; update/backup/set_config are not");
+  // (2) verb gating — every kind the leaf can perform is runnable from the panel; `blueprint` is
+  //     excluded because the review card owns its own Save.
+  assert(["start", "stop", "restart", "open_ports", "install", "uninstall", "update", "backup", "set_config", "write_file"]
+      .every((v) => LEAF_VERBS.has(v)) && !LEAF_VERBS.has("blueprint"),
+    "command verbs: all ten of the leaf's confirmation kinds are runnable; `blueprint` has its own Save");
 
   // (2b) install proposal — subject is a BLUEPRINT and the custom name rides its own field.
   let im = [{ role: "user", content: "install factorio called mybase" }, { role: "assistant", content: "" }];
@@ -979,99 +993,126 @@ try {
   assert(icard && icard.verb === "install" && icard.subjectId === "factorio" && icard.instanceName === "mybase",
     "reduceTurnFrame: install proposal keeps the blueprint as subject and the custom name in instanceName");
 
-  const okI = CV("install", "mybase", { status: "succeeded" });
+  const settledOf = (verdict, extra) => ({ success: verdict === "settled" || verdict === "accepted",
+    outcome: { verdict, ...(extra || {}) } });
+  const okI = CV("install", "mybase", settledOf("settled"));
   assert(okI.ok === true && /Installed mybase/.test(okI.headline),
-    "composeVerified: install succeeded → 'Installed mybase' (no fabricated id)");
-  const okU = CV("uninstall", "factorio-test", { status: "succeeded" });
+    "composeVerified: install settled → 'Installed mybase' (no fabricated id)");
+  const okU = CV("uninstall", "factorio-test", settledOf("settled"));
   assert(okU.ok === true && /Uninstalled factorio-test/.test(okU.headline),
-    "composeVerified: uninstall succeeded → 'Uninstalled factorio-test'");
+    "composeVerified: uninstall settled → 'Uninstalled factorio-test'");
 
-  // (3) command.verified composition (SPA-side, honest).
-  const okV = CV("start", "factorio-test", { status: "succeeded" });
+  // (3) the verified block is RENDERED FROM THE VERDICT, never parsed out of `text` — the leaf is
+  // free to reword `text`, and two surfaces reading it differently is how they come to disagree
+  // about whether a server actually started.
+  const okV = CV("start", "factorio-test", settledOf("settled", { observedState: "running" }));
   assert(okV.ok === true && /Started factorio-test/.test(okV.headline),
-    "composeVerified: succeeded → ok + 'Started …' headline");
-  const failV = CV("stop", "factorio-test", { status: "failed", job: { error: "engine refused" } });
+    "composeVerified: settled → ok + 'Started …' headline");
+  const accV = CV("backup", "factorio-test", settledOf("accepted"));
+  assert(accV.ok === true && /Backed up factorio-test/.test(accV.headline),
+    "composeVerified: accepted (a verb with no run-state postcondition) → ok, and claims nothing about run state");
+  const failV = CV("stop", "factorio-test", { success: false, outcome: { verdict: "failed", reason: "engine refused" } });
   assert(failV.ok === false && failV.lines.some((l) => /engine refused/.test(l.detail)),
-    "composeVerified: failed → not-ok + the real job error as a line (no fabrication)");
-  const unkV = CV("start", "factorio-test", { status: "unknown" });
-  assert(unkV.ok === false && /Couldn’t confirm/.test(unkV.headline),
-    "composeVerified: unknown (no WS response) → honest 'couldn’t confirm', never a fake ✓");
-  const opV = CV("open_ports", "factorio-test", { status: "succeeded" });
+    "composeVerified: failed → not-ok + the leaf's real reason as a line (no fabrication)");
+  const nsV = CV("start", "factorio-test", { success: false, outcome: { verdict: "notSettled", observedState: "stopped" } });
+  assert(nsV.ok === false && /hasn’t come up yet/.test(nsV.headline)
+      && nsV.lines.some((l) => /stopped/.test(l.detail)),
+    "composeVerified: notSettled → not-ok, says it may still be working, and reports what WAS seen");
+  const unkV = CV("start", "factorio-test", { success: false, outcome: { verdict: "unknown" } });
+  assert(unkV.ok === false && /state couldn’t be read/.test(unkV.headline) && !/stopped/.test(unkV.headline),
+    "composeVerified: unknown → honest 'couldn’t be read', NEVER rendered as stopped");
+  const refV = CV("stop", "factorio-test", { success: false, text: "That action is no longer valid.", outcome: { verdict: "refused" } });
+  assert(refV.ok === false && /no longer valid/.test(refV.headline),
+    "composeVerified: refused → the leaf's own non-oracular sentence (nothing ran)");
+  const opV = CV("open_ports", "factorio-test", settledOf("settled"));
   assert(opV.ok === true && !/\d/.test(opV.headline) && /required ports/.test(opV.headline),
     "composeVerified: open_ports headline is generic (intent-only — never fabricates port numbers)");
 
-  // (4) THE GLUE — full confirm path end to end (advisor: test the wiring, not just
-  // the units). confirmCommand → POST /commands {verb,origin:'assistant'} (captured →
-  // synthetic 202 {job}) → a WS job.patch (succeeded) via __dispatch → awaitJob
-  // resolves → the outcome is composed; AND the LIVE confirm does NOT mutate the audit
+  // (4) THE GLUE — the confirm path end to end. A staged card's token goes back to the LEAF that
+  // staged it (captured → a canned confirm stream), its progress steps drive the card's live
+  // sub-label, and the terminal `result` renders through composeVerified. There is no second
+  // execution path: nothing here touches kgsm-api, and the LIVE confirm does not mutate the audit
   // store (the backend writes that row from the kgsm echo — the no-double-write proof).
-  let cmdCap = null;
-  globalThis.fetch = async (url, opts) => {
-    const u = typeof url === "string" ? url : (url && url.url) || "";
-    if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u)) {
-      cmdCap = { url: u, body: JSON.parse(opts.body || "null") };
-      return new Response(JSON.stringify({ job: {
-        id: "job_9b", serverId: "factorio-test", verb: cmdCap.body.verb, state: "queued", error: null,
-      } }), { status: 202, headers: { "content-type": "application/json" } });
-    }
-    return realFetch(url, opts);
+  const confirmStream = (result, steps) => new ReadableStream({
+    start(c) {
+      for (const label of steps || [])
+        c.enqueue(enc.encode(`event: progress\ndata: ${JSON.stringify({ type: "progress", label })}\n\n`));
+      c.enqueue(enc.encode(": keepalive\n\n"));   // the leaf's 15s heartbeat — must be skipped, not parsed
+      c.enqueue(enc.encode(`event: result\ndata: ${JSON.stringify({ type: "result", ...result })}\n\n`));
+      c.close();
+    },
+  });
+  let confirmCap = null;
+  const interceptConfirm = (result, steps) => {
+    globalThis.fetch = async (url, opts) => {
+      const u = typeof url === "string" ? url : (url && url.url) || "";
+      if (opts && opts.method === "POST" && u === LEAF + "/confirm") {
+        confirmCap = { url: u, body: JSON.parse(opts.body || "null"), auth: (opts.headers || {}).Authorization || null };
+        return new Response(confirmStream(result, steps), { status: 200, headers: { "content-type": "text/event-stream" } });
+      }
+      return realFetch(url, opts);
+    };
   };
+
   const auditLenBefore = st.auditStore.getState().list.length;
-  const verifyP = st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
-  await sleep(20);                                 // let the POST resolve + awaitJob attach
-  // a non-terminal frame first (progress), then the terminal succeeded frame.
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_9b", serverId: "factorio-test", verb: "start", state: "running" } });
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_9b", serverId: "factorio-test", verb: "start", state: "succeeded", error: null } });
-  const settled = await verifyP;
+  const progressSeen = [];
+  interceptConfirm(
+    { text: "factorio-test is running.", success: true,
+      outcome: { verdict: "settled", verb: "start", instance: "factorio-test", observedState: "running" } },
+    ["Waiting for factorio-test to come up…"]);
+  const settled = await assistant.host(hmId).confirm({ token: "tok_start" },
+    { onProgress: (e) => progressSeen.push(e.label) });
   globalThis.fetch = realFetch;
-  assert(cmdCap && cmdCap.url.endsWith("/api/v1/servers/factorio-test/commands")
-    && cmdCap.body.verb === "start" && cmdCap.body.origin === "assistant",
-    "confirmCommand → POST /servers/{id}/commands { verb, origin:'assistant' } (fork (a), not 'ui')");
-  assert(settled.status === "succeeded" && settled.jobId === "job_9b",
-    "confirmCommand: WS job.patch (succeeded) resolves the verify via awaitJob (job-id correlation)");
+  assert(confirmCap && confirmCap.url === LEAF + "/confirm" && confirmCap.body.token === "tok_start"
+    && confirmCap.auth === "Bearer smoke-leaf-token",
+    "confirm → POST {leaf}/confirm { token } with the leaf's bearer (the staged token IS the authority)");
+  assert(progressSeen.length === 1 && /come up/.test(progressSeen[0]),
+    "confirm: the leaf's progress steps reach the card's live sub-label");
+  assert(settled.outcome && settled.outcome.verdict === "settled" && settled.outcome.observedState === "running",
+    "confirm: the terminal `result` frame carries the whole response, verdict included (heartbeat skipped)");
+  const rendered = CV("start", "factorio-test", settled);
+  assert(rendered.ok === true && /Started factorio-test/.test(rendered.headline),
+    "confirm → composeVerified: the observed verdict becomes the verified block");
   assert(st.auditStore.getState().list.length === auditLenBefore,
     "LIVE confirm does NOT fabricate an audit row (backend writes it from the kgsm echo — no double-write)");
 
-  // (4b) install / uninstall glue — the two verbs that ride their own REST endpoints
-  // (POST /servers, DELETE /servers/{id}) rather than /servers/{id}/commands, both
-  // stamped origin:"assistant" and awaited to a terminal outcome like any other verb.
-  let instCap = null, unCap = null;
-  globalThis.fetch = async (url, opts) => {
-    const u = typeof url === "string" ? url : (url && url.url) || "";
-    const method = (opts && opts.method) || "GET";
-    if (method === "POST" && /\/api\/v1\/servers$/.test(u)) {
-      instCap = { url: u, body: JSON.parse(opts.body || "null") };
-      return new Response(JSON.stringify({ job: { id: "job_inst", serverId: "mybase", verb: "install", state: "queued", error: null } }),
-        { status: 202, headers: { "content-type": "application/json" } });
-    }
-    if (method === "DELETE" && /\/api\/v1\/servers\/factorio-test(\?|$)/.test(u)) {
-      unCap = { url: u };
-      return new Response(JSON.stringify({ job: { id: "job_un", serverId: "factorio-test", verb: "uninstall", state: "queued", error: null } }),
-        { status: 202, headers: { "content-type": "application/json" } });
-    }
-    return realFetch(url, opts);
-  };
-  const instP = st.confirmInstall({ game: { id: "factorio" }, name: "mybase", hostId: hmId });
-  await sleep(20);
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_inst", serverId: "mybase", verb: "install", state: "succeeded", error: null } });
-  const instSettled = await instP;
-  const unP = st.confirmUninstall(hmId, "factorio-test");
-  await sleep(20);
-  api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_un", serverId: "factorio-test", verb: "uninstall", state: "succeeded", error: null } });
-  const unSettled = await unP;
+  // (4b) `update` and `backup` are runnable verbs. They have no run-state postcondition, so the
+  // leaf answers `accepted` — a success that deliberately claims nothing about whether the server
+  // is up. A verb missing from the runnable set renders with no Run button at all.
+  assert(LEAF_VERBS.has("update") && LEAF_VERBS.has("backup") && LEAF_VERBS.has("set_config"),
+    "runnable verbs: update / backup / set_config are executable from the panel (the leaf performs all ten kinds)");
+  interceptConfirm({ text: "Backed up factorio-test.", success: true,
+    outcome: { verdict: "accepted", verb: "backup", instance: "factorio-test" } });
+  const backedUp = await assistant.host(hmId).confirm({ token: "tok_backup" }, {});
   globalThis.fetch = realFetch;
-  assert(instCap && instCap.url.endsWith("/api/v1/servers")
-    && instCap.body.blueprint === "factorio" && instCap.body.name === "mybase" && instCap.body.origin === "assistant",
-    "confirmInstall → POST /servers { blueprint, name, origin:'assistant' } and awaits the job");
-  assert(instSettled.status === "succeeded" && instSettled.jobId === "job_inst",
-    "confirmInstall: WS job.patch (succeeded) resolves the verify via awaitJob");
-  assert(unCap && /\/api\/v1\/servers\/factorio-test\?origin=assistant$/.test(unCap.url),
-    "confirmUninstall → DELETE /servers/{id}?origin=assistant and awaits the job");
-  assert(unSettled.status === "succeeded" && unSettled.jobId === "job_un",
-    "confirmUninstall: WS job.patch (succeeded) resolves the verify via awaitJob");
+  assert(backedUp.outcome.verdict === "accepted" && backedUp.outcome.observedState === undefined,
+    "confirm: an `accepted` verb reports NO observedState (there is no run state to have observed)");
 
-  // (5) awaitJob race-free — a terminal frame already in the store before we await
-  // still resolves (check-current-then-subscribe; no missed-frame window).
+  // (4c) a lifecycle command the leaf could not settle must not read as a success, and must report
+  // what it actually saw rather than rounding it to "stopped".
+  interceptConfirm({ text: "factorio-test hasn't come up.", success: false,
+    outcome: { verdict: "notSettled", verb: "start", instance: "factorio-test", observedState: "stopped" } });
+  const notSettled = await assistant.host(hmId).confirm({ token: "tok_slow" }, {});
+  globalThis.fetch = realFetch;
+  const nsRendered = CV("start", "factorio-test", notSettled);
+  assert(nsRendered.ok === false && nsRendered.lines.some((l) => /stopped/.test(l.detail)),
+    "confirm: notSettled renders not-ok WITH the observed state (never a fabricated ✓)");
+
+  // (4d) a host whose assistant capability names no public origin has NO browser route. The chat
+  // must say so rather than fall back to kgsm-api's relay, which would restore the coupling the
+  // direct path removes — and the capability itself must read as unusable, not operational.
+  const capsWithUrl = st.hostsStore.find(hmId).capabilities;
+  st.hostsStore.patch(hmId, { capabilities: { ...capsWithUrl, assistant: { provisioned: true, status: "operational" } } });
+  let noRouteErr = null;
+  await assistant.host(hmId).confirm({ token: "t" }, {}).catch((e) => { noRouteErr = e; });
+  assert(noRouteErr && noRouteErr.code === "ENOROUTE",
+    "no public origin → the leaf call is refused with an honest no-route error, never relayed through kgsm-api");
+  assert(capUsable(st.hostsStore.find(hmId), "assistant") === false,
+    "no public origin → the assistant capability reads UNUSABLE (down), not operational-then-failing");
+  st.hostsStore.patch(hmId, { capabilities: capsWithUrl });
+
+  // (5) awaitJob (the shared job settler the backups surface uses) is race-free — a terminal frame
+  // already in the store before we await still resolves (check-current-then-subscribe).
   globalThis.fetch = async (url, opts) => {
     const u = typeof url === "string" ? url : (url && url.url) || "";
     if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u))
@@ -1080,27 +1121,20 @@ try {
     return realFetch(url, opts);
   };
   api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_race", serverId: "factorio-test", verb: "stop", state: "succeeded", error: null } });
-  const raced = await st.confirmCommand({ id: "factorio-test", hostId: hmId }, "stop");
+  await st.commandServer({ id: "factorio-test", hostId: hmId }, "stop", "ui");
+  const raced = await st.awaitJob("job_race", hmId);
   globalThis.fetch = realFetch;
   assert(raced.status === "succeeded",
     "awaitJob: a terminal frame already in the store resolves (check-then-subscribe, no missed-frame window)");
 
-  // (5b) the give-up is SOCKET-LIVENESS-gated, NOT wall-clock (advisor): a slow job
-  // that sits at `running` with NO frames far longer than the dead window, while the
-  // socket is UP, must KEEP WAITING and still resolve on the late `done` — surrendering
-  // on elapsed time would flip a command that actually succeeds into a stale, permanent
-  // "couldn't confirm". A sustained-DOWN socket (the outcome frame can't arrive) is the
-  // ONLY give-up trigger. Timing + liveness are injected so both paths are fast+exact.
-  const cmd202 = (id, verb) => async (url, opts) => {
-    const u = typeof url === "string" ? url : (url && url.url) || "";
-    if (opts && opts.method === "POST" && /\/api\/v1\/servers\/[^/]+\/commands$/.test(u))
-      return new Response(JSON.stringify({ job: { id, serverId: "factorio-test", verb, state: "queued", error: null } }),
-        { status: 202, headers: { "content-type": "application/json" } });
-    return realFetch(url, opts);
-  };
+  // (5b) the give-up is SOCKET-LIVENESS-gated, NOT wall-clock (advisor): a slow job that sits at
+  // `running` with NO frames far longer than the dead window, while the socket is UP, must KEEP
+  // WAITING and still resolve on the late `done` — surrendering on elapsed time would flip a
+  // command that actually succeeds into a stale, permanent "couldn't confirm". A sustained-DOWN
+  // socket (the outcome frame can't arrive) is the ONLY give-up trigger. Timing + liveness are
+  // injected so both paths are fast+exact.
   st.__setJobTiming({ pollMs: 10, deadMs: 40, liveProbe: () => true });   // socket UP
-  globalThis.fetch = cmd202("job_slow", "start");
-  const slowP = st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
+  const slowP = st.awaitJob("job_slow", hmId);
   await sleep(20);
   api.__dispatch({ topic: "jobs", type: "job.patch", data: { id: "job_slow", serverId: "factorio-test", verb: "start", state: "running" } });
   await sleep(120);                              // >> dead window: a slow `running` with the socket up must NOT give up
@@ -1109,11 +1143,9 @@ try {
   assert(slow.status === "succeeded",
     "awaitJob: a slow job (long silent `running`) with the socket UP keeps waiting → resolves on the late done (NOT a wall-clock give-up)");
   st.__setJobTiming({ pollMs: 10, deadMs: 40, liveProbe: () => false });  // socket DOWN, never a frame
-  globalThis.fetch = cmd202("job_dead", "start");
-  const dead = await st.confirmCommand({ id: "factorio-test", hostId: hmId }, "start");
+  const dead = await st.awaitJob("job_dead", hmId);
   assert(dead.status === "unknown",
     "awaitJob: a sustained-DOWN socket (no frame can arrive) resolves to honest 'unknown' after the grace");
-  globalThis.fetch = realFetch;
   st.__setJobTiming(null);                       // restore production timing
 
   // (5c) the `done` reorder is TURN-SCOPED — a second turn's card must not drag the
@@ -1138,8 +1170,8 @@ try {
   assert(tt[ca].cmdId && tt[cb].cmdId && tt[ca].cmdId !== tt[cb].cmdId,
     "reduceTurnFrame: each card gets its OWN locally-minted cmdId (the wire id repeats per turn — two cards must not collide)");
 
-  // (6) the COMPONENT renders (not just the pure helpers): an API-backed proposal
-  // shows the confirm-first action; a non-API verb renders disabled with the honest
+  // (6) the COMPONENT renders (not just the pure helpers): a runnable proposal shows the
+  // confirm-first action, and a verb outside the runnable set renders disabled with the honest
   // reason — exercising ChatCommand itself, not only the reducer/composer.
   const { ChatCommand } = await vite.ssrLoadModule("/src/pages/ChatPage.jsx");
   const renderCmd = async (msg) => {
@@ -1153,10 +1185,13 @@ try {
   };
   const startHtml = await renderCmd({ role: "command", cmdId: "cmd_0", verb: "start", subjectId: "factorio-test", confirm: "Start factorio-test?", state: "proposed" });
   assert(startHtml.includes("Start") && startHtml.includes("factorio-test") && !startHtml.includes("Not available"),
-    "ChatCommand: an API-backed proposal renders a runnable confirm-first action");
+    "ChatCommand: a runnable proposal renders a confirm-first action");
   const updHtml = await renderCmd({ role: "command", cmdId: "cmd_1", verb: "update", subjectId: "factorio-test", confirm: "Update factorio-test?", state: "proposed" });
-  assert(updHtml.includes("Not available from the panel yet") && /disabled/.test(updHtml),
-    "ChatCommand: a non-API verb (update) renders disabled with an honest reason (no 400-bound button)");
+  assert(updHtml.includes("Update") && updHtml.includes("factorio-test") && !updHtml.includes("Not available"),
+    "ChatCommand: `update` is runnable — the leaf performs it, so the panel offers it");
+  const unrunHtml = await renderCmd({ role: "command", cmdId: "cmd_2", verb: "diagnose", subjectId: "factorio-test", confirm: "Diagnose?", state: "proposed" });
+  assert(unrunHtml.includes("Not available from the panel yet") && /disabled/.test(unrunHtml),
+    "ChatCommand: a verb outside the runnable set renders disabled with an honest reason (no dead button)");
 
   // ---- server note (MOTD) -------------------------------------------------
   // The note is ENGINE-owned (it lives in the kgsm instance's own config), so writing one

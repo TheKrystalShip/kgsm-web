@@ -154,8 +154,8 @@ realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-v
   (`connectionStore` = REST reachability → cold-start/banner; `realtimeStore` =
   per-host SSE stream state, driven by `liveStream` `onMode`), the per-host auth gate
   (`api.host(id)` with 401-retry/silent-renew), `fanOut` (multi-host roll-up),
-  `reconnectHost`/`reconnectAll` (drive the per-host sockets), and the SSE
-  assistant turn (`api.host(id).turn`).
+  `reconnectHost`/`reconnectAll` (drive the per-host sockets). **The assistant is not on
+  this seam** — see below.
 - **`adapters.js` — the honesty boundary.** kgsm-api emits a narrow, HONEST
   model. A value the backend doesn't provide maps to
   `null`/`"unknown"`/`[]` — **NEVER to `0` or an invented default** (the
@@ -163,6 +163,15 @@ realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-v
   Don't hardcode game/domain data the backend can serve — plumb it through.
 - **`merge.js`** — pure per-host → aggregated roll-up (every row carries its
   owning host id; merge only unions/de-dups, never invents attribution).
+- **`assistantClient.js` + `assistantSession.js` — the SECOND seam, onto the assistant
+  LEAF.** The assistant is a standalone service, so the chat talks to it **directly**, on
+  the public origin the host's assistant capability reports (`info.url`), with a session
+  the **leaf** issued — `kgsm-api` is not in the path of a turn, a confirmation, or a
+  conversation read. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
+  `turn`, `confirm`, …) against the leaf's own unprefixed routes. **A host that reports no
+  public origin has no chat** (`ENOROUTE`, and the capability reads down) — it never falls
+  back to kgsm-api's `/assistant/*` relay, which exists to reach a *peer* node's assistant
+  and logs a warning when it serves the local one.
 
 ### Init-order: the lazy-import edges are deliberate
 
@@ -185,10 +194,18 @@ break boot. Read the comments before "tidying" an import.
   nav/reach; `canOn(cap, host)` = scoped for actions** — never substitute one for
   the other. `resolveRoute()` is the **routing chokepoint**: a forbidden route is
   mapped to the persona's home synchronously, so it never enters state or mounts.
+- **`assistantSession.js` — the session with the LEAF, separate from the node's.** The
+  assistant issues and revokes its own tokens, so a user signed in to the panel can still
+  owe the assistant a sign-in; the chat says so and offers it. Sign-in is a full-page bounce
+  to the leaf's `/auth/discord/start?return_to=…`, and the return leg lands here carrying an
+  **`assistant_login=<hostId>` marker in the query**. That marker is load-bearing: both
+  logins come back to this origin with the same `access`/`refresh`/`error` fragment keys, and
+  without it the panel hands a leaf token to kgsm-api and gets a 401.
 - **`capabilities.js` — per-host services** (metrics / assistant / watchdog), each
   with `provisioned` (offered?) × `status` (live health). **The assistant is
   per-host with no central fallback** — if a host doesn't expose it, that host has
-  no assistant.
+  no assistant. An assistant whose capability names no public origin reads **down**,
+  because the browser has nowhere to send a turn however healthy the leaf is.
 
 ## The shell (`App.jsx`)
 

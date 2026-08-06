@@ -10,31 +10,69 @@
 
 import { CONNECTIONS, soleConnectionOrigin, reconcileConnectionId } from "./config.js";
 
+// The query key an assistant-leaf sign-in puts in its return address (assistantSession.signIn
+// writes it, and the leaf preserves the query when it redirects). Spelled here rather than
+// imported so this module stays a leaf of the graph: the session layer already imports it.
+const ASSISTANT_LOGIN_PARAM = "assistant_login";
+
 const PENDING_KEY = "krystal:oauth:pending";   // sessionStorage {access,refresh} (one-shot)
 const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one-shot)
 const ANCHOR_KEY = "krystal:oauth:anchor";     // sessionStorage origin of the node we signed in through
 const AUTH_LS_KEY = "krystal:auth";
 
-function stripHash() {
-  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+function stripHash(alsoDropParam) {
+  try {
+    const url = new URL(location.href);
+    url.hash = "";
+    if (alsoDropParam) url.searchParams.delete(alsoDropParam);
+    history.replaceState(null, "", url.pathname + url.search);
+  } catch {}
+}
+
+// Which service issued the fragment we landed with. Both a node login and an assistant-leaf
+// login return to THIS origin carrying the same `access`/`refresh`/`error` keys, so the
+// fragment alone cannot say — the issuer is named by the marker the sign-in put in the return
+// address (assistantSession.signIn), which survives the round trip in the query. Without it a
+// leaf's token would be presented to kgsm-api, which can only ever answer 401.
+function issuerOfLanding() {
+  try {
+    const hostId = new URL(location.href).searchParams.get(ASSISTANT_LOGIN_PARAM);
+    return hostId ? { kind: "assistant", hostId } : { kind: "node", hostId: null };
+  } catch { return { kind: "node", hostId: null }; }
 }
 
 // Parse the OAuth fragment the callback handed back, then strip it from the URL.
-// Returns { access, refresh } on success, { error } on failure, or null when the
-// fragment isn't an OAuth landing (a normal #/route or empty hash).
+// Returns { issuer, hostId, access, refresh } on success, { issuer, hostId, error }
+// on failure, or null when the fragment isn't an OAuth landing (a normal #/route or
+// empty hash).
 export function captureOAuthFragment() {
   try {
     const h = (location.hash || "").replace(/^#/, "");
     if (!h || !/(^|&)(access|error)=/.test(h)) return null;
+    const { kind, hostId } = issuerOfLanding();
+    const drop = kind === "assistant" ? ASSISTANT_LOGIN_PARAM : null;
     const p = new URLSearchParams(h);
     const error = p.get("error");
-    if (error) { try { sessionStorage.setItem(ERROR_KEY, error); } catch {} stripHash(); return { error }; }
     const access = p.get("access");
     const refresh = p.get("refresh");
+
+    // An assistant landing never touches the node stash: its tokens belong to the leaf session
+    // for the host the marker names, and its failures are that surface's to report — the panel's
+    // own sign-in is unaffected either way. Adoption is the caller's (adoptAssistantLanding), so
+    // this module stays a parser and the two session layers keep their own storage.
+    if (kind === "assistant") {
+      stripHash(drop);
+      return {
+        issuer: "assistant", hostId, error: error || null,
+        access: access || null, refresh: refresh || null, tier: p.get("tier") || null,
+      };
+    }
+
+    if (error) { try { sessionStorage.setItem(ERROR_KEY, error); } catch {} stripHash(); return { issuer: "node", hostId: null, error }; }
     if (!access) { stripHash(); return null; }
     try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ access, refresh: refresh || null })); } catch {}
     stripHash();
-    return { access, refresh: refresh || null };
+    return { issuer: "node", hostId: null, access, refresh: refresh || null };
   } catch { return null; }
 }
 
@@ -89,6 +127,7 @@ export function takeOAuthError() {
 // On failure we drop the stash so we never half-authenticate, and record an error.
 export async function completeOAuthLogin(captured) {
   if (!CONNECTIONS.length || !captured || !captured.access) return;
+  if (captured.issuer === "assistant") return;   // a leaf's token; kgsm-api can only 401 on it
   const anchor = authAnchorOrigin();
   if (!anchor) {
     // We hold a token but not the node that issued it — probing an arbitrary one

@@ -17,9 +17,9 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 ## File map
 
 **Backend seam & realtime**
-- `apiClient.js` — the **single** backend seam. `api.get/post/patch`, per-host
+- `apiClient.js` — the **single** kgsm-api seam. `api.get/post/patch`, per-host
   `api.host(id)` (401-retry / silent renew), `api.fanOut` (multi-host roll-up),
-  `api.stream` (subscribe), the SSE assistant `turn`. Owns `connectionStore`
+  `api.stream` (subscribe). Owns `connectionStore`
   (REST reachability → cold-start/banner) and `realtimeStore` (per-host SSE
   state). **Every call site only ever sees `api`.** Every stream frame it
   dispatches carries `hostId` — the node whose socket delivered it — so a
@@ -29,6 +29,21 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   `onMode`.
 - `sse.js` — the low-level fetch-SSE reader used by `liveStream`.
 - `alertsApi.js` — alerts fetch/stream glue.
+
+**The assistant seam (a separate backend)**
+- `assistantClient.js` — the seam onto an assistant **leaf**, spoken directly on its own
+  public origin. `assistant.host(id)` mirrors `api.host(id)`'s shape against the leaf's own
+  unprefixed routes (`/turn`, `/confirm`, `/conversations`, `/admin/conversations/…`).
+  Auth is reactive like the node seam, except the two non-replayable calls — a turn spends
+  the user's prompt and a confirm burns a single-use token, so a lapsed access token is
+  rotated **before** the call rather than healed from a 401.
+  **No fallback:** a host whose capability names no public origin throws `ENOROUTE`. Routing
+  the call through kgsm-api's relay instead would restore exactly the coupling this seam
+  removes, and the relay is peer transport for another node's assistant.
+- `assistantSession.js` — the per-host session with that leaf: its own storage prefixes, its
+  own refresh rotation against the leaf's `/auth/session/refresh`, and the sign-in bounce.
+  `originOf(hostId)` reads the address off the host's assistant capability, which is the only
+  thing the aggregator contributes — discovery, not transport.
 
 **The honesty boundary**
 - `adapters.js` — maps kgsm-api's narrow HONEST model to view shapes. A value the
@@ -74,7 +89,12 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 - `sessionStore.js` — per-host identity (Model A): Discord SSO anchor, each host
   mints its own access (sessionStorage) + refresh (localStorage) token, resolves
   role via that host's bot.
-- `authRedirect.js` — captures the OAuth fragment handoff at boot.
+- `authRedirect.js` — captures the OAuth fragment handoff at boot, and **says who issued
+  it**. A node login and an assistant-leaf login both land on this origin with the same
+  `access`/`refresh`/`error` fragment keys; the `assistant_login=<hostId>` marker that
+  `assistantSession.signIn` puts in its return address is what tells them apart. It only
+  classifies — `main.jsx` hands an assistant landing to `assistantSession`, so this module
+  stays a leaf of the import graph and the two session layers keep their own storage.
 - `authStorage.js` — the app-shell user read/write (extracted from `App.jsx`).
 - `persona.js` — the authorization **policy, single source of truth**. Roles
   `admin｜operator｜viewer｜none`, resolved **per host**. `can(cap)` = aggregate

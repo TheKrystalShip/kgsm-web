@@ -310,14 +310,6 @@ function awaitJob(jobId, hostId) {
   });
 }
 
-function confirmCommand(server, verb) {
-  return commandServer(server, verb, "assistant").then(resp => {
-    const job = resp && resp.job;
-    if (!job || !job.id) return { status: "sent", jobId: null };
-    return awaitJob(job.id, server && server.hostId).then(r => ({ ...r, jobId: job.id }));
-  });
-}
-
 // Where a server lands is a decision, never a default: the caller names the node
 // (the install modal's measured pick, or the assistant's), and an install with no
 // node is rejected rather than dropped on whichever host sorted first.
@@ -329,26 +321,6 @@ function installServer(cfg) {
   if (Number.isInteger(port) && port >= 1 && port <= 65535) body.port = port;
   body.autostart = !!cfg.autostart;
   return api.host(hostId).post("/servers", body);
-}
-
-// Assistant-driven create/delete: POST /servers (install) or DELETE /servers/{id} (uninstall),
-// then await the returned job to a terminal outcome — the confirmCommand shape for the two verbs
-// that ride their own REST endpoints rather than /servers/{id}/commands. Both endpoints are async
-// (202 + a job); a missing job degrades to a "sent" outcome, never a fabricated success.
-function confirmInstall(cfg) {
-  return installServer({ ...cfg, origin: "assistant" }).then(resp => {
-    const job = resp && resp.job;
-    if (!job || !job.id) return { status: "sent", jobId: null };
-    return awaitJob(job.id, cfg && cfg.hostId).then(r => ({ ...r, jobId: job.id }));
-  });
-}
-
-function confirmUninstall(hostId, serverId) {
-  return deleteServer(hostId, serverId, "assistant").then(resp => {
-    const job = resp && resp.job;
-    if (!job || !job.id) return { status: "sent", jobId: null };
-    return awaitJob(job.id, hostId).then(r => ({ ...r, jobId: job.id }));
-  });
 }
 
 // ---- Settings (Phase 0) -------------------------------------------------
@@ -385,7 +357,6 @@ function deleteServer(hostId, serverId, origin) {
 
 export {
   __setJobTiming, serversStore, jobsStore, resolveGameNames,
-  commandServer, sendConsoleInput, moderatePlayer, awaitJob, confirmCommand, installServer,
-  confirmInstall, confirmUninstall,
+  commandServer, sendConsoleInput, moderatePlayer, awaitJob, installServer,
   fetchSettings, patchSettings, deleteServer, saveServerNote,
 };

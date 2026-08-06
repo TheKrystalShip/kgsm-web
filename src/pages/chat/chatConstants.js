@@ -1,8 +1,16 @@
-// chat constants — command metadata, API-backed verbs, and tool labels.
+// chat constants — command metadata, the runnable verbs, and tool labels.
 // Separated from chatUtils.js so components can import constants without
 // pulling in the heavier pure functions.
 
-const API_COMMAND_VERBS = new Set(["start", "stop", "restart", "open_ports", "install", "uninstall", "write_file"]);
+// The verbs a proposed command's Run button performs, by handing the token back to the leaf that
+// staged it. It is the leaf's ConfirmationKind set minus `blueprint`, which the review card owns
+// its own Save for. Nothing here is executed anywhere else — a verb missing from this set renders
+// as a proposal with no Run, which is how `update` and `backup` used to read despite the leaf
+// having always been able to perform them.
+const LEAF_COMMAND_VERBS = new Set([
+  "start", "stop", "restart", "update", "backup",
+  "install", "uninstall", "set_config", "open_ports", "write_file",
+]);
 const COMMAND_META = {
   start:      { label: "Start",         icon: "play",      tone: "success" },
   stop:       { label: "Stop",          icon: "square",    tone: "danger" },
@@ -44,4 +52,4 @@ function pickGreeting() {
 const CHAT_PRIVACY_NOTICE =
   "Conversations are saved and may be reviewed by an administrator to improve the assistant.";
 
-export { API_COMMAND_VERBS, CHAT_GREETINGS, CHAT_PRIVACY_NOTICE, COMMAND_META, commandMeta, pickGreeting };
+export { LEAF_COMMAND_VERBS, CHAT_GREETINGS, CHAT_PRIVACY_NOTICE, COMMAND_META, commandMeta, pickGreeting };

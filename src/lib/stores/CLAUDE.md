@@ -20,7 +20,7 @@ scatter hydrate calls into the domain stores.
 
 | Module | Owns |
 |---|---|
-| `servers.js` | game servers, jobs, command actions (`commandServer`, `confirmCommand`, `awaitJob`), install/delete, settings fetch/patch, console input, game-name resolution |
+| `servers.js` | game servers, jobs, command actions (`commandServer`, `awaitJob`), install/delete, settings fetch/patch, console input, game-name resolution |
 | `hosts.js` | hosts/diagnostics store + metrics & capability subscriptions (`subscribeHostMetrics`, `subscribeServerMetrics`, `syncCapabilitySubscriptions`, metrics history/events) |
 | `audit.js` | the cluster-wide audit log, plus the node-attribution helpers every surface labels or filters rows with (`auditEventHost`, `auditInScope`, `serverHostId`). **There is no app-wide node scope** — a node is an attribute of a row, and narrowing is local to the list that offers it |
 | `diagnostics.js` | host logs, log sources, services, leaf provisioning/config (`logsStore`, `servicesStore`, `applyLeafConfig`) |
@@ -38,7 +38,8 @@ scatter hydrate calls into the domain stores.
   `refresh()` — never seed with fabricated defaults.
 - All data reaches a store through `../apiClient.js` → `../adapters.js` (the
   honesty boundary) → `../merge.js` for multi-host roll-up. A store doesn't call
-  `fetch` directly.
+  `fetch` directly. The one store on the *other* seam is `assistantReview.js`, which reads
+  the assistant corpus straight from the leaf via `../assistantClient.js`.
 - **Intra-folder imports are downward:** `boot`/`audit`/`ui` may import
   `servers`/`hosts`/`library`; the base domain stores don't import back up. Watch
   for cycles — mirror the existing import direction.

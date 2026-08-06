@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the chat talks to the assistant leaf directly
+
+The assistant dock addresses the assistant on its own public origin, with a session the leaf issued.
+`kgsm-api` is no longer in the path of a turn, a confirmation, or a conversation read: it contributes
+the leaf's address (the assistant capability's `info.url`) and nothing else.
+
+- **A second seam, `assistantClient.js` + `assistantSession.js`.** `assistant.host(id)` mirrors
+  `api.host(id)`'s shape against the leaf's own unprefixed routes. The leaf session has its own
+  storage, its own refresh rotation, and its own sign-in — so a user signed in to the panel can still
+  owe the assistant a sign-in, which the chat now says plainly and offers, instead of failing every
+  message on a 401.
+- **A host whose assistant reports no public origin has no chat.** Its capability reads *down* with
+  the reason, and a call is refused with an honest no-route error. It does not fall back to the
+  relay: that would restore exactly the coupling going direct removes.
+- **The Run on a proposed command hands the leaf's token back to the leaf**, which performs the
+  action and answers a verdict. The panel no longer re-runs the action through `kgsm-api` — one
+  staged action, one way to perform it, one authority gate, one outcome shape.
+- **The verified block is rendered from the verdict, not from the reply text.** `settled` and
+  `accepted` are the successes; `notSettled` says the end state was not reached and reports what
+  *was* seen; `unknown` says the state could not be read and is never drawn as "stopped".
+- **`update`, `backup` and `set_config` are runnable.** The leaf has always been able to perform
+  them; the panel offered no Run.
+- **Long actions narrate.** The confirm stream's progress steps drive a live sub-label under the
+  card's spinner, so an install or a settling wait reads as advancing.
+- ⚠ **The OAuth return leg now carries an `assistant_login=<hostId>` marker.** Both logins land on
+  this origin with the same `access`/`refresh`/`error` fragment keys, and without the marker the
+  panel presents a leaf token to `kgsm-api`. Keep it whenever either sign-in path changes.
+
 ### Added — a leaf's Commands tab
 
 - **The leaf page carries a Commands tab for a leaf that answers to commands**, listing every one

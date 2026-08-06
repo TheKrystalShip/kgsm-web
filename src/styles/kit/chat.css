@@ -2846,6 +2846,35 @@ a.ev-search__src:hover {
   background: var(--surface-3);
 }
 
+/* ---- assistant sign-in bar ----
+   The assistant leaf issues its own session, so a user signed in to the panel can still owe this
+   one. Sits directly above the composer, where the thing it blocks is. */
+.chat-signin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  color: var(--fg-2);
+  font-size: 12.5px;
+}
+.chat-signin > span { flex: 1; min-width: 0; }
+.chat-signin__go {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--fg-1);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chat-signin__go:hover { background: var(--surface-4); }
+
 /* ---- composer ---- */
 .chat-composer {
   padding: 12px 16px 14px;

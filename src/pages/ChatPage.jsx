@@ -5,9 +5,10 @@ import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx"
 import { capUsable, hostCapability } from "../lib/capabilities.js";
 import { canOperate, isAdmin } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
-import { confirmCommand, confirmInstall, confirmUninstall, filesStore, serversStore } from "../lib/stores.js";
+import { serversStore } from "../lib/stores.js";
 import { fetchAssistantTranscript } from "../lib/stores.js";
-import { api } from "../lib/apiClient.js";
+import { assistant } from "../lib/assistantClient.js";
+import { assistantSession } from "../lib/assistantSession.js";
 
 // Imports from extracted modules
 import {
@@ -16,7 +17,7 @@ import {
   uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
   latestUsage, mergeServerConversations,
 } from "./chat/chatUtils.jsx";
-import { API_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } from "./chat/chatConstants.js";
+import { LEAF_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } from "./chat/chatConstants.js";
 // ChatCommand is imported only to re-export it (see the export list below); the
 // message-role dispatch that used it now lives in ChatThread.
 import { ChatCommand } from "./chat/ChatMessageParts.jsx";
@@ -34,6 +35,17 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     : { tone: "danger", label: "Unavailable \u00b7 " + assistantHost.name };
 
   const assistantUsable = !!(assistantHost && capUsable(assistantHost, "assistant"));
+
+  // The chat holds its OWN session with the assistant leaf — the leaf issues it, and the node's
+  // kgsm-api session neither mints nor refreshes it. So a user signed in to the panel can still
+  // owe the assistant a sign-in, and that is worth saying plainly instead of letting every message
+  // fail on a 401.
+  const leafStatus = useStore(assistantSession, s => {
+    const rec = assistantHost ? s.byHost[assistantHost.id] : null;
+    return rec ? rec.status : "none";
+  });
+  const assistantAuthed = leafStatus === "live";
+  const needsAssistantSignIn = !!(assistantHost && assistantUsable && !assistantAuthed);
 
   const [convos, setConvos]     = React.useState(loadConversations);
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);
@@ -83,23 +95,23 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   const [histLoading, setHistLoading] = React.useState(false);
   const histReqRef = React.useRef(0);
   const loadServerHistory = React.useCallback(() => {
-    if (!assistantHost || !assistantUsable) return;
+    if (!assistantHost || !assistantUsable || !assistantAuthed) return;
     const reqId = ++histReqRef.current;
     setHistLoading(true);
-    api.host(assistantHost.id).get("/assistant/conversations").then(
+    assistant.host(assistantHost.id).conversations().then(
       (list) => { if (histReqRef.current === reqId) setConvos(prev => mergeServerConversations(prev, list, assistantHost.id)); },
       () => {})
       .finally(() => { if (histReqRef.current === reqId) setHistLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
-  }, [assistantHost && assistantHost.id, assistantUsable]);
+  }, [assistantHost && assistantHost.id, assistantUsable, assistantAuthed]);
 
   React.useEffect(() => {
-    if (!assistantHost) return;
+    if (!assistantHost || !assistantAuthed) return;
     const c = convos.find(x => x.id === activeId);
     if (!c || !c.remote || c.loaded || (c.messages && c.messages.length > 0)) return;
     if (c.hostId && c.hostId !== assistantHost.id) return;
     let cancelled = false;
-    api.host(assistantHost.id).get("/assistant/conversations/" + encodeURIComponent(c.id)).then(
+    assistant.host(assistantHost.id).conversation(c.id).then(
       (data) => {
         if (cancelled) return;
         const messages = scaffoldHistory(data && data.entries);
@@ -108,7 +120,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       () => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch history on every streamed message
-  }, [activeId, assistantHost && assistantHost.id]);
+  }, [activeId, assistantHost && assistantHost.id, assistantAuthed]);
 
   // ===== Review mode =====
   // Replaying someone ELSE's conversation, read-only. The admin transcript DTO is deliberately the
@@ -205,7 +217,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     e.stopPropagation();
     const chat = convos.find(c => c.id === id);
     const hostId = (chat && chat.hostId) || (assistantHost && assistantHost.id);
-    if (hostId) api.host(hostId).del("/assistant/conversations/" + encodeURIComponent(id)).catch(() => {});
+    if (hostId) assistant.host(hostId).deleteConversation(id).catch(() => {});
     setConvos(prev => {
       const next = prev.filter(c => c.id !== id);
       if (id === activeId) setActiveId(next[0]?.id || null);
@@ -230,10 +242,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       }),
     }));
 
-    api.host(hostId)
-      .post("/assistant/conversations/" + encodeURIComponent(activeId)
-        + "/turns/" + turnId + "/feedback", { rating, note })
-      .catch(() => {});
+    assistant.host(hostId).feedback(activeId, turnId, { rating, note }).catch(() => {});
   };
 
   const setMessages = (updater) => {
@@ -263,7 +272,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       // If a blueprint draft is open, carry its CURRENT content so the assistant can revise it from chat.
       const openCmdId = activeDraftRef.current;
       const draftYaml = openCmdId ? draftEditsRef.current[openCmdId] : undefined;
-      await api.host(assistantHost.id).turn(
+      await assistant.host(assistantHost.id).turn(
         { prompt, actions: autoAcceptActive, think: thinkOn, conversationId: convId, draftYaml },
         { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
@@ -283,7 +292,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           : bubble.content
             ? { ...bubble, content: bubble.content + "\n\n_\u26a0 Interrupted \u2014 the assistant connection dropped._" }
             : { ...bubble, content: "\u26a0\ufe0f " + reason, error: true };
-        // The stream ended without a done frame \u2014 still surface any gathered evidence.
+        // The stream ended without a done frame — still surface any gathered evidence.
         msgs[lastIdx] = promotePendingCards(finalized);
         return { ...c, messages: msgs };
       }));
@@ -324,6 +333,18 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       return;
     }
 
+    if (needsAssistantSignIn) {
+      setConvos(prev => prev.map(c => {
+        if (c.id !== convId) return c;
+        const title = c.messages.length === 0 ? (text.slice(0, 40) || "Voice note") : c.title;
+        const why = leafStatus === "denied"
+          ? "You don\u2019t have access to " + assistantHost.name + "\u2019s assistant."
+          : "Sign in to " + assistantHost.name + "\u2019s assistant to talk to it.";
+        return { ...c, title, messages: [...c.messages, userMsg, { role: "assistant", content: "\u26a0\ufe0f " + why, error: true }] };
+      }));
+      return;
+    }
+
     sendLive(convId, text, userMsg);
   };
 
@@ -332,8 +353,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   const compactActive = React.useCallback(async () => {
     if (!assistantHost || !activeId) return { compacted: false };
     const convId = activeId;
-    const res = await api.host(assistantHost.id).post(
-      "/assistant/conversations/" + encodeURIComponent(convId) + "/compact");
+    const res = await assistant.host(assistantHost.id).compact(convId);
     const compacted = !!(res && res.compacted);
     const n = res && typeof res.messagesCompacted === "number" ? res.messagesCompacted : 0;
     if (compacted) {
@@ -369,14 +389,20 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per seed via seed.nonce; seed.prompt is read fresh at that edge
   }, [seed && seed.nonce]);
 
+  // Confirm a staged command by handing its token back to the leaf that staged it. The leaf
+  // performs every kind itself — start/stop/restart/update/backup, install/uninstall, the config
+  // write, the ports open, the file write — watches the ones with a run-state postcondition until
+  // they reach it, and answers a verdict. There is no second execution path: the panel does not
+  // re-run the action through kgsm-api, so one staged action has one way to happen, one authority
+  // gate, and one outcome shape.
   const runLiveCommand = (card) => {
-    if (!API_COMMAND_VERBS.has(card.verb)) return;
+    if (!LEAF_COMMAND_VERBS.has(card.verb)) return;
     const isInstall = card.verb === "install";
     // Install targets a blueprint (subject.id is the blueprint, not an existing instance); the rest
-    // target an existing server. Resolve the host from the instance where there is one, else the
-    // host the assistant is running on (install always lands on the assistant's own host).
+    // target an existing server. The name is for the copy only — the leaf resolves the target from
+    // the token it staged, never from anything sent back here.
     const found = isInstall ? null : (serversStore.getState().list.find(s => s.id === card.subjectId) || null);
-    const hostId = (found && found.hostId) || (assistantHost && assistantHost.id) || null;
+    const hostId = (assistantHost && assistantHost.id) || null;
     const serverName = isInstall
       ? (card.instanceName || card.subjectId)
       : (found && found.name) || card.subjectId;
@@ -389,40 +415,28 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
       return [...marked, { role: "verify", id: verifyId, action: { label: meta.label, verb: card.verb, serverName }, state: "pending" }];
     });
     const resolveVerify = (result) =>
-      setMessages(msgs => msgs.map(m => (m.role === "verify" && m.id === verifyId) ? { ...m, state: "done", result } : m));
-    // write_file writes the assistant's proposed content through the file-content endpoint (the same
-    // jailed, operator-gated path the file editor uses) — it returns the saved file, not a job, so its
-    // verified block is composed here rather than through composeVerified.
-    if (card.verb === "write_file") {
-      if (!card.file || !card.file.path) {
-        resolveVerify({ ok: false, headline: "Couldn’t update the file — no change was proposed.", lines: [] });
-        return;
-      }
-      filesStore.saveFile(hostId, card.subjectId, card.file.path, card.file.proposedContent).then(
-        () => resolveVerify({ ok: true, headline: "Updated " + card.file.path + " on " + serverName + ". It takes effect on the next restart.", lines: [] }),
-        err => {
-          const expired = err && err.code === 401;
-          resolveVerify(expired
-            ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "’s session expired — re-authorize this host to run commands.", lines: [] }
-            : { ok: false, headline: "Couldn’t update " + card.file.path + " — " + ((err && err.userMessage) || "the write failed."), lines: [] });
-        });
+      setMessages(msgs => msgs.map(m => (m.role === "verify" && m.id === verifyId) ? { ...m, state: "done", result, progress: null } : m));
+    // The leaf's progress steps drive a live sub-label under the spinner (a lifecycle command
+    // narrates its settling wait, an install its download), so a slow action reads as advancing.
+    const onProgress = (evt) =>
+      setMessages(msgs => msgs.map(m =>
+        (m.role === "verify" && m.id === verifyId) ? { ...m, progress: (evt && evt.label) || null } : m));
+
+    // The token is what authorizes and addresses the action; without it there is nothing to confirm.
+    if (!hostId || !card.token) {
+      resolveVerify({ ok: false, headline: "This action has expired \u2014 ask the assistant to propose it again.", lines: [] });
       return;
     }
-    // install → POST /servers, uninstall → DELETE /servers/{id}, everything else → the M3 command
-    // path. All three return a job the SPA awaits to a terminal outcome, then composes the same
-    // client-side command.verified block (never fabricating success from the 202 alone).
-    const run = isInstall
-      ? confirmInstall({ game: { id: card.subjectId }, name: card.instanceName || undefined, hostId })
-      : card.verb === "uninstall"
-        ? confirmUninstall(hostId, card.subjectId)
-        : confirmCommand({ id: card.subjectId, hostId }, card.verb);
-    run.then(
-      settled => resolveVerify(composeVerified(card.verb, serverName, settled)),
+    assistant.host(hostId).confirm({ token: card.token }, { onProgress }).then(
+      resp => resolveVerify(composeVerified(card.verb, serverName, resp)),
       err => {
         const expired = err && err.code === 401;
+        const noRoute = err && err.code === "ENOROUTE";
         resolveVerify(expired
-          ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "\u2019s session expired \u2014 re-authorize this host to run commands.", lines: [] }
-          : { ok: false, headline: "Couldn\u2019t run " + meta.label.toLowerCase() + " \u2014 " + ((err && err.userMessage) || "the command failed."), lines: [] });
+          ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "\u2019s assistant session expired \u2014 sign in again to run commands.", lines: [] }
+          : noRoute
+            ? { ok: false, headline: ((assistantHost && assistantHost.name) || "This host") + "\u2019s assistant has no address this browser can reach.", lines: [] }
+            : { ok: false, headline: "Couldn\u2019t run " + meta.label.toLowerCase() + " \u2014 " + ((err && err.userMessage) || "the command failed."), lines: [] });
       });
   };
 
@@ -448,7 +462,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
     // sub-label under the "verifying" spinner so the user sees it advancing, not a dead wait. Cleared on
     // every terminal branch below.
     const onProgress = (evt) => patchBlueprintMsg(msg.cmdId, { bpProgress: evt && evt.label ? evt.label : null });
-    api.host(hostId).confirmBlueprint({ token: msg.token, editedContent: editedYaml }, { onProgress }).then(
+    assistant.host(hostId).confirm({ token: msg.token, editedContent: editedYaml }, { onProgress }).then(
       resp => {
         const r = adaptBlueprintConfirm(resp);
         if (r.state === "verified") {
@@ -702,6 +716,22 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
           )}
         </div>
 
+        {needsAssistantSignIn && (
+          <div className="chat-signin">
+            <Icon name="bot" size={14} />
+            <span>
+              {leafStatus === "denied"
+                ? "You don\u2019t have access to " + assistantHost.name + "\u2019s assistant."
+                : assistantHost.name + "\u2019s assistant needs its own sign-in."}
+            </span>
+            {leafStatus !== "denied" && (
+              <button type="button" className="chat-signin__go" onClick={() => assistantSession.signIn(assistantHost.id)}>
+                Sign in
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="chat-composer">
           {voice.phase === "idle" ? (
             <div className="chat-composer__box">
@@ -782,7 +812,7 @@ function ChatPage({ user, onOpenServer, onOpenView, docked, seed, onClose, onExp
   );
 }
 
-export { adaptResultCard, API_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, latestUsage, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
+export { adaptResultCard, LEAF_COMMAND_VERBS, ChatCommand, ChatPage, composeVerified, latestUsage, mergeServerConversations, reduceTurnFrame, scaffoldHistory };
 // Default export so React.lazy(() => import("./ChatPage.jsx")) resolves (AppRouter's
 // chat route + App.jsx's dock both lazy-load this).
 export default ChatPage;

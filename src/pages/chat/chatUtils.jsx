@@ -60,29 +60,62 @@ function toolLabel(tool) {
   return TOOL_LABELS[tool] || (tool.charAt(0).toUpperCase() + tool.slice(1).replace(/_/g, " "));
 }
 
-// ---------- command verified (compose client-side from M3 job outcome) ----------
-const VERB_PAST = { start: "Started", stop: "Stopped", restart: "Restarted", install: "Installed", uninstall: "Uninstalled" };
-function composeVerified(verb, serverName, settled) {
-  const s = settled || {};
-  if (s.status === "unknown") {
-    return { ok: false, headline: "Couldn\u2019t confirm \u2014 no response from the host yet. Check the server.", lines: [] };
+// ---------- command verified (rendered from the leaf's confirm verdict) ----------
+// The leaf watches a lifecycle command until it reaches its run-state postcondition and answers a
+// VERDICT (wire-contract \u00a73): settled/accepted are the two successes, and notSettled/unknown/failed/
+// refused each say something different about what went wrong. We render the verdict rather than
+// parsing `text` for it \u2014 `text` is the one field the leaf is free to reword, and two surfaces
+// reading it differently is exactly how they come to disagree about whether a server started.
+const VERB_PAST = {
+  start: "Started", stop: "Stopped", restart: "Restarted", install: "Installed",
+  uninstall: "Uninstalled", update: "Updated", backup: "Backed up",
+};
+const STATE_WORD = { running: "running", stopped: "stopped", unknown: "unreadable" };
+
+function composeVerified(verb, serverName, resp) {
+  const r = resp || {};
+  const o = r.outcome || null;
+  const what = verb === "open_ports" ? "open ports for " : (verb.replace(/_/g, " ") + " ");
+  const lines = o && o.reason ? [{ status: "fail", label: "Reason", detail: String(o.reason) }] : [];
+
+  // No outcome object at all: an older leaf, or a kind that reports none. Fall back to `success`,
+  // and to the leaf's own sentence \u2014 never upgrade silence into an observation.
+  if (!o) {
+    return r.success
+      ? { ok: true, headline: r.text || ((VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + "."), lines: [] }
+      : { ok: false, headline: r.text || ("Couldn\u2019t " + what + serverName + "."), lines: [] };
   }
-  if (s.status === "sent") {
-    return { ok: true, headline: commandMeta(verb).label + " sent to " + serverName + ".", lines: [] };
+
+  switch (o.verdict) {
+    case "settled": {
+      const headline = verb === "open_ports"
+        ? "Opened the required ports for " + serverName + "."
+        : (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".";
+      return { ok: true, headline, lines: [] };
+    }
+    // Ran, and the engine reported success, but the verb has no run-state to watch (an update, a
+    // backup, a config write). Say what was done, and claim nothing about the server's state.
+    case "accepted":
+      return { ok: true, headline: (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".", lines: [] };
+    // Ran; the end state was not reached inside the window. `observedState` is what was actually
+    // seen \u2014 the honest middle, and the one case a client is most tempted to round to a failure.
+    case "notSettled":
+      return {
+        ok: false,
+        headline: "Ran " + what.trim() + " on " + serverName + ", but it hasn\u2019t "
+          + (verb === "stop" ? "stopped" : "come up") + " yet \u2014 it may still be working.",
+        lines: o.observedState
+          ? [{ status: "warn", label: "Last seen", detail: STATE_WORD[o.observedState] || o.observedState }, ...lines]
+          : lines,
+      };
+    // Ran; the run state could not be read. Never rendered as "stopped".
+    case "unknown":
+      return { ok: false, headline: "Ran " + what.trim() + " on " + serverName + ", but its state couldn\u2019t be read.", lines };
+    case "refused":
+      return { ok: false, headline: r.text || ("Didn\u2019t " + what + serverName + "."), lines };
+    default:  // failed, or a verdict this build doesn't know
+      return { ok: false, headline: "Couldn\u2019t " + what + serverName + ".", lines };
   }
-  if (s.status === "succeeded") {
-    const headline = verb === "open_ports"
-      ? "Opened the required ports for " + serverName + "."
-      : (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".";
-    return { ok: true, headline, lines: [] };
-  }
-  const err = s.job && s.job.error;
-  const what = verb === "open_ports" ? "open ports for " : (verb + " ");
-  return {
-    ok: false,
-    headline: "Couldn\u2019t " + what + serverName + ".",
-    lines: err ? [{ status: "fail", label: "Error", detail: String(err) }] : [],
-  };
 }
 
 // ---------- tool.result → evidence card projection ----------
