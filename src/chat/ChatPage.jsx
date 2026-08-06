@@ -133,6 +133,13 @@ function ChatPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
   }, [assistantHost && assistantHost.id, assistantUsable, assistantAuthed]);
 
+  // The conversations the LEAF holds are this list's other half — everything from another browser,
+  // another device, or this one before its localStorage was cleared. Fetched as soon as there is a
+  // session to fetch them with, so the rail is the whole history rather than only what this browser
+  // happens to remember. loadServerHistory is a no-op until authed and re-identifies when the
+  // addressed host changes, so this runs once per host per session.
+  React.useEffect(() => { loadServerHistory(); }, [loadServerHistory]);
+
   React.useEffect(() => {
     if (!assistantHost || !assistantAuthed) return;
     const c = convos.find(x => x.id === activeId);
@@ -665,9 +672,14 @@ function ChatPage({
             </div>
           ))}
         </div>
-        <div className="chat-rail__foot">
-          <span className={"chat-conn chat-conn--" + conn.tone}><span className="dot"></span>{conn.label}</span>
-        </div>
+        {/* Only when it has something to say. A leaf that is reachable and healthy is the state
+            the whole page already demonstrates, so a permanent "Connected" is decoration; a
+            degraded, unavailable or unchosen one names itself and the node it means. */}
+        {conn.tone !== "online" && (
+          <div className="chat-rail__foot">
+            <span className={"chat-conn chat-conn--" + conn.tone}><span className="dot"></span>{conn.label}</span>
+          </div>
+        )}
       </aside>
 
       <div className="chat-main">
@@ -684,7 +696,7 @@ function ChatPage({
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
               </button>
-              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} conn={conn} onOpen={loadServerHistory} loading={histLoading} />
+              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} onOpen={loadServerHistory} loading={histLoading} />
             </div>
             {docked && (
               <div className="chat-head__win">

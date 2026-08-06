@@ -3324,6 +3324,16 @@ a.ev-search__src:hover {
     height: calc(100dvh - var(--topbar-h) - 32px);
   }
 
+  /* The standalone assistant owns the viewport: there is no top bar above it and no content-area
+     padding around it, so it subtracts neither. It also drops its own inset here — at phone width
+     that gutter reads as a frame drawn around the conversation rather than as breathing room.
+     Both restate .chat-page--solo's base rules because the .chat-page override above is the same
+     specificity and comes later, so it would otherwise win. */
+  .chat-page--solo {
+    height: 100dvh;
+    padding: 0;
+  }
+
   /* Desktop rail is replaced by the in-header new-chat + history popover. */
   .chat-rail {
     display: none;

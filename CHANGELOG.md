@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the conversation rail shows the conversations the leaf holds
+
+The rail rendered only what this browser had in localStorage, so a conversation started on another
+device — or on this one before its storage was cleared — was invisible on desktop while the mobile
+history popover listed it in full. The popover's `onOpen` was the only thing that ever fetched the
+leaf's list. It is now fetched as soon as there is a session to fetch it with, once per host, so
+both affordances read the same history.
+
+### Changed — the chat's connection pill appears only when it has something to say
+
+A reachable, healthy leaf is the state the whole page already demonstrates, so a permanent
+"Connected" in the rail foot was decoration. It renders for `warn`, `danger` and `muted` — degraded,
+unavailable, or no node chosen — where it names the state and the node it means. The standalone
+assistant is always online by construction, so it never shows one.
+
+### Fixed — the standalone assistant fills the screen on a phone
+
+`.chat-page`'s mobile height subtracts the top bar and the content-area padding, which the
+standalone surface has neither of; being the later rule at equal specificity, it beat
+`.chat-page--solo` and left a gap the height of a top bar below the composer. The solo surface now
+restates its own height inside the mobile query, and drops its 14px inset there — at phone width
+that gutter read as a frame drawn around the conversation.
+
 ### Added — the standalone assistant installs as its own app
 
 The assistant surface is a PWA on the same terms the Control Panel is: Android Chrome offers

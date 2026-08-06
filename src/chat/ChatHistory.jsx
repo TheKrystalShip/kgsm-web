@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon.jsx";
 import { usePortalPopover } from "./usePortalPopover.js";
 
-function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading }) {
+function ChatHistory({ convos, activeId, onPick, onDelete, onOpen, loading }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
