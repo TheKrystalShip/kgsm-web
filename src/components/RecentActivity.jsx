@@ -1,5 +1,6 @@
 import React from "react";
 import { AuditEventRow } from "./AuditEventRow.jsx";
+import { auditEventHost } from "../lib/stores.js";
 import { BriefCard } from "./BriefCard.jsx";
 import { Icon } from "./Icon.jsx";
 import { useStore } from "../lib/store.js";
@@ -46,6 +47,7 @@ function RecentActivity({ hostId, serverId, onViewAll, max = 3, title = "Recent 
         <div className="chat-brief__list">
           {recent.map(ev => (
             <AuditEventRow
+              resolveHost={auditEventHost}
               key={ev.id}
               ev={ev}
               now={now}

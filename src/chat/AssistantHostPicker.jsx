@@ -7,8 +7,8 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "../../components/Icon.jsx";
-import { hostCapability } from "../../lib/capabilities.js";
+import { Icon } from "../components/Icon.jsx";
+import { hostCapability } from "../lib/capabilities.js";
 import { usePortalPopover } from "./usePortalPopover.js";
 
 function AssistantHostPicker({ hosts, current, onSelect }) {

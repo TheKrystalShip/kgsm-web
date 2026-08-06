@@ -1,6 +1,5 @@
 import { AuditActor } from "./AuditActor.jsx";
 import { Icon } from "./Icon.jsx";
-import { auditEventHost } from "../lib/stores.js";
 import { ACTION_META, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 
 // AuditEventRow — the single presentational row for one audit event. Shared by
@@ -18,13 +17,19 @@ import { ACTION_META, fmtRelative, fmtTime, parseTs } from "../lib/formatting.js
 //   showMeta   render the meta "key=value" chips (the full page does; the compact
 //              panels don't, to stay tidy in a narrow column)
 //   onClick    optional row click (the compact panels deep-link to the audit log)
-function AuditEventRow({ ev, now, hosts, avatarSize, showMeta = true, onClick }) {
+// Node attribution arrives as a FUNCTION rather than being resolved here, because deriving a host
+// from a serverId needs the server roster — and a row that reaches the store barrel for it cannot be
+// rendered by a surface that has no roster. The default reads what the event itself carries; the
+// panel passes the store-aware `auditEventHost`. `showHost` is off for a surface that has only one
+// host, where "which node" is not a question the reader has.
+function AuditEventRow({ ev, now, hosts, avatarSize, showMeta = true, showHost = true, onClick,
+                        resolveHost = (e) => (e && e.hostId) || null }) {
   const meta = ACTION_META[ev.action] || { label: ev.action, icon: "circle-dot", tone: "info" };
   const date = parseTs(ev.ts);
   // Render the meta dictionary as compact "key=value" chips (full page only).
   const metaEntries = showMeta ? Object.entries(ev.meta || {}) : [];
   // Host provenance: explicit hostId / derived from server / null = panel-wide.
-  const hostId = auditEventHost(ev);
+  const hostId = resolveHost(ev);
   const host = hostId ? (hosts || []).find(h => h.id === hostId) : null;
   const clickable = typeof onClick === "function";
 
@@ -42,10 +47,12 @@ function AuditEventRow({ ev, now, hosts, avatarSize, showMeta = true, onClick })
             <Icon name={meta.icon} size={11} strokeWidth={2.2} className="audit-pill__icon" />
             {ev.action}
           </span>
-          <span className={"audit-row__host" + (hostId ? "" : " audit-row__host--panel")} title={hostId ? "Host: " + (host ? host.name : hostId) : "Panel-wide event"}>
-            <Icon name={hostId ? "server" : "layers"} size={10} strokeWidth={2.2} />
-            {hostId ? (host ? host.name : hostId) : "panel"}
-          </span>
+          {showHost && (
+            <span className={"audit-row__host" + (hostId ? "" : " audit-row__host--panel")} title={hostId ? "Host: " + (host ? host.name : hostId) : "Panel-wide event"}>
+              <Icon name={hostId ? "server" : "layers"} size={10} strokeWidth={2.2} />
+              {hostId ? (host ? host.name : hostId) : "panel"}
+            </span>
+          )}
           {metaEntries.map(([k, v]) => (
             <span key={k} className="audit-row__chip"><b>{k}:</b> {String(v)}</span>
           ))}

@@ -1,5 +1,5 @@
 import { Icon } from "./Icon.jsx";
-import { AccountAvatar } from "./Sidebar.jsx";
+import { AccountAvatar } from "./AccountAvatar.jsx";
 
 // AuditActor — renders the avatar circle for an audit event's actor.
 // System actors get a bot icon; human actors get an AccountAvatar.

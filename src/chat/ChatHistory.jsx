@@ -3,7 +3,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "../components/Icon.jsx";
 import { usePortalPopover } from "./usePortalPopover.js";
 
 function ChatHistory({ convos, activeId, onPick, onDelete, conn, onOpen, loading }) {

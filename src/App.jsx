@@ -1,7 +1,8 @@
 import React from "react";
 import { AssistantDockProvider, useAssistantDock } from "./components/AssistantDockContext.jsx";
 import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
-import { ColdStartDown, ConnectivityBanner } from "./components/ErrorBoundary.jsx";
+import { ColdStartDown } from "./components/ErrorBoundary.jsx";
+import { ConnectivityBanner } from "./components/ConnectivityBanner.jsx";
 import { NodeAccessNotice } from "./components/host-helpers.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";

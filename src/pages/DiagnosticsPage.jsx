@@ -1,6 +1,6 @@
 import React from "react";
 import { anchoredAlerts, alertsTone } from "../components/ContextualAlerts.jsx";
-import { HostConnection } from "../components/ErrorBoundary.jsx";
+import { HostConnection } from "../components/ConnectivityBanner.jsx";
 import { hostMetricsFreshness } from "../components/HostCardBody.jsx";
 import { HostDeniedNotice } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";

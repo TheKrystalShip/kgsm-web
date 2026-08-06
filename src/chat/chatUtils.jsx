@@ -3,7 +3,7 @@
 // which returns JSX from plain data).
 
 import { commandMeta } from "./chatConstants.js";
-import { fmtRelative } from "../../lib/formatting.js";
+import { fmtRelative } from "../lib/formatting.js";
 
 const CHAT_LS_KEY      = "krystal:chat:conversations";
 const CHAT_ACTIONS_LS  = "krystal:chat:actions";

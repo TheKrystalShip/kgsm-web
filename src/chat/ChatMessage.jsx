@@ -1,15 +1,15 @@
 // ChatMessage — the message bubble dispatcher. Renders user bubbles,
 // assistant bubbles (with thinking, tools, evidence cards), and typing indicators.
 
-import { Icon } from "../../components/Icon.jsx";
-import { AccountAvatar } from "../../components/Sidebar.jsx";
-import { VoiceNoteBubble } from "../../components/VoiceNote.jsx";
+import { Icon } from "../components/Icon.jsx";
+import { AccountAvatar } from "../components/AccountAvatar.jsx";
+import { VoiceNoteBubble } from "../components/VoiceNote.jsx";
 import { renderMarkdown } from "./chatUtils.jsx";
 import { ChatThinking, ChatContextPill, ChatSteps, ChatPending } from "./ChatMessageParts.jsx";
 import { ChatEvidence } from "./EvidenceCards.jsx";
 import { ChatFeedback } from "./ChatFeedback.jsx";
 
-function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun, onRate, readOnlyFeedback }) {
+function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun, onRate, readOnlyFeedback, nodes }) {
   const isUser = msg.role === "user";
   return (
     <div className={"chat-msg" + (isUser ? " chat-msg--user" : " chat-msg--assistant")}>
@@ -36,7 +36,7 @@ function ChatMessage({ msg, user, onOpenServer, onOpenView, onRun, onRate, readO
               : <ChatPending />}
         </div>
         {!isUser && msg.cards && msg.cards.length > 0 && (
-          <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} />
+          <ChatEvidence cards={msg.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} nodes={nodes} />
         )}
         {/* Only a finished answer can be judged: a bubble still streaming has nothing to rate yet. */}
         {!isUser && msg.content && (onRate || readOnlyFeedback) && (

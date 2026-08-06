@@ -2,15 +2,19 @@
 // assistant's answer. Each card deep-links to the full context. Pure
 // props-in, JSX-out — no local state, no parent coupling.
 
-import { Icon } from "../../components/Icon.jsx";
-import { AuditEventRow } from "../../components/AuditEventRow.jsx";
-import { ChartHoverProvider } from "../../components/TimeSeriesChart.jsx";
-import { MetricsChartGrid } from "../performance/MetricsChartGrid.jsx";
-import { useStore } from "../../lib/store.js";
-import { hostsStore } from "../../lib/stores.js";
-import { formatBytes, formatBps } from "../../lib/formatting.js";
+import { Icon } from "../components/Icon.jsx";
+import { AuditEventRow } from "../components/AuditEventRow.jsx";
+import { ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
+import { MetricsChartGrid } from "../pages/performance/MetricsChartGrid.jsx";
+import { formatBytes, formatBps } from "../lib/formatting.js";
 
-function ChatEvidence({ cards, onOpenServer, onOpenView, onRun }) {
+// `nodes` is the environment a card needs to name a NODE: the host roster and how to derive a host
+// from an event. It arrives as props rather than being read from a store, because a surface with one
+// leaf and no cluster has neither — and a card that reaches for the store barrel cannot render there.
+// The default is the honest empty one: no roster, nothing to resolve, no node chip.
+const NO_NODES = { hosts: [], resolveHost: (e) => (e && e.hostId) || null, showHost: false };
+
+function ChatEvidence({ cards, onOpenServer, onOpenView, onRun, nodes = NO_NODES }) {
   if (!cards || !cards.length) return null;
   return (
     <div className="chat-evidence">
@@ -28,7 +32,7 @@ function ChatEvidence({ cards, onOpenServer, onOpenView, onRun }) {
         if (c.kind === "search")      return <EvidenceSearch      key={i} c={c} />;
         if (c.kind === "rootcause")   return <EvidenceRootCause   key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "changes")     return <EvidenceChanges     key={i} c={c} onOpenServer={onOpenServer} />;
-        if (c.kind === "audit")       return <EvidenceAudit          key={i} c={c} onOpenServer={onOpenServer} />;
+        if (c.kind === "audit")       return <EvidenceAudit          key={i} c={c} onOpenServer={onOpenServer} nodes={nodes} />;
         if (c.kind === "timeline")    return <EvidenceChangeTimeline key={i} c={c} onOpenServer={onOpenServer} />;
         if (c.kind === "blueprintOutcome") return <EvidenceBlueprintOutcome key={i} c={c} onRun={onRun} />;
         return null;
@@ -258,8 +262,7 @@ function EventTimelineBody({ available, rows, emptyLabel, unavailableLabel }) {
 // non-list states are kept: the monitor couldn't be read (never narrated as "nothing happened"), and
 // a measured empty read ("nothing recorded"). `now` is a static snapshot — an evidence card is a
 // point-in-time record in the conversation, so relative times don't tick (matching the other cards).
-function EvidenceAudit({ c, onOpenServer }) {
-  const hosts = useStore(hostsStore, s => s.list);
+function EvidenceAudit({ c, onOpenServer, nodes = NO_NODES }) {
   const scope = c.serverId ? "for " + c.serverName + " " : "";
   const now = new Date();
   return (
@@ -279,7 +282,8 @@ function EvidenceAudit({ c, onOpenServer }) {
       ) : (
         <div className="ev-audit">
           {c.events.map((ev) => (
-            <AuditEventRow key={ev.id} ev={ev} now={now} hosts={hosts} avatarSize={24} showMeta={false} />
+            <AuditEventRow key={ev.id} ev={ev} now={now} hosts={nodes.hosts} avatarSize={24}
+              showMeta={false} showHost={nodes.showHost} resolveHost={nodes.resolveHost} />
           ))}
         </div>
       )}

@@ -4,7 +4,7 @@
 
 import React from "react";
 import { alertsTone } from "../../components/ContextualAlerts.jsx";
-import { HostConnection } from "../../components/ErrorBoundary.jsx";
+import { HostConnection } from "../../components/ConnectivityBanner.jsx";
 import { HostMeters, hostHealth } from "../../components/HostCardBody.jsx";
 import { HostAuthBadge } from "../../components/host-helpers.jsx";
 import { Icon } from "../../components/Icon.jsx";

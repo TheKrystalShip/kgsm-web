@@ -15,6 +15,18 @@
   min-height: 420px;
 }
 
+/* The standalone assistant: the chat IS the page, so it owns the whole viewport rather than the
+   Control Panel's content area (there is no top bar and no surrounding padding to subtract). One
+   rule rather than a second layout — the grid, the rail and the composer behave identically. */
+.chat-page--solo {
+  height: 100vh;
+  height: 100dvh;
+  padding: 14px;
+  box-sizing: border-box;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
 /* ---- conversation rail ---- */
 .chat-rail {
   display: flex;

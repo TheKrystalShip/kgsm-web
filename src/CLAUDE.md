@@ -6,6 +6,28 @@ where-truth-lives) — read it first. **This file owns the *structure*:** what
 lives where, and the boundaries the 2026-07 architecture-cleanup refactor put in
 place so future work doesn't collapse them back.
 
+## Two surfaces, one source tree
+
+This repo builds **two** SPAs. `index.html` → the Control Panel; `assistant.html` → the standalone
+assistant served by the kgsm-assistant leaf. Separate Vite configs, separate `dist/`s, separate
+deploy scripts — so each host serves only its own bundle — over one source tree.
+
+`src/chat/` is the conversation, shared by both. A divergence between the dock and the standalone
+page would be a **bug, not a variant**, so there is nowhere for one to drift from the other:
+everything that differs between the surfaces is a PROP, with defaults describing the smaller one.
+`src/pages/ChatPage.jsx` is the panel's thin wrapper that injects its cluster wiring (host picker,
+server roster, per-host roles, review mode, node attribution); `src/assistant/` is the standalone
+shell and passes almost nothing.
+
+⚠ **The standalone surface must not reach the Control Panel's data layer** — no `apiClient`, no
+store barrel, no `config.js`/`CONNECTIONS`, no `persona`, no router. It talks to one leaf on its own
+origin and has no notion of a node. `npm run check:assistant` walks the import graph and fails on
+those roots, because tree-shaking will NOT save you: a static import of a module with side effects
+is retained whether or not its exports are read. When a shared component needs something from that
+layer, **cut the edge** — split the module or take the value as a prop — rather than widening the
+list. `components/AccountAvatar.jsx`, `components/ConnectivityBanner.jsx` and `lib/oauthFragment.js`
+all exist because of exactly this.
+
 ## The layering (top → bottom, one direction)
 
 ```
@@ -45,7 +67,7 @@ an upward edge (a store importing a page, a component reaching into a page).
      `components/Breadcrumb.jsx`, `components/BootLanding.jsx`,
      `components/MobileNavToggle.jsx`, `hooks/useRouteSync.js`,
      `hooks/useMobileSwipe.js`, `lib/authStorage.js`.
-   - `pages/ChatPage.jsx` (1944→512) → `pages/chat/`
+   - the chat → `chat/` (shared by both surfaces; see below)
    - `pages/DiagnosticsPage.jsx` (1475→290) → `pages/diagnostics/`
    - `pages/PerformanceTab.jsx` → `pages/performance/`
    - `lib/stores.js` (monolith) → `lib/stores/` (see `lib/stores/CLAUDE.md`)

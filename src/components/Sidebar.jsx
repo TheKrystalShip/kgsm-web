@@ -1,4 +1,5 @@
 import React from "react";
+import { AccountAvatar } from "./AccountAvatar.jsx";
 import { Icon } from "./Icon.jsx";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
@@ -213,21 +214,6 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
         </div>
       </div>
     </aside>
-  );
-}
-
-function AccountAvatar({ user, size = 24 }) {
-  // Discord avatars come from cdn.discordapp.com via the OAuth profile; until one
-  // is available we synthesise a teal-gradient circle with an initial.
-  const initial = (user.display || user.name || "?")[0].toUpperCase();
-  return (
-    <span style={{
-      width: size, height: size, borderRadius: 999,
-      background: "linear-gradient(135deg, var(--krystal-teal-hover), var(--krystal-teal-press))",
-      display: "inline-flex", alignItems: "center", justifyContent: "center",
-      color: "var(--fg-inverse)", fontSize: size * 0.46, fontWeight: 700,
-      flexShrink: 0,
-    }}>{initial}</span>
   );
 }
 

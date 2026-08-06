@@ -1,5 +1,4 @@
 import { createStore } from "./store.js";
-import { hostsStore } from "./stores.js";
 
 // assistantSession.js — the browser's session with an assistant LEAF.
 //
@@ -38,17 +37,22 @@ const rotations = {};   // hostId → in-flight rotate (dedupe concurrent 401 he
 
 const recOf = (id) => store.getState().byHost[id] || null;
 
-// The leaf's public origin for a host, from that host's assistant capability. Null when the
-// host has no assistant, or has one the node reports no browser address for — an honest
-// "no route", never guessed from the panel's own origin.
+// How a host id becomes the leaf's address, INSTALLED BY THE SURFACE — because the answer differs
+// in kind, not in detail. The Control Panel discovers it, reading the address off the node's
+// assistant capability across a cluster it may add nodes to at runtime; the standalone assistant
+// has one leaf at a known address and nothing to discover. Resolving it here would mean this module
+// importing the host store, which drags the whole node data layer into a surface that has no nodes.
+//
+// Not installed ⇒ no route, which is the honest answer for a surface that has not said.
+let resolveOrigin = () => null;
+function setOriginResolver(fn) { resolveOrigin = typeof fn === "function" ? fn : () => null; }
+
+// The leaf's public origin for a host. Null is an honest "no route" — never guessed from the
+// panel's own origin, which would send a turn to whatever happened to serve the bundle.
 function originOf(hostId) {
   if (!hostId) return null;
-  const host = hostsStore.find(hostId);
-  const cap = host && host.capabilities && host.capabilities.assistant;
-  if (!cap || cap.provisioned === false) return null;
-  const url = cap.info && typeof cap.info.url === "string" ? cap.info.url.trim() : "";
-  if (!url) return null;
-  return url.replace(/\/+$/, "");
+  const url = resolveOrigin(hostId);
+  return typeof url === "string" && url.trim() ? url.trim().replace(/\/+$/, "") : null;
 }
 
 const hasRoute = (hostId) => !!originOf(hostId);
@@ -266,7 +270,7 @@ function seed() {
 
 const assistantSession = Object.assign(store, {
   ASSISTANT_LOGIN_PARAM,
-  __setNavigator,
+  __setNavigator, setOriginResolver,
   adopt, attempted, authorize, deny, ensureSession, hasRoute, isDenied, isLive, needsConsent,
   markConsentNeeded, originOf, rotate, seed, signIn, signOut, statusOf, takeRoute, tierOf, tokenOf,
 });

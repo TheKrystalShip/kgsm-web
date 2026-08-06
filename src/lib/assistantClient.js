@@ -231,6 +231,9 @@ function host(hostId) {
   return {
     hostId,
     hasRoute: () => assistantSession.hasRoute(hostId),
+    // Who the leaf says this bearer is: { userId, displayName, tier, canPerformActions }. Authority
+    // is the LEAF's answer, re-derived from Discord per request — never read off the token here.
+    me: (opts) => json(hostId, "GET", "/auth/me", null, opts),
     conversations: (opts) => json(hostId, "GET", "/conversations", null, opts),
     conversation: (id, opts) => json(hostId, "GET", "/conversations/" + encodeURIComponent(id), null, opts),
     deleteConversation: (id) => json(hostId, "DELETE", "/conversations/" + encodeURIComponent(id)),

@@ -40,6 +40,19 @@ split. Add a rule to the partial that owns the domain:
 
 `consumer.css` — a few consumer surfaces (connect / MOTD / login persona).
 
+## Two barrels over ONE set of partials
+
+`kit.css` is the Control Panel's list; `assistant.css` is the standalone assistant's, and lists only
+the partials a chat uses (it has none of the pages the others style). **The partial files are shared
+and unedited** — only the lists differ — so the two surfaces are identical by construction and a
+change to `chat.css` or a token lands in both. Never copy a rule between them; a copy is the drift
+this arrangement exists to prevent.
+
+A subset is the one thing that can silently go wrong: a widget whose rules live in a partial that was
+left out renders unstyled and nothing fails. `npm run check:assistant` checks every class the
+standalone surface can render against the CSS it ships, so add the missing **partial** when it
+complains.
+
 ## Theme landmines (see root `../CLAUDE.md` for detail)
 
 - **No-flash:** an inline boot script in `index.html` sets `data-theme` before the

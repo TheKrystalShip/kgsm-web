@@ -32,6 +32,11 @@ PROJECT="kgsm-web"
 # (PhysicalFileProvider — read from disk per request, no content cache), so a new bundle is LIVE
 # THE MOMENT the files land: no systemctl, no service bounce, no sudo.
 WWWROOT="${KGSM_API_WWWROOT:-/opt/kgsm-api/wwwroot}"
+
+# The standalone assistant's wwwroot, served the same way by kgsm-assistant-service out of its own
+# content root. This repo builds BOTH surfaces from one source tree (src/chat/ is shared), so it
+# publishes to both; they are separate builds, and each host gets only its own bundle.
+ASSISTANT_WWWROOT="${KGSM_ASSISTANT_WWWROOT:-/opt/kgsm-assistant/service/wwwroot}"
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 
 SUDO="${SUDO:-sudo}"

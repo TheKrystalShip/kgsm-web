@@ -2,7 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`kgsm-web` is the **Control Panel SPA** for the KGSM ecosystem — a standard
+`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel** and the
+**standalone assistant** served by the kgsm-assistant leaf. Two Vite builds over one source tree,
+sharing `src/chat/` — the conversation is the same code in both, because a divergence between the
+dock and the standalone page would be a bug, not a variant. Everything that differs is a prop.
+⚠ The standalone surface must not reach the panel's data layer; `npm run check:assistant` enforces
+it (see `src/CLAUDE.md`). The Control Panel is a standard
 Vite + React 18 (JSX) single-page app, ported from the no-build `krystal-design`
 prototype. It is a **runtime multi-host client**: it reads a localStorage
 registry of `kgsm-api` hosts and talks to them over `fetch` + SSE. The
@@ -23,6 +28,10 @@ tokens + the `kit/` barrel). This file stays the architecture/landmines narrativ
 npm install
 npm run dev          # http://localhost:5173 — no host configured → the connect screen
 npm run build        # → dist/  (minified, hashed, tree-shaken)
+npm run dev:assistant     # http://localhost:5174 — the STANDALONE assistant surface
+npm run build:assistant   # → dist-assistant/
+npm run check:assistant   # the standalone bundle contains no Control Panel, and is fully styled
+npm run deploy:assistant  # = deploy/deploy-assistant.sh — publish it into the leaf's wwwroot
 npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart

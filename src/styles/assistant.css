@@ -1,0 +1,31 @@
+/* The standalone assistant's style barrel.
+   ----------------------------------------------------------------------------
+   Same partials as the Control Panel's kit.css, same order, minus the ones that
+   style pages this surface does not have (shell, server, catalog, onboarding,
+   dashboard, settings, dock, hosts, cluster, leaf, leafconfig). The PARTIAL FILES
+   ARE SHARED AND UNEDITED — only the list differs — so the two surfaces cannot
+   drift apart aesthetically: a change to chat.css or a token lands in both.
+
+   Order is load-bearing here exactly as it is in kit.css (later wins on equal
+   specificity); keep these in the same sequence as the entries they mirror.
+   Add a partial when the chat starts using one, never a rule of its own. */
+@import "./tokens.css";
+
+@import "./kit/base.css";
+/* observability: the metric charts an evidence card renders. */
+@import "./kit/observability.css";
+@import "./kit/controls.css";
+@import "./kit/responsive.css";
+@import "./kit/chat.css";
+/* modal: the evidence cards' expanded chart uses <Modal>. */
+@import "./kit/modal.css";
+/* Two chat widgets have their rules filed under other domains: the sign-in spinner
+   (.oauth-spinner) sits in onboarding, and the blueprint-draft card reuses the file editor's
+   .fb-editor__btn family from catalog. The partials are imported WHOLE rather than the rules
+   copied here — a copy is precisely the divergence this arrangement exists to make impossible,
+   and dead selectors are inert. Refiling them into chat.css would be the tidier fix and would
+   shrink this; it is a cascade change for the Control Panel, so not one to make in passing. */
+@import "./kit/onboarding.css";
+@import "./kit/catalog.css";
+@import "./kit/states.css";
+@import "./kit/extras.css";

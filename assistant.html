@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <!-- Theme: set <html data-theme> BEFORE the stylesheet applies, so a non-dark
+         preference never flashes dark on load. Mirrors src/lib/theme.js and the
+         same block in index.html — keep all three in sync. -->
+    <script>
+      (function () {
+        try {
+          var p = localStorage.getItem("krystal:theme");
+          var concrete = ["dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox", "amber-crt", "one-dark", "rose-pine", "kanagawa", "everforest", "github-light", "solarized-light", "catppuccin-latte", "nord-light"];
+          var t = concrete.includes(p) ? p
+                : (p === "auto" && window.matchMedia
+                    && matchMedia("(prefers-color-scheme: light)").matches) ? "light"
+                : "dark";
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+    <meta name="theme-color" content="#0B0F14" />
+    <link rel="icon" href="/assets/tks-mark.png" />
+    <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
+
+    <title>Krystal Assistant</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/assistant/main.jsx"></script>
+  </body>
+</html>

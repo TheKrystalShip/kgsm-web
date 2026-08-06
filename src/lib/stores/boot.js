@@ -6,6 +6,17 @@ import { hostsStore, syncCapabilitySubscriptions } from "./hosts.js";
 import { auditStore } from "./audit.js";
 import { startDiscovery } from "./cluster.js";
 import { startPingLoop } from "./ui.js";
+import { assistantSession } from "../assistantSession.js";
+
+// Tell the assistant session layer how THIS surface finds a leaf: by discovery, off the node's
+// assistant capability. The session module holds no opinion, so it can also serve the standalone
+// assistant — which has one leaf at a known address and no host store to read.
+assistantSession.setOriginResolver((hostId) => {
+  const host = hostsStore.find(hostId);
+  const cap = host && host.capabilities && host.capabilities.assistant;
+  if (!cap || cap.provisioned === false) return null;
+  return (cap.info && cap.info.url) || null;
+});
 
 try {
   const swallow = () => {};

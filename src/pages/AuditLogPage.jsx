@@ -293,7 +293,7 @@ function AuditLogPage({ initialSeverity, initialServer }) {
             </h3>
             <div className="audit-group__events">
               {group.events.map(ev => (
-                <AuditEventRow key={ev.id} ev={ev} now={now} hosts={hosts} />
+                <AuditEventRow key={ev.id} ev={ev} now={now} hosts={hosts} resolveHost={auditEventHost} />
               ))}
             </div>
           </section>

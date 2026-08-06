@@ -2,8 +2,8 @@
 // No parent state awareness, no conversation/host coupling.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { ReversablePortal } from "../../components/ReversablePortal.jsx";
+import { Icon } from "../components/Icon.jsx";
+import { ReversablePortal } from "../components/ReversablePortal.jsx";
 import { commandMeta } from "./chatConstants.js";
 import { LEAF_COMMAND_VERBS } from "./chatConstants.js";
 
@@ -153,7 +153,7 @@ function ChatCommand({ msg, onRun }) {
 // Monaco is heavy (editor core + workers) — lazy-load it so the chunk only downloads
 // when a blueprint-review card actually mounts, never on first paint. Same instance the
 // file browser uses, so the yaml highlighting + theming come for free.
-const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));
+const CodeEditor = React.lazy(() => import("../components/CodeEditor.jsx"));
 
 // The in-chat blueprint-review checkpoint (assistant-blueprint-review-plan.md P2). One card,
 // double duty: the mandatory pre-test review of the assistant's drafted config, AND the

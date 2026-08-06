@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the standalone assistant SPA, on the shared chat
+
+This repo now builds **two** surfaces from one source tree: the Control Panel, and the standalone
+assistant the kgsm-assistant leaf serves at its own origin. The conversation is the **same code** in
+both (`src/chat/`) — a divergence between the dock and the standalone page would be a bug, not a
+variant, so there is nowhere for one to drift from the other.
+
+- **The seam is `ChatPage`'s props.** Everything that is true of the surface rather than of the
+  conversation is injected, with defaults describing the smaller surface: the connection badge, the
+  tier capabilities, the server roster, admin review, the briefing panel, the host picker, and node
+  attribution on evidence rows. `src/pages/ChatPage.jsx` is now a thin wrapper that supplies the
+  panel's cluster wiring; `src/assistant/` passes almost nothing.
+- **Two builds, not two inputs** — `vite.config.js` → `dist/`, `vite.assistant.config.js` →
+  `dist-assistant/` — so each host serves only its own bundle. `deploy/deploy-assistant.sh`
+  publishes into the leaf's wwwroot with no privilege and no restart.
+- **Its sign-in is the leaf's own, and silent.** Served same-origin, so the address is
+  `location.origin` and there is nothing to discover.
+- ⚠ **`npm run check:assistant` keeps "chat only" true.** It walks the standalone entry's import
+  graph and fails on the Control Panel's data-layer roots, because tree-shaking does not remove a
+  static import of a module with side effects. Three modules were split to cut those edges:
+  `components/AccountAvatar.jsx` (out of `Sidebar.jsx`, which reaches persona and the session
+  store), `components/ConnectivityBanner.jsx` (out of `ErrorBoundary.jsx`, which reached
+  `apiClient`), and `lib/oauthFragment.js` (the pure parser, out of `authRedirect.js`, which reaches
+  the connection model). `AuditEventRow` takes node attribution as a prop instead of importing the
+  store barrel.
+- **Styles are shared partials with a per-surface barrel** (`styles/assistant.css`). The partial
+  files are unedited and identical; only the list differs, so the aesthetic cannot diverge. The same
+  check verifies every class the standalone surface renders is styled by the partials it ships.
+
 ### Added — the assistant signs you in by itself
 
 Signing into the Control Panel now leaves the dock ready. There is no second login to click through.
