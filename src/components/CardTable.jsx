@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
+import { sortByAccessor } from "../lib/sorting.js";
 
 // CardTable — tabular data dressed in the shared briefing-card chrome. It
 // reuses .chat-brief for the frame + header, so a table sits in the same card
@@ -16,9 +17,12 @@ import { Icon } from "./Icon.jsx";
 //              numerals); default is left.
 //     render — returns the cell node; without it the cell shows row[key].
 //     sort   — value accessor that makes the column sortable: returns the
-//              value to order by (number or string). Columns without it have
-//              no sort control. Strings sort case-insensitively, numbers
-//              numerically.
+//              VALUE to order by — a number, a Date, or a string — never the
+//              text the cell renders. Columns without it have no sort control.
+//              `lib/sorting.js` owns the rules, including the one worth knowing
+//              at the call site: return null (or a Date, or the raw number) for
+//              a value the backend didn't measure, NOT a 0 or a "" standing in
+//              for it. Missing rows sink to the bottom in both directions.
 //   rows:    array of records. Pass getKey(row) for a stable React key
 //            (falls back to row.id, then the index).
 //   defaultSort: { key, dir } — initial ordering ("asc" | "desc").
@@ -53,15 +57,7 @@ function CardTable({ icon, title, count, onViewAll, viewAllLabel = "View all", c
     let r = rows;
     if (sort) {
       const col = columns.find(c => c.key === sort.key);
-      if (col && col.sort) {
-        r = [...rows].sort((a, b) => {
-          const av = col.sort(a), bv = col.sort(b);
-          let cmp;
-          if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
-          else cmp = String(av == null ? "" : av).localeCompare(String(bv == null ? "" : bv), undefined, { numeric: true, sensitivity: "base" });
-          return sort.dir === "asc" ? cmp : -cmp;
-        });
-      }
+      if (col && col.sort) r = sortByAccessor(rows, col.sort, sort.dir);
     }
     return max != null ? r.slice(0, max) : r;
   }, [rows, sort, columns, max]);
@@ -86,16 +82,23 @@ function CardTable({ icon, title, count, onViewAll, viewAllLabel = "View all", c
           const active = sort && sort.key === c.key;
           const cls = "card-table__th" + (c.align ? " card-table__th--" + c.align : "");
           if (!c.sort) return <span key={c.key} className={cls}>{c.label}</span>;
+          // The glyph carries the DIRECTION, and an unsorted column draws neither arrow. A
+          // column that renders mixed units ("27.0 s" over "878 ms") is unreadable without
+          // it: told which way the column runs, that order is obvious, and left to guess,
+          // the honest reading is that the table sorted the text.
+          const dirLabel = active ? (sort.dir === "asc" ? " (ascending)" : " (descending)") : "";
           return (
             <button
               key={c.key}
               type="button"
               className={cls + " card-table__th--sort" + (active ? " is-active" : "")}
               onClick={() => toggleSort(c)}
-              title={"Sort by " + c.label}
-              aria-label={"Sort by " + c.label}>
+              title={"Sort by " + c.label + dirLabel}
+              aria-label={"Sort by " + c.label + dirLabel}>
               <span className="card-table__th-label">{c.label}</span>
-              <Icon name={active && sort.dir === "asc" ? "chevron-up" : "chevron-down"} size={12} strokeWidth={2.4} className="card-table__sort-ico" />
+              <Icon
+                name={!active ? "chevrons-up-down" : sort.dir === "asc" ? "chevron-up" : "chevron-down"}
+                size={12} strokeWidth={2.4} className="card-table__sort-ico" />
             </button>
           );
         })}

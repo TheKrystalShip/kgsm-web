@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a sortable column orders by its VALUE, not by the text in the cell
+
+Every sortable table shares one comparator (`lib/sorting.js`), and it takes three kinds of value:
+a `Date` (compared as the instant it names), a number, and everything else (case-insensitive,
+digit-aware). Anything absent — `null`, `""`, an unparseable date, a non-finite number — is
+**missing**, and a missing row sits at the bottom in **both** directions rather than being read as
+a zero.
+
+Two columns were ordered by neither rule. The assistant leaf's **Last seen** / **Last** columns
+handed the comparator a `Date`, which fell through to the string branch and ordered the tables by
+the weekday name `Date#toString` leads with — a roster reading `30d ago, 1d ago, 40d ago, …, 5h
+ago`. And every duration column (**Median**, **Slowest**) flattened an unmeasured figure to `0`,
+seating a tool nothing ever timed at the fast end of the column, which is the one place a reader
+would take it for a measurement. The **First seen** / **Last seen** columns of a server's player
+roster compared raw timestamp text, which agrees with the instant only while every row is written
+with identical precision and offset.
+
+The sort glyph now carries the direction: a column that is not sorted draws neither arrow. A
+column whose cells mix units ("27.0 s" above "878 ms") is unreadable without knowing which way it
+runs.
+
 ### Changed — the assistant's mark is the badge from the chat, replicated exactly
 
 The standalone assistant is identified by one drawing, and it is the one already on screen:

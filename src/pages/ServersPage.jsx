@@ -5,9 +5,10 @@ import { Icon } from "../components/Icon.jsx";
 import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { ServersSkeleton, Skel } from "../components/Skeletons.jsx";
-import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer, sortByAccessor } from "../components/Toolbar.jsx";
+import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { can } from "../lib/persona.js";
+import { sortByAccessor } from "../lib/sorting.js";
 import { useStore } from "../lib/store.js";
 import { favoritesStore, hostsStore, serversStore } from "../lib/stores.js";
 

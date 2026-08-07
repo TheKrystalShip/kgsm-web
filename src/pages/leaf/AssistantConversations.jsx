@@ -136,7 +136,9 @@ function AssistantConversations({ hostId, onReviewConversation }) {
             { key: "conversationCount", label: "Chats", width: "58px", align: "right", sort: r => r.conversationCount, defaultDir: "desc" },
             {
               key: "lastActivityAt", label: "Last seen", width: "88px", align: "right",
-              sort: r => parseTs(r.lastActivityAt) || 0,
+              // The instant, not the "3d ago" the cell renders and not a 0 for someone with
+              // no recorded activity.
+              sort: r => (r.lastActivityAt ? parseTs(r.lastActivityAt) : null),
               render: r => (r.lastActivityAt ? fmtRelative(parseTs(r.lastActivityAt)) : "—"),
             },
           ]}
@@ -153,7 +155,7 @@ function AssistantConversations({ hostId, onReviewConversation }) {
           count={shown.length}
           columns={[
             {
-              key: "title", label: "Conversation", width: "minmax(0,1.8fr)", sort: r => r.title || "",
+              key: "title", label: "Conversation", width: "minmax(0,1.8fr)", sort: r => r.title,
               render: r => (
                 <span>
                   {r.title || "Untitled conversation"}
@@ -175,7 +177,7 @@ function AssistantConversations({ hostId, onReviewConversation }) {
             { key: "turnCount", label: "Turns", width: "58px", align: "right", sort: r => r.turnCount },
             {
               key: "lastActivityAt", label: "Last", width: "88px", align: "right",
-              sort: r => parseTs(r.lastActivityAt) || 0, defaultDir: "desc",
+              sort: r => (r.lastActivityAt ? parseTs(r.lastActivityAt) : null), defaultDir: "desc",
               render: r => (r.lastActivityAt ? fmtRelative(parseTs(r.lastActivityAt)) : "—"),
             },
           ]}

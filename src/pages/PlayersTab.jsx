@@ -170,13 +170,16 @@ function PlayersTab({ server, readOnly, roster }) {
       sort: (p) => { const order = { online: 0, unknown: 1, offline: 2, banned: 3 }; return order[p.status] ?? 4; },
       render: (p) => <StatusDot status={p.status} /> },
     { key: "firstSeen", label: "First seen", width: "minmax(120px, auto)", align: "right", defaultDir: "desc",
-      sort: (p) => p.firstSeen || "",
+      // The instant. Two timestamps written with different UTC offsets, or different
+      // fractional-second precision, compare as text in an order that has nothing to do with
+      // which came first; a player with no recorded time sorts last rather than earliest.
+      sort: (p) => (p.firstSeen ? new Date(p.firstSeen) : null),
       render: (p) => {
         const { rel, abs } = fmtTime(p.firstSeen);
         return <span className="player-meta-cell" title={abs}>{rel}</span>;
       } },
     { key: "lastSeen", label: "Last seen", width: "minmax(120px, auto)", align: "right", defaultDir: "desc",
-      sort: (p) => p.lastSeen || "",
+      sort: (p) => (p.lastSeen ? new Date(p.lastSeen) : null),
       render: (p) => {
         const { rel, abs } = fmtTime(p.lastSeen);
         return <span className="player-meta-cell" title={abs}>{rel}</span>;

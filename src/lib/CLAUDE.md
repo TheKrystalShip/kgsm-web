@@ -123,6 +123,12 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   lives here rather than beside any one surface because the Services board, the
   leaf page and the leaf config page all read it — and because `components/`
   may not import from a page.
+- `sorting.js` — the ONE row comparator, shared by `CardTable`'s sortable columns
+  and the card grids' toolbar sort. It orders the **value** a column's accessor
+  returns (Date → epoch millis, number → numerically, else digit-aware string),
+  and treats `null`/`""`/an unparseable date as **missing**: pinned last in BOTH
+  directions, never coerced to `0`. **A sort accessor returns the raw value —
+  never `x || 0`, and never the formatted text the cell renders.**
 - `registerSW.js` — production-only PWA service-worker registration.
 
 ## The init-order landmine — do not "tidy"

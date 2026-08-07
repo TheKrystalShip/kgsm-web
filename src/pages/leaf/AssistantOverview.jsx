@@ -335,8 +335,10 @@ function AssistantOverview({ hostId, onReviewConversation }) {
             ),
           },
           { key: "calls", label: "Calls", width: "80px", align: "right", sort: r => r.calls, defaultDir: "desc" },
-          { key: "medianMs", label: "Median", width: "100px", align: "right", sort: r => r.medianMs || 0, render: r => fmtMs(r.medianMs) },
-          { key: "maxMs", label: "Slowest", width: "100px", align: "right", sort: r => r.maxMs || 0, render: r => fmtMs(r.maxMs) },
+          // The raw millisecond figure, null and all: a tool nothing timed reads "—" and belongs
+          // at the bottom of the column either way round, not at the top of the fast end.
+          { key: "medianMs", label: "Median", width: "100px", align: "right", sort: r => r.medianMs, render: r => fmtMs(r.medianMs) },
+          { key: "maxMs", label: "Slowest", width: "100px", align: "right", sort: r => r.maxMs, render: r => fmtMs(r.maxMs) },
           {
             key: "failedCalls", label: "Failed", width: "90px", align: "right", sort: r => r.failedCalls,
             render: r => (r.failedCalls > 0
@@ -357,7 +359,7 @@ function AssistantOverview({ hostId, onReviewConversation }) {
         icon="git-commit-horizontal" title="Prompt versions" count={stats.promptVersions.length}
         columns={[
           {
-            key: "hash", label: "Version", width: "minmax(0,1.4fr)", sort: r => r.hash || "",
+            key: "hash", label: "Version", width: "minmax(0,1.4fr)", sort: r => r.hash,
             render: r => (r.hash
               ? <code className="lcf-key">{r.hash}</code>
               : <span className="svc-fact svc-fact--unit">unversioned</span>),
@@ -367,7 +369,7 @@ function AssistantOverview({ hostId, onReviewConversation }) {
             key: "okTurns", label: "Clean", width: "80px", align: "right", sort: r => (r.turns ? r.okTurns / r.turns : 0),
             render: r => (r.turns ? Math.round(r.okTurns / r.turns * 100) + "%" : "—"),
           },
-          { key: "medianMs", label: "Median", width: "100px", align: "right", sort: r => r.medianMs || 0, render: r => fmtMs(r.medianMs) },
+          { key: "medianMs", label: "Median", width: "100px", align: "right", sort: r => r.medianMs, render: r => fmtMs(r.medianMs) },
           {
             key: "negativeTurns", label: "Unhelpful", width: "100px", align: "right", sort: r => r.negativeTurns,
             // An unrated version reports "—", never "0 unhelpful": nobody having voted is not the same

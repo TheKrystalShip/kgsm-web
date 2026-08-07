@@ -158,21 +158,6 @@ function ToolbarSort({ value, dir = "desc", onChange, options, label = "Sort" })
   );
 }
 
-// sortByAccessor — the shared comparator behind every card-grid sort, matching
-// CardTable's rules exactly: numbers compare numerically, everything else
-// case-insensitively with numeric awareness. Returns a NEW array. `dir` flips
-// the result. Pages pass an accessor(row) -> comparable value.
-function sortByAccessor(list, accessor, dir = "desc") {
-  const sorted = [...(list || [])].sort((a, b) => {
-    const av = accessor(a), bv = accessor(b);
-    let cmp;
-    if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
-    else cmp = String(av == null ? "" : av).localeCompare(String(bv == null ? "" : bv), undefined, { numeric: true, sensitivity: "base" });
-    return dir === "asc" ? cmp : -cmp;
-  });
-  return sorted;
-}
-
 function ToolbarCount({ shown, total, unit, children }) {
   if (children) return <span className="toolbar__count">{children}</span>;
   return <span className="toolbar__count"><b>{shown}</b> of {total} {unit}</span>;
@@ -307,4 +292,4 @@ function useFilters(defaults = {}, { debounce = 250 } = {}) {
   return { query, setQuery, debouncedQuery, searchPending, values, set, reset, activeCount };
 }
 
-export { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer, sortByAccessor, useFilters };
+export { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer, useFilters };
