@@ -5,9 +5,12 @@ import { Icon } from "./Icon.jsx";
 // ServerSettings.jsx. Consumed by ServerSettings, DiscordPage, SettingsPage,
 // and InstallModal.
 
-function SettingsRow({ icon, title, sub, children }) {
+// `tone` (success | warn | danger | info) tints the left rule + icon chip via the
+// shared brief-item modifiers — for a row that carries a verdict, not just a value.
+// Omitted, the row is the neutral one every existing caller renders.
+function SettingsRow({ icon, title, sub, tone, children }) {
   return (
-    <div className="chat-brief__item chat-brief__item--static">
+    <div className={"chat-brief__item chat-brief__item--static" + (tone ? " chat-brief__item--" + tone : "")}>
       <span className="chat-brief__icon"><Icon name={icon} size={14} /></span>
       <div className="chat-brief__body">
         <span className="chat-brief__item-title"><span className="chat-brief__titletext">{title}</span></span>

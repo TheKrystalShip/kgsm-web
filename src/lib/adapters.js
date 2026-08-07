@@ -300,7 +300,12 @@ export function adaptLibraryEntry(be) {
     type: be.type,
     // players: specs.maxPlayers is null today → leave unknown (no display).
     players: be.specs && be.specs.maxPlayers != null ? String(be.specs.maxPlayers) : null,
+    // Steam identity: the SERVER app is what kgsm downloads, the CLIENT app is what a
+    // player owns — two different ids, both nullable for a non-Steam blueprint.
     steamAppId: be.steamAppId ?? null,
+    clientSteamAppId: be.clientSteamAppId ?? null,
+    // A real boolean from the blueprint, so a missing one is unknown, not "no".
+    steamAccountRequired: be.isSteamAccountRequired ?? null,
     ports: be.ports || [],
     specs: be.specs || null,
     // RAWG-sourced metadata, served by kgsm-api (cover/hero are ABSOLUTE,

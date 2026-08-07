@@ -1,57 +1,32 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { KPI } from "../components/KPI.jsx";
-import { ServerTile } from "../components/ServerCard.jsx";
-import { fmtFootprintMb } from "../lib/formatting.js";
+import { SubTabs } from "../components/SubTabs.jsx";
 import { canOn } from "../lib/persona.js";
 import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
+import { GameOverview } from "./library/GameOverview.jsx";
+import { GameServersTab } from "./library/GameServersTab.jsx";
 
+const GameBlueprintTab = React.lazy(() => import("./library/GameBlueprintTab.jsx"));
 const BlueprintFileCard = React.lazy(() => import("./library/BlueprintFileCard.jsx"));
 
-// GamePage — the "blueprint" detail page for a single catalog game. A game in
-// the library is a TEMPLATE you can run, not a running server, so this page is
-// the catalog's hub: what the game is, its default runtime specs, the servers
-// you're already running from it, and a primary "Create server" action that
-// opens the install modal. Reuses the shared card family — KPI (glance specs),
-// BriefCard (About / defaults / your servers) and ServerTile (instances) — so
-// it reads identically to the dashboard and server-detail pages.
+// GamePage — the "blueprint" detail page for a single catalog game. A game in the
+// library is a TEMPLATE you can run, not a running server, so this page is the
+// catalog's hub: the hero identifies it and carries the one primary action, and
+// four tabs split the three audiences the page serves.
+//
+//   overview   what it is, and whether the cluster has room for it
+//   blueprint  everything the blueprint declares, structured and read-only
+//   servers    the instances already running from it
+//   file       the raw .bp.yaml, in Monaco — operator reads, admin writes
+//
+// The tab lives in the URL (#/library/<id>/<tab>), the same contract the server
+// detail page uses, so Back/Forward and deep links work across tabs too.
 
-// A single label → value spec line, in the shared chat-brief entry-line style
-// (icon chip + title body + trailing value). Non-interactive, so it carries the
-// --static modifier like the settings rows.
-function SpecRow({ icon, label, value, mono, tone }) {
-  return (
-    <div className="chat-brief__item chat-brief__item--static">
-      <span className="chat-brief__icon"><Icon name={icon} size={14} /></span>
-      <div className="chat-brief__body">
-        <span className="chat-brief__item-title"><span className="chat-brief__titletext">{label}</span></span>
-      </div>
-      <span style={{
-        flexShrink: 0, color: "var(--fg-1)", fontSize: 13, fontWeight: 600,
-        fontFamily: mono ? "var(--font-mono)" : "var(--font-ui)",
-        ...(tone === "muted" ? { color: "var(--fg-3)", fontWeight: 500 } : null),
-      }}>{value}</span>
-    </div>
-  );
-}
-
-function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
+function GamePage({ game, tab: tabProp, onTabChange, onCreate, onOpenServer, onAction }) {
   const servers = useStore(serversStore, s => s.list);
-  // Runtime facts come STRAIGHT from the backend blueprint DTO — never a
-  // hardcoded per-game map. `ports` is served today (kgsm parses it from the
-  // blueprint), so the game port is real; `specs` (maxPlayers / recommendedRamMb
-  // / baseDiskMb) is null on every blueprint until metadata curation lands
-  // upstream, so those render an honest em dash via fmtFootprintMb.
-  const primaryPort = (game.ports && game.ports[0]) || null;
-  const gamePort = primaryPort ? primaryPort.start : null;
-  const portProto = primaryPort && primaryPort.proto ? primaryPort.proto.toUpperCase() : "";
-  const maxPlayers = (game.specs && game.specs.maxPlayers != null) ? game.specs.maxPlayers : null;
-  const recRamMb = game.specs ? game.specs.recommendedRamMb : null;
-  const diskMb = game.specs ? game.specs.baseDiskMb : null;
   // Which hosts offer this blueprint — derived live from the hosts store, so a
   // catalog sync (a host matching its offering to the fleet) re-renders here.
   const allHosts = useStore(hostsStore, s => s.list);
@@ -62,31 +37,29 @@ function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
   // (architecture.html §3·f·1). A read-only viewer never sees the entry point —
   // and the install modal's host picker is filtered to the same set.
   const canCreate = offered.some(h => canOn("server.create", h.id));
-  const availValue = hostRestricted ? offered.map(h => h.name).join(", ") : "All hosts";
+  // The blueprint FILE is the engine's operational definition of how a server is
+  // launched, so it sits at operator — the same line the API draws on
+  // GET /library/{id}/file. The card gates the write half itself.
+  const canReadFile = offered.some(h => canOn("server.operate", h.id));
   // Instances of THIS blueprint — shared helper so the detail page and the
   // library grid/counts always agree (robust to per-instance ids like "rust-ab12").
   const instances = instancesOfBlueprint(game, servers);
-  const onlineCount = instances.filter(s => s.status === "online").length;
-  const shortName = game.name.split(":")[0].trim();
+
+  const tabs = [
+    { id: "overview",  label: "Overview",  icon: "layout-grid" },
+    { id: "blueprint", label: "Blueprint", icon: "sliders-horizontal" },
+    { id: "servers",   label: "Servers",   icon: "server", ...(instances.length ? { badge: instances.length, badgeTone: "info" } : {}) },
+    ...(canReadFile ? [{ id: "file", label: "File", icon: "file-code" }] : []),
+  ];
+  // Keeps a stale or forbidden tab in the URL from rendering an empty body.
+  const tab = tabProp || "overview";
+  const safeTab = tabs.some(t => t.id === tab) ? tab : "overview";
+  const setTab = onTabChange || (() => {});
 
   // kgsm-api serves cover/hero as absolute, directly-renderable URLs — the detail
   // page prefers the hero (a screenshot/detail image) then the cover, then the
   // themed gradient placeholder when neither is present.
   const bg = artBg(game.hero, game.cover);
-  // Description precedence (decision 6): API `description` → nothing. Never
-  // fabricate copy the backend didn't serve.
-  const description = game.description ?? null;
-  // RAWG metadata chips — genres then a few top tags. Guard undefined (only some
-  // catalog entries carry them) and hide when empty.
-  const genres = game.genres || [];
-  const tags = game.tags || [];
-  const metaChips = [...genres, ...tags.slice(0, 6)];
-  // Show the RAWG attribution only where real RAWG-sourced data is displayed.
-  const hasRawgData = !!(game.description || genres.length || tags.length);
-
-  // The config file is a real per-instance fact (the running server's config
-  // path); a blueprint with no servers yet has no honest source → em dash.
-  const configFile = (instances[0] && instances[0].config && instances[0].config.file) || null;
 
   const createBtn = canCreate ? (
     <button className="chip" style={{ background: "var(--krystal-teal)" }} onClick={() => onCreate(game)}>
@@ -104,9 +77,10 @@ function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
         <div className="hero__content">
           <h1 className="hero__name">{game.name}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--fg-3)", fontSize: 13, flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="gamepad-2" size={13} /> {game.category}</span>
-            {game.players != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="users" size={13} /> {game.players} players</span>}
-            {hostRestricted && <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--warning-fg)" }}><Icon name="server" size={13} /> {availValue} only</span>}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Icon name={game.type === "container" ? "container" : "cpu"} size={13} /> {game.category}
+            </span>
+            {hostRestricted && <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--warning-fg)" }}><Icon name="server" size={13} /> {offered.map(h => h.name).join(", ")} only</span>}
           </div>
           <div className="action-row">
             {createBtn}
@@ -114,100 +88,30 @@ function GamePage({ game, onCreate, onOpenServer, onAction, onBrowse }) {
         </div>
       </section>
 
-      {/* Glance specs — the runtime footprint at a look, in the shared KPI card. */}
-      <div className="dash-summary">
-        <KPI icon="server" label="Your servers"
-          value={instances.length}
-          sub={instances.length ? `${onlineCount} online now` : "none yet — create one"}
-          tone={instances.length ? "info" : "muted"} />
-        <KPI icon="plug" label="Default port"
-          value={gamePort != null ? gamePort : "—"} unit={gamePort != null ? portProto : ""}
-          sub="game traffic"
-          tone="muted" />
-        <KPI icon="users" label="Max players"
-          value={maxPlayers != null ? maxPlayers : "—"}
-          sub={maxPlayers != null ? "blueprint default" : "not specified yet"}
-          tone="muted" />
-        <KPI icon="hard-drive" label="Disk footprint"
-          value={fmtFootprintMb(diskMb)}
-          sub={`${fmtFootprintMb(recRamMb)} RAM recommended`}
-          tone="muted" />
+      <div className="subtabs-row">
+        <SubTabs tabs={tabs} active={safeTab} onChange={setTab} />
       </div>
 
-      {/* About + Blueprint defaults — two matched cards in the dashboard band. */}
-      <div className="dash-feed">
-        <BriefCard icon="book-open" title={"About " + shortName}>
-          <div className="chat-brief__body" style={{ display: "block" }}>
-            {description && (
-              <p style={{ margin: 0, color: "var(--fg-2)", fontSize: 13.5, lineHeight: 1.65 }}>{description}</p>
-            )}
-            {/* RAWG genres + top tags when present; otherwise the coarse
-                category / players chips (only what the backend honestly backs). */}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: description ? 14 : 0 }}>
-              {metaChips.length > 0
-                ? metaChips.map(t => <span key={t} className="game-tag">{t}</span>)
-                : (<>
-                    <span className="game-tag">{game.category}</span>
-                    {game.players != null && <span className="game-tag">{game.players} players</span>}
-                  </>)}
-            </div>
-            {hasRawgData && (
-              <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--fg-3)" }}>
-                Game data from <a href="https://rawg.io" target="_blank" rel="noreferrer noopener"
-                  style={{ color: "var(--fg-2)" }}>RAWG.io</a>
-              </div>
-            )}
-          </div>
-        </BriefCard>
+      {safeTab === "overview" && (
+        <GameOverview game={game} hosts={offered} instances={instances} />
+      )}
 
-        <BriefCard icon="sliders-horizontal" title="Blueprint defaults">
-          <div className="chat-brief__list">
-            <SpecRow icon="server" label="Available on" value={availValue} tone={hostRestricted ? null : "muted"} />
-            <SpecRow icon="plug" label="Game port" value={gamePort != null ? gamePort : "\u2014"} mono tone={gamePort != null ? null : "muted"} />
-            <SpecRow icon="radio" label="Query port" value="\u2014" mono tone="muted" />
-            <SpecRow icon="users" label="Max players" value={maxPlayers != null ? maxPlayers : "\u2014"} mono tone={maxPlayers != null ? null : "muted"} />
-            <SpecRow icon="file-cog" label="Config file" value={configFile || "\u2014"} mono tone={configFile ? null : "muted"} />
-            <SpecRow icon="hard-drive" label="Recommended RAM" value={fmtFootprintMb(recRamMb)} tone={recRamMb != null ? null : "muted"} />
-          </div>
-        </BriefCard>
+      {safeTab === "blueprint" && (
+        <React.Suspense fallback={null}>
+          <GameBlueprintTab game={game} offeringHosts={offered} allHosts={allHosts} />
+        </React.Suspense>
+      )}
 
+      {safeTab === "servers" && (
+        <GameServersTab game={game} instances={instances} canCreate={canCreate}
+          onCreate={onCreate} onOpenServer={onOpenServer} onAction={onAction} createBtn={createBtn} />
+      )}
+
+      {safeTab === "file" && (
         <React.Suspense fallback={null}>
           <BlueprintFileCard game={game} offeringHosts={offered} />
         </React.Suspense>
-      </div>
-
-      {/* Your servers — every instance running from this blueprint. Same
-          ServerTile cards as the dashboard / Servers page. Empty for a game
-          you haven't installed yet, with the create CTA front and centre. */}
-      <div className="chat-brief">
-        <div className="chat-brief__head">
-          <span className="chat-brief__title">
-            <Icon name="server" size={13} /> Your servers
-            {instances.length > 0 && <span className="chat-brief__count chat-brief__count--neutral">{instances.length}</span>}
-          </span>
-          {canCreate && instances.length > 0 && (
-            <button className="dash-section__more" onClick={() => onCreate(game)}>
-              Create another <Icon name="plus" size={11} strokeWidth={2.4} />
-            </button>
-          )}
-        </div>
-        <div className="chat-brief__body">
-          {instances.length === 0 ? (
-            <div className="game-empty">
-              <Icon name="server-off" size={22} />
-              <div className="game-empty__title">No {shortName} servers yet</div>
-              <div className="game-empty__sub">Spin one up and Krystal handles the build download, ports and a starter config.</div>
-              <div style={{ marginTop: 6 }}>{createBtn}</div>
-            </div>
-          ) : (
-            <div className="server-grid">
-              {instances.map(s => (
-                <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </>
   );
 }

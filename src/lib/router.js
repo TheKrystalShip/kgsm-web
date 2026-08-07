@@ -18,7 +18,8 @@
 //   #/servers/<id>/<tab>     server detail, a specific tab
 //   #/library                game library          (?filter=installed entry filter)
 //   #/library/new            author a new blueprint
-//   #/library/<id>           game detail
+//   #/library/<id>           game detail (overview)
+//   #/library/<id>/<tab>     game detail, a specific tab
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
 //   #/cluster                cluster grid
@@ -58,7 +59,11 @@
       }
       case "library":   return "#/library" + (route.filter ? "?filter=" + enc(route.filter) : "");
       case "library-create": return "#/library/new";
-      case "game":      return "#/library/" + enc(route.id || "");
+      case "game": {
+        let h = "#/library/" + enc(route.id || "");
+        if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
+        return h;
+      }
       case "audit": {
         const p = [];
         if (route.severity) p.push("severity=" + enc(route.severity));
@@ -115,7 +120,11 @@
         // slugs, so a game genuinely called "new" would be shadowed here — accepted: the create
         // route is a fixed word, and the game is still reachable everywhere else it is listed.
         if (segs[1] === "new") return { kind: "library-create" };
-        if (segs[1]) return { kind: "game", id: dec(segs[1]) };
+        if (segs[1]) {
+          const r = { kind: "game", id: dec(segs[1]) };
+          if (segs[2]) r.tab = dec(segs[2]);
+          return r;
+        }
         return q.get("filter") ? { kind: "library", filter: q.get("filter") } : { kind: "library" };
       case "audit": {
         const r = { kind: "audit" };

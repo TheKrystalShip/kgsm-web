@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the game detail page is four tabs, and answers where a blueprint can run
+
+`#/library/<id>` carries a tab like the server page does — `#/library/<id>/<blueprint|servers|file>`,
+overview omitted from the URL. Overview is what the game is and whether the fleet has room for it;
+Blueprint is everything the blueprint declares, structured and read-only; Servers is the instances
+running from it; File is the `.bp.yaml` in Monaco, offered only to an operator who can read it on a
+node that carries the blueprint.
+
+The new **"Where this can run"** card ranks every offering node through `lib/placement.js` — the same
+module the install modal preselects with, so the page and the modal cannot disagree — and shows the
+measurement behind each verdict rather than the verdict alone: *"Fits — 14.1 GB RAM free of 8 GB
+wanted · 627.2 GB free on / for a 15 GB install."* A node with nothing to compare reads `fit unknown`
+and is untoned; the "Nodes with room" tile shows an em dash rather than "0 of 3" when nothing measured.
+
+The Blueprint tab surfaces what the catalog DTO already served and the page threw away: **every** port
+range on both protocols (7 Days to Die declares 26900–26903 on TCP *and* UDP — the page used to render
+`ports[0].start` and call it "26900"), the Steam server and client app ids, whether a Steam account is
+required, and the RAWG slug. `clientSteamAppId` and `isSteamAccountRequired` are now plumbed through
+`adaptLibraryEntry`.
+
+### Fixed — three defects on the game detail page
+
+- The "Query port" row rendered the literal text `—`: it was a bare JSX string attribute, and JSX
+  does not process escape sequences in those. The row had no source to begin with and is gone.
+- "Config file" sat under *Blueprint defaults* while reading `instances[0].config.file` — one arbitrary
+  instance's path presented as a property of the template. Gone with the card.
+- The blueprint editor card supplies its own flex context (`.bp-briefcard`) instead of borrowing one
+  from `.dash-feed`. That band is a two-up grid, so the editor had been rendering at half width as an
+  orphaned third cell; standing alone on the File tab it would otherwise mount Monaco into a
+  zero-height box.
+
 ### Changed — an audit entry from a leaf wears that leaf's own icon
 
 Every autonomous row in the audit feed used one bot glyph, so the watchdog restarting a crashed

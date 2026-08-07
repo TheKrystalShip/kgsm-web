@@ -537,6 +537,40 @@
 }
 
 /* ---- Game blueprint detail page ---- */
+
+/* The trailing value on a declared-fact row (the Blueprint tab). Mono by default
+   because most of these are ports, ids and sizes that want to line up under each
+   other; --ui opts a word out of it, --muted marks an honest absence (the em dash
+   for a value the blueprint doesn't declare). Sits in SettingsRow's controls slot,
+   which supplies the flex placement. */
+.game-fact {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.game-fact--ui {
+  font-family: var(--font-ui);
+}
+
+.game-fact--muted {
+  color: var(--fg-3);
+  font-weight: 500;
+}
+
+/* A fact that is a link out (a Steam app id, a RAWG slug) has to look like one —
+   sharing .game-fact's colour would make it indistinguishable from the ids beside
+   it that go nowhere. */
+a.game-fact {
+  color: var(--krystal-teal);
+}
+
+a.game-fact:hover {
+  text-decoration: underline;
+}
+
 .game-tag {
   display: inline-flex;
   align-items: center;
@@ -1084,6 +1118,16 @@
 /* The blueprint editor card reuses the FileBrowser's .fb-editor__* button/bar/
    dirty/spacer/expand/modal styles — only the blueprint-specific pieces are new
    here: the override badge, meta strip, errors, note, and host picker. */
+
+/* The card IS the editor's flex context: .bp-editor is a column flex child that has
+   to stretch, and Monaco's own <section height:100%> needs a resolved height above
+   it. The card carries that itself rather than inheriting it from whatever it sits
+   in — on the game page's File tab it stands alone, with no grid parent to supply
+   it, and the editor would mount into a zero-height box. */
+.bp-briefcard {
+  display: flex;
+  flex-direction: column;
+}
 
 .bp-briefcard .chat-brief__head {
   gap: 8px;

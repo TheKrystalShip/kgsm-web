@@ -78,10 +78,11 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     {route.kind === "game" && (activeGame
       ? <GamePage
           game={activeGame}
+          tab={route.tab || "overview"}
+          onTabChange={(t) => setRoute({ kind: "game", id: route.id, tab: t === "overview" ? undefined : t })}
           onCreate={(g) => setInstalling(g)}
           onOpenServer={(id) => setRoute({ kind: "server", id })}
           onAction={(id, action) => handleAction(action, id)}
-          onBrowse={() => setRoute({ kind: "library" })}
         />
       : <div style={{ padding: "60px 0", textAlign: "center", color: "var(--fg-3)" }}>
           That game isn’t in the library. <button className="dash-servers-empty__link" onClick={() => setRoute({ kind: "library" })}>Back to the library</button>

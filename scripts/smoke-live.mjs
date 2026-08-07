@@ -454,7 +454,9 @@ try {
   // capability is operational), which would falsely trip the negative check.
   // Clone + strip `.chat-page` so this asserts GamePage's scoping, not the dock's
   // roster. (Non-destructive: the live React tree is untouched.)
-  await nav("#/library/" + PROBE.blueprint);
+  // The instances live on the page's Servers tab, so the check names it — a tab
+  // the URL doesn't carry isn't mounted.
+  await nav("#/library/" + PROBE.blueprint + "/servers");
   const bpClone = w.document.getElementById("root").cloneNode(true);
   bpClone.querySelectorAll(".chat-page").forEach((n) => n.remove());
   const bpHtml = bpClone.innerHTML;
@@ -1954,9 +1956,9 @@ try {
   // (c) the editor card renders on the game page, and the Overridden badge tracks the
   // loaded DTO rather than being decoration: it is present exactly when a user file is
   // shadowing a shipped one.
-  const bpCardHtml = await nav("#/library/" + bpName);
+  const bpCardHtml = await nav("#/library/" + bpName + "/file");
   assert(bpCardHtml.includes("Blueprint file"),
-    "blueprint editor: the game page mounts the blueprint file card");
+    "blueprint editor: the game page's File tab mounts the blueprint file card");
   assert(bpCardHtml.includes("Overridden") === bpEntry.overridesSystem,
     `blueprint editor: the Overridden badge matches the file's real tier (overridesSystem=${bpEntry.overridesSystem})`);
 
@@ -1971,6 +1973,17 @@ try {
     "router: #/library/<name> still parses to the game page");
   assert(RT.routeToHash({ kind: "library-create" }) === "#/library/new",
     "router: the create route encodes back to #/library/new (encode/parse round-trip)");
+  // The game page's tab rides the URL like the server page's does. Overview is the
+  // default and is OMITTED, so the two sides must agree on that in both directions
+  // or a tab click would produce a hash that parses back to a different tab.
+  assert(parseAt("#/library/" + bpName + "/file").tab === "file",
+    "router: #/library/<name>/<tab> parses the game tab");
+  assert(parseAt("#/library/" + bpName).tab === undefined,
+    "router: a bare game URL carries no tab (overview is the default, not a segment)");
+  assert(RT.routeToHash({ kind: "game", id: bpName, tab: "blueprint" }) === "#/library/" + bpName + "/blueprint",
+    "router: a game tab encodes into the path");
+  assert(RT.routeToHash({ kind: "game", id: bpName, tab: "overview" }) === "#/library/" + bpName,
+    "router: overview encodes back to the bare game URL (never #/library/<name>/overview)");
 
   // (e) the catalog's entry point, and the create page it leads to.
   const libHtml3 = await nav("#/library");

@@ -50,14 +50,18 @@ Four screens were too big and were broken into folders (root-`CLAUDE.md` refacto
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
 | `DashboardPage.jsx` | `dashboard/` | `DashFleetStrip` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
+| `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |
 
 New rule of thumb: **a page pushing ~400 lines gets its own `pages/<name>/`
 folder** rather than another append.
 
-## Server & host detail = tabbed pages
+## Server, host & game detail = tabbed pages
 
-`ServerDetailPage.jsx` and `DiagnosticsPage.jsx` (host detail) render sub-tabs
-via `route.tab` (`overview` is the default and is omitted from the URL). Server
+`ServerDetailPage.jsx`, `DiagnosticsPage.jsx` (host detail) and `GamePage.jsx`
+(a library blueprint) render sub-tabs via `route.tab` (`overview` is the default
+and is omitted from the URL). A tab the persona can't reach is left out of the
+strip and `safeTab` falls back to overview, so a stale URL never mounts an empty
+body — the game page's File tab is operator-only on that basis. Server
 tabs with **no backend source yet** (Files, Settings, Performance, Players) keep
 their full UI but render an honest "work in progress" state behind a
 `…_WIRED = false` flag — **never fabricated data**. Flip the flag + hydrate when
