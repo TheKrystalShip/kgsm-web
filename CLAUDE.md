@@ -104,14 +104,30 @@ Five things about the smoke are load-bearing enough to state outright:
 **For VISUAL / layout testing (smoke is jsdom — it does NOT lay out CSS), use the
 permanent headless-browser harness at `/home/heisen/tks/scripts/visual-harness/`**
 (outside the repos on purpose, so it doesn't violate the no-test-runner rule).
-Playwright + Chromium (no sudo on this host) drive the real SPA against a real
-**auth-disabled** dev kgsm-api with real data — this is the only way to actually
+Playwright + **Chromium and Firefox** (no sudo on this host) drive the real SPA against
+a real **auth-disabled** dev kgsm-api with real data — this is the only way to actually
 *see* a mobile/responsive/overflow bug rather than reason about the CSS. Flow:
 background `dev-api.sh` (auth-off api on :8096, state sandboxed) + `dev-web.sh`
 (Vite on :5190, seeded — leaves your `:5173` alone), then `node shoot.mjs
 '#/servers/factorio-test/files' --device both --click 'manage.sh'` → PNGs in
 `shots/` + overflow/footer-overlap diagnostics. See that dir's `README.md` for the
 full recipe and gotchas (port waits, teardown, the `pkill -f` self-match trap).
+
+**Chromium alone is not proof.** The engines disagree about real things — most sharply,
+a percentage height resolves only against a *definite* containing block, and Chromium
+resolves one against a flex-derived height where Firefox follows the spec and collapses
+the element. `shoot.mjs --engine both --measure '<css>,<css>'` measures the selectors in
+each engine, prints what they disagree about, and **exits 2** when they do. Use it for
+anything resting on a percentage height, a flex/grid track, sticky/fixed positioning, or
+`100vh`/`dvh`. ⚠ Firefox contexts take no `isMobile`/`hasTouch`/`deviceScaleFactor`
+(Playwright rejects them), so a Firefox "mobile" run is the viewport only — check
+touch- and DPR-dependent behaviour in Chromium.
+
+**Monaco's own mounts are the live instance of that trap:** `@monaco-editor/react`
+renders a `<section style="height:100%">`, so every editor wrapper must give it a
+definite height. `.bp-editor__monaco-wrap` states a grid track (`minmax(0, 1fr)`) for
+exactly this reason — the file browser's `flex: 1` works only because `.fb-card` already
+fills its modal from a grid. Reach for the grid when you add an editor mount.
 
 ## The connection model (`src/lib/config.js`)
 
