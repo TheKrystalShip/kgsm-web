@@ -251,7 +251,15 @@ try {
       "host sensors: hwmon temps sourced (real °C, not a hidden temp KPI)");
     assert(opHost.ram.cached_gb != null && opHost.ram.buffers_gb != null, "host mem: cached/buffers sourced (M-diag depth)");
     assert(opHost.disks.every((d) => d.device && d.device !== "—"), "host disks: backing-device model sourced");
-    assert(opHost.network.interfaces.every((i) => i.mac != null), "host net: interface MAC sourced");
+    // A MAC is sourced where the device HAS one. A layer-3 tunnel (wireguard, tun) has no link-layer
+    // address at all — sysfs `address` is empty — so null is the measurement there, not a gap. Assert
+    // the field is really read (at least one real address) and that every value is either a well-formed
+    // MAC or an honest null, which is what a fabricated "—" / all-zeroes placeholder would fail.
+    const macs = opHost.network.interfaces.map((i) => i.mac);
+    assert(macs.some((m) => /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(m || "")),
+      "host net: interface MAC sourced (M-diag depth — a real hardware address, not discarded)");
+    assert(macs.every((m) => m === null || (/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(m) && !/^(00:){5}00$/.test(m))),
+      "host net: a MAC-less interface stays null — never a placeholder or an all-zero address");
     // …while the fields that STILL have no honest source stay null/"—" beside the real data.
     assert(opHost.cpu.temp_c === null, "host cpu: temp_c stays null (temps live in sensors, never a fabricated cpu field)");
     assert(opHost.disks.every((d) => d.smart === null) && opHost.network.interfaces.every((i) => i.ip === null),
@@ -1852,13 +1860,25 @@ try {
   assert(!/>Live</.test(sysHtml),
     "leaf System tab: the range selector offers recorded windows only, no Live");
 
-  // A leaf that is down has nothing to record, but a socket-activated one is RESTING, not stopped —
-  // which is what the Activation hint one card up says. The two must not contradict each other.
+  // A socket-activated leaf that is currently down is RESTING, not stopped — which is what the
+  // Activation hint one card up says, and the history card must not contradict it. Which of the two
+  // readings applies depends on the host, not on the SPA: an on-demand leaf that was woken inside the
+  // window has real samples from the seconds it ran and draws its charts, while one nobody has poked
+  // has none and falls to the empty state. So read the window first and assert the branch it selects.
+  // The half that holds either way — and the half this is really here for — is that the stopped copy
+  // never appears for a leaf whose page says it is resting.
   const onDemandLeaf = svc.find(s => s.onDemand && s.state !== "active");
   if (onDemandLeaf) {
+    const idleHist = await fetch(API + "/api/v1/hosts/" + hmId + "/services/" + onDemandLeaf.id + "/metrics/history?range=1h")
+      .then(r => (r.ok ? r.json() : { series: {} }));
+    const idlePoints = Object.values(idleHist.series || {}).reduce((n, s) => Math.max(n, (s || []).length), 0);
     const idleHtml = await nav(`#/cluster/${hmId}/services/${onDemandLeaf.id}/system`);
-    assert(idleHtml.includes("Idle — nothing to record") && !idleHtml.includes("A stopped leaf has no"),
-      `leaf resource history: an idle socket-activated leaf (${onDemandLeaf.id}) reads as resting, not stopped`);
+    assert(!idleHtml.includes("A stopped leaf has no"),
+      `leaf resource history: an idle socket-activated leaf (${onDemandLeaf.id}) never reads as stopped`);
+    assert(idlePoints > 0 ? idleHtml.includes("leaf-res") : idleHtml.includes("Idle — nothing to record"),
+      idlePoints > 0
+        ? `leaf resource history: ${onDemandLeaf.id} was woken inside the window, so its ${idlePoints} real samples are charted`
+        : `leaf resource history: ${onDemandLeaf.id} slept through the window, so it reads as resting`);
   } else {
     console.log("· leaf resource history: no idle socket-activated leaf, so the resting copy wasn't exercised");
   }

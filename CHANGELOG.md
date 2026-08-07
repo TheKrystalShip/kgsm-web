@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — two smoke assertions asserted the host, not the SPA
+
+The live smoke demanded a MAC from every network interface, which a layer-3 tunnel (the host's
+wireguard link) has none of — sysfs `address` is empty there, so the monitor's `null` is the
+measurement. It now asserts the field is genuinely read and that every value is a well-formed
+address or an honest null, which is what a fabricated placeholder would fail. The other demanded
+that an idle socket-activated leaf render "nothing to record", which only holds while nobody wakes
+it: the firewall daemon has real samples from the seconds it ran, and drew its charts instead. That
+check now reads the window first and asserts the branch the data selects, keeping the half that
+holds either way — a resting leaf never reads as stopped.
+
 ### Fixed — "Last backup" and the crash window are measured against wall-clock
 
 The server overview's backup KPI and the dashboard's oldest-backup and 24h-crash KPIs took "now"
