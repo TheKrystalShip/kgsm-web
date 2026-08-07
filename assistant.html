@@ -21,7 +21,10 @@
       })();
     </script>
     <meta name="theme-color" content="#0B0F14" />
-    <link rel="icon" href="/icons/assistant-icon-192.png" />
+    <!-- The tab icon is the mark as vector, so it is crisp at every OS scale; the 32px PNG is the
+         fallback for browsers that take no SVG favicon. -->
+    <link rel="icon" type="image/svg+xml" href="/icons/assistant-icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/assistant-icon-32.png" />
 
     <!-- PWA: web app manifest drives Android Chrome's "Install app". This surface installs as its
          OWN app alongside the Control Panel, so every artefact here is the assistant's — a

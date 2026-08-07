@@ -6,12 +6,11 @@
 // public-assistant/, and nothing in `npm run build:assistant` invokes it — a build must not depend
 // on a system package that only this one task needs.
 //
-// The two surfaces install as two apps and sit on the same home screen, so the assistant's icon has
-// to be told apart from the Control Panel's at a glance while still reading as the same product.
-// It is therefore DERIVED from the panel's icon rather than drawn beside it: the KGSM mark with the
-// assistant's own badge on it — the lucide `bot` glyph the chat already uses for its replies, in
-// --krystal-teal on the page's --canvas. Deriving it is what keeps the family resemblance true
-// automatically; re-run this after changing public-panel/icons/icon-512.png and the badge follows.
+// The mark is the assistant's own glyph and nothing else: the lucide `bot` the chat draws its
+// replies with, in white on a --krystal-teal disc over the page's --canvas. The two surfaces
+// install as two apps and sit on the same home screen, so the assistant is identified by the
+// symbol it already means on screen — the same drawing serves the favicon, both PWA icon sets and
+// the iOS launch images, at every size from 16px up.
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,30 +25,29 @@ const TEAL = "#40A0C0";         // --krystal-teal — the colour the chat render
 
 // lucide `bot`, verbatim from lucide-react's 24×24 viewBox. Copied rather than imported because
 // this script draws SVG, not React — and a glyph that drifted from the one on screen would defeat
-// the point of deriving the icon at all.
+// the point of using it as the mark at all. It is centred on (12,12) and 20 units wide.
 const BOT = `
     <path d="M12 8V4H8"/>
     <rect width="16" height="12" x="4" y="8" rx="2"/>
     <path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>`;
 
-const base = readFileSync(resolve(ROOT, "public-panel/icons/icon-512.png")).toString("base64");
-const plate = `<image x="0" y="0" width="512" height="512" xlink:href="data:image/png;base64,${base}"/>`;
-
-// The badge sits bottom-right on a ring of canvas colour, which is what separates it from the
-// mark's own light plate at small sizes.
-const badge = `
-  <circle cx="372" cy="372" r="122" fill="${CANVAS}"/>
-  <circle cx="372" cy="372" r="110" fill="${TEAL}"/>
-  <g transform="translate(372,372) scale(5.6) translate(-12,-12)"
+// The disc, and the glyph sized to sit inside it with the same air at every size: half the glyph's
+// width is 0.51 of the radius, its stroke a tenth of it. Expressed as ratios so one number — the
+// radius — places the whole mark.
+const disc = (cx, cy, r) => `
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="${TEAL}"/>
+  <g transform="translate(${cx},${cy}) scale(${(r * 0.51) / 10}) translate(-12,-12)"
      fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${BOT}
   </g>`;
 
 const svg = (w, h, body) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`
-  + ` width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
 
-// The full-bleed mark, at 512 — every other artefact is this image placed on a canvas.
-const MARK = svg(512, 512, plate + badge);
+const plate = (r) => `<rect width="512" height="512" fill="${CANVAS}"/>${disc(256, 256, r)}`;
+
+// The mark at 512: the disc edge to edge but for a hair of canvas, which is what keeps it a disc
+// rather than a bleeding circle once a launcher rounds the corners.
+const MARK = svg(512, 512, plate(224));
 
 function render(source, w, h, out) {
   const tmp = resolve(OUT, ".mark.svg");
@@ -60,6 +58,12 @@ function render(source, w, h, out) {
 
 const icon = (px) => resolve(OUT, `icons/assistant-icon-${px}.png`);
 
+// The favicon is the vector itself — a browser tab renders it at whatever the OS scale asks for,
+// and the 32px PNG is the fallback for the ones that take no SVG.
+mkdirSync(resolve(OUT, "icons"), { recursive: true });
+writeFileSync(resolve(OUT, "icons/assistant-icon.svg"), MARK + "\n");
+render(MARK, 32, 32, icon(32));
+
 // `any` icons + the Safari home-screen icons: the mark, edge to edge.
 for (const px of [192, 512]) render(MARK, px, px, icon(px));
 for (const px of [152, 167, 180]) {
@@ -67,15 +71,9 @@ for (const px of [152, 167, 180]) {
 }
 
 // `maskable`: Android crops this to whatever shape the launcher uses, so everything that must
-// survive lives inside the safe circle (80% of the width). The mark is inset to 76% on canvas —
-// the same construction as the Control Panel's maskable icon.
-const inset = Math.round(512 * 0.76);
-const off = Math.round((512 - inset) / 2);
-render(
-  svg(512, 512,
-    `<rect width="512" height="512" fill="${CANVAS}"/>`
-    + `<g transform="translate(${off},${off}) scale(${inset / 512})">${plate}${badge}</g>`),
-  512, 512, resolve(OUT, "icons/assistant-icon-maskable-512.png"));
+// survive lives inside the safe circle (80% of the width, i.e. r=205). The disc is drawn inside
+// that, on full-bleed canvas.
+render(svg(512, 512, plate(196)), 512, 512, resolve(OUT, "icons/assistant-icon-maskable-512.png"));
 
 // iOS launch images: canvas with the mark centred at a constant LOGICAL 90pt, so it is the same
 // physical size on every device. Each entry is a device's portrait pixel size and its DPR; they
@@ -89,10 +87,11 @@ const markPng = readFileSync(icon(512)).toString("base64");
 for (const [w, h, dpr] of SPLASH) {
   const s = 90 * dpr;
   render(
-    svg(w, h,
-      `<rect width="${w}" height="${h}" fill="${CANVAS}"/>`
-      + `<image x="${(w - s) / 2}" y="${(h - s) / 2}" width="${s}" height="${s}"`
-      + ` xlink:href="data:image/png;base64,${markPng}"/>`),
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`
+    + ` width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
+    + `<rect width="${w}" height="${h}" fill="${CANVAS}"/>`
+    + `<image x="${(w - s) / 2}" y="${(h - s) / 2}" width="${s}" height="${s}"`
+    + ` xlink:href="data:image/png;base64,${markPng}"/></svg>`,
     w, h, resolve(OUT, `splash/assistant-splash-${w}x${h}.png`));
 }
 

@@ -20,7 +20,7 @@
 // because their URL changes when their content does); the shell is network-first so a deploy lands
 // on the next online load.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `krystal-assistant-shell-${VERSION}`;
 
 // The bare shell, available offline immediately after install. Hashed build assets are NOT listed
@@ -29,6 +29,7 @@ const CORE = [
   "/",
   "/index.html",
   "/assistant.webmanifest",
+  "/icons/assistant-icon.svg",
   "/icons/assistant-icon-192.png",
   "/icons/assistant-icon-512.png",
   "/icons/assistant-icon-maskable-512.png",
