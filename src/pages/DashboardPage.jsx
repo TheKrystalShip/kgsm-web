@@ -121,7 +121,17 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const clusterNodes = React.useMemo(
     () => buildClusterNodes(hosts, clusterNodesRaw, pings, null),
     [hosts, clusterNodesRaw, pings]);
-  const now = auditScoped.length ? parseTs(auditScoped[0].ts) : new Date();
+  // Wall-clock, for every relative duration below. A backup's age and a crash's
+  // place in the last 24h are facts about the world, not about the event feed —
+  // anchoring them to the newest audit event would subtract the cluster's idle
+  // time from both, reading an overdue backup as fresh and dropping real crashes
+  // out of the window early. The tick re-renders so the durations stay live.
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const now = nowTick;
 
   // ---- KPIs ---------------------------------------------------------------
   // Four glance cards, each reading data that isn't otherwise visible on the

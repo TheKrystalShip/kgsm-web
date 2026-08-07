@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — "Last backup" and the crash window are measured against wall-clock
+
+The server overview's backup KPI and the dashboard's oldest-backup and 24h-crash KPIs took "now"
+from the timestamp of the newest audit event, falling back to the clock only while the audit store
+was still empty. On a quiet host that subtracted the whole idle gap from every duration: a backup
+taken at 02:31 read as "1h ago" at 07:47 because the last event on the box was at 04:00, and the
+value visibly changed from right to wrong as the audit fetch landed. Backup age and a crash's place
+in the last 24 hours are facts about the world, so both surfaces now read the clock, and the
+dashboard carries the same 30s tick the overview already had so the durations stay live.
+
 ### Added — the standalone assistant carries the theme picker
 
 Every theme the Control Panel offers is selectable on the assistant too, from a control at the foot
