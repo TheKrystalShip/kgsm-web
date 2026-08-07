@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the dashboard's Catalog row is a random sample
+
+The row only ever had space for one line of cards, and the catalog carries no date to rank by, so
+the same handful of games sat there on every visit while the rest of the library was never seen
+from the dashboard. The row now draws its cards in random order, dealing a different selection each
+time the dashboard is opened.
+
+The order is a pure function of a per-mount seed and each entry's id, so a catalog refresh or a
+window resize keeps the cards exactly where they are — only a fresh visit reshuffles. The Library
+page is untouched and still renders the catalog in its own order.
+
 ### Fixed — the assistant leaf's review tabs blamed the assistant for a Discord outage
 
 Both review tabs — Overview and Conversations — treated every rejected request as one failure and

@@ -65,11 +65,34 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const hosts = useStore(hostsStore, s => s.list);
   const pings = useStore(pingStore, s => s.byHost);
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  // Catalog preview — a compact window onto the installable library. The backend
-  // blueprint catalog carries no "added" date (the LibraryEntry DTO has no
-  // timestamp), so this is a straight slice of the catalog in its natural order,
-  // NOT a recency rail; "View all" opens the full Library.
+  // Catalog preview — a compact window onto the installable library, in RANDOM
+  // order. The backend blueprint catalog carries no "added" date (the LibraryEntry
+  // DTO has no timestamp) and only one row's worth is shown, so a fixed slice
+  // would surface the same handful of games forever; shuffling makes the row a
+  // rotating sampler of what's installable. This is the dashboard's ordering
+  // only — the Library page renders the catalog in its own order. "View all"
+  // opens the full Library.
   const libraryList = useStore(libraryStore, s => s.list);
+  // The seed is drawn once per mount, and a card's position is a pure function of
+  // (seed, entry id): a catalog refresh or a resize therefore reshuffles nothing,
+  // while each fresh visit to the dashboard deals a new order.
+  const catalogSeed = React.useRef(null);
+  if (catalogSeed.current === null) catalogSeed.current = (Math.random() * 0x100000000) >>> 0;
+  const catalogShuffled = React.useMemo(() => {
+    const seed = catalogSeed.current;
+    const rank = id => {
+      // FNV-1a over the id, seeded — an arbitrary but stable number per entry.
+      let h = (seed ^ 0x811c9dc5) >>> 0;
+      const s = String(id);
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      h ^= h >>> 15;
+      return h >>> 0;
+    };
+    return [...libraryList].sort((a, b) => rank(a.id) - rank(b.id));
+  }, [libraryList]);
   // Show only as many cards as fit in one row at the current width — drop the
   // overflow entirely rather than wrapping or scrolling. Cards then stretch to
   // fill the row evenly (grid 1fr).
@@ -88,7 +111,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
     ro.observe(el);
     return () => ro.disconnect();
   }, [dataLoading]);
-  const catalogVisible = libraryList.slice(0, catalogFit);
+  const catalogVisible = catalogShuffled.slice(0, catalogFit);
   // Fit-to-width for the bottom Servers row, mirroring Recently added but
   // capped at 4 — show only as many tiles as fit one row, never more than 4.
   // The layout itself is the shared `.server-grid` (same as the Library page),
@@ -277,9 +300,9 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   if (libraryList.length > 0) bands.push({
     id: "recent", label: "Catalog",
     node: (
-      // Catalog — a single, non-collapsing row of installable games straight from
-      // the library. Clicking a card opens the install flow; "View all" opens the
-      // full Library catalog.
+      // Catalog — a single, non-collapsing row of installable games sampled at
+      // random from the library. Clicking a card opens the install flow; "View
+      // all" opens the full Library catalog.
       <div className="chat-brief">
         <div className="chat-brief__head">
           <span className="chat-brief__title">
