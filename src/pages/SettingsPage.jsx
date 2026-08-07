@@ -1,5 +1,5 @@
 import React from "react";
-import { themeStore, useThemePref } from "../lib/theme.js";
+import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
@@ -8,28 +8,6 @@ import { sessionStore } from "../lib/sessionStore.js";
 
 // SettingsPage — account-level settings (distinct from the per-server Settings
 // sub-tab). A single flat page with no subtabs.
-
-const THEME_OPTS = [
-  { id: "auto",             label: "Auto (system)"     },
-  { id: "dark",             label: "Krystal Blue Dark"         },
-  { id: "amoled",           label: "Krystal Blue Dark (AMOLED)" },
-  { id: "light",            label: "Krystal Blue Light"         },
-  { id: "nord",             label: "Nord"              },
-  { id: "catppuccin-mocha", label: "Catppuccin Mocha"  },
-  { id: "dracula",          label: "Dracula"           },
-  { id: "tokyo-night",      label: "Tokyo Night"       },
-  { id: "synthwave",        label: "Synthwave '84"     },
-  { id: "gruvbox",          label: "Gruvbox Dark"      },
-  { id: "amber-crt",        label: "Amber CRT Screen"  },
-  { id: "one-dark",         label: "One Dark Pro"       },
-  { id: "rose-pine",        label: "Rosé Pine"          },
-  { id: "kanagawa",         label: "Kanagawa"           },
-  { id: "everforest",       label: "Everforest"         },
-  { id: "github-light",     label: "GitHub Light"       },
-  { id: "solarized-light",  label: "Solarized Light"    },
-  { id: "catppuccin-latte", label: "Catppuccin Latte"   },
-  { id: "nord-light",       label: "Nord Light"         },
-];
 
 function SettingsPage({ user, onLogout }) {
   const themePref = useThemePref();

@@ -5,8 +5,9 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon.jsx";
 import { usePortalPopover } from "./usePortalPopover.js";
+import { ChatThemePicker } from "./ChatThemePicker.jsx";
 
-function ChatHistory({ convos, activeId, onPick, onDelete, onOpen, loading }) {
+function ChatHistory({ convos, activeId, onPick, onDelete, onOpen, loading, showThemePicker }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
@@ -40,6 +41,11 @@ function ChatHistory({ convos, activeId, onPick, onDelete, onOpen, loading }) {
               </div>
             )}
           </div>
+          {/* The theme control, for the width where this popover REPLACES the rail that normally
+              carries it. CSS decides that, at the same breakpoint that hides the rail — the
+              alternative is JSX guessing a viewport, and a surface with no Settings page would
+              have no way to change its theme on a phone. */}
+          {showThemePicker && <ChatThemePicker className="chat-theme--popover" />}
         </div>,
         document.body
       )}

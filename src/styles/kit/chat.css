@@ -21,10 +21,25 @@
 .chat-page--solo {
   height: 100vh;
   height: 100dvh;
-  padding: 14px;
   box-sizing: border-box;
-  max-width: 1400px;
-  margin: 0 auto;
+  /* Full-bleed: this surface IS the window, so the rail sits against the left edge instead of
+     floating in from a centred column, and the two panes meet on a divider rather than sitting as
+     two cards on a canvas. A wide screen loses nothing — the thread carries its own 760px measure,
+     so the extra width becomes margin around the text, not longer lines. */
+  padding: 0;
+  gap: 0;
+  max-width: none;
+  margin: 0;
+}
+
+/* One seam between the panes, drawn by the rail. A frame is what a card needs to say where it ends;
+   a pane bounded by the window edge and that divider already says it. */
+.chat-page--solo .chat-rail {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.chat-page--solo .chat-main {
+  border: none;
 }
 
 /* ---- conversation rail ---- */
@@ -123,6 +138,32 @@
 
 .chat-rail__foot {
   padding: 10px 12px;
+}
+
+/* ---- theme control (only on a surface where the chat is the whole app) ---- */
+.chat-theme {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.chat-theme__icon {
+  color: var(--fg-4);
+  flex-shrink: 0;
+}
+
+.chat-theme .k-select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The popover copy exists for phone width, where the popover REPLACES the rail that normally
+   carries this. Shown by the same breakpoint that hides the rail (see responsive rules below). */
+.chat-theme--popover {
+  display: none;
 }
 
 .chat-conn {
@@ -3330,18 +3371,21 @@ a.ev-search__src:hover {
   }
 
   /* The standalone assistant owns the viewport: there is no top bar above it and no content-area
-     padding around it, so it subtracts neither. It also drops its own inset here — at phone width
-     that gutter reads as a frame drawn around the conversation rather than as breathing room.
-     Both restate .chat-page--solo's base rules because the .chat-page override above is the same
-     specificity and comes later, so it would otherwise win. */
+     padding around it, so it subtracts neither. This restates .chat-page--solo's base height
+     because the .chat-page override above is the same specificity and comes later, so it would
+     otherwise win. */
   .chat-page--solo {
     height: 100dvh;
-    padding: 0;
   }
 
   /* Desktop rail is replaced by the in-header new-chat + history popover. */
   .chat-rail {
     display: none;
+  }
+
+  /* …so the theme control travels with it, into the popover's foot. */
+  .chat-theme--popover {
+    display: flex;
   }
 
   .chat-head__nav {

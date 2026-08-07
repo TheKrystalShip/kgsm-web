@@ -20,7 +20,32 @@ import { createStore, useStore } from "./store.js";
 // Base-layer module: imports only store.js, so it introduces no import cycle.
 
 const THEME_KEY = "krystal:theme";
-const VALID = ["auto", "dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox", "amber-crt", "one-dark", "rose-pine", "kanagawa", "everforest", "github-light", "solarized-light", "catppuccin-latte", "nord-light"];
+
+// The offered themes, in the order a picker lists them — the id every surface validates against
+// and the label it shows, in one place, because both surfaces have a picker and a list that lives
+// beside one of them is a list the other cannot reach.
+const THEME_OPTS = [
+  { id: "auto",             label: "Auto (system)"              },
+  { id: "dark",             label: "Krystal Blue Dark"          },
+  { id: "amoled",           label: "Krystal Blue Dark (AMOLED)" },
+  { id: "light",            label: "Krystal Blue Light"         },
+  { id: "nord",             label: "Nord"                       },
+  { id: "catppuccin-mocha", label: "Catppuccin Mocha"           },
+  { id: "dracula",          label: "Dracula"                    },
+  { id: "tokyo-night",      label: "Tokyo Night"                },
+  { id: "synthwave",        label: "Synthwave '84"              },
+  { id: "gruvbox",          label: "Gruvbox Dark"               },
+  { id: "amber-crt",        label: "Amber CRT Screen"           },
+  { id: "one-dark",         label: "One Dark Pro"               },
+  { id: "rose-pine",        label: "Rosé Pine"                  },
+  { id: "kanagawa",         label: "Kanagawa"                   },
+  { id: "everforest",       label: "Everforest"                 },
+  { id: "github-light",     label: "GitHub Light"               },
+  { id: "solarized-light",  label: "Solarized Light"            },
+  { id: "catppuccin-latte", label: "Catppuccin Latte"           },
+  { id: "nord-light",       label: "Nord Light"                 },
+];
+const VALID = THEME_OPTS.map(o => o.id);
 const DEFAULT = "dark";
 
 function readPref() {
@@ -86,4 +111,4 @@ applyResolved(themeStore.getState().resolved);
 const useThemePref = () => useStore(themeStore, s => s.pref);
 const useResolvedTheme = () => useStore(themeStore, s => s.resolved);
 
-export { themeStore, useThemePref, useResolvedTheme, resolveTheme, THEME_KEY };
+export { themeStore, useThemePref, useResolvedTheme, resolveTheme, THEME_KEY, THEME_OPTS };

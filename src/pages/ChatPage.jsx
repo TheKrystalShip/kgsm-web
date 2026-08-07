@@ -56,6 +56,9 @@ function ChatPage(props) {
       BriefingPanel={NeedsAttention}
       HostPicker={AssistantHostPicker}
       nodes={nodes}
+      // The theme lives in Settings → Account here, next to the rest of the account preferences.
+      // One preference wants one control.
+      showThemePicker={false}
     />
   );
 }

@@ -19,9 +19,10 @@ what makes theme switching (and adding a theme) a data change, not a code hunt.
   applies with no attribute) and `[data-theme="light"]`. Plus overlay tokens
   (`--veil-1/2/3`, `--scrim-base`, `--scrollbar-*`). **A theme = the FULL color
   set re-valued.**
-- Adding a theme: add a `[data-theme="x"]` block here, then list `x` in
-  `../lib/theme.js`'s `VALID`, the `index.html` boot script, and `THEME_OPTS` in
-  `../pages/SettingsPage.jsx`.
+- Adding a theme: add a `[data-theme="x"]` block here, then one `{ id, label }`
+  entry in `../lib/theme.js`'s `THEME_OPTS` (`VALID` derives from it and every
+  picker reads it), and the concrete-theme list in the `index.html` /
+  `assistant.html` boot scripts, which cannot import.
 
 ## `kit.css` is a BARREL — do not edit it, edit the partial
 

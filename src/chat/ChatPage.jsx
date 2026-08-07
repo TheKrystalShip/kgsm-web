@@ -18,6 +18,7 @@ import { LEAF_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } fr
 import { ChatCommand } from "./ChatMessageParts.jsx";
 import { ChatContextMeter } from "./ChatContextMeter.jsx";
 import { ChatHistory } from "./ChatHistory.jsx";
+import { ChatThemePicker } from "./ChatThemePicker.jsx";
 import { ChatThread } from "./ChatThread.jsx";
 
 // ChatPage renders a conversation with ONE assistant leaf. Everything that is true of the surface
@@ -52,6 +53,10 @@ function ChatPage({
   // An extra class on the page root, for a surface that lays the chat out differently — the
   // standalone assistant owns the whole viewport, the panel gets a content area inside a shell.
   pageClass = "",
+  // Whether the chat carries the theme control. A surface where the chat IS the app has nowhere
+  // else to put it; the panel has a Settings page and a second copy there would be two controls
+  // over one preference.
+  showThemePicker = true,
 }) {
   const conn = connection || { tone: "muted", label: "No assistant", usable: false, message: null };
   const assistantUsable = !!conn.usable;
@@ -680,6 +685,7 @@ function ChatPage({
             <span className={"chat-conn chat-conn--" + conn.tone}><span className="dot"></span>{conn.label}</span>
           </div>
         )}
+        {showThemePicker && <ChatThemePicker />}
       </aside>
 
       <div className="chat-main">
@@ -696,7 +702,7 @@ function ChatPage({
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
               </button>
-              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} onOpen={loadServerHistory} loading={histLoading} />
+              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} onOpen={loadServerHistory} loading={histLoading} showThemePicker={showThemePicker} />
             </div>
             {docked && (
               <div className="chat-head__win">

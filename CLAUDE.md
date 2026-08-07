@@ -266,9 +266,13 @@ properties — **a component must never hardcode a color; add or extend a token.
 krystal:theme` = `auto｜dark｜light`, default `dark`) that NEVER round-trips to a
 host — same model as favorites. `auto` resolves via `matchMedia` and live-updates
 on OS change. Switching is **LIVE — no page reload** (swaps `<html data-theme>`,
-which re-cascades instantly; the picker is in Settings → Account). Landmines:
-- **No-flash:** an inline boot script in `index.html` sets `data-theme` *before*
-  the stylesheet applies. It mirrors `theme.js` — keep the two in sync.
+which re-cascades instantly). Each surface offers it where it has room for it: the
+panel in Settings → Account, the standalone assistant at the foot of the
+conversation rail (and of the history popover at phone width, where that popover
+replaces the rail). Landmines:
+- **No-flash:** an inline boot script in `index.html` **and `assistant.html`** sets
+  `data-theme` *before* the stylesheet applies. Both mirror `theme.js` — keep the
+  three in sync.
 - **Monaco can't read CSS vars** → `CodeEditor.jsx` samples the resolved tokens at
   runtime and re-themes (`vs`/`vs-dark`) whenever the theme store flips.
 - **Always-dark media surfaces** (e.g. the cinematic server hero over key-art) pin
@@ -276,8 +280,9 @@ which re-cascades instantly; the picker is in Settings → Account). Landmines:
   light-on-dark in every theme — see `.hero--cinematic` in `kit/server.css`. Do
   that instead of per-theme special-casing.
 - **Adding a theme:** add a `[data-theme="x"]` block (full color set) to
-  `tokens.css`, then list `x` in `theme.js`'s `VALID`, the `index.html` boot
-  script, and `THEME_OPTS` in `SettingsPage.jsx`.
+  `tokens.css`, then one entry in `theme.js`'s `THEME_OPTS` (id + label — `VALID`
+  is derived from it, and every picker reads it), and the concrete-theme list in
+  the `index.html` / `assistant.html` boot scripts, which cannot import.
 - **Test themes with the visual harness's `--theme dark|light` flag** (jsdom smoke
   does NOT lay out CSS, so it can't catch a theme regression).
 

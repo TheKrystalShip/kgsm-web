@@ -1,9 +1,9 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.61.3",
+  "version": "1.62.0",
   "type": "module",
-  "description": "Krystal Control Panel \u2014 production React app (migrated from the no-build UI-kit prototype).",
+  "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

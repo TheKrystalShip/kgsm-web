@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the standalone assistant carries the theme picker
+
+Every theme the Control Panel offers is selectable on the assistant too, from a control at the foot
+of the conversation rail — and, at phone width where the rail is replaced by the history popover,
+at the foot of that popover. It is the same preference (`krystal:theme`, one value per device) and
+the same list, which now lives in `lib/theme.js` beside the ids it validates, so a theme added to
+`tokens.css` reaches both surfaces with no second edit. The panel keeps its picker in
+Settings → Account and shows no second one in the chat.
+
+### Changed — the standalone assistant is full-bleed, and the panes meet on a divider
+
+The chat is the whole window there, so it is laid out as chrome rather than as a card on a canvas:
+the conversation rail sits against the left edge of the screen instead of floating in from a
+centred column, and the frame around the conversation is replaced by a single divider drawn down
+the rail's right edge. A wide screen loses nothing — the thread carries its own 760px measure, so
+the extra width becomes margin around the text rather than longer lines. The panel's chat, which
+genuinely is a card inside a shell, is unchanged.
+
 ### Fixed — the conversation rail shows the conversations the leaf holds
 
 The rail rendered only what this browser had in localStorage, so a conversation started on another
