@@ -168,12 +168,14 @@ it names is missing from `dist-assistant/`.
 - **The manifests** carry name/short_name, `start_url`/`scope` `/`, `display: standalone`, the
   `#0B0F14` theme/background and 192/512/maskable icons. Chrome will not offer an install without
   the 192 **and** 512.
-- **The artwork is ONE drawing**, at every size: `scripts/make-assistant-icons.mjs` renders the
-  lucide `bot` glyph the chat draws its replies with — white on a `--krystal-teal` disc over the
-  `--canvas` — as the favicon (SVG, plus a 32px PNG fallback), the `any`/`maskable`/apple-touch
-  icons and the 13 iOS launch images. Two apps sit on one home screen, and the assistant is the one
-  wearing the symbol it already means on screen. Run the script by hand after changing the
-  artwork — it needs `rsvg-convert` and no build invokes it.
+- **The artwork is `.chat-empty__logo`**, the badge at the head of an empty conversation, drawn to
+  the pixel: `scripts/make-assistant-icons.mjs` renders the lucide `bot` in `--krystal-teal` on
+  `--krystal-teal-dim` over `--canvas`, the glyph 26/56 of the frame and its stroke the `1.7` every
+  `<Icon>` uses. One drawing serves the favicon (SVG, plus a 32px PNG fallback), the
+  `any`/`maskable`/apple-touch icons and the 13 iOS launch images. ⚠ The script cannot read a CSS
+  custom property, so those colours and that geometry are **copied** from `styles/tokens.css` and
+  `kit/chat.css` — change the element and you must change the script. Run it by hand after changing
+  the artwork; it needs `rsvg-convert` and no build invokes it.
 - **The two service workers differ in what they may cache, and the difference is load-bearing.**
   The panel's DENIES `/api/` and `/auth/`, which is exhaustive for kgsm-api. The assistant's
   **allowlists**, because the leaf's routes are unprefixed at the root (`/turn`, `/conversations`,

@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed — the assistant's mark is the bot glyph, everywhere it appears
+### Changed — the assistant's mark is the badge from the chat, replicated exactly
 
-The standalone assistant is identified by one drawing: the lucide `bot` the chat renders its replies
-with, white on a `--krystal-teal` disc over `--canvas`. It is the browser-tab favicon (as SVG, so it
-is crisp at any OS scale, with a 32px PNG behind it for browsers that take no SVG icon), the
-`any`/`maskable` PWA icons Android installs, the apple-touch icons iOS puts on the home screen, and
-the mark centred in all 13 iOS launch images. The symbol on the home screen is the symbol on screen.
+The standalone assistant is identified by one drawing, and it is the one already on screen:
+`.chat-empty__logo`, the badge at the head of an empty conversation — lucide `bot` in
+`--krystal-teal` on a `--krystal-teal-dim` fill over `--canvas`, the glyph 26/56 of the frame with
+the `1.7` stroke every `<Icon>` renders, and the tile square to the edge. It is the browser-tab
+favicon (as SVG, so it is crisp at any OS scale, with a 32px PNG behind it for browsers that take no
+SVG icon), the `any`/`maskable` PWA icons Android installs, the apple-touch icons iOS puts on the
+home screen, and the mark centred in all 13 iOS launch images.
 
 The service worker's cache version moves with it, so an already-installed app picks the new artwork
 up on its next online load rather than serving the icons it cached.
