@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the blueprint editor showed one line of the file in Firefox
+
+`@monaco-editor/react` wraps the editor in a `<section style="height:100%">`, and that
+percentage only resolves against a **definite** containing block. The blueprint card gave it a
+height from `flex: 1`, which is not one, so the section fell back to its own content height —
+5px, one line of YAML — and the rest of the file was unreachable. Chrome resolves the percentage
+against the flex-derived height regardless, so the same build renders correctly there: the defect
+was invisible in one engine and total in the other.
+
+`.bp-editor__monaco-wrap` is now a grid stating its single row as `minmax(0, 1fr)`, a track that
+sizes definitely. That is the mechanism the new-blueprint page already used, so its
+`.bp-create` override is gone — the shared rule covers both mounts, and the two editors can no
+longer disagree about how they get their height. Measured in both engines after the change:
+389px/18 lines on the game page's File tab, 777px/37 lines on the create page.
+
+The file browser's editor uses the same `flex: 1` construct but is **not** affected and is
+unchanged: its `.fb-card` fills the modal from a grid track, so the definite height it needs is
+already there in its ancestor chain.
+
 ### Added — the game detail page is four tabs, and answers where a blueprint can run
 
 `#/library/<id>` carries a tab like the server page does — `#/library/<id>/<blueprint|servers|file>`,
