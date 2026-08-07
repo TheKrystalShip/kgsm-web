@@ -29,6 +29,7 @@ const PILL_LABEL = {
   crashed: "Crashed",
   updating: "Updating",
   stopping: "Stopping",
+  restarting: "Restarting",
   installing: "Installing",
   error: "Error",
   unknown: "Unknown",

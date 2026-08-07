@@ -42,7 +42,7 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   // the one they care about most), then within each group: most-active online
   // first, then the ones in transition (they need watching), then offline last.
   // "View all" opens the full Servers page.
-  const SERVER_STATUS_RANK = { online: 0, starting: 1, stopping: 2, updating: 3, offline: 4 };
+  const SERVER_STATUS_RANK = { online: 0, starting: 1, restarting: 2, stopping: 3, updating: 4, offline: 5 };
   const favIds = useStore(favoritesStore, s => s.ids);
   const favSet = React.useMemo(() => new Set(favIds), [favIds]);
   const featuredServers = React.useMemo(() => {
@@ -51,8 +51,8 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
       const fa = favSet.has(a.id) ? 0 : 1;
       const fb = favSet.has(b.id) ? 0 : 1;
       if (fa !== fb) return fa - fb;
-      const ra = SERVER_STATUS_RANK[a.status] ?? 4;
-      const rb = SERVER_STATUS_RANK[b.status] ?? 4;
+      const ra = SERVER_STATUS_RANK[a.status] ?? 5;
+      const rb = SERVER_STATUS_RANK[b.status] ?? 5;
       if (ra !== rb) return ra - rb;
       return (b.players?.current || 0) - (a.players?.current || 0);
     });

@@ -115,6 +115,17 @@
   animation: kr-pulse 1.2s ease-in-out infinite;
 }
 
+/* Down and coming back: in transition like stopping, and for longer — a drain plus a whole boot. */
+.hero__status--restarting {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.hero__status--restarting .dot {
+  background: var(--warning);
+  animation: kr-pulse 1.2s ease-in-out infinite;
+}
+
 .hero__status .timer {
   color: var(--fg-3);
   font-family: var(--font-mono);

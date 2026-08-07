@@ -14,14 +14,14 @@ import { libraryStore } from "./library.js";
 // every surface — the hero pill, the tiles, the sidebar dot, the filters — shows the operation in
 // progress without each of them re-deriving it.
 //
-// Both verbs here are ones whose run-state alone reads WRONG for as long as the job lasts: a server
-// being shut down is still genuinely "running" (the process is up, draining and saving its world) and
-// an instance being updated is genuinely "stopped" — neither is what an operator who just pressed the
-// button needs to see. `start` is absent because the backend already has an honest run-state for it
-// ("starting", the watchdog's own boot window); `restart` is absent because it is a stop followed by a
-// start, both of which the backend reports as they happen. An in-flight install has no server row at
-// all — it renders as a phantom tile.
-const JOB_STATUS = { update: "updating", stop: "stopping" };
+// Every verb here is one whose run-state alone reads WRONG for as long as the job lasts: a server being
+// shut down is still genuinely "running" (the process is up, draining and saving its world), an
+// instance being updated is genuinely "stopped", and one being restarted reads as whichever side of
+// the bounce it happens to be on — none of that is what an operator who just pressed the button needs
+// to see. `start` is the one lifecycle verb absent, because the backend already has an honest
+// run-state for it: "starting", the watchdog's own boot window, which says more than a job would. An
+// in-flight install has no server row at all — it renders as a phantom tile.
+const JOB_STATUS = { update: "updating", stop: "stopping", restart: "restarting" };
 
 // How long a job we know about locally survives a server frame that carries none. The backend carries the
 // active job on every server read, so an in-flight job normally re-arrives with each frame; this window

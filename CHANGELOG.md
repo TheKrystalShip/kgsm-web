@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A server being restarted reads as `Restarting…`** for the whole bounce, instead of staying
+  `Online` until it comes back. It is the third and last of the long lifecycle verbs to get a state of
+  its own, and it arrives the same way the other two do — from the in-flight job the backend carries
+  on the server — so it covers a restart started from the CLI or the assistant just as well as one
+  clicked here, and survives a reload mid-run. Start, Update and Shutdown stay shut while it lands,
+  and the connect surface says `Restarting…` rather than offering Play or claiming Offline.
+
 ### Fixed — two smoke assertions asserted the host, not the SPA
 
 The live smoke demanded a MAC from every network interface, which a layer-3 tunnel (the host's

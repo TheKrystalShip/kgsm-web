@@ -25,9 +25,14 @@ function ServerConnect({ server, variant }) {
   // Shutting down: the process is still up but nobody should be sent to it. It reads as its own
   // word rather than "Offline", which would be a claim about a server that hasn't landed yet.
   const stopping = server && server.status === "stopping";
+  // Bouncing — it will be joinable again shortly, which is a different thing to say than "offline".
+  const restarting = server && server.status === "restarting";
   // The word this surface shows in place of the address when there is nothing to join.
-  const offWord = starting ? "Starting…" : stopping ? "Stopping…" : "Offline";
-  const offHint = starting ? "Server is starting…" : stopping ? "Server is shutting down…" : "Server is offline";
+  const offWord = starting ? "Starting…" : stopping ? "Stopping…" : restarting ? "Restarting…" : "Offline";
+  const offHint = starting ? "Server is starting…"
+    : stopping ? "Server is shutting down…"
+    : restarting ? "Server is restarting…"
+    : "Server is offline";
 
   const copy = (e) => {
     if (e) e.stopPropagation();
@@ -93,6 +98,7 @@ function ServerConnect({ server, variant }) {
     ? `Open ${server.game} in Steam. It won’t join on its own — paste the address into the game’s server browser.`
     : starting ? "Server is starting up — hang tight, it’ll be joinable shortly."
     : stopping ? "Server is shutting down — it can be started again once it lands."
+    : restarting ? "Server is restarting — it'll be joinable again shortly."
     : "Start the server to join";
   if (variant === "hero-bar") {
     return (
@@ -134,7 +140,7 @@ function ServerConnect({ server, variant }) {
             onClick={(e) => { if (!online) e.preventDefault(); }}
             title={launchHint}>
             <Icon name="play" size={16} strokeWidth={2.4} />
-            {online ? "Play on Steam" : (starting ? "Server starting…" : stopping ? "Server stopping…" : "Server offline")}
+            {online ? "Play on Steam" : (starting ? "Server starting…" : stopping ? "Server stopping…" : restarting ? "Server restarting…" : "Server offline")}
           </a>
         )}
         <code className="connect__addr">{join.address || "—"}</code>

@@ -183,7 +183,7 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus }) {
   // updating → crashed → unknown → offline. The transitional states sort high
   // because they are the rows worth looking at — something is happening to them
   // right now. Uptime is parsed from its human string.
-  const STATUS_RANK = { online: 0, starting: 1, stopping: 2, updating: 3, crashed: 4, unknown: 5, offline: 6 };
+  const STATUS_RANK = { online: 0, starting: 1, restarting: 2, stopping: 3, updating: 4, crashed: 5, unknown: 6, offline: 7 };
   const parseUptime = (u) => {
     if (!u || u === "\u2014") return 0;
     let s = 0; let m;
