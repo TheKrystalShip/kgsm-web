@@ -16,6 +16,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Toolbar, ToolbarButton, ToolbarCount, ToolbarSearch, ToolbarSpacer } from "../../components/Toolbar.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { fetchAssistantConversations, fetchAssistantReviewUsers } from "../../lib/stores.js";
+import { ReviewAuthorityUnavailable, ReviewForbidden, reviewErrorState } from "./reviewAuthority.jsx";
 
 function AssistantConversations({ hostId, onReviewConversation }) {
   const [users, setUsers] = React.useState([]);
@@ -25,6 +26,7 @@ function AssistantConversations({ hostId, onReviewConversation }) {
   const [convState, setConvState] = React.useState("idle");
   const [query, setQuery] = React.useState("");
   const [onlyRatedDown, setOnlyRatedDown] = React.useState(false);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     if (!hostId) return undefined;
@@ -39,10 +41,10 @@ function AssistantConversations({ hostId, onReviewConversation }) {
         // an empty right-hand pane.
         if (rows.length > 0) setSelected(rows[0].userId);
       },
-      (e) => { if (!cancelled) setState(e && e.code === 404 ? "none" : "error"); },
+      (e) => { if (!cancelled) setState(reviewErrorState(e)); },
     );
     return () => { cancelled = true; };
-  }, [hostId]);
+  }, [hostId, reloadKey]);
 
   React.useEffect(() => {
     if (!hostId || !selected) { setConversations([]); return undefined; }
@@ -75,6 +77,12 @@ function AssistantConversations({ hostId, onReviewConversation }) {
         </div>
       </div>
     );
+  }
+  if (state === "unavailable") {
+    return <ReviewAuthorityUnavailable onRetry={() => setReloadKey(k => k + 1)} />;
+  }
+  if (state === "forbidden") {
+    return <ReviewForbidden />;
   }
   if (state === "error") {
     return (

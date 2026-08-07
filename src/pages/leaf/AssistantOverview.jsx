@@ -19,6 +19,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { fetchAssistantConversations, fetchAssistantReviewUsers, fetchAssistantStats } from "../../lib/stores.js";
+import { ReviewAuthorityUnavailable, ReviewForbidden, reviewErrorState } from "./reviewAuthority.jsx";
 
 // A duration a person can read at a glance. Null in → "—" out; never 0.
 function fmtMs(ms) {
@@ -79,6 +80,9 @@ function AssistantOverview({ hostId, onReviewConversation }) {
   const [stats, setStats] = React.useState(null);
   const [state, setState] = React.useState("loading");
   const [recent, setRecent] = React.useState([]);
+  // Bumped by the retry control, which is the whole affordance behind a transient authority failure:
+  // the request that failed is worth making again, unlike a denial or a missing assistant.
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   React.useEffect(() => {
     if (!hostId) return undefined;
@@ -86,10 +90,10 @@ function AssistantOverview({ hostId, onReviewConversation }) {
     setState("loading");
     fetchAssistantStats(hostId).then(
       (s) => { if (!cancelled) { setStats(s); setState(s ? "ready" : "none"); } },
-      (e) => { if (!cancelled) setState(e && e.code === 404 ? "none" : "error"); },
+      (e) => { if (!cancelled) setState(reviewErrorState(e)); },
     );
     return () => { cancelled = true; };
-  }, [hostId]);
+  }, [hostId, reloadKey]);
 
   // The recency lane. Built by asking the busiest few people for their conversations and taking the
   // newest across them: the review endpoints are per-user by design (a reviewer picks a person), so
@@ -111,7 +115,7 @@ function AssistantOverview({ hostId, onReviewConversation }) {
         .slice(0, 5));
     }).catch(() => { /* the lane is additive — the page stands without it */ });
     return () => { cancelled = true; };
-  }, [hostId]);
+  }, [hostId, reloadKey]);
 
   if (state === "loading") {
     return <div className="chat-brief"><div className="chat-brief__empty">Reading the assistant’s conversation log…</div></div>;
@@ -125,6 +129,14 @@ function AssistantOverview({ hostId, onReviewConversation }) {
         </div>
       </div>
     );
+  }
+  // Discord wouldn't say what the caller holds. Reported apart from every other failure because the
+  // assistant is healthy and nothing about the host is wrong — only the role check couldn't be made.
+  if (state === "unavailable") {
+    return <ReviewAuthorityUnavailable onRetry={() => setReloadKey(k => k + 1)} />;
+  }
+  if (state === "forbidden") {
+    return <ReviewForbidden />;
   }
   if (state === "error" || !stats) {
     return (

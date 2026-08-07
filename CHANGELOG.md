@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the assistant leaf's review tabs blamed the assistant for a Discord outage
+
+Both review tabs — Overview and Conversations — treated every rejected request as one failure and
+said the assistant hadn't answered. When the leaf's admin gate can't reach Discord to check which
+roles you hold, that message points at a service that is running perfectly and at permissions that
+haven't changed.
+
+The leaf now reports that case apart, as `502` with an `authority_unavailable` envelope, and the tabs
+keep the distinction: an outage says *"Couldn't check your access"*, names Discord as the upstream
+that didn't answer, states plainly that permissions have not changed, and offers a retry — which is
+what usually resolves it. A real denial says the review surface needs the administrator role. Only a
+genuinely unexplained failure still gets the generic message.
+
+The classifier and both states live in `pages/leaf/reviewAuthority.jsx`, shared by the two tabs so
+they cannot describe the same failure two different ways. The envelope code is what's checked, not
+the status alone: a reverse proxy fronting a leaf that really is down also answers `502`, with no
+body behind it, and that case genuinely is "the assistant isn't answering".
+
 ### Fixed — the blueprint editor showed one line of the file in Firefox
 
 `@monaco-editor/react` wraps the editor in a `<section style="height:100%">`, and that
