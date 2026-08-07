@@ -221,19 +221,26 @@ const RAW_EVENT_ACTION = {
 // `provider:name` → discord=user, api=token, system=system, an unrecognized provider keeps the name
 // as a user; a bare "system" (or a null actor — kgsm's defensive default) is the autonomous engine;
 // any other bare string is the local OS user. Never fabricated beyond that defensive default.
+//
+// `provider` rides along, because it is the axis that separates a real Discord identity from every
+// other name: AuditActor reads it to decide whether an actor called `monitor` is the metrics leaf or
+// a person. An unrecognized provider keeps the name but leaves it null, exactly as the api does —
+// never coerced to one of the three.
 function parseAuditActor(flat) {
   const s = (flat || "").trim();
-  if (!s) return { name: "system", kind: "system" };
+  if (!s) return { name: "system", kind: "system", provider: "system" };
   const colon = s.indexOf(":");
   if (colon > 0 && colon < s.length - 1) {
     const provider = s.slice(0, colon).toLowerCase();
     const name = s.slice(colon + 1);
-    if (provider === "discord") return { name, kind: "user" };
-    if (provider === "api")     return { name, kind: "token" };
-    if (provider === "system")  return { name, kind: "system" };
-    return { name, kind: "user" };
+    if (provider === "discord") return { name, kind: "user", provider: "discord" };
+    if (provider === "api")     return { name, kind: "token", provider: "api" };
+    if (provider === "system")  return { name, kind: "system", provider: "system" };
+    return { name, kind: "user", provider: null };
   }
-  return s.toLowerCase() === "system" ? { name: "system", kind: "system" } : { name: s, kind: "user" };
+  return s.toLowerCase() === "system"
+    ? { name: "system", kind: "system", provider: "system" }
+    : { name: s, kind: "user", provider: "system" };
 }
 
 // One raw engine event (the monitor's GET /events row, relayed verbatim by the assistant as

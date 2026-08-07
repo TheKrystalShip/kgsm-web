@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — an audit entry from a leaf wears that leaf's own icon
+
+Every autonomous row in the audit feed used one bot glyph, so the watchdog restarting a crashed
+server, the scheduler taking a backup and this api noticing an update were visually the same author.
+`AuditActor` now resolves an actor whose name is a leaf id to the icon `lib/leaves.js` already gives
+that leaf on the Services board — shield, calendar-clock, server-cog — so one glyph means one service
+on every surface. Anything else autonomous is a generic cog rather than the bot glyph, which now
+belongs to the Discord bot leaf alone.
+
+A `discord` provider is excluded before the name is examined, so a person who happens to be called
+`monitor` is still drawn as a person. The actor's *kind* deliberately is not part of the test: a leaf
+that stamps a bare name reaches the frontend as `kind:"user"`/`provider:"system"` (the engine's
+OS-user fallback), and those rows are in the journal for good. `parseAuditActor` (the chat surface's
+mirror of the api's parser) now carries `provider` for the same reason — it is the axis that
+separates a real Discord identity from every other name.
+
 ### Fixed — a sortable column orders by its VALUE, not by the text in the cell
 
 Every sortable table shares one comparator (`lib/sorting.js`), and it takes three kinds of value:
