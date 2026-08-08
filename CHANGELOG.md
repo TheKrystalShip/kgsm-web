@@ -43,6 +43,19 @@ and a mistyped `/compct` both send as text, so nothing a person types is swallow
 `/help` and `/tools` render as cards in the transcript, because looking something up is part of what
 happened and scrolling back to it is the point.
 
+### Added — a switch line and a thumb are seen on every surface
+
+Flipping Thinking or Auto-run writes its sentence into the transcript of **every** surface on that
+conversation, not only the one that flipped it. A toggle sliding over on its own reads as a glitch;
+the line is what makes it something that happened, and what it says is that the **next** turn here
+will behave differently. Which switch moved is derived by diffing the frame — it states where both
+now stand — so the frame keeps the same shape the listing has. A conversation whose value this
+surface has not read yet gets no line, since a first read is not somebody moving it.
+
+Thumbs travel the same way: a verdict left on one surface lights on the other, and taking it back
+unlights it there too. Applied by turn id, which addresses one bubble wherever it is rendered, so it
+lands on a conversation that is not the one on screen as well.
+
 ### Changed — Thinking and Auto-run are the conversation's, and the leaf owns them
 
 Both were per-browser localStorage flags sent on every turn. They are now switches the conversation

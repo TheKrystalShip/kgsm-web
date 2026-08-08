@@ -266,8 +266,40 @@ function ChatPage({
     if (typeof id !== "string") return;
 
     if (evt.type === "conversation.switches") {
-      setConvos(prev => prev.map(c =>
-        c.id === id ? { ...c, think: !!evt.think, autorun: !!evt.autorun } : c));
+      // Say it in the transcript too, not only on the toggle. A switch moved elsewhere changes what
+      // the NEXT turn on this conversation does, and a toggle sliding over on its own reads as a
+      // glitch — the same line the surface that moved it wrote is what makes it an event that
+      // happened. Which switch moved is derived by diffing: the frame states where BOTH now stand
+      // (so a client applying it lands where a listing would), not which one was touched.
+      setConvos(prev => prev.map(c => {
+        if (c.id !== id) return c;
+        const next = { ...c, think: !!evt.think, autorun: !!evt.autorun };
+        // Only a conversation whose value this surface already knew can have seen it change; the
+        // first read of a switch is not somebody moving it.
+        const moved = [
+          ["thinking", "think", !!evt.think],
+          ["actions", "autorun", !!evt.autorun],
+        ].filter(([, field, on]) => typeof c[field] === "boolean" && c[field] !== on);
+        if (moved.length && c.messages.length > 0) {
+          next.messages = [...c.messages, ...moved.map(([toggle, , on]) => ({
+            role: "toggle", toggle, on, label: TOGGLE_COPY[toggle][on ? "on" : "off"],
+          }))];
+        }
+        return next;
+      }));
+      return;
+    }
+
+    // A thumb left on an answer somewhere else. Applied by turn id, which addresses one bubble
+    // wherever it is rendered, so this lands whether or not the conversation is the one on screen.
+    if (evt.type === "conversation.feedback") {
+      setConvos(prev => prev.map(c => c.id !== id ? c : {
+        ...c,
+        messages: c.messages.map(m => m.turnId !== evt.turnId ? m : {
+          ...m,
+          feedback: evt.rating ? { rating: evt.rating, note: evt.note || null } : null,
+        }),
+      }));
       return;
     }
 
