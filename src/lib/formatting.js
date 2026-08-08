@@ -93,6 +93,7 @@ const ACTION_META = {
   "network.ports.close":   { label: "Ports closed",       icon: "lock",          tone: "warn"    },
   "network.upnp.open":     { label: "Router forwarded",   icon: "router",        tone: "info"    },
   "network.upnp.close":    { label: "Router forward removed", icon: "router",    tone: "warn"    },
+  "network.upnp.reassert": { label: "Router forward restored", icon: "refresh-cw", tone: "warn"  },
   "player.join":           { label: "Player joined",      icon: "log-in",        tone: "info"    },
   "player.leave":          { label: "Player left",        icon: "log-out",       tone: "info"    },
   "player.kick":           { label: "Player kicked",      icon: "user-x",        tone: "warn"    },

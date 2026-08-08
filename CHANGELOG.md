@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`network.upnp.reassert`** renders as *"Router forward restored"* in the audit feed, at the `warn`
+  tone the API assigns it, and reads in the chat's change timeline as the router having dropped a
+  forward that was put back. It is the row that tells an operator their router discards port mappings
+  it accepted while a server is still running — without it the action would fall through the
+  forward-compatible unknown-action path and show as a bare identifier.
+
 ### Removed
 
 - **`open_ports` from the chat's command vocabulary.** The assistant no longer stages it — an instance's

@@ -209,6 +209,7 @@ const RAW_EVENT_ACTION = {
   instance_ports_closed:    { action: "network.ports.close",summary: (i) => "closed ports for " + i },
   instance_upnp_opened:     { action: "network.upnp.open",  summary: (i) => "forwarded router ports for " + i },
   instance_upnp_closed:     { action: "network.upnp.close", summary: (i) => "removed router forwards for " + i },
+  instance_upnp_reasserted: { action: "network.upnp.reassert", summary: (i) => "restored router forwards the router dropped for " + i },
   instance_player_joined:   { action: "player.join",        summary: (i) => "a player joined " + i },
   instance_player_left:     { action: "player.leave",       summary: (i) => "a player left " + i },
   instance_config_changed:  { action: "config.set",         summary: (i) => "changed config for " + i },
