@@ -65,6 +65,17 @@ function uptimeShort(bootTime) {
 
 // ---------- Action metadata ----------
 
+// Icon + tone per audit action, keyed by the dotted action the API emits. An action
+// with no entry still renders — a neutral dot with the raw action as its own label —
+// so a backend that grows a new one is never a broken row. That fallback is the
+// forward-compat floor, not the target: an action nobody maps reads as indistinct
+// from every other unmapped one, which is exactly how a port opening and a router
+// forward came to look like the same grey dot.
+//
+// Tone is the reader's severity cue, so it tracks what the action DOES rather than
+// whether it succeeded: a door opening is `info`, a door closing is `warn`, and the
+// two firewall/router pairs share their tones because they are the same fact about
+// two different doors.
 const ACTION_META = {
   "server.install":        { label: "Server installed",   icon: "package-plus",  tone: "success" },
   "server.start":          { label: "Server started",     icon: "play",          tone: "success" },
@@ -72,8 +83,16 @@ const ACTION_META = {
   "server.restart":        { label: "Server restarted",   icon: "rotate-cw",     tone: "update"  },
   "server.update":         { label: "Server updated",     icon: "download",      tone: "info"    },
   "server.crash":          { label: "Server crashed",     icon: "alert-triangle",tone: "danger"  },
+  "server.update_available":{label: "Update available",   icon: "circle-arrow-up",tone: "info"   },
   "server.rename":         { label: "Server renamed",     icon: "pencil",        tone: "info"    },
   "server.delete":         { label: "Server deleted",     icon: "trash-2",       tone: "danger"  },
+  // network.* — the two doors an instance's ports pass through, deliberately distinct:
+  // ports.* is the HOST firewall rule, upnp.* is the router's NAT forward. A host can
+  // hold one without the other, so they never share an icon.
+  "network.ports.open":    { label: "Ports opened",       icon: "lock-open",     tone: "info"    },
+  "network.ports.close":   { label: "Ports closed",       icon: "lock",          tone: "warn"    },
+  "network.upnp.open":     { label: "Router forwarded",   icon: "router",        tone: "info"    },
+  "network.upnp.close":    { label: "Router forward removed", icon: "router",    tone: "warn"    },
   "player.join":           { label: "Player joined",      icon: "log-in",        tone: "info"    },
   "player.leave":          { label: "Player left",        icon: "log-out",       tone: "info"    },
   "player.kick":           { label: "Player kicked",      icon: "user-x",        tone: "warn"    },
@@ -85,9 +104,17 @@ const ACTION_META = {
   "backup.restore":        { label: "Backup restored",    icon: "rotate-ccw",    tone: "warn"    },
   "backup.delete":         { label: "Backup deleted",     icon: "trash-2",       tone: "danger"  },
   "backup.download":       { label: "Backup downloaded",  icon: "download",      tone: "info"    },
+  "file.write":            { label: "File saved",         icon: "file-pen",      tone: "info"    },
   "file.edit":             { label: "File edited",        icon: "file-pen",      tone: "info"    },
   "file.upload":           { label: "File uploaded",      icon: "upload",        tone: "info"    },
   "file.delete":           { label: "File deleted",       icon: "trash-2",       tone: "danger"  },
+  "blueprint.write":       { label: "Blueprint edited",   icon: "file-code",     tone: "info"    },
+  "blueprint.revert":      { label: "Blueprint reverted", icon: "rotate-ccw",    tone: "warn"    },
+  "config.set":            { label: "Setting changed",    icon: "sliders-horizontal", tone: "info" },
+  "console.input":         { label: "Console command",    icon: "terminal",      tone: "warn"    },
+  "service.connect":       { label: "Leaf connected",     icon: "plug",          tone: "success" },
+  "service.disconnect":    { label: "Leaf disconnected",  icon: "unplug",        tone: "warn"    },
+  "service.config":        { label: "Leaf reconfigured",  icon: "settings",      tone: "info"    },
   "settings.change":       { label: "Settings changed",   icon: "settings",      tone: "info"    },
   "host.connect":          { label: "Host connected",     icon: "power",         tone: "success" },
   "host.disconnect":       { label: "Host disconnected",  icon: "power-off",     tone: "warn"    },
@@ -96,6 +123,12 @@ const ACTION_META = {
   "host.remove":           { label: "Host removed",       icon: "trash-2",       tone: "danger"  },
   "auth.login":            { label: "Signed in",          icon: "log-in",        tone: "info"    },
   "auth.logout":           { label: "Signed out",         icon: "log-out",       tone: "info"    },
+  "auth.session.revoke":   { label: "Session revoked",    icon: "user-minus",    tone: "info"    },
+  "auth.session.revoke.all":{label: "All sessions revoked",icon: "users",        tone: "warn"    },
+  // An admin ending SOMEONE ELSE's session — louder than the two self-service rows
+  // above, which is why the API stamps it warn-severity upstream too.
+  "auth.session.revoke.admin":{label:"Session revoked (admin)",icon:"shield-off",tone: "danger"  },
+  "auth.cluster_session":  { label: "Cluster sign-in",    icon: "network",       tone: "info"    },
   "auth.token.create":     { label: "API token created",  icon: "key",           tone: "info"    },
   "discord.webhook.update":{ label: "Discord updated",    icon: "message-circle",tone: "info"    },
 };
@@ -104,15 +137,22 @@ function actionCategory(action) {
   return action.split(".")[0];
 }
 
+// The audit page's category filter reads this; an unlabelled category falls back to
+// its own key, so a new one is a plain word rather than a missing option.
 const CATEGORY_LABEL = {
-  server:   "Server",
-  player:   "Players",
-  backup:   "Backups",
-  file:     "Files",
-  settings: "Settings",
-  auth:     "Auth",
-  discord:  "Discord",
-  host:     "Hosts",
+  server:    "Server",
+  player:    "Players",
+  network:   "Network",
+  backup:    "Backups",
+  file:      "Files",
+  blueprint: "Blueprints",
+  config:    "Configuration",
+  console:   "Console",
+  service:   "Services",
+  settings:  "Settings",
+  auth:      "Auth",
+  discord:   "Discord",
+  host:      "Hosts",
 };
 
 // ---------- Byte & rate formatting ----------

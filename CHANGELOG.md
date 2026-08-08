@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **The audit vocabulary covers the actions the backend actually emits.** Sixteen of them had no
+  entry, so each rendered as a neutral grey dot carrying its own dotted name — a port opening, a
+  router forward, a console command and an admin revoking someone else's session were mutually
+  indistinguishable at a glance. The two network pairs are deliberately kept apart (`network.ports.*`
+  is the host firewall, `network.upnp.*` is the router's NAT forward: a host can hold one without the
+  other), and tone tracks what an action does rather than whether it succeeded, so a door opening
+  reads `info` and a door closing reads `warn`. The audit page's category filter gains labels for
+  Network, Blueprints, Configuration, Console and Services; an unmapped action still renders, since
+  the fallback is the forward-compatibility floor rather than the target.
+
 - **Per-leaf Overview pages for every leaf.** The Services drill-in used to give five of the seven
   leaves the same generic body — the first eight config values — while only the assistant had anything
   to say. Each now answers the question its own leaf is the only source for:
