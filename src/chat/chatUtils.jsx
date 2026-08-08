@@ -779,6 +779,12 @@ function mergeServerConversations(local, serverList, hostId) {
       const patch = {};
       if ((!existing.title || existing.title === "New chat") && s.title) patch.title = s.title;
       if (!existing.hostId) patch.hostId = hostId;
+      // The switches OVERWRITE, where everything else above only fills a gap: they are the leaf's,
+      // any surface may have moved them since this browser last looked, and what is cached here is
+      // only ever a record of what they were. Keeping a remembered value is how the phone comes to
+      // show Thinking off for a conversation the panel turned it on for.
+      if (typeof s.think === "boolean") patch.think = s.think;
+      if (typeof s.autorun === "boolean") patch.autorun = s.autorun;
       if (Object.keys(patch).length) merged[merged.indexOf(existing)] = { ...existing, ...patch };
     } else {
       merged.push({
@@ -787,6 +793,8 @@ function mergeServerConversations(local, serverList, hostId) {
         messages: [],
         created: Date.parse(s.createdAt) || 0,
         lastActivity: Date.parse(s.lastActivityAt) || 0,
+        think: typeof s.think === "boolean" ? s.think : undefined,
+        autorun: typeof s.autorun === "boolean" ? s.autorun : undefined,
         hostId,
         remote: true,
         loaded: false,

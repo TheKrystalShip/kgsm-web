@@ -1814,12 +1814,15 @@ try {
   const botCmds = await fetch(API + "/api/v1/hosts/" + hmId + "/services/bot/commands")
     .then(r => (r.ok ? r.json() : null));
   if (botCmds) {
-    const acts = botCmds.commands.filter(c => c.mutates);
+    // The manifest is keyed by the gate that admits each command, so the whole catalog is every
+    // bucket's contents — a reader that knew only one bucket would print a partial list.
+    const all = Object.values(botCmds.gates || {}).flat();
+    const acts = all.filter(c => c.mutates);
     const cmdHtml = await nav(`#/cluster/${hmId}/services/bot/commands`);
-    assert(cmdHtml.includes("leaf-cmd__usage") && botCmds.commands.every(c => cmdHtml.includes("/" + c.name)),
-      `leaf Commands tab: every command the bot's manifest declares is rendered (${botCmds.commands.length}, ${acts.length} of them acting)`);
-    assert(acts.length > 0 && cmdHtml.includes("acts") && cmdHtml.includes("Read-only") && cmdHtml.includes("Control"),
-      "leaf Commands tab: split into what reads and what acts, from the manifest's own `mutates` flag");
+    assert(cmdHtml.includes("leaf-cmd__usage") && all.every(c => cmdHtml.includes("/" + c.name)),
+      `leaf Commands tab: every command the bot's manifest declares is rendered (${all.length}, ${acts.length} of them acting)`);
+    assert(acts.length > 0 && cmdHtml.includes("acts") && Object.keys(botCmds.gates).every(g => cmdHtml.toLowerCase().includes(g)),
+      "leaf Commands tab: grouped by the gate that admits each command, every bucket the manifest carries");
   }
   let cmds404 = 0;
   await fetch(API + "/api/v1/hosts/" + hmId + "/services/monitor/commands").then(r => { cmds404 = r.status; });

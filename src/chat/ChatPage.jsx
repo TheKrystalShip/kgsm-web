@@ -168,6 +168,27 @@ function ChatPage({
   // addressed host changes, so this runs once per host per session.
   React.useEffect(() => { loadServerHistory(); }, [loadServerHistory]);
 
+  // And again whenever this surface comes back to the foreground. The conversation's switches and the
+  // chat list both live at the leaf, and the other surface — the panel in another tab, the installed
+  // app on a phone — can move them while this one is backgrounded. Re-reading on the way back in is
+  // what makes the toggles show the conversation's state rather than this browser's memory of it.
+  React.useEffect(() => {
+    // One return to the foreground fires visibilitychange AND focus, and the two say the same thing —
+    // so the second is coalesced away rather than fetching the list twice every time.
+    let last = 0;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 1000) return;
+      last = Date.now();
+      loadServerHistory();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadServerHistory]);
+
   // Fetch the open conversation's detail when we are missing either half of it: its transcript (a
   // chat this browser has never seen) or its switches (which the leaf owns, so the composer cannot
   // know them until it asks). The response carries the switches already resolved against the host's
@@ -483,6 +504,20 @@ function ChatPage({
 
     if (result.commands) { say({ role: "commandHelp", commands: result.commands, label: result.message }); return; }
     if (result.tools)    { say({ role: "commandTools", tools: result.tools, label: result.message }); return; }
+
+    // A command that moved the conversation says so by naming the one that now stands — `/new` is the
+    // live case. The leaf decides which conversation that is (it takes up an offered id only while it
+    // holds nothing), so the surface follows it there rather than reporting into the chat left behind.
+    if (typeof result.conversationId === "string" && result.conversationId && result.conversationId !== convId) {
+      const started = {
+        id: result.conversationId, title: "New chat", messages: [], created: Date.now(), hostId,
+      };
+      setConvos(prev => [started, ...prev.filter(c => c.id !== started.id)]);
+      setActiveId(started.id);
+      setInput("");
+      if (taRef.current) taRef.current.focus();
+      return;
+    }
 
     say({ role: "checkpoint", label: result.message });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render

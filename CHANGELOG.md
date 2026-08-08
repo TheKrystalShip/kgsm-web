@@ -46,13 +46,28 @@ happened and scrolling back to it is the point.
 ### Changed — Thinking and Auto-run are the conversation's, and the leaf owns them
 
 Both were per-browser localStorage flags sent on every turn. They are now switches the conversation
-carries, read from `GET /conversations/{id}` and set through the leaf's `/think` and `/autorun`
-commands — so the composer's buttons and a typed command travel one path and cannot disagree, and the
-button reflects what the leaf answered rather than what was asked for. The turn body no longer
-carries either field.
+carries, set through the leaf's `/think` and `/autorun` commands — so the composer's buttons and a
+typed command travel one path and cannot disagree, and the button reflects what the leaf answered
+rather than what was asked for. The turn body no longer carries either field.
+
+The toggles state what the leaf says, never what this browser remembers. `GET /conversations` carries
+both switches on every row, so the call that builds the history rail also re-states what every chat
+is set to; the merge lets them **overwrite** a cached value where title and host only fill a gap. The
+listing is re-read whenever the surface returns to the foreground (`focus`, `visibilitychange`) —
+which is the ordinary case for an installed app on a phone, sitting backgrounded while the panel is
+the surface being used. A conversation started on one and picked up on the other shows the switches
+the next turn will actually run on.
 
 "New chat" mints the conversation at the leaf, so a chat opened here is visible from another device
-before anything is said in it.
+before anything is said in it. Typing `/new` does the same thing by the same path: the leaf answers
+which conversation now stands and the composer follows it there — a row in the rail, switched to and
+focused. The client branches on the result naming a conversation, not on the command being `/new`.
+
+### Fixed — the smoke read the command manifest's retired flat list
+
+`smoke-live.mjs` reached into `commands` on the bot's manifest, which the gate-keyed shape does not
+carry, and crashed the whole run before the checks after it. It reads every gate's bucket now, and
+asserts the tab groups by them.
 
 ### Changed — the leaf Commands tab reads the gate-keyed manifest
 
