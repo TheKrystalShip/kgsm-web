@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the server tile's quick actions are three equal buttons, and the confirm state is legible
+
+The three lifecycle buttons on a server tile now occupy exactly a third of the row each, whatever
+their label says. The row is a grid of equal tracks (`minmax(0, 1fr)`) instead of three flex items:
+a flex item's automatic minimum is its min-content width, so the widest label — "Shutdown", and
+"Confirm?" once a button armed — grew its own button and squeezed the other two. The label
+truncates inside its track rather than widening it, and the icon and spinner keep their size.
+
+The stop verb reads **Stop** on every surface, which is what fits a third of a tile.
+
+Arming a button (Restart/Stop, the confirm-first misclick guard) left it unreadable: the armed pill
+fills with `--fg-1` and the hover rule that follows it in the cascade repainted the text back to
+`--fg-1` too — white on white, in exactly the state where the pointer is by definition over the
+button. Hover now leaves the armed and pending buttons alone. The armed text is the canvas colour
+rather than `--fg-inverse`, which is the text colour for the teal/accent surfaces and stays dark in
+a light theme — there the same pill was dark-on-dark.
+
 ### Changed — the dashboard's Catalog row is a random sample
 
 The row only ever had space for one line of cards, and the catalog carries no date to rank by, so

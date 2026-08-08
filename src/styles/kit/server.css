@@ -250,11 +250,6 @@
   background: var(--update);
 }
 
-/* Short labels are only rendered on small viewports — hide on desktop. */
-.chip__label--short {
-  display: none;
-}
-
 /* Confirm-first + job-progress states (ServerActionButton) */
 .act-spin {
   width: 12px;
@@ -304,9 +299,15 @@
 }
 
 /* Tile quick buttons: same two states, scaled down. */
+/* The armed pill inverts the page — it fills with the primary text colour, so its
+   own text is the canvas. Not `--fg-inverse`: that is the text colour for the
+   teal/accent surfaces and stays dark under a light theme, which would put dark
+   text on this dark fill. (The glass hero's armed button DOES use it, because
+   `.hero--cinematic` pins the dark `--fg-*` set locally and `--canvas` is not
+   part of what it pins.) */
 .server-tile__quick button.is-armed {
   background: var(--fg-1);
-  color: var(--fg-inverse);
+  color: var(--canvas);
   border-color: transparent;
   font-weight: 700;
 }

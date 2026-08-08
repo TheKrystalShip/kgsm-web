@@ -18,7 +18,7 @@ import { Icon } from "./Icon.jsx";
 const SERVER_ACTION = {
   start:   { label: "Start",    pending: "Starting…",   icon: "play",      tone: "start",   confirm: false },
   update:  { label: "Update",   pending: "Updating…",   icon: "download",  tone: "update",  confirm: true  },
-  stop:    { label: "Shutdown", short: "Stop", pending: "Stopping…", icon: "square", tone: "stop", confirm: true },
+  stop:    { label: "Stop",     pending: "Stopping…",   icon: "square",    tone: "stop",    confirm: true  },
   restart: { label: "Restart",  pending: "Restarting…", icon: "rotate-cw", tone: "restart", confirm: true  },
 };
 
@@ -49,7 +49,7 @@ function ServerActionButton({ verb, variant = "quick", disabled, pendingVerb, on
   const isDisabled = disabled || (jobRunning && !isPending);
   const size = variant === "quick" ? 11 : 13;
   const iconCls = variant === "chip" ? "chip__icon" : (variant === "glass" ? "gbtn__icon" : undefined);
-  const labelCls = variant === "chip" ? "chip__label" : undefined;
+  const labelCls = variant === "chip" ? "chip__label" : (variant === "quick" ? "act-label" : undefined);
 
   const click = (e) => {
     e.stopPropagation();
@@ -69,8 +69,6 @@ function ServerActionButton({ verb, variant = "quick", disabled, pendingVerb, on
     inner = <><span className="act-spin"></span><span className={labelCls}>{def.pending}</span></>;
   } else if (armed) {
     inner = <><Icon name="check" size={size} strokeWidth={2.6} className={iconCls} /><span className={labelCls}>Confirm?</span></>;
-  } else if (variant === "chip" && def.short) {
-    inner = <><Icon name={def.icon} size={size} strokeWidth={2.2} className={iconCls} /><span className="chip__label chip__label--full">{def.label}</span><span className="chip__label chip__label--short">{def.short}</span></>;
   } else {
     inner = <><Icon name={def.icon} size={size} strokeWidth={2.2} className={iconCls} /><span className={labelCls}>{def.label}</span></>;
   }

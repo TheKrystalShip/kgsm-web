@@ -788,15 +788,21 @@
   margin-top: 2px;
 }
 
+/* Equal-width columns whatever the labels say: a grid track is sized from the
+   track, not from the item's content, so "Confirm?" and "Stopping…" occupy the
+   same third as "Start". `minmax(0, 1fr)` is what stops a long label pushing its
+   own track wider (the automatic minimum is min-content). */
 .server-tile__quick {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
 .server-tile__quick button {
-  flex: 1;
+  min-width: 0;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 6px;
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-sm);
@@ -808,9 +814,26 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+  overflow: hidden;
 }
 
-.server-tile__quick button:hover {
+/* The icon and spinner keep their size; the label is what gives way when the
+   track is narrow. */
+.server-tile__quick button > * {
+  flex: none;
+}
+
+.server-tile__quick button > .act-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hover must not repaint the armed/pending buttons: those two states own their
+   own colours, and this rule matches them at equal specificity. */
+.server-tile__quick button:hover:not(.is-armed):not(.is-pending) {
   color: var(--fg-1);
   border-color: var(--border-strong);
 }

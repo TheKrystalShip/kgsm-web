@@ -332,16 +332,6 @@
     display: none !important;
   }
 
-  /* Long form hides, short form shows. Both spans exist in the DOM so
-     desktop-vs-mobile is a pure visibility swap (no React re-renders). */
-  .chip__label--full {
-    display: none;
-  }
-
-  .chip__label--short {
-    display: inline;
-  }
-
   .hero__ip {
     font-size: 12px;
     padding: 6px 10px;
