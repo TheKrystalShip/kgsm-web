@@ -3,7 +3,7 @@ import { ServerActionButton } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
-import { artBg } from "../lib/art.js";
+import { heroArtBg } from "../lib/art.js";
 
 // Server hero card — top status, name, action chips, IP.
 
@@ -84,8 +84,8 @@ function ServerHero({ server, onAction }) {
   else if (isOnline || isStarting) updReason = "Server must be stopped before updating";
   // The cinematic background prefers the LANDSCAPE banner (`hero` = RAWG
   // background_image_additional), then falls back to the 2:3 portrait `cover`,
-  // then to a themed gradient placeholder when neither is available.
-  const bg = artBg(server.hero, server.cover);
+  // then to the hero's dark gradient placeholder when neither is available.
+  const bg = heroArtBg(server.hero, server.cover);
   return (
     <section className="hero hero--cinematic">
       <div className="hero__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}></div>

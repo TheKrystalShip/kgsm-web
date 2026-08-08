@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the server hero's control bar follows the theme
+
+The cinematic hero is two zones, and only one of them is a media surface. What sits directly on the
+key art — the status pill, the name and its runtime tag, the watchdog note — keeps the dark palette
+in every theme, because the artwork is whatever RAWG returns. The control bar does not: it brings
+its own almost-opaque `--surface-1`, so it runs on the page's own tokens and reads as a light panel
+under a light theme and a dark one under a dark theme, across all nineteen. The token pin moved off
+the hero container onto exactly the elements that need it, and the bar's fills — its background,
+divider, button hovers and the address pill — are tokens rather than fixed dark alpha.
+
+The art stays full-bleed and un-washed; the scrim eases off at the very bottom, where the bar covers
+it, so there is no dark chin under a light bar.
+
+A server with **no key art** gets a dark gradient placeholder rather than the themed one every other
+surface uses, since the title and pills over it are fixed light.
+
+The hero's armed "Confirm?" button takes its text from `--canvas`, the same inversion the server
+tile's quick actions use.
+
 ### Added — slash-command completion in the chat composer
 
 Typing `/` as the first character of a message opens a completion list over the composer, on **both**

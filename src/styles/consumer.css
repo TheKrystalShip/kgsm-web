@@ -129,10 +129,11 @@
   box-shadow: 0 2px 12px color-mix(in srgb, var(--success) 30%, transparent);
 }
 
+/* Inside the hero's control bar, which is a themed panel — so the address pill is
+   an ordinary inset surface rather than the dark glass the pills on the art use. */
 .connect__addr--glass {
-  background: rgba(10, 15, 20, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: var(--surface-3);
+  color: var(--fg-1);
   font-size: 13px;
   padding: 7px 11px;
 }
