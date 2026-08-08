@@ -16,6 +16,20 @@ function fmtRelative(date, now = new Date()) {
   return Math.floor(diff / 86400) + "d ago";
 }
 
+// How long until something happens — the forward twin of fmtRelative, for a scheduled job rather than a
+// recorded event. A time that has already passed reads "due" rather than a negative duration: the
+// scheduler computes next-fire on its own cadence, so a moment either side of the boundary is normal and
+// "-4s" would look like a fault. Null in → null out, so the caller renders its own honest gap.
+function fmtUntil(date, now = new Date()) {
+  if (!date || isNaN(date.getTime())) return null;
+  const diff = (date - now) / 1000;
+  if (diff <= 0)    return "due";
+  if (diff < 60)    return "in " + Math.ceil(diff) + "s";
+  if (diff < 3600)  return "in " + Math.round(diff / 60) + "m";
+  if (diff < 86400) return "in " + Math.round(diff / 3600) + "h";
+  return "in " + Math.round(diff / 86400) + "d";
+}
+
 function fmtTime(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
@@ -156,6 +170,7 @@ export {
   fmtRelative,
   fmtTime,
   fmtTimeFull,
+  fmtUntil,
   parseTs,
   statusTone,
   uptimeShort,

@@ -241,6 +241,12 @@ export function adaptHost(be) {
   const interfaces = tel.interfaces || [];
   const network = {
     interfaces,
+    // The firewall's own availability, carried alongside the grid because the grid CANNOT be read
+    // without it: an empty `open_ports` under "operational" means nothing is open, and the very same
+    // empty grid under "inactive" means EVERYTHING is (an idle ufw enumerates no rules and filters
+    // nothing). null when the host answered without the block — the list response omits it — which is
+    // an honest "not measured here", never "no firewall".
+    firewall: (be.network && be.network.firewall) || null,
     open_ports: be.network && Array.isArray(be.network.openPorts)
       ? be.network.openPorts.map((p) => ({ port: p.port, proto: p.proto, server: p.server ?? null, app: p.app ?? null }))
       : [],
@@ -260,6 +266,9 @@ export function adaptHost(be) {
     // The honest "which build is this host running" — the API build version (<Version>+git SHA), falling
     // back to the route version. NOT a hardcoded "—" anymore.
     panel_version: ident.build || be.panelVersion || "—",
+    // The managed runtime the API process is executing on (".NET 10.0.10"). Null when the host didn't
+    // report it — a fact about the response, not a runtime worth guessing at.
+    runtime: ident.runtime || null,
     boot_time: tel.boot_time,
     online: be.status === "online",
     // capabilities pass straight through — the api shape already matches the

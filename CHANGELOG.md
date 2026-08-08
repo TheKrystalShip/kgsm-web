@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Per-leaf Overview pages for every leaf.** The Services drill-in used to give five of the seven
+  leaves the same generic body — the first eight config values — while only the assistant had anything
+  to say. Each now answers the question its own leaf is the only source for:
+  - **Scheduler** — the whole host's schedule board: restart and backup cadences, a merged "next up"
+    lane sorted by when the leaf computed each would fire, and every recorded last-run outcome. Server
+    Settings shows one instance's row of this; nothing showed the board.
+  - **Watchdog** — the supervision table, built around desired-intent against the kernel's `populated`
+    measurement, plus the daemon's own readiness to spawn and each instance's last-transition reason.
+  - **Firewall** — the enforcement posture and the rules it owns, grouped by the server they belong to.
+    An empty grid is read through the backend's state: under an inactive backend it means every port is
+    open, and the page says so rather than painting an all-clear.
+  - **Monitor** — sample cadence against real frame age, coverage counted off the newest frame, and the
+    configured retention windows against the span each tier measurably holds.
+  - **Discord bot** — gateway state and latency, the guild it actually resolved, the instance→channel
+    map with per-channel reachability, and the fourteen announcement switches.
+  - **Control Panel API** — this node's identity and build, the leaves it reaches, its active sessions
+    and its cluster peers.
+- **A "Recent activity" lane on the leaf pages whose actions the audit can honestly attribute**
+  (watchdog, scheduler, bot, firewall, api), reusing the shared audit row. Attribution is a per-leaf
+  predicate, not one field: `origin` names the surface a person acted through, `actor.name` names an
+  unattended daemon, and the firewall is identified by the action it applied. The monitor gets no lane
+  because it performs no auditable action.
+- `fetchHostDetail` — the host DETAIL response (`GET /hosts/{id}`), which carries the firewall
+  `network` block the list omits. Nothing was fetching it, so `host.network.open_ports` was always
+  empty wherever it was read.
+
+### Fixed
+- The host adapter dropped `network.firewall`, so the one field that says how to read the open-ports
+  grid never reached the UI. It is carried through now, alongside a new `runtime` identity field.
+
+### Changed
+- `useLeafResource` (the shared Overview fetch) takes an optional poll interval. The monitor's
+  freshness reading needs it: rendering frame age against a ticking clock while the timestamp behind it
+  stayed frozen aged a healthy sampler into a false "stalled" warning within a minute of opening the page.
+
 ### Changed — the server hero's control bar follows the theme
 
 The cinematic hero is two zones, and only one of them is a media surface. What sits directly on the

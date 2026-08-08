@@ -137,8 +137,29 @@ async function fetchServerEvents(serverId, hostId, sinceIso) {
   return (page && page.rows) || (page && Array.isArray(page.data) ? page.data : null) || (Array.isArray(page) ? page : []) || [];
 }
 
+// The host DETAIL response, for the blocks the list deliberately doesn't carry.
+//
+// `GET /hosts` and `GET /hosts/{id}` are not the same shape: the firewall's `network` block is
+// detail-only (it costs a probe of the firewall authority, so it is not paid per host on a list). The
+// store is hydrated from the list, so anything reading `host.network.firewall` off it reads an absent
+// field — this is the call that actually asks.
+//
+// Returns the adapted host, NOT a store patch: the list is the fleet roll-up and a detail response
+// carries fields a merge would have to invent for every other host. The one surface that needs the
+// detail holds it itself.
+//
+// ⚠ The response is ALREADY adapted — `apiClient`'s response table maps `/hosts/{id}` through
+// `adaptHost` on the way out (see `adaptResponse`). Adapting it a second time here silently destroys
+// the very fields this call exists for: the second pass reads `label` and `identity` off a shape that
+// no longer has them, so the host's name falls back to its id and its build, runtime, OS and region all
+// read "not reported" — with no error anywhere. Take what the seam hands back.
+async function fetchHostDetail(hostId) {
+  if (!hostId) return null;
+  return api.host(hostId).get("/hosts/" + hostId);
+}
+
 export {
   hostsStore, syncCapabilitySubscriptions,
   subscribeHostMetrics, subscribeServerMetrics,
-  fetchServerMetricsHistory, fetchServerEvents,
+  fetchServerMetricsHistory, fetchServerEvents, fetchHostDetail,
 };

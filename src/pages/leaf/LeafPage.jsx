@@ -26,6 +26,13 @@ import { fetchLeafCommands, hostsStore, servicesStore, subscribeHostServices } f
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
+import { ApiOverview } from "./ApiOverview.jsx";
+import { BotOverview } from "./BotOverview.jsx";
+import { FirewallOverview } from "./FirewallOverview.jsx";
+import { MonitorOverview } from "./MonitorOverview.jsx";
+import { SchedulerOverview } from "./SchedulerOverview.jsx";
+import { WatchdogOverview } from "./WatchdogOverview.jsx";
+import { LeafActivity } from "./LeafActivity.jsx";
 import { LeafCommands } from "./LeafCommands.jsx";
 import { LeafLogs } from "./LeafLogs.jsx";
 import { LeafOverview } from "./LeafOverview.jsx";
@@ -44,9 +51,15 @@ const LEAF_TABS = {
 // service row + config descriptor and therefore works for any leaf.
 const LEAF_OVERVIEW = {
   assistant: (p) => <AssistantOverview {...p} />,
+  firewall: (p) => <FirewallOverview {...p} />,
+  api: (p) => <ApiOverview {...p} />,
+  monitor: (p) => <MonitorOverview {...p} />,
+  bot: (p) => <BotOverview {...p} />,
+  scheduler: (p) => <SchedulerOverview {...p} />,
+  watchdog: (p) => <WatchdogOverview {...p} />,
 };
 
-function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
+function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAudit }) {
   const hosts = useStore(hostsStore, s => s.list);
   const services = useStore(servicesStore, s => s.list);
   const servicesFor = useStore(servicesStore, s => s.hostId);
@@ -110,8 +123,17 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation }) {
     if (active === "settings") return <LeafSettingsTab hostId={hostId} leafId={leafId} />;
     const extra = extraTabs.find(t => t.id === active);
     if (extra) return extra.render(bodyProps);
+    // The activity lane sits under whichever Overview a leaf has, rather than inside each of them: the
+    // rows come from the audit feed, not from the leaf, so it is the same card everywhere it appears and
+    // belongs to the page rather than to any one body. It renders nothing for a leaf whose actions the
+    // audit cannot honestly attribute (see LEAF_ACTIVITY).
     const overview = LEAF_OVERVIEW[leafId];
-    return overview ? overview(bodyProps) : <LeafOverview {...bodyProps} />;
+    return (
+      <>
+        {overview ? overview(bodyProps) : <LeafOverview {...bodyProps} />}
+        <LeafActivity hostId={hostId} leafId={leafId} onViewAll={onAudit} />
+      </>
+    );
   };
 
   return (

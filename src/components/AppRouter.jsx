@@ -112,6 +112,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       tab={route.tab || "overview"}
       onSelectTab={(t) => setRoute({ kind: "leaf", hostId: route.hostId, leaf: route.leaf, tab: t === "overview" ? undefined : t })}
       onReviewConversation={(c) => openReview(route.hostId, c)}
+      onAudit={() => setRoute({ kind: "audit" })}
     />}
     {route.kind === "settings" && <SettingsPage
       user={user} onLogout={handleLogout} />}

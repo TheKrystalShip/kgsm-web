@@ -15,6 +15,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { fmtBytes, uptimeShort } from "../../lib/formatting.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
+import { LeafFacts } from "./leafOverviewKit.jsx";
 import { LeafResources } from "./LeafResources.jsx";
 
 // A runtime fact (pid, memory, start time) is absent for two different reasons, and the difference is
@@ -75,17 +76,7 @@ function LeafSystem({ hostId, leafId, svc }) {
     ["Reachable from this API", svc.provisioned == null ? "unknown" : svc.provisioned ? "yes" : "no"],
   ];
 
-  const facts = (rows) => (
-    <div className="leaf-facts">
-      {rows.map(([label, value, hint]) => (
-        <div className="leaf-facts__row" key={label}>
-          <span className="leaf-facts__label">{label}</span>
-          <span className="leaf-facts__value">{value}</span>
-          {hint && <span className="leaf-facts__hint">{hint}</span>}
-        </div>
-      ))}
-    </div>
-  );
+  const facts = (rows) => <LeafFacts rows={rows} />;
 
   return (
     <>

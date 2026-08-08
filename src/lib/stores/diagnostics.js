@@ -202,6 +202,50 @@ function fetchLeafMetricsHistory(hostId, leaf, range) {
   return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/metrics/history?range=" + r);
 }
 
+// A leaf's own Overview payload — the one question each leaf answers about the work it does, as opposed
+// to the systemd facts every leaf shares. One helper because the failure vocabulary is identical across
+// them: a 404 is "this host doesn't serve that leaf" and resolves null (the page says so and offers no
+// retry); anything else rejects, because "we couldn't ask" is worth trying again and must not be
+// rendered as "there is nothing".
+function fetchLeafOverview(hostId, leaf, path) {
+  if (!hostId || !leaf) return Promise.resolve(null);
+  return api.host(hostId).get("/hosts/" + hostId + "/services/" + leaf + "/" + path)
+    .catch(err => {
+      if (err && err.code === 404) return null;
+      throw err;
+    });
+}
+
+// The scheduler's whole board: every instance it supervises, its configured cadence, when it next fires,
+// and how the last run went. Relayed by the api exactly as the leaf reports it — no adapter, because the
+// leaf's nulls ARE the view shape ("not scheduled" and "hasn't run yet" are both honest gaps, and a
+// default here would invent a schedule nothing holds).
+function fetchLeafSchedules(hostId) {
+  return fetchLeafOverview(hostId, "scheduler", "schedules").then(r => (r && r.data) || null);
+}
+
+// The watchdog's supervision table plus its own readiness. Kept whole rather than reduced to the rows:
+// `ready:false` with a full table is a real state (the daemon is up but cannot spawn), and dropping the
+// flag would leave the page unable to say so.
+function fetchLeafSupervision(hostId) {
+  return fetchLeafOverview(hostId, "watchdog", "supervision");
+}
+
+// The monitor's report on itself: sample cadence, what the newest frame covered, and what the history
+// store measurably holds against what it was configured to hold. Relayed verbatim by the api, so there
+// is no adapter — the two retention figures are deliberately both on the wire, and reconciling them here
+// would destroy the one thing this payload is for.
+function fetchLeafMonitorStats(hostId) {
+  return fetchLeafOverview(hostId, "monitor", "stats");
+}
+
+// The Discord bot's live gateway/guild/channel state. Relayed verbatim, and deliberately not reduced:
+// `guildResolved` being null while `guildConfigured` is set is the failure this whole payload exists to
+// expose, and collapsing the pair into a boolean here would erase it.
+function fetchLeafBotStatus(hostId) {
+  return fetchLeafOverview(hostId, "bot", "status");
+}
+
 function applyLeafConfig(hostId, leaf, body) {
   if (!hostId || !leaf) return Promise.reject(new Error("applyLeafConfig: hostId required"));
   return api.host(hostId).put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
@@ -211,4 +255,5 @@ export {
   logsStore, logSourcesStore, leafLogsStore, servicesStore,
   subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned,
   fetchLeafConfig, fetchLeafCommands, applyLeafConfig, fetchLeafMetricsHistory,
+  fetchLeafSchedules, fetchLeafSupervision, fetchLeafMonitorStats, fetchLeafBotStatus,
 };

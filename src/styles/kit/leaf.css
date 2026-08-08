@@ -200,3 +200,44 @@
     margin-left: 0;
   }
 }
+
+/* A leaf's on/off switch set — the bot's fourteen announcement toggles.
+   A wrapped chip grid rather than one row per switch: fourteen rows made the
+   card three times the height of the attention lane beside it in the two-up
+   feed, which stretched that card and stranded its empty state at the bottom of
+   a screenful of nothing. Wrapped, the whole set reads in three lines and the
+   two cards sit level. Scanning "which of these are off" is also the actual
+   question, and it answers faster from a block of chips than from a list. */
+.leaf-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px 14px;
+}
+
+/* Off is the state worth spotting, so it carries the weight: on is quiet
+   (it is the default for most of these), off is drawn in the muted foreground
+   with a dashed edge so a silent event type reads as deliberately disabled
+   rather than as a failure. */
+.leaf-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--border-1);
+  background: var(--veil-1);
+  color: var(--fg-2);
+}
+
+.leaf-switch--on {
+  border-color: color-mix(in srgb, var(--success-fg) 40%, transparent);
+  color: var(--success-fg);
+}
+
+.leaf-switch--off {
+  border-style: dashed;
+  color: var(--fg-4);
+}
