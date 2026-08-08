@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`backup.prune`** renders as *"Backups pruned"* in the audit feed, completing the backup
+  vocabulary alongside `backup.delete` (which was mapped ahead of its producer and now has one).
+  Scheduled retention pruning previously destroyed backups with no row to show for it. The icon is
+  `archive-x`: lucide-react at this version ships no `BrushCleaning`, and an unregistered icon name
+  renders an empty box behind nothing but a dev-console warning.
+
 - **`network.upnp.reassert`** renders as *"Router forward restored"* in the audit feed, at the `warn`
   tone the API assigns it, and reads in the chat's change timeline as the router having dropped a
   forward that was put back. It is the row that tells an operator their router discards port mappings

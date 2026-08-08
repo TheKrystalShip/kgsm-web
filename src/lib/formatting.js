@@ -104,6 +104,7 @@ const ACTION_META = {
   "backup.create":         { label: "Backup created",     icon: "database",      tone: "success" },
   "backup.restore":        { label: "Backup restored",    icon: "rotate-ccw",    tone: "warn"    },
   "backup.delete":         { label: "Backup deleted",     icon: "trash-2",       tone: "danger"  },
+  "backup.prune":          { label: "Backups pruned",     icon: "archive-x",     tone: "info"    },
   "backup.download":       { label: "Backup downloaded",  icon: "download",      tone: "info"    },
   "file.write":            { label: "File saved",         icon: "file-pen",      tone: "info"    },
   "file.edit":             { label: "File edited",        icon: "file-pen",      tone: "info"    },
