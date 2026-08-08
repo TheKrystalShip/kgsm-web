@@ -329,6 +329,12 @@ function host(hostId) {
     // POST below will honour. Both are gated by the leaf, and the listing is filtered to the caller's
     // tier — a command above it never arrives, so the composer cannot offer what would be refused.
     commands: (opts) => json(hostId, "GET", "/commands", null, opts),
+    // Point this browser's event stream at a conversation, so it receives that conversation's turn
+    // frames and no others. What it attached to comes back ON the stream, not here.
+    attach: (conversationId) => json(hostId, "POST", "/events/attach", { conversationId: conversationId || null }),
+    // End a turn — running or still queued — from any surface watching it. Not replayable: a stop is
+    // idempotent at the leaf, but a replayed one could reach the NEXT turn on a busy conversation.
+    stopTurn: (turnId) => jsonOnce(hostId, "DELETE", "/turns/" + encodeURIComponent(turnId)),
     runCommand: (name, body) => jsonOnce(hostId, "POST", "/commands/" + encodeURIComponent(name), body || {}),
     feedback: (id, turnId, body) =>
       json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/turns/" + turnId + "/feedback", body),

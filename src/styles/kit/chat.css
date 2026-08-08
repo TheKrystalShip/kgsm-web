@@ -2721,6 +2721,51 @@ a.ev-search__src:hover {
   opacity: .9;
 }
 
+/* Turns typed while one is still answering. They belong to the CONVERSATION, so every surface
+   attached to it shows the same chips — and any of them can discard one, which is why each is a
+   button rather than a label. */
+.chat-queued {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--fg-muted);
+}
+
+.chat-queued__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 190px;
+  padding: 3px 7px;
+  border: 1px dashed var(--border-1);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--veil-1);
+  color: var(--fg-muted);
+  font-size: 11.5px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color var(--dur-fast, .12s), border-color var(--dur-fast, .12s);
+}
+
+.chat-queued__item:hover {
+  color: var(--fg-1);
+  border-color: var(--border-2);
+}
+
+/* The prompt, kept to one line: the chip says what is waiting, the tooltip says all of it. */
+.chat-queued__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* At phone width the composer bar has no room for prompts — the count is what matters. */
+@media (max-width: 560px) {
+  .chat-queued__text { display: none; }
+  .chat-queued__item { max-width: none; }
+}
+
 /* Thinking toggle — same shape as Actions, but a calm teal accent (reasoning is benign,
    not a cautionary "can run changes" amber). */
 .chat-think-toggle--on {

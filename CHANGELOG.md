@@ -63,6 +63,36 @@ before anything is said in it. Typing `/new` does the same thing by the same pat
 which conversation now stands and the composer follows it there — a row in the rail, switched to and
 focused. The client branches on the result naming a conversation, not on the command being `/new`.
 
+### Added — a turn is watchable from every surface, live
+
+A turn typed on one surface streams into every other surface looking at that conversation, token by
+token, through the same render path a first-hand turn takes. `busy` stops being a property of this
+browser and becomes a property of the conversation: the composer says a turn is running whoever asked
+for it, Stop is enabled on a surface that is only watching, and pressing it ends the turn for everyone.
+
+Stop is a call to the leaf now, not an abort of a local connection — a watcher holds no connection to
+abort, and ending a turn has to end it for all of them. The partial reply survives it.
+
+Sending while a turn runs queues the prompt instead of racing it. Queued prompts show as chips on the
+composer bar with a discard on each, on every attached surface; stopping the running turn deliberately
+leaves them standing.
+
+The chat tells the leaf which conversation it is looking at (`POST /events/attach`) and re-attaches when
+you switch chats, so token-rate frames only reach the surface rendering them. A surface arriving mid-turn
+gets `turn.attach` — the whole state so far — and renders it, rather than waiting for a delta it cannot
+place. `scaffoldLiveTurn` replaces the live turn wholesale from that snapshot rather than merging into
+what was already drawn, because reconciling two partial views is how a doubled sentence gets in.
+
+The surface that sent the turn skips the event stream's copy of its own frames while its POST is open,
+and takes over from the stream if that connection drops.
+
+### Changed — a transcript is refetched because it grew, not because a stream reconnected
+
+The conversation listing's turn count is what marks a transcript behind. Refetching on every reconnect
+meant refetching on every proxy timeout, and each refetch drops the rows only this browser holds — the
+switch notices, the connectivity notes. A conversation this surface mirrored live is not marked behind
+at all: it already holds what the turn produced.
+
 ### Added — two surfaces on one conversation stay in step, live
 
 The chat holds the leaf's `GET /events` open (`useConversationStream`) and applies what arrives, so a

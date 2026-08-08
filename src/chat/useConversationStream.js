@@ -22,13 +22,23 @@ import { assistant } from "../lib/assistantClient.js";
 const FIRST_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30000;
 
-function useConversationStream({ hostId, enabled, onEvent, onResync }) {
+function useConversationStream({ hostId, enabled, conversationId, onEvent, onResync }) {
   // Held in refs so a changed callback never tears the stream down and reconnects: the identity of
   // `onEvent` changes on most renders, and a reconnect per render would be a reconnect storm.
   const eventRef = React.useRef(onEvent);
   const resyncRef = React.useRef(onResync);
+  const watchingRef = React.useRef(conversationId);
   eventRef.current = onEvent;
   resyncRef.current = onResync;
+
+  // Re-point the open stream when the person opens a different conversation. Held in a ref as well so
+  // a stream that reconnects attaches to what is on screen NOW rather than to whatever was open when
+  // it was first established.
+  React.useEffect(() => {
+    watchingRef.current = conversationId;
+    if (!hostId || !enabled) return;
+    assistant.host(hostId).attach(conversationId).catch(() => {});
+  }, [hostId, enabled, conversationId]);
 
   React.useEffect(() => {
     if (!hostId || !enabled) return undefined;
@@ -51,6 +61,9 @@ function useConversationStream({ hostId, enabled, onEvent, onResync }) {
               if (!opened) {
                 opened = true;
                 attempt = 0;                       // a stream that spoke is a stream that works
+                // A stream carries turn frames only for the conversation it is pointed at, so say
+                // which one before anything can be missed. The leaf answers on the stream itself.
+                assistant.host(hostId).attach(watchingRef.current).catch(() => {});
                 if (connected && resyncRef.current) resyncRef.current();
                 connected = true;
               }

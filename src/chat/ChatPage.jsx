@@ -10,7 +10,7 @@ import {
   TOGGLE_COPY,
   loadConversations, saveConversations,
   uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
-  latestUsage, mergeServerConversations,
+  scaffoldLiveTurn, latestUsage, mergeServerConversations,
 } from "./chatUtils.jsx";
 import { LEAF_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } from "./chatConstants.js";
 // ChatCommand is imported only to re-export it (see the export list below); the
@@ -33,6 +33,13 @@ import { useConversationStream } from "./useConversationStream.js";
 //
 // `assistantHost` stays the identity of the leaf being addressed — `{ id, name }` — because the
 // session layer and the client are both keyed by it. The standalone surface names its own.
+// The frames that belong to a running TURN, as opposed to the state events about the chat list. They
+// carry no turn id of their own, so they apply to whichever turn last announced itself on the stream.
+const TURN_FRAMES = new Set([
+  "text.delta", "thinking.delta", "tool.start", "tool.result", "progress",
+  "command.proposed", "done", "error",
+]);
+
 function ChatPage({
   user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState,
   assistantHost, assistantHosts = [], onSelectAssistantHost,
@@ -201,8 +208,61 @@ function ChatPage({
   // The switches are applied from the frame, which carries them; everything else names a conversation
   // and nothing more, and is answered by re-reading. That split is deliberate: a transcript has one
   // way to be obtained, and a second streaming path for it could drift from the first.
+  // The turn running on the conversation this surface is looking at, whoever asked for it:
+  // { conversationId, turnId, state, queued: [{turnId, prompt}] }. It is the CONVERSATION's, not this
+  // browser's — which is why Stop is a call any surface can make and why the composer is busy for
+  // everyone while a turn runs, not only for whoever typed it.
+  const [liveTurn, setLiveTurn] = React.useState(null);
+  // The turn this surface is streaming over its own POST. Its frames arrive twice — once on that
+  // response and once on the event stream — so the event stream's copy is skipped until the POST is
+  // done, at which point the next attach takes over.
+  const ownTurnRef = React.useRef(null);
+
+  const applyTurnFrame = React.useCallback((convId, evt) => {
+    setConvos(prev => prev.map(c =>
+      c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, evt) } : c));
+  }, []);
+
   const applyLeafEvent = React.useCallback((evt) => {
     const id = evt.conversationId;
+
+    // ---- the turn frames: a turn on the conversation this surface is attached to ----
+    if (evt.type === "turn.attach") {
+      // A turn announcing itself, or the leaf restating one after this stream fell behind. Either way
+      // the snapshot is the leaf's own account and replaces whatever was being rendered for it.
+      if (ownTurnRef.current === evt.turnId) return;
+      setLiveTurn({
+        conversationId: id, turnId: evt.turnId, state: evt.state, queued: evt.queued || [],
+      });
+      setConvos(prev => prev.map(c =>
+        c.id === id ? { ...c, messages: scaffoldLiveTurn(c.messages, evt) } : c));
+      return;
+    }
+
+    if (evt.type === "turn.queue") {
+      setLiveTurn(prev => {
+        if (!evt.runningTurnId) return null;             // nothing is running here any more
+        if (!prev || prev.turnId !== evt.runningTurnId) return prev;
+        return { ...prev, queued: evt.queued || [] };
+      });
+      return;
+    }
+
+    if (TURN_FRAMES.has(evt.type)) {
+      // Frames carry no turn id of their own — they belong to whatever turn last announced itself on
+      // this stream, which is why an attach always precedes them.
+      if (!liveTurnRef.current || ownTurnRef.current === liveTurnRef.current.turnId) return;
+      applyTurnFrame(liveTurnRef.current.conversationId, evt);
+      if (evt.type === "done" || evt.type === "error") {
+        setConvos(prev => prev.map(c => c.id !== liveTurnRef.current.conversationId ? c : {
+          ...c,
+          messages: c.messages.map(m => (m.live ? { ...m, live: false } : m)),
+        }));
+        setLiveTurn(null);
+      }
+      return;
+    }
+
     if (typeof id !== "string") return;
 
     if (evt.type === "conversation.switches") {
@@ -225,26 +285,40 @@ function ChatPage({
     if (evt.type === "conversation.started") { loadServerHistory(); return; }
 
     if (evt.type === "conversation.activity") {
-      // The rail's title and order come from the listing; the transcript is marked behind and refetched
-      // when the conversation is the one being looked at, or when it is next opened.
-      setConvos(prev => prev.map(c => (c.id === id ? { ...c, stale: true } : c)));
+      // The rail's title and order come from the listing. The transcript is marked behind only for a
+      // conversation this surface is NOT watching live — one it mirrored frame by frame already holds
+      // what the turn produced, and refetching would replace it with an identical copy mid-render.
+      setConvos(prev => prev.map(c => (c.id === id && !c.messages.some(m => m.live)
+        ? { ...c, stale: true } : c)));
       loadServerHistory();
     }
-  }, [loadServerHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- liveTurn is read through liveTurnRef so a frame handler is not rebuilt on every delta
+  }, [loadServerHistory, applyTurnFrame]);
 
-  // A reconnected stream knows nothing about the gap it was down for, so the listing is re-read —
-  // which restates every conversation's switches — and the open transcript is marked behind.
-  const resyncAfterGap = React.useCallback(() => {
-    loadServerHistory();
-    setConvos(prev => prev.map(c => (c.id === activeId ? { ...c, stale: true } : c)));
-  }, [loadServerHistory, activeId]);
+  // Read inside the frame handler through a ref: the handler must not be rebuilt on every text delta,
+  // and it needs the CURRENT turn rather than the one captured when it was created.
+  const liveTurnRef = React.useRef(liveTurn);
+  liveTurnRef.current = liveTurn;
+
+  // A reconnected stream knows nothing about the gap it was down for, so the listing is re-read: it
+  // restates every conversation's switches, and its turn counts are what say whether a transcript
+  // actually moved on. Marking the open one behind unconditionally would refetch it on every
+  // reconnect — a proxy timeout is ordinary — and each refetch would drop the rows only this browser
+  // holds, so the merge decides that from the counts instead.
+  const resyncAfterGap = React.useCallback(() => { loadServerHistory(); }, [loadServerHistory]);
 
   useConversationStream({
     hostId: assistantHost && assistantHost.id,
     enabled: !!(assistantHost && assistantUsable && assistantAuthed),
+    // Turn frames arrive at token rate, so the leaf sends them only for the conversation on screen.
+    conversationId: activeId,
     onEvent: applyLeafEvent,
     onResync: resyncAfterGap,
   });
+
+  // Switching conversations abandons whatever was being rendered for the old one's turn: the attach
+  // that follows says what is happening on the new one, and the old turn goes on running without us.
+  React.useEffect(() => { setLiveTurn(null); }, [activeId]);
 
   // Fetch the open conversation's detail when we are missing either half of it: its transcript (a
   // chat this browser has never seen) or its switches (which the leaf owns, so the composer cannot
@@ -427,15 +501,43 @@ function ChatPage({
     setConvos(prev => prev.map(c => {
       if (c.id !== convId) return c;
       const title = c.messages.length === 0 ? (text.slice(0, 40) || "Voice note") : c.title;
-      return { ...c, title, messages: [...c.messages, userMsg, { role: "assistant", content: "" }] };
+      return {
+        ...c, title,
+        messages: [...c.messages, { ...userMsg, live: true }, { role: "assistant", content: "", live: true }],
+      };
     }));
 
     setBusy(true);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const applyFrame = (ev) => setConvos(prev => prev.map(c =>
-      c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, ev) } : c));
+    // This POST is the turn's first attach. Its frames are the same ones every other surface receives,
+    // so they are applied here directly and the event stream's copy of them is skipped — otherwise the
+    // surface that asked for the turn would render it twice.
+    const applyFrame = (ev) => {
+      if (ev.type === "turn.attach") {
+        ownTurnRef.current = ev.turnId;
+        if (ev.state === "queued") {
+          // Something else is still answering. This prompt waits its turn, and it waits as a chip on
+          // the composer rather than as a message half-rendered into the transcript — the optimistic
+          // bubbles put up a moment ago come back out until it actually starts.
+          setConvos(prev => prev.map(c =>
+            c.id === convId ? { ...c, messages: c.messages.filter(m => !m.live) } : c));
+          return;
+        }
+        setLiveTurn({ conversationId: convId, turnId: ev.turnId, state: ev.state, queued: ev.queued || [] });
+        setConvos(prev => prev.map(c =>
+          c.id === convId ? { ...c, messages: scaffoldLiveTurn(c.messages, ev) } : c));
+        return;
+      }
+      if (ev.type === "turn.queue") {
+        setLiveTurn(prev => (prev && prev.turnId === ev.runningTurnId
+          ? { ...prev, queued: ev.queued || [] } : prev));
+        return;
+      }
+      setConvos(prev => prev.map(c =>
+        c.id === convId ? { ...c, messages: reduceTurnFrame(c.messages, ev) } : c));
+    };
 
     try {
       const prompt = text || "[The user sent a voice note; transcription was unavailable.]";
@@ -472,12 +574,19 @@ function ChatPage({
     } finally {
       setBusy(false);
       abortRef.current = null;
+      // Stop skipping the event stream's copy: from here the stream is this surface's only source, and
+      // the next attach on this conversation is what re-establishes it.
+      ownTurnRef.current = null;
+      setConvos(prev => prev.map(c => c.id !== convId ? c : {
+        ...c, messages: c.messages.map(m => (m.live ? { ...m, live: false } : m)),
+      }));
+      setLiveTurn(prev => (prev && prev.conversationId === convId ? null : prev));
     }
   };
 
   const send = async (override, voiceMeta) => {
     const text = (typeof override === "string" ? override : input).trim();
-    if ((!text && !voiceMeta) || busy) return;
+    if (!text && !voiceMeta) return;
 
     let convId = activeId;
     if (!convId) {
@@ -533,7 +642,27 @@ function ChatPage({
     sendLive(convId, text, userMsg);
   };
 
-  const stop = () => { if (abortRef.current) abortRef.current.abort(); };
+  // Stop the conversation's turn, whoever started it. A call rather than an abort, because a surface
+  // that is only watching holds no connection to end — and ending it must end it for everyone, which a
+  // local abort could never do. Aborting our own POST as well just detaches this surface early.
+  const stop = () => {
+    const hostId = assistantHost && assistantHost.id;
+    const turnId = liveTurn && liveTurn.conversationId === activeId ? liveTurn.turnId : null;
+    if (hostId && turnId) assistant.host(hostId).stopTurn(turnId).catch(() => {});
+    else if (abortRef.current) abortRef.current.abort();
+  };
+
+  // Discard a turn waiting behind the running one. Stopping the running turn deliberately leaves these
+  // standing, so throwing one away is its own act.
+  const cancelQueued = (turnId) => {
+    const hostId = assistantHost && assistantHost.id;
+    if (hostId && turnId) assistant.host(hostId).stopTurn(turnId).catch(() => {});
+  };
+
+  // A turn is the CONVERSATION's, so the composer is busy while one runs on the open conversation
+  // whether or not this surface is the one that asked for it.
+  const turnRunning = busy || !!(liveTurn && liveTurn.conversationId === activeId);
+  const queuedHere = (liveTurn && liveTurn.conversationId === activeId && liveTurn.queued) || [];
 
   // Run one command at the leaf and render what it answered. The leaf performs every command it
   // lists, so there is no client-side branch on WHAT a command does — only on what its result
@@ -1107,13 +1236,29 @@ function ChatPage({
                     <span className="chat-act-toggle__state">{autoAcceptActive ? "On" : "Off"}</span>
                   </button>
                 )}
+                {queuedHere.length > 0 && (
+                  <span className="chat-queued" title="Waiting for the current answer to finish">
+                    <Icon name="clock" size={12} />
+                    {queuedHere.map(q => (
+                      <button
+                        key={q.turnId}
+                        type="button"
+                        className="chat-queued__item"
+                        onClick={() => cancelQueued(q.turnId)}
+                        title={"Queued: " + q.prompt + "\n\nClick to discard it."}>
+                        <span className="chat-queued__text">{q.prompt}</span>
+                        <Icon name="x" size={11} />
+                      </button>
+                    ))}
+                  </span>
+                )}
                 <span className="chat-composer__bar-spacer"></span>
                 {!busy && !input.trim() && assistantUsable && (
                   <button className="chat-mic" onClick={voice.start} title="Record a voice note" aria-label="Record a voice note">
                     <Icon name="mic" size={17} />
                   </button>
                 )}
-                {busy
+                {turnRunning
                   ? <button className="chat-send chat-send--stop" onClick={stop} title="Stop"><Icon name="square" size={15} /></button>
                   : <button className="chat-send" onClick={send} disabled={!input.trim() || !assistantUsable} title={assistantUsable ? "Send" : "Assistant unavailable"}><Icon name="arrow-up" size={16} strokeWidth={2.4} /></button>}
               </div>

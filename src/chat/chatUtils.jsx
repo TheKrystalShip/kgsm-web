@@ -768,6 +768,42 @@ function latestUsage(messages) {
   return null;
 }
 
+// Render a turn from a `turn.attach` snapshot — the state of a turn this surface did not watch from
+// the start, or one it has just been redrawn with after falling behind.
+//
+// The snapshot REPLACES whatever this surface was rendering for the live turn rather than being merged
+// into it: it is the leaf's own account of that turn, and reconciling two partial views is how a
+// duplicated tool row or a doubled sentence gets in. Everything before the live turn is untouched.
+function scaffoldLiveTurn(messages, attach) {
+  const settled = messages.filter(m => !m.live);
+  const tools = (attach.tools || []).map(t => ({
+    id: t.id,
+    label: toolLabel(t.name),
+    state: t.state === "done" ? "done" : "pending",
+    summary: t.summary || "",
+  }));
+  const cards = (attach.tools || [])
+    .map(t => (t.card ? adaptResultCard(t.card) : null))
+    .filter(Boolean);
+
+  const bubble = {
+    role: "assistant",
+    live: true,
+    content: attach.text || "",
+    thinking: attach.thinking || undefined,
+    tools: tools.length ? tools : undefined,
+    // Cards are held back until the turn finishes, exactly as a watched turn holds them — so a
+    // mirrored turn and a first-hand one reach their final shape through the same step.
+    pendingCards: cards.length ? cards : undefined,
+  };
+
+  return [
+    ...settled,
+    { role: "user", content: attach.prompt || "", live: true },
+    bubble,
+  ];
+}
+
 function mergeServerConversations(local, serverList, hostId) {
   if (!Array.isArray(serverList) || serverList.length === 0) return local;
   const byId = new Map(local.map(c => [c.id, c]));
@@ -785,6 +821,14 @@ function mergeServerConversations(local, serverList, hostId) {
       // show Thinking off for a conversation the panel turned it on for.
       if (typeof s.think === "boolean") patch.think = s.think;
       if (typeof s.autorun === "boolean") patch.autorun = s.autorun;
+      // The turn count is how a re-read of the listing notices that a conversation grew while this
+      // surface was not watching — a stream that was down, or a device only just opened. It is the
+      // precise version of "something happened": a transcript is refetched because it demonstrably
+      // has more turns in it, never merely because a stream reconnected.
+      if (typeof s.turnCount === "number") {
+        patch.turns = s.turnCount;
+        if (typeof existing.turns === "number" && s.turnCount > existing.turns) patch.stale = true;
+      }
       if (Object.keys(patch).length) merged[merged.indexOf(existing)] = { ...existing, ...patch };
     } else {
       merged.push({
@@ -793,6 +837,7 @@ function mergeServerConversations(local, serverList, hostId) {
         messages: [],
         created: Date.parse(s.createdAt) || 0,
         lastActivity: Date.parse(s.lastActivityAt) || 0,
+        turns: typeof s.turnCount === "number" ? s.turnCount : undefined,
         think: typeof s.think === "boolean" ? s.think : undefined,
         autorun: typeof s.autorun === "boolean" ? s.autorun : undefined,
         hostId,
@@ -846,6 +891,6 @@ export {
   CHAT_LS_KEY, CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
   uid, toolLabel, composeVerified, adaptResultCard, adaptBlueprintConfirm,
-  reduceTurnFrame, promotePendingCards, scaffoldHistory, latestUsage, mergeServerConversations,
+  reduceTurnFrame, promotePendingCards, scaffoldHistory, scaffoldLiveTurn, latestUsage, mergeServerConversations,
   renderMarkdown,
 };
