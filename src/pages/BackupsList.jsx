@@ -2,6 +2,7 @@ import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { api } from "../lib/apiClient.js";
+import { apiOriginOf } from "../lib/config.js";
 import { awaitJob } from "../lib/stores.js";
 import { formatBytes, fmtRelative } from "../lib/formatting.js";
 
@@ -15,8 +16,18 @@ import { formatBytes, fmtRelative } from "../lib/formatting.js";
 // plus whatever its manifest recorded — size, creation time, captured version.
 // Any of those may be absent (a backup the engine lists but has no manifest
 // for), and an absent field is simply not rendered: never a fabricated size or
-// age, never a "0 B" standing in for unknown. There is still no download or
-// delete endpoint, so those stay disabled affordances.
+// age, never a "0 B" standing in for unknown. There is still no delete endpoint,
+// so that one stays a disabled affordance.
+//
+// Download is a two-step: POST a download-ticket, then send the browser to the
+// URL it returns. It cannot be a fetch — the archive is unbounded (several GB
+// for an instance whose install is captured), and fetch→blob buffers the whole
+// thing in memory before the save dialog appears. The ticket exists precisely so
+// a plain navigation, which can carry no Authorization header, still
+// authenticates; the browser then streams to disk with its own progress and
+// resume. Only a COMPRESSED backup can be downloaded: an uncompressed one is a
+// directory tree, not one file, and the backend refuses it — so the button is
+// disabled with that reason rather than offering a click that always fails.
 // The one-line subtitle under a backup's id: age · size · version, built only
 // from the fields the manifest actually carried. A backup with no manifest
 // contributes nothing here and renders as its id alone.
@@ -66,6 +77,33 @@ function BackupsList({ server }) {
   const createBackup = () => runJob("create", () => api.host(server.hostId).post("/servers/" + server.id + "/backups", { origin: "ui" }));
   const restoreBackup = (name) => runJob("restore:" + name, () => api.host(server.hostId).post("/servers/" + server.id + "/backups/restore", { backup: name, origin: "ui" }));
 
+  // Download is NOT a job — nothing runs on the host, so there is no job to await and no re-list to
+  // do. Mint the ticket through the normal authenticated seam, then hand the browser the URL it
+  // returns. The ticket's URL is server-RELATIVE, so it is resolved against the owning node's origin
+  // here: in a cluster the backup lives on one specific node, and pointing the browser at whichever
+  // node the panel was opened from would 404.
+  const downloadBackup = (name) => {
+    setBusy("download:" + name);
+    setError(null);
+    api.host(server.hostId).post("/servers/" + server.id + "/backups/" + encodeURIComponent(name) + "/download-ticket", { origin: "ui" }).then(
+      (res) => {
+        const origin = apiOriginOf(server.hostId);
+        if (!res || !res.url || !origin) throw new Error("Could not start the download.");
+        // A hidden anchor rather than location.href: navigating the page away would tear down the SPA,
+        // and `download` keeps the browser treating it as a file even before it reads the headers.
+        const a = document.createElement("a");
+        a.href = origin + res.url;
+        a.download = "";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setBusy(null);
+      },
+      (err) => { setError(err && (err.userMessage || err.message) || "Could not start the download."); setBusy(null); }
+    );
+  };
+
   const count = list == null ? "—" : (list.length + (list.length === 1 ? " snapshot" : " snapshots"));
   return (
     <BriefCard
@@ -99,6 +137,12 @@ function BackupsList({ server }) {
         <div className="chat-brief__list">
           {list.map((b) => {
             const restoring = busy === ("restore:" + b.name);
+            const downloading = busy === ("download:" + b.name);
+            // `compressed` may be absent entirely (a backup the engine lists but whose manifest we
+            // could not read). That is "we don't know", not "it's compressed" — and offering a
+            // download that the backend would refuse is worse than not offering one, so an unknown
+            // reads the same as uncompressed here.
+            const canDownload = b.compressed === true;
             return (
               <div className="chat-brief__item chat-brief__item--static" key={b.name}>
                 <span className="chat-brief__icon"><Icon name="database" size={14} /></span>
@@ -112,11 +156,18 @@ function BackupsList({ server }) {
                   <button className="icon-btn" title="Restore" onClick={() => restoreBackup(b.name)} disabled={!!busy}>
                     {restoring ? <span className="oauth-spinner" /> : <Icon name="rotate-ccw" size={14} />}
                   </button>
-                  {/* Download / delete have no backend endpoint yet — kept as
-                      disabled affordances (work in progress), never faked. */}
-                  <button className="icon-btn" title="Download — not available yet" disabled>
-                    <Icon name="download" size={14} />
+                  <button
+                    className="icon-btn"
+                    title={canDownload
+                      ? "Download"
+                      : "Download — this backup is an uncompressed folder, not a single file"}
+                    onClick={() => downloadBackup(b.name)}
+                    disabled={!!busy || !canDownload}
+                  >
+                    {downloading ? <span className="oauth-spinner" /> : <Icon name="download" size={14} />}
                   </button>
+                  {/* Delete has no backend endpoint yet — kept as a disabled
+                      affordance (work in progress), never faked. */}
                   <button className="icon-btn icon-btn--danger" title="Delete — not available yet" disabled>
                     <Icon name="trash-2" size={14} />
                   </button>

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Backups can be downloaded.** The button on a server's Backups tab mints a short-lived ticket from
+  kgsm-api and hands the browser the URL it returns, so the archive streams straight to disk with the
+  browser's own progress and resume — rather than through `fetch`, which would buffer a multi-GB file
+  in memory before the save dialog even appeared. The ticket's URL is resolved against the OWNING
+  node's origin: in a cluster the backup lives on one specific node, and pointing the browser at
+  whichever node the panel happens to be open from would 404.
+
+  Only a **compressed** backup can be downloaded — an uncompressed one is a directory tree rather than
+  a single file, and the backend refuses it — so the button carries that reason instead of offering a
+  click that always fails. A backup whose `compressed` flag is missing entirely reads as "we don't
+  know", which is treated the same as uncompressed: not offering a download beats offering a broken one.
+
 - **`backup.prune`** renders as *"Backups pruned"* in the audit feed, completing the backup
   vocabulary alongside `backup.delete` (which was mapped ahead of its producer and now has one).
   Scheduled retention pruning previously destroyed backups with no row to show for it. The icon is
