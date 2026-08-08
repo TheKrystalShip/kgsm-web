@@ -9,13 +9,12 @@
 // having always been able to perform them.
 const LEAF_COMMAND_VERBS = new Set([
   "start", "stop", "restart", "update", "backup",
-  "install", "uninstall", "set_config", "open_ports", "write_file",
+  "install", "uninstall", "set_config", "write_file",
 ]);
 const COMMAND_META = {
   start:      { label: "Start",         icon: "play",      tone: "success" },
   stop:       { label: "Stop",          icon: "square",    tone: "danger" },
   restart:    { label: "Restart",       icon: "rotate-cw", tone: "update" },
-  open_ports: { label: "Open ports",    icon: "network",   tone: "info" },
   update:     { label: "Update",        icon: "download",  tone: "info" },
   install:    { label: "Install",       icon: "download",  tone: "success" },
   uninstall:  { label: "Uninstall",     icon: "trash-2",   tone: "danger" },

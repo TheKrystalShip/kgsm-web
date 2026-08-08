@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`open_ports` from the chat's command vocabulary.** The assistant no longer stages it — an instance's
+  ports are opened by the supervisor when it starts and released when it stops — so the Run button and the
+  label behind it described an action nothing can propose. The engine's `instance_ports_opened` /
+  `_closed` timeline entries stay: those are the audit events, which still fire on every bring-up and
+  teardown.
+
+
 ### Added
 - **The audit vocabulary covers the actions the backend actually emits.** Sixteen of them had no
   entry, so each rendered as a neutral grey dot carrying its own dotted name — a port opening, a

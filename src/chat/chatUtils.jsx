@@ -75,7 +75,7 @@ const STATE_WORD = { running: "running", stopped: "stopped", unknown: "unreadabl
 function composeVerified(verb, serverName, resp) {
   const r = resp || {};
   const o = r.outcome || null;
-  const what = verb === "open_ports" ? "open ports for " : (verb.replace(/_/g, " ") + " ");
+  const what = verb.replace(/_/g, " ") + " ";
   const lines = o && o.reason ? [{ status: "fail", label: "Reason", detail: String(o.reason) }] : [];
 
   // No outcome object at all: an older leaf, or a kind that reports none. Fall back to `success`,
@@ -88,9 +88,7 @@ function composeVerified(verb, serverName, resp) {
 
   switch (o.verdict) {
     case "settled": {
-      const headline = verb === "open_ports"
-        ? "Opened the required ports for " + serverName + "."
-        : (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".";
+      const headline = (VERB_PAST[verb] || ("Ran " + verb + " on")) + " " + serverName + ".";
       return { ok: true, headline, lines: [] };
     }
     // Ran, and the engine reported success, but the verb has no run-state to watch (an update, a

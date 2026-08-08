@@ -1062,10 +1062,11 @@ try {
     "reduceTurnFrame: done moves the command card BELOW the reply (reply → action)");
 
   // (2) verb gating — every kind the leaf can perform is runnable from the panel; `blueprint` is
-  //     excluded because the review card owns its own Save.
-  assert(["start", "stop", "restart", "open_ports", "install", "uninstall", "update", "backup", "set_config", "write_file"]
-      .every((v) => LEAF_VERBS.has(v)) && !LEAF_VERBS.has("blueprint"),
-    "command verbs: all ten of the leaf's confirmation kinds are runnable; `blueprint` has its own Save");
+  //     excluded because the review card owns its own Save, and `open_ports` because the leaf can no
+  //     longer stage one (ports open with an instance's run and close with it).
+  assert(["start", "stop", "restart", "install", "uninstall", "update", "backup", "set_config", "write_file"]
+      .every((v) => LEAF_VERBS.has(v)) && !LEAF_VERBS.has("blueprint") && !LEAF_VERBS.has("open_ports"),
+    "command verbs: all nine of the leaf's confirmation kinds are runnable; `blueprint` has its own Save");
 
   // (2b) install proposal — subject is a BLUEPRINT and the custom name rides its own field.
   let im = [{ role: "user", content: "install factorio called mybase" }, { role: "assistant", content: "" }];
@@ -1107,9 +1108,10 @@ try {
   const refV = CV("stop", "factorio-test", { success: false, text: "That action is no longer valid.", outcome: { verdict: "refused" } });
   assert(refV.ok === false && /no longer valid/.test(refV.headline),
     "composeVerified: refused → the leaf's own non-oracular sentence (nothing ran)");
-  const opV = CV("open_ports", "factorio-test", settledOf("settled"));
-  assert(opV.ok === true && !/\d/.test(opV.headline) && /required ports/.test(opV.headline),
-    "composeVerified: open_ports headline is generic (intent-only — never fabricates port numbers)");
+  // An unrecognised verb still renders — a newer leaf must never produce a blank card here.
+  const newV = CV("some_future_verb", "factorio-test", settledOf("settled"));
+  assert(newV.ok === true && /some_future_verb/.test(newV.headline) && /factorio-test/.test(newV.headline),
+    "composeVerified: an unknown verb falls back to a readable headline (forward-compatible)");
 
   // (4) THE GLUE — the confirm path end to end. A staged card's token goes back to the LEAF that
   // staged it (captured → a canned confirm stream), its progress steps drive the card's live
