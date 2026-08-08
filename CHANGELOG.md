@@ -63,6 +63,25 @@ before anything is said in it. Typing `/new` does the same thing by the same pat
 which conversation now stands and the composer follows it there — a row in the rail, switched to and
 focused. The client branches on the result naming a conversation, not on the command being `/new`.
 
+### Added — two surfaces on one conversation stay in step, live
+
+The chat holds the leaf's `GET /events` open (`useConversationStream`) and applies what arrives, so a
+switch flipped in the Control Panel moves in the installed app while you watch, a `/new` started on
+one appears in the other's rail, and a deleted chat leaves both. The foreground re-read stays as the
+backstop for a stream that is down.
+
+A switch frame carries the values and is applied directly; everything else names a conversation, which
+is answered by re-reading — the transcript keeps one way to be obtained. A turn made elsewhere
+therefore appears when its conversation is next read rather than streaming in token by token.
+
+The surface skips its own echoes. `assistantClient` records the stream id the leaf hands out and sends
+it on every call as `X-Assistant-Origin`; without that, the surface that sent a turn would re-fetch the
+transcript it had just streamed and tear out the bubble it wrote. A refetch is also deferred while a
+turn is streaming here, for the same reason.
+
+Reconnection is exponential and capped, and every reconnection re-reads the listing: nothing is
+buffered while a stream is down, so the re-read is what closes the gap.
+
 ### Fixed — the smoke read the command manifest's retired flat list
 
 `smoke-live.mjs` reached into `commands` on the bot's manifest, which the gate-keyed shape does not

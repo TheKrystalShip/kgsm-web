@@ -20,6 +20,16 @@ import { parseSseEvent, readSseStream } from "./sse.js";
 
 const IDLE_MS = 60000;   // a confirm stream may sit silent through a download; ≫ the leaf's 15s heartbeat
 
+// The id the leaf gave THIS browser's event stream, per host. Sent on every call so the changes this
+// surface causes come back stamped with it, which is how the stream tells its own echo from a change
+// made in another tab or on a phone. Empty until a stream is open — a call made before then is simply
+// not attributable, which costs one redundant re-read and nothing else.
+const STREAM_IDS = new Map();
+function originHeaders(hostId) {
+  const id = STREAM_IDS.get(hostId);
+  return id ? { "X-Assistant-Origin": id } : null;
+}
+
 function leafError(status, body) {
   const env = (body && body.error) || {};
   const message = typeof env === "string" ? env : (env.message || body?.message);
@@ -89,7 +99,7 @@ async function freshToken(hostId) {
 async function jsonOnce(hostId, method, path, body) {
   const base = baseOf(hostId);
   const token = await freshToken(hostId);
-  const headers = { Accept: "application/json" };
+  const headers = { Accept: "application/json", ...originHeaders(hostId) };
   if (body !== undefined && body !== null) headers["Content-Type"] = "application/json";
   headers.Authorization = "Bearer " + token;
 
@@ -117,7 +127,7 @@ async function jsonOnce(hostId, method, path, body) {
 async function json(hostId, method, path, body, opts) {
   const base = baseOf(hostId);
   const send = async (token) => {
-    const headers = { Accept: "application/json" };
+    const headers = { Accept: "application/json", ...originHeaders(hostId) };
     if (body !== undefined && body !== null) headers["Content-Type"] = "application/json";
     if (token) headers.Authorization = "Bearer " + token;
     try {
@@ -161,7 +171,12 @@ async function turn(hostId, body, opts) {
   try {
     res = await fetch(base + "/turn", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: "Bearer " + token },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        Authorization: "Bearer " + token,
+        ...originHeaders(hostId),
+      },
       body: JSON.stringify(body),
       signal,
     });
@@ -174,6 +189,47 @@ async function turn(hostId, body, opts) {
     throw leafError(res.status, payload);
   }
   await readSseStream(res, (evt) => { if (onEvent) onEvent(evt); }, signal);
+}
+
+// GET /events — the caller's own conversation changes, as they happen, so a chat open in two places
+// agrees with itself. The stream names itself in its first frame (`hello`), which is recorded against
+// this host so every later call carries it and the leaf can stamp the events this surface caused.
+//
+// The token is taken fresh: a stream is long-lived and there is no 401 to heal once the body is
+// flowing, so a lapsed one is rotated before the connection rather than after it fails. Ending is
+// normal — a proxy times out, a laptop sleeps — and is the caller's to retry, which is why nothing
+// here reconnects: the resync that must follow a gap is the caller's decision, not the transport's.
+async function events(hostId, opts) {
+  const base = baseOf(hostId);
+  const { onEvent, signal } = opts || {};
+  const token = await freshToken(hostId);
+
+  let res;
+  try {
+    res = await fetch(base + "/events", {
+      headers: { Accept: "text/event-stream", Authorization: "Bearer " + token },
+      signal,
+    });
+  } catch (e) {
+    if (e && e.name === "AbortError") throw e;
+    throw netError();
+  }
+  if (!res.ok) {
+    let payload = null; try { payload = await res.json(); } catch { payload = null; }
+    throw leafError(res.status, payload);
+  }
+
+  try {
+    await readSseStream(res, (evt) => {
+      if (evt && evt.type === "hello" && evt.streamId) STREAM_IDS.set(hostId, evt.streamId);
+      if (onEvent) onEvent(evt);
+    }, signal);
+  } finally {
+    // The id belongs to a connection, not to a host: leaving a dead one behind would stamp later
+    // calls with a stream nothing is listening on, and this surface would then skip its own echoes
+    // with no stream to have received them.
+    STREAM_IDS.delete(hostId);
+  }
 }
 
 // POST /confirm — executing what a turn staged. Every confirmation kind streams: `progress`
@@ -285,6 +341,11 @@ function host(hostId) {
       json(hostId, "GET", "/admin/conversations/" + encodeURIComponent(handle), null, opts),
     turn: (body, opts) => turn(hostId, body, opts),
     confirm: (body, opts) => confirm(hostId, body, opts),
+    // This caller's own conversation changes, pushed. Resolves when the stream ends.
+    events: (opts) => events(hostId, opts),
+    // The stream this surface is listening on, when one is open — what the leaf stamps its events
+    // with, so a caller can recognise which of them are its own.
+    streamId: () => STREAM_IDS.get(hostId) || null,
   };
 }
 

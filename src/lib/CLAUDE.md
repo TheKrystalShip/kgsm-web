@@ -33,7 +33,14 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 **The assistant seam (a separate backend)**
 - `assistantClient.js` — the seam onto an assistant **leaf**, spoken directly on its own
   public origin. `assistant.host(id)` mirrors `api.host(id)`'s shape against the leaf's own
-  unprefixed routes (`/turn`, `/confirm`, `/conversations`, `/admin/conversations/…`).
+  unprefixed routes (`/turn`, `/confirm`, `/conversations`, `/events`, `/admin/conversations/…`).
+  It records the id the leaf's `/events` stream hands out and sends it on **every** call as
+  `X-Assistant-Origin`, so the events a call causes come back stamped and the surface that made
+  it can decline to re-apply its own change. The id is per-connection, not per-host: it is
+  dropped when the stream ends, because stamping calls with a stream nothing is listening on
+  would make a surface skip echoes it never received. Reconnection and the resync that must
+  follow a gap belong to `chat/useConversationStream.js`, not here — the seam carries one
+  stream and reports when it ends.
   Auth is reactive like the node seam, except the two non-replayable calls — a turn spends
   the user's prompt and a confirm burns a single-use token, so a lapsed access token is
   rotated **before** the call rather than healed from a 401.

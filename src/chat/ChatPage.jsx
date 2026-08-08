@@ -22,6 +22,7 @@ import { ChatContextMeter } from "./ChatContextMeter.jsx";
 import { ChatHistory } from "./ChatHistory.jsx";
 import { ChatThemePicker } from "./ChatThemePicker.jsx";
 import { ChatThread } from "./ChatThread.jsx";
+import { useConversationStream } from "./useConversationStream.js";
 
 // ChatPage renders a conversation with ONE assistant leaf. Everything that is true of the surface
 // around it rather than of the conversation arrives as a prop, because the two surfaces that render
@@ -99,6 +100,10 @@ function ChatPage({
   const thinkOn = !!(active && active.think);
   const actionsOn = !!(active && active.autorun);
   const autoAcceptActive = actionsOn && canUseActions;
+  // Whether the open conversation's transcript is known to be behind — set when the leaf says its log
+  // grew somewhere else. Read as a scalar so the detail effect can depend on it without depending on
+  // the whole conversation list.
+  const activeStale = !!(active && active.stale);
 
   // Reflect what the leaf answered, and say so in the transcript. The leaf's `state` is what lands —
   // a toggle asked for is not a toggle granted, and showing the asked-for value would report a
@@ -189,6 +194,58 @@ function ChatPage({
     };
   }, [loadServerHistory]);
 
+  // What the leaf pushes while this surface is open, so a conversation held in two places agrees with
+  // itself. Only changes made SOMEWHERE ELSE arrive here — the hook drops this surface's own echoes —
+  // so every branch below is reacting to another tab, another device, or Discord.
+  //
+  // The switches are applied from the frame, which carries them; everything else names a conversation
+  // and nothing more, and is answered by re-reading. That split is deliberate: a transcript has one
+  // way to be obtained, and a second streaming path for it could drift from the first.
+  const applyLeafEvent = React.useCallback((evt) => {
+    const id = evt.conversationId;
+    if (typeof id !== "string") return;
+
+    if (evt.type === "conversation.switches") {
+      setConvos(prev => prev.map(c =>
+        c.id === id ? { ...c, think: !!evt.think, autorun: !!evt.autorun } : c));
+      return;
+    }
+
+    if (evt.type === "conversation.deleted") {
+      setConvos(prev => {
+        const next = prev.filter(c => c.id !== id);
+        if (next.length === prev.length) return prev;
+        // Deleted out from under us: fall back to the next chat rather than leaving a dead selection.
+        setActiveId(current => (current === id ? (next[0]?.id || null) : current));
+        return next;
+      });
+      return;
+    }
+
+    if (evt.type === "conversation.started") { loadServerHistory(); return; }
+
+    if (evt.type === "conversation.activity") {
+      // The rail's title and order come from the listing; the transcript is marked behind and refetched
+      // when the conversation is the one being looked at, or when it is next opened.
+      setConvos(prev => prev.map(c => (c.id === id ? { ...c, stale: true } : c)));
+      loadServerHistory();
+    }
+  }, [loadServerHistory]);
+
+  // A reconnected stream knows nothing about the gap it was down for, so the listing is re-read —
+  // which restates every conversation's switches — and the open transcript is marked behind.
+  const resyncAfterGap = React.useCallback(() => {
+    loadServerHistory();
+    setConvos(prev => prev.map(c => (c.id === activeId ? { ...c, stale: true } : c)));
+  }, [loadServerHistory, activeId]);
+
+  useConversationStream({
+    hostId: assistantHost && assistantHost.id,
+    enabled: !!(assistantHost && assistantUsable && assistantAuthed),
+    onEvent: applyLeafEvent,
+    onResync: resyncAfterGap,
+  });
+
   // Fetch the open conversation's detail when we are missing either half of it: its transcript (a
   // chat this browser has never seen) or its switches (which the leaf owns, so the composer cannot
   // know them until it asks). The response carries the switches already resolved against the host's
@@ -200,7 +257,12 @@ function ChatPage({
     if (!c) return;
     if (c.hostId && c.hostId !== assistantHost.id) return;
 
-    const wantsHistory = c.remote && !c.loaded && !(c.messages && c.messages.length > 0);
+    // `stale` is set by a conversation.activity event: the log grew somewhere else, so the transcript
+    // this browser holds is behind. Deferred while a turn is streaming HERE — replacing the messages
+    // mid-stream would tear out the bubble being written into — and picked up when it finishes, which
+    // is why `busy` is a dependency.
+    const wantsHistory = (c.remote && !c.loaded && !(c.messages && c.messages.length > 0))
+      || (c.stale && !busy);
     const wantsSwitches = typeof c.think !== "boolean" || typeof c.autorun !== "boolean";
     if (!wantsHistory && !wantsSwitches) return;
 
@@ -212,14 +274,14 @@ function ChatPage({
           if (x.id !== c.id) return x;
           const next = { ...x, think: !!(data && data.think), autorun: !!(data && data.autorun) };
           return wantsHistory
-            ? { ...next, messages: scaffoldHistory(data && data.entries), loaded: true }
+            ? { ...next, messages: scaffoldHistory(data && data.entries), loaded: true, stale: false }
             : next;
         }));
       },
       () => {});
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch on every streamed message
-  }, [activeId, assistantHost && assistantHost.id, assistantAuthed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded (depping it would refetch on every streamed message) in favour of the two scalars read off the open one
+  }, [activeId, assistantHost && assistantHost.id, assistantAuthed, activeStale, busy]);
 
   // ===== Review mode =====
   // Replaying someone ELSE's conversation, read-only. The admin transcript DTO is deliberately the
