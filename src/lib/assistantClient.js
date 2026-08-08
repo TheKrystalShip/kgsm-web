@@ -82,6 +82,36 @@ async function freshToken(hostId) {
   return token;
 }
 
+// A JSON call that must NOT be replayed, so a lapsed token is rotated BEFORE it is spent rather
+// than healed from a 401 — the same treatment /turn and /confirm get, and for the same reason.
+// Running a command can be non-idempotent: a switch given no state TOGGLES, so a replayed
+// `/think` would flip twice and land back where it started, reporting a change that did not stick.
+async function jsonOnce(hostId, method, path, body) {
+  const base = baseOf(hostId);
+  const token = await freshToken(hostId);
+  const headers = { Accept: "application/json" };
+  if (body !== undefined && body !== null) headers["Content-Type"] = "application/json";
+  headers.Authorization = "Bearer " + token;
+
+  let res;
+  try {
+    res = await fetch(base + path, {
+      method,
+      headers,
+      body: body === undefined || body === null ? undefined : JSON.stringify(body),
+    });
+  } catch (e) {
+    if (e && e.name === "AbortError") throw e;
+    throw netError();
+  }
+
+  if (res.status === 204) return null;
+  let payload = null;
+  try { payload = await res.json(); } catch { payload = null; }
+  if (!res.ok) throw leafError(res.status, payload);
+  return payload;
+}
+
 // A plain JSON call, healed reactively: on 401 rotate once and replay. Replay is safe here —
 // these are reads, a soft delete, a compact and a feedback vote, all idempotent in effect.
 async function json(hostId, method, path, body, opts) {
@@ -238,6 +268,12 @@ function host(hostId) {
     conversation: (id, opts) => json(hostId, "GET", "/conversations/" + encodeURIComponent(id), null, opts),
     deleteConversation: (id) => json(hostId, "DELETE", "/conversations/" + encodeURIComponent(id)),
     compact: (id) => json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/compact"),
+    // The commands this caller may type, and running one. The leaf performs every command it lists,
+    // so the catalog is authoritative rather than advisory: a name that appears here is a name the
+    // POST below will honour. Both are gated by the leaf, and the listing is filtered to the caller's
+    // tier — a command above it never arrives, so the composer cannot offer what would be refused.
+    commands: (opts) => json(hostId, "GET", "/commands", null, opts),
+    runCommand: (name, body) => jsonOnce(hostId, "POST", "/commands/" + encodeURIComponent(name), body || {}),
     feedback: (id, turnId, body) =>
       json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/turns/" + turnId + "/feedback", body),
     // The admin review surfaces, on the leaf's own /admin group.

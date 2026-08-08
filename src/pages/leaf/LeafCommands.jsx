@@ -11,28 +11,65 @@
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 
-const SURFACE_LABEL = { discord: "Discord" };
+// Where a person types these. The subject differs per surface — the bot is spoken to in Discord, the
+// assistant in its chat box — so each is stated whole rather than assembled from the leaf id.
+const SURFACE_WHERE = {
+  discord: "Typed at the bot in Discord.",
+  chat: "Typed at the assistant in chat.",
+};
 
 // What a person types. Required options are angle-bracketed and optional ones square-bracketed — the
 // convention every command-line help in the world uses, and the manifest carries which is which.
 function usage(cmd) {
   const options = (cmd.options || [])
-    .map(o => (o.required ? "<" + o.name + ">" : "[" + o.name + "]"))
+    .map((o) => {
+      // An option offering a fixed set shows the set, because that IS what to type. One taking free
+      // text shows its name — the surface suggests values as you go, and the manifest cannot say what
+      // they will be.
+      const inner = o.values && o.values.length ? o.values.join("|") : o.name;
+      return o.required ? "<" + inner + ">" : "[" + inner + "]";
+    })
     .join(" ");
   return "/" + cmd.name + (options ? " " + options : "");
 }
 
-// What the leaf requires of whoever runs a command that acts. `none` is not "unknown" — it is the
-// leaf stating that it checks nothing, which is worth saying plainly rather than leaving blank.
+// What the leaf requires of whoever runs the commands in a gate bucket. `none` is not "unknown" — it
+// is the leaf stating that it checks nothing, which is worth saying plainly rather than leaving
+// blank. Every other value is a tier from the ecosystem's shared role map, printed as the leaf's own
+// claim: this panel cannot verify a check it does not implement, so it states it and softens nothing.
 function gateNote(gate, surface) {
-  if (gate === "actionRole") return "Only members holding the bot’s action role can run these.";
   if (gate === "none") {
     return surface === "discord"
       ? "The bot checks no role before running these — anyone Discord lets use the command can. "
         + "Restrict them per-command in the server’s Integrations settings if that is not what you want."
       : "The leaf checks nothing before running these.";
   }
+  if (gate === "viewer") return "Anyone with access to this host can run these.";
+  if (gate === "operator") return "Only an operator or an admin can run these.";
+  if (gate === "admin") return "Only an admin can run these.";
   return null;
+}
+
+// The gates in the order an operator wants to read them: what anyone can do, down to what almost
+// nobody can. A bucket the manifest does not carry simply does not appear.
+const GATE_ORDER = ["none", "viewer", "operator", "admin"];
+
+// The heading for a bucket. A tier this build does not know keeps the leaf's own word as its
+// heading, because printing an unfamiliar tier is better than hiding the commands under it.
+const GATE_TITLE = {
+  none: "Unrestricted",
+  viewer: "Anyone",
+  operator: "Operator",
+  admin: "Admin",
+};
+
+function orderedGates(gates) {
+  return Object.keys(gates || {}).sort((a, b) => {
+    const ai = GATE_ORDER.indexOf(a), bi = GATE_ORDER.indexOf(b);
+    // A tier this build does not know sorts last rather than being dropped — the leaf said it, and
+    // hiding a command because its gate is unfamiliar would be worse than printing the word.
+    return (ai < 0 ? GATE_ORDER.length : ai) - (bi < 0 ? GATE_ORDER.length : bi) || a.localeCompare(b);
+  });
 }
 
 function CommandRow({ cmd }) {
@@ -70,27 +107,32 @@ function CommandRow({ cmd }) {
 // this tab exists at all, so there is no state in which it is open without one, and no way for the
 // tab and its contents to disagree about what the leaf takes.
 function LeafCommands({ commands: manifest }) {
-  const commands = (manifest && manifest.commands) || [];
-  const reads = commands.filter(c => !c.mutates);
-  const acts = commands.filter(c => c.mutates);
+  const gates = (manifest && manifest.gates) || {};
   const surface = (manifest && manifest.surface) || null;
-  const surfaceLabel = (surface && SURFACE_LABEL[surface]) || surface;
-  const note = manifest ? gateNote(manifest.gate, surface) : null;
+  const where = (surface && SURFACE_WHERE[surface]) || null;
+  const total = Object.values(gates).reduce((n, list) => n + (list || []).length, 0);
 
   return (
     <div className="leaf-cmds">
-      {reads.length > 0 && (
-        <BriefCard icon="search" title="Read-only" count={reads.length} countTone="neutral"
-          meta={surfaceLabel ? "Typed at the bot in " + surfaceLabel + ". These change nothing." : "These change nothing."}>
-          <div className="leaf-cmd__list">{reads.map(c => <CommandRow key={c.name} cmd={c} />)}</div>
-        </BriefCard>
-      )}
-      {acts.length > 0 && (
-        <BriefCard icon="zap" title="Control" count={acts.length} countTone="neutral" meta={note}>
-          <div className="leaf-cmd__list">{acts.map(c => <CommandRow key={c.name} cmd={c} />)}</div>
-        </BriefCard>
-      )}
-      {commands.length === 0 && (
+      {orderedGates(gates).map((gate) => {
+        const list = gates[gate] || [];
+        if (list.length === 0) return null;
+
+        // Within a bucket, what reads comes before what acts — the same question an operator opens
+        // the list with, now asked inside each level of access rather than across the whole leaf.
+        const rows = [...list].sort((a, b) => Number(!!a.mutates) - Number(!!b.mutates));
+        const acts = list.some(c => c.mutates);
+        const meta = [where, gateNote(gate, surface)].filter(Boolean).join(" ");
+
+        return (
+          <BriefCard key={gate} icon={acts ? "zap" : "search"}
+            title={GATE_TITLE[gate] || gate}
+            count={list.length} countTone="neutral" meta={meta || null}>
+            <div className="leaf-cmd__list">{rows.map(c => <CommandRow key={c.name} cmd={c} />)}</div>
+          </BriefCard>
+        );
+      })}
+      {total === 0 && (
         <div className="chat-brief__empty chat-brief__empty--neutral">
           <div className="chat-brief__empty-title">Nothing registered</div>
           <div className="chat-brief__empty-sub">The leaf ships a command list and it is empty.</div>

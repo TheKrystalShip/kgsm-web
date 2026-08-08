@@ -7,8 +7,8 @@ import { assistantSession } from "../lib/assistantSession.js";
 
 // Imports from extracted modules
 import {
-  CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
-  loadConversations, saveConversations, loadSetting, saveSetting,
+  TOGGLE_COPY,
+  loadConversations, saveConversations,
   uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
   latestUsage, mergeServerConversations,
 } from "./chatUtils.jsx";
@@ -16,6 +16,8 @@ import { LEAF_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } fr
 // ChatCommand is imported only to re-export it (see the export list below); the
 // message-role dispatch that used it now lives in ChatThread.
 import { ChatCommand } from "./ChatMessageParts.jsx";
+import { ChatCommandMenu } from "./ChatCommandMenu.jsx";
+import { resolveCommand, suggestFor } from "./chatCommands.js";
 import { ChatContextMeter } from "./ChatContextMeter.jsx";
 import { ChatHistory } from "./ChatHistory.jsx";
 import { ChatThemePicker } from "./ChatThemePicker.jsx";
@@ -89,22 +91,45 @@ function ChatPage({
   const serverList = servers;
 
 
-  const [actionsOn, setActionsOn] = React.useState(() => loadSetting(CHAT_ACTIONS_LS, "") === "1");
-  React.useEffect(() => { saveSetting(CHAT_ACTIONS_LS, actionsOn ? "1" : "0"); }, [actionsOn]);
+  // Thinking and auto-run are the CONVERSATION's, held by the leaf and read by the turn — so these
+  // are a mirror of what the leaf last told us, never the value the turn runs on. Auto-run is
+  // deliberately per-conversation: it is the one switch that skips the confirmation gate, and a
+  // preference that followed the person around would arm chats they were not looking at.
+  const active = convos.find(c => c.id === activeId) || null;
+  const thinkOn = !!(active && active.think);
+  const actionsOn = !!(active && active.autorun);
   const autoAcceptActive = actionsOn && canUseActions;
-  const [thinkOn, setThinkOn] = React.useState(() => loadSetting(CHAT_THINK_LS, "") === "1");
-  React.useEffect(() => { saveSetting(CHAT_THINK_LS, thinkOn ? "1" : "0"); }, [thinkOn]);
 
-  const announceToggle = (toggle, on) => {
-    if (!activeId) return;
+  // Reflect what the leaf answered, and say so in the transcript. The leaf's `state` is what lands —
+  // a toggle asked for is not a toggle granted, and showing the asked-for value would report a
+  // change that may not have happened.
+  const applySwitch = React.useCallback((convId, toggle, on) => {
+    const field = toggle === "thinking" ? "think" : "autorun";
     const label = TOGGLE_COPY[toggle][on ? "on" : "off"];
-    setConvos(prev => prev.map(c =>
-      (c.id === activeId && c.messages.length > 0)
-        ? { ...c, messages: [...c.messages, { role: "toggle", toggle, on, label }] }
-        : c));
-  };
-  const toggleThinking = () => { const next = !thinkOn;  setThinkOn(next);  announceToggle("thinking", next); };
-  const toggleActions  = () => { const next = !actionsOn; setActionsOn(next); announceToggle("actions", next); };
+    setConvos(prev => prev.map(c => c.id !== convId ? c : {
+      ...c,
+      [field]: on,
+      messages: c.messages.length > 0
+        ? [...c.messages, { role: "toggle", toggle, on, label }]
+        : c.messages,
+    }));
+  }, []);
+
+  // What this person may type at THIS leaf, in the leaf's own words. Already filtered to their tier,
+  // so nothing here is a policy decision made in the browser — a command they cannot run never
+  // arrives, and there is no disabled row to explain. An unreachable or unauthenticated leaf leaves
+  // the catalog empty, which turns the whole surface off rather than offering something that would
+  // fail: a slash then just starts a message, exactly as it did before there were commands.
+  const [commandCatalog, setCommandCatalog] = React.useState([]);
+  React.useEffect(() => {
+    if (!assistantHost || !assistantUsable || !assistantAuthed) { setCommandCatalog([]); return; }
+    let live = true;
+    assistant.host(assistantHost.id).commands()
+      .then((list) => { if (live) setCommandCatalog(Array.isArray(list) ? list : []); })
+      .catch(() => { if (live) setCommandCatalog([]); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
+  }, [assistantHost && assistantHost.id, assistantUsable, assistantAuthed]);
 
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
@@ -120,8 +145,6 @@ function ChatPage({
   }, []);
   const taRef     = React.useRef(null);
   const pinnedRef = React.useRef(true);
-
-  const active = convos.find(c => c.id === activeId) || null;
 
   React.useEffect(() => { saveConversations(convos); }, [convos]);
 
@@ -145,21 +168,36 @@ function ChatPage({
   // addressed host changes, so this runs once per host per session.
   React.useEffect(() => { loadServerHistory(); }, [loadServerHistory]);
 
+  // Fetch the open conversation's detail when we are missing either half of it: its transcript (a
+  // chat this browser has never seen) or its switches (which the leaf owns, so the composer cannot
+  // know them until it asks). The response carries the switches already resolved against the host's
+  // configured default, so the toggles show what the next turn will actually do rather than a guess
+  // this browser made about an unset value.
   React.useEffect(() => {
     if (!assistantHost || !assistantAuthed) return;
     const c = convos.find(x => x.id === activeId);
-    if (!c || !c.remote || c.loaded || (c.messages && c.messages.length > 0)) return;
+    if (!c) return;
     if (c.hostId && c.hostId !== assistantHost.id) return;
+
+    const wantsHistory = c.remote && !c.loaded && !(c.messages && c.messages.length > 0);
+    const wantsSwitches = typeof c.think !== "boolean" || typeof c.autorun !== "boolean";
+    if (!wantsHistory && !wantsSwitches) return;
+
     let cancelled = false;
     assistant.host(assistantHost.id).conversation(c.id).then(
       (data) => {
         if (cancelled) return;
-        const messages = scaffoldHistory(data && data.entries);
-        setConvos(prev => prev.map(x => x.id === c.id ? { ...x, messages, loaded: true } : x));
+        setConvos(prev => prev.map((x) => {
+          if (x.id !== c.id) return x;
+          const next = { ...x, think: !!(data && data.think), autorun: !!(data && data.autorun) };
+          return wantsHistory
+            ? { ...next, messages: scaffoldHistory(data && data.entries), loaded: true }
+            : next;
+        }));
       },
       () => {});
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch history on every streamed message
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (in deps); convos is intentionally excluded — depping it would refetch on every streamed message
   }, [activeId, assistantHost && assistantHost.id, assistantAuthed]);
 
   // ===== Review mode =====
@@ -248,11 +286,19 @@ function ChatPage({
   };
 
   const newChat = () => {
-    const c = { id: uid(), title: "New chat", messages: [], created: Date.now(), hostId: assistantHost && assistantHost.id };
+    const hostId = assistantHost && assistantHost.id;
+    const c = { id: uid(), title: "New chat", messages: [], created: Date.now(), hostId };
     setConvos(prev => [c, ...prev]);
     setActiveId(c.id);
     setInput("");
     if (taRef.current) taRef.current.focus();
+
+    // The id is ours to pick, but the conversation is the leaf's to create — so a chat opened here
+    // exists and is resumable from another device before anything is said in it. A failure is not
+    // surfaced: the first turn creates it anyway, so the only thing lost is the early visibility.
+    if (hostId && assistantUsable && assistantAuthed) {
+      assistant.host(hostId).runCommand("new", { conversationId: c.id }).catch(() => {});
+    }
   };
   const deleteChat = (id, e) => {
     e.stopPropagation();
@@ -313,8 +359,11 @@ function ChatPage({
       // If a blueprint draft is open, carry its CURRENT content so the assistant can revise it from chat.
       const openCmdId = activeDraftRef.current;
       const draftYaml = openCmdId ? draftEditsRef.current[openCmdId] : undefined;
+      // Thinking and auto-run are NOT sent: they are the conversation's, held by the leaf and read
+      // when the turn runs. Sending them would let this browser contradict what the conversation
+      // carries — and two surfaces on one conversation would then disagree about what it is set to.
       await assistant.host(assistantHost.id).turn(
-        { prompt, actions: autoAcceptActive, think: thinkOn, conversationId: convId, draftYaml },
+        { prompt, conversationId: convId, draftYaml },
         { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
@@ -355,6 +404,19 @@ function ChatPage({
       setActiveId(convId);
     }
 
+    // A recognised command runs and never reaches the model. Anything else that merely STARTS with a
+    // slash — a path, a fraction, a typo — is an ordinary message, so nothing a person types is
+    // silently swallowed. `resolveCommand` is the strict half of the surface: only an exact name
+    // with an argument the command offers counts.
+    const command = voiceMeta ? null : resolveCommand(text, commandCatalog);
+    if (command) {
+      setInput("");
+      setCommandMenu({ items: [], active: 0 });
+      if (taRef.current) taRef.current.style.height = "auto";
+      runCommand(command.command.name, command.argument, convId);
+      return;
+    }
+
     const userMsg = voiceMeta
       ? { role: "user", content: text, voice: voiceMeta, ts: Date.now() }
       : { role: "user", content: text, ts: Date.now() };
@@ -389,6 +451,47 @@ function ChatPage({
   };
 
   const stop = () => { if (abortRef.current) abortRef.current.abort(); };
+
+  // Run one command at the leaf and render what it answered. The leaf performs every command it
+  // lists, so there is no client-side branch on WHAT a command does — only on what its result
+  // carries. A failure is shown in the transcript rather than swallowed: the person typed something
+  // deliberate and is owed an answer either way.
+  const runCommand = React.useCallback(async (name, argument, convId) => {
+    const hostId = assistantHost && assistantHost.id;
+    if (!hostId || !convId) return;
+
+    const say = (msg) => setConvos(prev => prev.map(c =>
+      c.id !== convId ? c : { ...c, messages: [...c.messages, msg] }));
+
+    let result;
+    try {
+      result = await assistant.host(hostId).runCommand(name, { conversationId: convId, argument });
+    } catch (err) {
+      say({
+        role: "assistant",
+        error: true,
+        content: "⚠️ " + ((err && err.userMessage) || "That command didn’t run — try again."),
+      });
+      return;
+    }
+
+    // A switch answers the state it now stands at — which is what lands, not what was asked for.
+    if (typeof result.state === "boolean" && (name === "think" || name === "autorun")) {
+      applySwitch(convId, name === "think" ? "thinking" : "actions", result.state);
+      return;
+    }
+
+    if (result.commands) { say({ role: "commandHelp", commands: result.commands, label: result.message }); return; }
+    if (result.tools)    { say({ role: "commandTools", tools: result.tools, label: result.message }); return; }
+
+    say({ role: "checkpoint", label: result.message });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
+  }, [assistantHost && assistantHost.id, applySwitch]);
+
+  // The composer's two buttons are the same commands the popover offers, so a click and a typed
+  // `/think on` travel one path and cannot disagree about what the conversation is set to.
+  const toggleThinking = () => runCommand("think", thinkOn ? "off" : "on", activeId);
+  const toggleActions  = () => runCommand("autorun", actionsOn ? "off" : "on", activeId);
 
   const compactActive = React.useCallback(async () => {
     if (!assistantHost || !activeId) return { compacted: false };
@@ -531,11 +634,81 @@ function ChatPage({
   const onGiveUpBlueprint = (msg) =>
     patchBlueprintMsg(msg.cmdId, { bpState: "failed", bpReason: "You dismissed this draft — nothing was added." });
 
+  // The completion list, derived from the text on every keystroke rather than held open as a mode —
+  // so a backspace walks back out of it and Escape needs nothing to reset. `dismissed` is the one
+  // piece of state, because Escape has to survive the next keystroke or the list springs back.
+  const [commandMenu, setCommandMenu] = React.useState({ items: [], active: 0 });
+  const [menuDismissed, setMenuDismissed] = React.useState(false);
+  const composerRef = React.useRef(null);
+
+  const refreshMenu = React.useCallback((text, dismissed) => {
+    const items = dismissed ? [] : suggestFor(text, commandCatalog);
+    setCommandMenu(prev => ({
+      items,
+      // Hold the highlight where it was while the list only narrows, so typing another letter does
+      // not silently move which command Enter would run.
+      active: Math.min(prev.active, Math.max(0, items.length - 1)),
+    }));
+  }, [commandCatalog]);
+
+  // Put a completion into the composer. A command that still wants a value lands with a trailing
+  // space and re-opens on its values; one that is ready to run just sits there for Enter.
+  const applyCompletion = (item) => {
+    setInput(item.insert);
+    setMenuDismissed(false);
+    refreshMenu(item.insert, false);
+    if (taRef.current) taRef.current.focus();
+  };
+
   const onKeyDown = (e) => {
+    const items = commandMenu.items;
+    if (items.length) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const delta = e.key === "ArrowDown" ? 1 : -1;
+        setCommandMenu(prev => ({
+          ...prev,
+          active: (prev.active + delta + prev.items.length) % prev.items.length,
+        }));
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMenuDismissed(true);
+        setCommandMenu({ items: [], active: 0 });
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        applyCompletion(items[commandMenu.active] || items[0]);
+        return;
+      }
+      // Enter takes the highlighted row. A row that fully specifies a command (`/think on`) RUNS —
+      // there is nothing left to decide, and making someone press Enter twice to confirm a choice
+      // already under the cursor is friction with no question behind it. A row that still owes a
+      // value (`/think`) completes instead, opening its values. Either way Enter never runs a
+      // command while ignoring what is highlighted, which is the bug this shape exists to avoid.
+      if (e.key === "Enter" && !e.shiftKey) {
+        const picked = items[commandMenu.active] || items[0];
+        if (picked && picked.insert !== input) {
+          e.preventDefault();
+          if (picked.runnable) send(picked.insert);
+          else applyCompletion(picked);
+          return;
+        }
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
+
   const onInputChange = (e) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    setInput(value);
+    // A composer emptied back out re-arms the list, so dismissing one slash does not mute the next.
+    const stillDismissed = menuDismissed && value.startsWith("/");
+    if (menuDismissed !== stillDismissed) setMenuDismissed(stillDismissed);
+    refreshMenu(value, stillDismissed);
+
     const ta = e.target;
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
@@ -783,7 +956,7 @@ function ChatPage({
 
         <div className="chat-composer">
           {voice.phase === "idle" ? (
-            <div className="chat-composer__box">
+            <div className="chat-composer__box" ref={composerRef}>
               {/* Name the node only where there is a choice of them. HostPicker is the surface
                   saying it addresses a cluster, so on the panel this reads "Message hotrod's
                   assistant\u2026" and stays useful; a surface with one leaf has no node to
@@ -797,6 +970,11 @@ function ChatPage({
                   : "Message the assistant\u2026"}
                 onChange={onInputChange}
                 onKeyDown={onKeyDown} />
+              <ChatCommandMenu
+                items={commandMenu.items}
+                active={commandMenu.active}
+                anchorRef={composerRef}
+                onPick={applyCompletion} />
               <div className="chat-composer__bar">
                 <ChatContextMeter
                   usage={latestUsage(active && active.messages)}
@@ -859,7 +1037,10 @@ function ChatPage({
           <div className="chat-composer__hint">
             {voice.phase === "recording" || voice.phase === "requesting"
               ? <span>Recording a voice note · I'll transcribe it and reply</span>
-              : <>Enter to send, Shift+Enter for newline</>}
+              // The one place the command surface is advertised to somebody who has never typed a
+              // slash into a chat box. Shown only when this leaf actually offers commands, so it
+              // never points at something that would not open.
+              : <>Enter to send, Shift+Enter for newline{commandCatalog.length > 0 && <> · <code>/</code> for commands</>}</>}
           </div>
         </div>
       </div>

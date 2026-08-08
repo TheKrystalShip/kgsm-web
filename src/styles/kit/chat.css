@@ -3039,6 +3039,170 @@ a.ev-search__src:hover {
   font-weight: 600;
 }
 
+.chat-composer__hint code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--veil-1);
+  color: var(--fg-3);
+}
+
+/* ── The slash-command menu ────────────────────────────────────────────────────
+   Portaled to <body> and positioned against the composer, because the composer sits at the bottom
+   of a scrolling column in the panel dock and inside a fixed shell on the standalone page — a list
+   rendered in flow would be clipped by one and would shove the textarea down in the other. */
+.chat-cmdmenu {
+  position: fixed;
+  z-index: 1200;
+  /* The width is measured off the composer, so the padding and border have to fit INSIDE it —
+     otherwise the menu is ~14px wider than the box it is aligned to and overhangs the right edge
+     at phone width, where there is no slack to hide it. */
+  box-sizing: border-box;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-lg);
+}
+
+.chat-cmdmenu__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.chat-cmdmenu__row:hover,
+.chat-cmdmenu__row--active {
+  background: var(--veil-2);
+}
+
+.chat-cmdmenu__name {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-1);
+  white-space: nowrap;
+}
+
+.chat-cmdmenu__desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-cmdmenu__tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--warn-fg);
+}
+
+.chat-cmdmenu__hint {
+  padding: 6px 9px 2px;
+  border-top: 1px solid var(--border-1);
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--fg-4);
+}
+
+.chat-cmdmenu__hint kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 0 3px;
+  margin-right: 2px;
+  border: 1px solid var(--border-2);
+  border-radius: 3px;
+  color: var(--fg-3);
+}
+
+/* A command's own answer, left in the transcript — looking something up is part of what happened. */
+.chat-cmdcard {
+  align-self: flex-start;
+  max-width: min(680px, 100%);
+  margin: 2px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  background: var(--veil-1);
+}
+
+.chat-cmdcard__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-2);
+  margin-bottom: 8px;
+}
+
+.chat-cmdcard__group + .chat-cmdcard__group {
+  margin-top: 10px;
+}
+
+.chat-cmdcard__grouphead {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  margin-bottom: 4px;
+}
+
+.chat-cmdcard__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.chat-cmdcard__name {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-1);
+}
+
+.chat-cmdcard__desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--fg-4);
+}
+
+/* At phone width the two columns stop fitting side by side and the description wins the line. The
+   keyboard hint goes with them: there are no arrow keys to press, and it is the one row that can be
+   dropped without losing anything a touch user can act on. */
+@media (max-width: 560px) {
+  .chat-cmdmenu__row,
+  .chat-cmdcard__row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .chat-cmdmenu__desc {
+    white-space: normal;
+  }
+
+  .chat-cmdmenu__hint {
+    display: none;
+  }
+}
+
 /* Standing disclosure under the composer — visible for the whole conversation, so it
    sits a step quieter than the keyboard hint above it and never competes with the thread. */
 /* The standing disclosure on the fresh-conversation screen — a step quieter than the

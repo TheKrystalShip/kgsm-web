@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — slash-command completion in the chat composer
+
+Typing `/` as the first character of a message opens a completion list over the composer, on **both**
+surfaces — the Control Panel's dock and the standalone assistant — because it lives in the shared
+`src/chat/`. Arrow keys move, Tab completes, Enter takes the highlighted row (running it when it
+fully specifies a command, completing it when it still owes a value), Escape dismisses.
+
+The catalog is the **leaf's**, fetched from its own origin and already filtered to the caller's tier,
+so nothing here decides who may type what and a command the leaf would refuse never appears. A leaf
+that offers no commands turns the whole surface off rather than showing an empty box.
+
+A leading slash that matches no command is an ordinary message and goes to the model — `/opt/kgsm/…`
+and a mistyped `/compct` both send as text, so nothing a person types is swallowed.
+
+`/help` and `/tools` render as cards in the transcript, because looking something up is part of what
+happened and scrolling back to it is the point.
+
+### Changed — Thinking and Auto-run are the conversation's, and the leaf owns them
+
+Both were per-browser localStorage flags sent on every turn. They are now switches the conversation
+carries, read from `GET /conversations/{id}` and set through the leaf's `/think` and `/autorun`
+commands — so the composer's buttons and a typed command travel one path and cannot disagree, and the
+button reflects what the leaf answered rather than what was asked for. The turn body no longer
+carries either field.
+
+"New chat" mints the conversation at the leaf, so a chat opened here is visible from another device
+before anything is said in it.
+
+### Changed — the leaf Commands tab reads the gate-keyed manifest
+
+`LeafCommands` groups by the gate that admits each command rather than splitting read/act across one
+leaf-wide gate, states what each tier means, and renders the `chat` surface alongside `discord`. An
+option offering a fixed set shows the set (`/think [on|off]`) instead of its parameter name.
+
 ### Fixed — the server tile's quick actions are three equal buttons, and the confirm state is legible
 
 The three lifecycle buttons on a server tile now occupy exactly a third of the row each, whatever

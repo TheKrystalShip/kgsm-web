@@ -9,6 +9,7 @@ import {
   ChatCheckpointNotice, ChatToggleNotice, ChatVerify, ChatSystemNotice,
 } from "./ChatMessageParts.jsx";
 import { ChatMessage } from "./ChatMessage.jsx";
+import { ChatCommandHelp, ChatCommandTools } from "./ChatCommandCards.jsx";
 
 function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlueprint, onGiveUpBlueprint, onDraftEdit, onDraftActive, onRate, readOnlyFeedback, nodes }) {
   return (
@@ -24,6 +25,10 @@ function ChatThread({ messages, user, onOpenServer, onOpenView, onRun, onSaveBlu
             ? <ChatCheckpointNotice key={i} msg={m} />
           : m.role === "toggle"
             ? <ChatToggleNotice key={i} msg={m} />
+          : m.role === "commandHelp"
+            ? <ChatCommandHelp key={i} msg={m} />
+          : m.role === "commandTools"
+            ? <ChatCommandTools key={i} msg={m} />
             : m.role === "evidence"
               ? <ChatEvidence key={i} cards={m.cards} onOpenServer={onOpenServer} onOpenView={onOpenView} onRun={onRun} nodes={nodes} />
               : m.role === "command"
