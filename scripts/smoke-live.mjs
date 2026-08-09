@@ -360,12 +360,20 @@ try {
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
     { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
     { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
-    // Account settings renders the Devices section unconditionally (the section title is present
-    // even before the /auth/sessions fetch resolves and even in the no-node branch), so the title
-    // is a stable render assertion. The "Signing in" and "Your access" cards are deliberately NOT
-    // asserted: both render only for a node this browser holds a live session on, which an
-    // auth-disabled backend does not give the smoke.
-    { hash: "#/settings",      label: "Settings — sessions",  must: ["Devices"] },
+    // Account settings is tabbed, so each case asserts a string from the TAB BODY rather than one
+    // from the tab strip — every label in the strip is present on every tab, which would make the
+    // assertion pass without the body ever rendering.
+    //
+    // Profile's danger zone and Devices' own subtitle are both unconditional: neither waits on a
+    // fetch, and both render in the no-node branch. The "Signing in" and "Your access" sections are
+    // deliberately NOT asserted — both render only for a node this browser holds a live session on,
+    // which an auth-disabled backend does not give the smoke.
+    // Devices asserts only that its tab mounts. Its two branches (a live node, and none) share no
+    // body string that isn't also a tab label, and an auth-disabled backend always takes the second
+    // — so any string assertion here would either pin the empty state or pass off the strip alone.
+    // The populated branch is proven in a real browser by scripts/visual-harness/settings-page.mjs.
+    { hash: "#/settings",         label: "Settings — profile",  must: ["Danger zone"] },
+    { hash: "#/settings/devices", label: "Settings — devices",  must: [] },
   ];
   for (const c of GATED) {
     errors.length = 0;

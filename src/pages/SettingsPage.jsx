@@ -1,14 +1,25 @@
 import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 import { Icon } from "../components/Icon.jsx";
+import { SubTabs } from "../components/SubTabs.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
-import { providerLabel, signInMethodLabel } from "../components/host-helpers.jsx";
+import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { SettingsAccess } from "./SettingsAccess.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
 
-// SettingsPage — YOUR account, and nothing about anybody else's. Four questions, in the order
-// somebody actually asks them: who am I, what may I do, how do I get in, and where am I signed in.
+// SettingsPage — YOUR account, and nothing about anybody else's. Four tabs, in the order somebody
+// actually asks the questions: who am I (Profile), how do I get in (Security), where am I signed in
+// (Devices), how does this look (Appearance).
+//
+// Tabbed rather than one long column because the four are genuinely different subjects, and stacked
+// as equal cards none of them read as primary — the page became a list of slabs with no hierarchy.
+// The tab strip is the same `SubTabs` the server detail, node deep-dive and leaf pages use, so this
+// page navigates like the rest of the site rather than inventing a fifth idiom for itself.
+//
+// The tab lives in the URL (`#/settings/security`), so Back, Forward, refresh and a shared link all
+// land where they should. `profile` is the default and is omitted, so the plain `#/settings` the
+// sidebar produces is the landing tab's canonical address.
 //
 // The subject is the person reading it. Administering other people's accounts is the API leaf's
 // Users tab (`leaf/ApiUsers.jsx`), where kgsm-api's account store is — a page about who you are is
@@ -19,13 +30,24 @@ import { SettingsSessions } from "./SettingsSessions.jsx";
 // that provider's rendering of it, re-read at each login. Neither is a field this panel owns, so
 // neither is offered as one — an input that silently persists nowhere is worse than a plain value.
 
-function SettingsPage({ user, onLogout }) {
+const TABS = [
+  { id: "profile", label: "Profile", icon: "user" },
+  { id: "security", label: "Security", icon: "key-round" },
+  { id: "devices", label: "Devices", icon: "monitor-smartphone" },
+  { id: "appearance", label: "Appearance", icon: "palette" },
+];
+
+function SettingsPage({ user, onLogout, tab, onTabChange }) {
   const themePref = useThemePref();
 
   // Which door this session came through, derived from the handle the backend returned
   // (`provider:subject`) at login. It decides what the password row can offer, so it is read here
   // once and passed down rather than re-derived.
   const sessionProvider = (user && user.provider) || null;
+
+  // An unknown tab falls back to the landing one rather than rendering an empty body — a stale or
+  // hand-typed URL should land somewhere, not nowhere.
+  const active = TABS.some((t) => t.id === tab) ? tab : "profile";
 
   return (
     <>
@@ -34,62 +56,74 @@ function SettingsPage({ user, onLogout }) {
         <div className="dash-head__sub">Your account and how Krystal behaves across the site.</div>
       </div>
 
-      <div className="settings-body">
-        <SettingsSection icon="user" title="You">
-          <div className="settings-profile">
-            {/* The same gradient circle AccountAvatar draws, styled by this card's own rule. An
-                avatar image is not plumbed through the session, so the initial is what there
-                honestly is. */}
-            <span className="settings-profile__avatar">
-              {((user && (user.display || user.name)) || "?")[0].toUpperCase()}
-            </span>
-            <div className="settings-profile__info">
-              <span className="settings-profile__name">{(user && (user.display || user.name)) || "—"}</span>
-              <span className="settings-profile__provider">
-                via {signInMethodLabel(sessionProvider)}
-              </span>
-            </div>
-          </div>
-          <SettingsRow icon="at-sign" title="Account"
-            sub={sessionProvider === "local"
-              ? "Your KGSM account name. An administrator changes it."
-              : `From your ${providerLabel(sessionProvider || "")} account, and re-read each time you sign in.`}>
-            <span className="settings-value settings-value--mono">{(user && user.id) || "—"}</span>
-          </SettingsRow>
-        </SettingsSection>
+      <SubTabs tabs={TABS} active={active} onChange={onTabChange} />
 
-        {/* What you may do, per node — the one question no other surface answers out loud. */}
-        <SettingsAccess />
+      <div className="settings-body">
+        {active === "profile" && (
+          <>
+            <SettingsSection icon="user" title="You">
+              <div className="settings-profile">
+                {/* The same gradient circle AccountAvatar draws, styled by this card's own rule. An
+                    avatar image is not plumbed through the session, so the initial is what there
+                    honestly is. */}
+                <span className="settings-profile__avatar">
+                  {((user && (user.display || user.name)) || "?")[0].toUpperCase()}
+                </span>
+                <div className="settings-profile__info">
+                  <span className="settings-profile__name">{(user && (user.display || user.name)) || "—"}</span>
+                  <span className="settings-profile__provider">
+                    via {signInMethodLabel(sessionProvider)}
+                  </span>
+                </div>
+              </div>
+              <SettingsRow icon="at-sign" title="Account"
+                sub={sessionProvider === "local"
+                  ? "Your KGSM account name. An administrator changes it."
+                  : `From your ${signInMethodLabel(sessionProvider)} account, and re-read each time you sign in.`}>
+                <span className="settings-value settings-value--mono">{(user && user.id) || "—"}</span>
+              </SettingsRow>
+            </SettingsSection>
+
+            {/* What you may do, per node — the one question no other surface answers out loud. */}
+            <SettingsAccess />
+
+            {/* Last on this tab, and on this tab because deleting an account is a fact about who you
+                are rather than about how you sign in. */}
+            <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
+              {/* Disabled, and said plainly: no endpoint deletes an account on request yet. The row
+                  is here because the capability is intended — but a button that looks live and does
+                  nothing is the one thing a danger zone must never be. Until the endpoint exists,
+                  the honest route is the one that actually works. */}
+              <SettingsRow icon="trash-2" title="Delete account"
+                sub="Not available yet. An administrator can remove your account from the node's Users tab.">
+                <button className="settings-btn-danger" disabled title="No endpoint for this yet">
+                  Delete account
+                </button>
+              </SettingsRow>
+              <div className="settings-notice">
+                <Icon name="info" size={13} /> To sign out of every device, use Log out all under
+                Devices.
+              </div>
+            </SettingsSection>
+          </>
+        )}
 
         {/* How you get in: the password and the accounts that stand in for it, together. */}
-        <SettingsIdentities sessionProvider={sessionProvider} />
+        {active === "security" && <SettingsIdentities sessionProvider={sessionProvider} />}
 
         {/* Where you are signed in, and the history of getting there. */}
-        <SettingsSessions onLogout={onLogout} />
+        {active === "devices" && <SettingsSessions onLogout={onLogout} />}
 
-        <SettingsSection icon="palette" title="Appearance">
-          <SettingsRow icon="palette" title="Theme" sub="Auto follows your system. Saved on this device, never on a node.">
-            <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
-              {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </Select>
-          </SettingsRow>
-        </SettingsSection>
-
-        <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
-          {/* Disabled, and said plainly: no endpoint deletes an account on request yet. The row is
-              here because the capability is intended — but a button that looks live and does
-              nothing is the one thing a danger zone must never be. Until the endpoint exists, the
-              honest route is the one that actually works. */}
-          <SettingsRow icon="trash-2" title="Delete account"
-            sub="Not available yet. An administrator can remove your account from the node's Users tab.">
-            <button className="settings-btn-danger" disabled title="No endpoint for this yet">
-              Delete account
-            </button>
-          </SettingsRow>
-          <div className="settings-notice">
-            <Icon name="info" size={13} /> To sign out of every device, use Log out all under Devices.
-          </div>
-        </SettingsSection>
+        {active === "appearance" && (
+          <SettingsSection icon="palette" title="Appearance">
+            <SettingsRow icon="palette" title="Theme"
+              sub="Auto follows your system. Saved on this device, never on a node.">
+              <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
+                {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </Select>
+            </SettingsRow>
+          </SettingsSection>
+        )}
       </div>
     </>
   );

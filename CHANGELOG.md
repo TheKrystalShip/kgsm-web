@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Settings is tabbed** — Profile · Security · Devices · Appearance, on the same `SubTabs` strip the
+  server detail, node deep-dive and leaf pages use, so the page navigates like the rest of the site.
+  Stacked as equal cards the four subjects had no hierarchy and the page read as a list of slabs.
+  The tab is in the URL (`#/settings/security`), so Back, Forward, refresh and a shared link all land
+  on it; `profile` is the default and stays out of the hash, so the plain `#/settings` the sidebar
+  produces is the landing tab's canonical address, and an unknown tab falls back to it rather than
+  rendering an empty body.
 - **Settings is four cards about you** — You, Your access, Signing in, Devices, plus Appearance —
   and every control on it now does something. The display-name and username inputs are values, not
   fields: `/me` is read-only, so what they offered to save was saved nowhere. "Recent logins" is no

@@ -29,7 +29,8 @@
 //                            one leaf on that node — the Services tab drilled in
 //   #/config/<hostId>        a node's leaf configuration (first configurable leaf)
 //   #/config/<hostId>/<leaf> one leaf's configuration surface
-//   #/settings               account settings
+//   #/settings               account settings (Profile)
+//   #/settings/<tab>         account settings, a specific tab
 //
 // A leaf page nests UNDER the node's Services tab because that is exactly where
 // you reach it from: the URL keeps descending instead of jumping to a sibling
@@ -89,7 +90,10 @@
       }
       case "addHost":   return "#/hosts/add";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
-      case "settings":  return "#/settings";
+      // `profile` is the default and stays OUT of the URL, the same way every other tabbed page
+      // omits its own default — so the plain #/settings a bookmark or the sidebar produces is the
+      // canonical address of the landing tab rather than a second spelling of it.
+      case "settings":  return "#/settings" + (route.tab && route.tab !== "profile" ? "/" + enc(route.tab) : "");
       default:          return "#/";
     }
   }
@@ -162,7 +166,7 @@
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
-      case "settings":  return { kind: "settings" };
+      case "settings":  return segs[1] ? { kind: "settings", tab: dec(segs[1]) } : { kind: "settings" };
       // Pre-cluster URL words still resolve so old links/bookmarks keep working.
       case "diagnostics":
         return { kind: "cluster" };
