@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The theme picker is a grid of swatches, grouped Dark and Light**, in place of a dropdown of
+  names. Each tile paints itself IN the theme it offers — `tokens.css` keys colour off a plain
+  `[data-theme]` attribute, so a tile carrying one resolves that palette's own tokens — and shows a
+  miniature of the panel rather than bare chips, because what you are choosing is how the app will
+  look. A retuned palette updates its own swatch, and a new theme arrives with a correct one for
+  free. Auto sits above the groups with both halves shown, since it is a rule rather than a palette.
 - **Change your own password**, on Settings → Signing in. The endpoint has always been there; nothing
   offered it, so the only way to get a password was to ask an administrator. It asks for the current
   one (a session can be a borrowed laptop) and for the new one twice — a mistyped new password is
@@ -24,13 +30,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Settings is tabbed** — Profile · Security · Devices · Appearance, on the same `SubTabs` strip the
+- **Settings is tabbed** — Profile · Security · Devices, on the same `SubTabs` strip the
   server detail, node deep-dive and leaf pages use, so the page navigates like the rest of the site.
   Stacked as equal cards the four subjects had no hierarchy and the page read as a list of slabs.
   The tab is in the URL (`#/settings/security`), so Back, Forward, refresh and a shared link all land
   on it; `profile` is the default and stays out of the hash, so the plain `#/settings` the sidebar
   produces is the landing tab's canonical address, and an unknown tab falls back to it rather than
-  rendering an empty body.
+  rendering an empty body. Appearance is a section of Profile, not a tab: it holds one preference,
+  and a tab with a single control is an empty screen with a heading.
+- **`THEME_OPTS` entries carry `mode`** (`dark｜light`, absent on `auto`) — the palette's own
+  character, declared rather than guessed from the name, and what the picker groups on.
 - **Settings is four cards about you** — You, Your access, Signing in, Devices, plus Appearance —
   and every control on it now does something. The display-name and username inputs are values, not
   fields: `/me` is read-only, so what they offered to save was saved nowhere. "Recent logins" is no

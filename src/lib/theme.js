@@ -24,26 +24,32 @@ const THEME_KEY = "krystal:theme";
 // The offered themes, in the order a picker lists them — the id every surface validates against
 // and the label it shows, in one place, because both surfaces have a picker and a list that lives
 // beside one of them is a list the other cannot reach.
+//
+// `mode` is the theme's own light/dark character, declared here rather than derived: it is a fact
+// about the palette (whether `--canvas` is darker than `--fg-1`), and guessing it from the name
+// would be wrong the first time somebody ships a dark theme called "Latte". A picker groups on it.
+// `auto` carries none, because it is not a palette — it is whichever of the two the OS is asking
+// for, resolved at runtime.
 const THEME_OPTS = [
-  { id: "auto",             label: "Auto (system)"              },
-  { id: "dark",             label: "Krystal Blue Dark"          },
-  { id: "amoled",           label: "Krystal Blue Dark (AMOLED)" },
-  { id: "light",            label: "Krystal Blue Light"         },
-  { id: "nord",             label: "Nord"                       },
-  { id: "catppuccin-mocha", label: "Catppuccin Mocha"           },
-  { id: "dracula",          label: "Dracula"                    },
-  { id: "tokyo-night",      label: "Tokyo Night"                },
-  { id: "synthwave",        label: "Synthwave '84"              },
-  { id: "gruvbox",          label: "Gruvbox Dark"               },
-  { id: "amber-crt",        label: "Amber CRT Screen"           },
-  { id: "one-dark",         label: "One Dark Pro"               },
-  { id: "rose-pine",        label: "Rosé Pine"                  },
-  { id: "kanagawa",         label: "Kanagawa"                   },
-  { id: "everforest",       label: "Everforest"                 },
-  { id: "github-light",     label: "GitHub Light"               },
-  { id: "solarized-light",  label: "Solarized Light"            },
-  { id: "catppuccin-latte", label: "Catppuccin Latte"           },
-  { id: "nord-light",       label: "Nord Light"                 },
+  { id: "auto",             label: "Auto (system)"                            },
+  { id: "dark",             label: "Krystal Blue Dark",          mode: "dark"  },
+  { id: "amoled",           label: "Krystal Blue Dark (AMOLED)", mode: "dark"  },
+  { id: "nord",             label: "Nord",                       mode: "dark"  },
+  { id: "catppuccin-mocha", label: "Catppuccin Mocha",           mode: "dark"  },
+  { id: "dracula",          label: "Dracula",                    mode: "dark"  },
+  { id: "tokyo-night",      label: "Tokyo Night",                mode: "dark"  },
+  { id: "synthwave",        label: "Synthwave '84",              mode: "dark"  },
+  { id: "gruvbox",          label: "Gruvbox Dark",               mode: "dark"  },
+  { id: "amber-crt",        label: "Amber CRT Screen",           mode: "dark"  },
+  { id: "one-dark",         label: "One Dark Pro",               mode: "dark"  },
+  { id: "rose-pine",        label: "Rosé Pine",                  mode: "dark"  },
+  { id: "kanagawa",         label: "Kanagawa",                   mode: "dark"  },
+  { id: "everforest",       label: "Everforest",                 mode: "dark"  },
+  { id: "light",            label: "Krystal Blue Light",         mode: "light" },
+  { id: "github-light",     label: "GitHub Light",               mode: "light" },
+  { id: "solarized-light",  label: "Solarized Light",            mode: "light" },
+  { id: "catppuccin-latte", label: "Catppuccin Latte",           mode: "light" },
+  { id: "nord-light",       label: "Nord Light",                 mode: "light" },
 ];
 const VALID = THEME_OPTS.map(o => o.id);
 const DEFAULT = "dark";

@@ -1,8 +1,7 @@
-import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
+import { ThemePicker } from "../components/ThemePicker.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
-import { Select } from "../components/Select.jsx";
 import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { SettingsAccess } from "./SettingsAccess.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
@@ -34,12 +33,9 @@ const TABS = [
   { id: "profile", label: "Profile", icon: "user" },
   { id: "security", label: "Security", icon: "key-round" },
   { id: "devices", label: "Devices", icon: "monitor-smartphone" },
-  { id: "appearance", label: "Appearance", icon: "palette" },
 ];
 
 function SettingsPage({ user, onLogout, tab, onTabChange }) {
-  const themePref = useThemePref();
-
   // Which door this session came through, derived from the handle the backend returned
   // (`provider:subject`) at login. It decides what the password row can offer, so it is read here
   // once and passed down rather than re-derived.
@@ -87,6 +83,13 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
             {/* What you may do, per node — the one question no other surface answers out loud. */}
             <SettingsAccess />
 
+            {/* Appearance sits with the profile rather than on a tab of its own: it is one
+                preference, and a tab holding a single control is an empty screen with a heading. */}
+            <SettingsSection icon="palette" title="Appearance"
+              meta="Saved on this device, never on a node. Auto follows your system.">
+              <ThemePicker />
+            </SettingsSection>
+
             {/* Last on this tab, and on this tab because deleting an account is a fact about who you
                 are rather than about how you sign in. */}
             <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
@@ -113,17 +116,6 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
 
         {/* Where you are signed in, and the history of getting there. */}
         {active === "devices" && <SettingsSessions onLogout={onLogout} />}
-
-        {active === "appearance" && (
-          <SettingsSection icon="palette" title="Appearance">
-            <SettingsRow icon="palette" title="Theme"
-              sub="Auto follows your system. Saved on this device, never on a node.">
-              <Select value={themePref} onChange={e => themeStore.set(e.target.value)}>
-                {THEME_OPTS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-            </SettingsRow>
-          </SettingsSection>
-        )}
       </div>
     </>
   );

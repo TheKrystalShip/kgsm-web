@@ -121,9 +121,11 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 - `router.js` — pure URL-hash ↔ `route` object bridge (framework-free). Full URL
   scheme documented in-file.
 - `theme.js` — client-only theme preference; LIVE swap of `<html data-theme>`, no
-  reload. Owns `THEME_OPTS`, the offered themes as `{ id, label }` — both surfaces'
-  pickers read it and `VALID` derives from it, so a theme is declared once. Mirror
-  the `index.html` / `assistant.html` boot scripts when you change the list.
+  reload. Owns `THEME_OPTS`, the offered themes as `{ id, label, mode }` — both
+  surfaces' pickers read it and `VALID` derives from it, so a theme is declared
+  once. `mode` (`dark｜light`, absent on `auto`) is the palette's own character,
+  **declared not derived**, and is what the swatch picker groups on. Mirror the
+  `index.html` / `assistant.html` boot scripts when you change the list.
 - `formatting.js` / `labels.js` / `art.js` / `servers.js` / `leaves.js` —
   formatting, display-label vocabulary, key-art helpers, server-shape helpers,
   and the leaf vocabulary (run-state → tone+label, iconography, kind). `leaves.js`
