@@ -4132,3 +4132,28 @@ a.ev-search__src:hover {
   gap: var(--s-2);
   flex-wrap: wrap;
 }
+
+
+/* ── The standalone assistant's sign-in screen ───────────────────────────────
+   Its own centred layout rather than the chat page's: signed out there is no
+   conversation and no rail, so borrowing that grid leaves the form in the column
+   where the rail would have been. */
+.assistant-signin {
+  min-height: 100dvh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.assistant-signin__form {
+  width: 100%;
+  max-width: 280px;
+  text-align: left;
+}
+
+.assistant-signin__divider {
+  width: 100%;
+  max-width: 280px;
+  margin: 4px 0;
+}

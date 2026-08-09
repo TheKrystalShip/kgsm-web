@@ -255,3 +255,165 @@
     min-width: 0;
   }
 }
+
+/* ── Accounts (Settings → Accounts) ──────────────────────────────────────────
+   This host's KGSM accounts. One row per account, the whole row a button, because
+   everything about an account is edited in one place. */
+.settings-users {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.settings-users__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out);
+}
+
+.settings-users__row:last-child {
+  border-bottom: none;
+}
+
+.settings-users__row:hover {
+  background: var(--surface-3);
+}
+
+.settings-users__avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--veil-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-2);
+}
+
+.settings-users__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-users__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-users__handle {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-users__tier,
+.settings-users__status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--veil-1);
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.settings-users__tier--admin {
+  background: var(--danger-bg, rgba(239, 68, 68, .12));
+  color: var(--danger);
+}
+
+.settings-users__tier--operator {
+  background: var(--warn-bg, rgba(245, 158, 11, .12));
+  color: var(--warn, var(--fg-2));
+}
+
+.settings-users__status--active {
+  background: var(--ok-bg, rgba(34, 197, 94, .12));
+  color: var(--ok, var(--fg-2));
+}
+
+.settings-users__status--disabled {
+  background: var(--danger-bg, rgba(239, 68, 68, .12));
+  color: var(--danger);
+}
+
+.settings-users__empty {
+  font-size: 13px;
+  color: var(--fg-3);
+  padding: 10px 2px;
+}
+
+.settings-users__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(420px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 22px;
+}
+
+.settings-users__form>h2 {
+  margin: 0 0 6px;
+}
+
+/* The label wants air above it, but not above the first one, which sits under the heading. */
+.settings-users__form .login-form__label {
+  margin-top: 8px;
+}
+
+.settings-users__form>.login-form__label:first-of-type {
+  margin-top: 0;
+}
+
+.settings-users__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--fg-2);
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+
+.settings-users__note>svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.settings-users__linked {
+  font-size: 12px;
+  color: var(--fg-3);
+  margin-top: 2px;
+}
+
+.settings-users__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}

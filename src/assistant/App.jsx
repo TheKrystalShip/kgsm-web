@@ -49,7 +49,10 @@ function App() {
   const user = {
     name: (me && me.displayName) || "You",
     display: (me && me.displayName) || null,
-    provider: "discord",
+    // Left unstated rather than guessed: this surface signs people in through Discord OR a KGSM
+    // password, and the leaf's /auth/me answers who you are without saying which door you came
+    // through. Naming the wrong one would put the wrong mark beside somebody's name.
+    provider: null,
     id: (me && me.userId) || null,
   };
 
@@ -65,43 +68,99 @@ function App() {
   );
 }
 
-// The sign-in is automatic and silent (assistantSession.ensureSession, run at boot): this surface
-// is served BY the leaf, so a browser that has authorized the Discord app completes it with nothing
-// rendered. What is left here are the two states a person has to see — the wait, and the one case
-// Discord wants a human for.
+// A Discord sign-in here is automatic and silent (assistantSession.ensureSession, run at boot):
+// this surface is served BY the leaf, so a browser that has authorized the Discord app completes it
+// with nothing rendered. What is left are the states a person has to see — the wait, the one case
+// Discord wants a human for, and the KGSM password form, which is the only door on a host with no
+// identity provider configured at all.
 function SignIn({ status }) {
   const needsConsent = assistantSession.needsConsent(SELF);
   const denied = status === "denied";
   const waiting = !denied && !needsConsent && !assistantSession.attempted(SELF);
 
+  if (waiting) {
+    return (
+      <div className="assistant-signin">
+        <div className="chat-empty">
+          <span className="chat-empty__logo"><Icon name="bot" size={26} /></span>
+          <h2>Signing you in…</h2>
+          <p>One moment.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="chat-page chat-page--solo">
+    <div className="assistant-signin">
       <div className="chat-empty">
         <span className="chat-empty__logo"><Icon name="bot" size={26} /></span>
-        {waiting ? (
-          <>
-            <h2>Signing you in…</h2>
-            <p>One moment.</p>
-          </>
-        ) : denied ? (
-          <>
-            <h2>No access</h2>
-            <p>Your Discord account doesn’t have access to this assistant.</p>
-          </>
-        ) : (
-          <>
-            <h2>Sign in</h2>
-            <p>{needsConsent
-              ? "Discord needs your permission once before this assistant can answer."
-              : "Sign in with Discord to talk to this assistant."}</p>
-            <button className="chat-suggestion" type="button"
-              onClick={() => assistantSession.signIn(SELF, { prompt: "consent" })}>
-              Continue with Discord
-            </button>
-          </>
-        )}
+        <h2>Sign in</h2>
+        {denied && <p>That account doesn’t have access to this assistant.</p>}
+        <PasswordSignIn />
+        <div className="assistant-signin__divider login-divider"><span>or</span></div>
+        <button className="chat-suggestion" type="button"
+          onClick={() => assistantSession.signIn(SELF, { prompt: "consent" })}>
+          {needsConsent ? "Continue with Discord (permission needed)" : "Continue with Discord"}
+        </button>
       </div>
     </div>
+  );
+}
+
+// Sign in with a KGSM account. The leaf issues its own session, so this posts to its own origin and
+// adopts what comes back — the same shape the OAuth return leg adopts, reached without a redirect.
+function PasswordSignIn() {
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy || !username || !password) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(window.location.origin + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBusy(false);
+        // The leaf gives one answer to a wrong username and a wrong password on purpose; this does
+        // not re-open that distinction by guessing at one.
+        const code = body && body.error;
+        setError(
+          code === "too_many_attempts" ? "Too many attempts. Try again shortly."
+            : code === "account_disabled" ? "That account is disabled on this host."
+            : code === "users_unavailable" ? "This host can’t reach its accounts right now."
+            : "That username and password don’t match an account here.");
+        return;
+      }
+      assistantSession.adopt(SELF, { token: body.token, refresh: body.refresh, tier: body.tier });
+    } catch {
+      setBusy(false);
+      setError("Couldn’t reach this assistant. Try again.");
+    }
+  };
+
+  return (
+    <form className="login-form assistant-signin__form" onSubmit={submit}>
+      {error && <div className="login-card__error" role="alert"><Icon name="alert-triangle" size={14} />{error}</div>}
+      <label className="login-form__label" htmlFor="assistant-username">Username</label>
+      <input id="assistant-username" className="login-form__input" type="text" autoComplete="username"
+        autoCapitalize="off" spellCheck="false" value={username} disabled={busy}
+        onChange={(e) => setUsername(e.target.value)} />
+      <label className="login-form__label" htmlFor="assistant-password">Password</label>
+      <input id="assistant-password" className="login-form__input" type="password"
+        autoComplete="current-password" value={password} disabled={busy}
+        onChange={(e) => setPassword(e.target.value)} />
+      <button className="login-form__submit" type="submit" disabled={busy || !username || !password}>
+        {busy ? "Signing in…" : "Sign in"}
+      </button>
+    </form>
   );
 }
 

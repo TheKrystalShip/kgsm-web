@@ -3,6 +3,7 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
+import { SettingsUsers } from "./SettingsUsers.jsx";
 import { api } from "../lib/apiClient.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
@@ -70,6 +71,10 @@ function SettingsPage({ user, onLogout }) {
         </SettingsSection>
 
         <SettingsSessions onLogout={onLogout} />
+
+        {/* Admin-only, and it renders nothing at all without a live admin session — the
+            endpoints behind it are admin-gated, and a table that 403s is worse than absent. */}
+        <SettingsUsers />
 
         <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
           <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">

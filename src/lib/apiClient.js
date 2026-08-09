@@ -348,6 +348,14 @@ import("./stores.js").then((m) => {
     if (!CONNECTIONS.length) return Promise.reject(offlineError());
     return liveFetch("POST", path, body, hostId, undefined, apiOriginOf(hostId));
   }
+  async function rootPatch(path, body, hostId) {
+    if (!CONNECTIONS.length) return Promise.reject(offlineError());
+    return liveFetch("PATCH", path, body, hostId, undefined, apiOriginOf(hostId));
+  }
+  async function rootDel(path, hostId) {
+    if (!CONNECTIONS.length) return Promise.reject(offlineError());
+    return liveFetch("DELETE", path, null, hostId, undefined, apiOriginOf(hostId));
+  }
 
   // ---- realtime transport (SSE streams, one primary + dynamic per host) ------
   // The primary stream carries a fixed global topic set and drives realtimeStore
@@ -640,6 +648,35 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // api.users(id) — this host's KGSM accounts (/auth/users…, root-routed like the
+  // session endpoints, not under /api/v1). Admin-gated server-side throughout, with
+  // one exception: changePassword is the caller changing their own.
+  //
+  // Deliberately NOT behind a reactive store. Every other domain here is polled or
+  // streamed because something else changes it; accounts change only when an admin
+  // changes them, on this screen, and a cached list is then a list that can be stale
+  // about who may do what. Each screen reads, and re-reads after it writes.
+  function usersScoped(id) {
+    const withRetry = (call) => call().catch((e) => {
+      if (!(e && e.status === 401)) throw e;
+      sessionStore.expire(id);
+      return call();
+    });
+    const at = (userId) => "/auth/users/" + encodeURIComponent(userId);
+    return {
+      list: () => withRetry(() => rootGet("/auth/users", id)).then((r) => (r && r.data) || []),
+      get: (userId) => withRetry(() => rootGet(at(userId), id)),
+      create: (body) => withRetry(() => rootPost("/auth/users", body || {}, id)),
+      update: (userId, body) => withRetry(() => rootPatch(at(userId), body || {}, id)),
+      remove: (userId) => withRetry(() => rootDel(at(userId), id)),
+      setPassword: (userId, password) => withRetry(() => rootPost(at(userId) + "/password", { password }, id)),
+      // Self-service. The current password is required even though the caller holds a
+      // live session — the backend refuses without it, and for the reason it should.
+      changePassword: (currentPassword, newPassword) =>
+        withRetry(() => rootPost("/auth/password", { currentPassword, newPassword }, id)),
+    };
+  }
+
   // api.peers(id) — the cluster peers surface (/api/v1/peers…): admin CRUD over
   // this host's peer roster + the viewer-safe converged roster. v1-routed (get/
   // post/patch/del, not rootGet/rootPost) because peers live under /api/v1, not
@@ -716,6 +753,7 @@ import("./stores.js").then((m) => {
     get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout, vouch,
     host: hostScoped,
     sessions: sessionsScoped,
+    users: usersScoped,
     peers: peersScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,

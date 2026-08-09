@@ -112,6 +112,16 @@ export async function completeOAuthLogin(captured) {
     try { sessionStorage.setItem(ERROR_KEY, "login_failed"); } catch {}
     return;
   }
+  return establishNodeSession(anchor, captured);
+}
+
+// Turn a freshly-minted token pair into a live session on `anchor`, and hydrate.
+//
+// Extracted from completeOAuthLogin because a KGSM password sign-in ends in exactly the same
+// place: the tokens arrive, and everything after that — /me for the identity, /hosts for the
+// node's real backend id, adopt, register, hydrate — is about the tokens, not about the door
+// they came through. A second copy would be a second place for a login to half-succeed.
+export async function establishNodeSession(anchor, captured) {
   const apiV1 = anchor + "/api/v1";
   const bearer = "Bearer " + captured.access;
   const authHeaders = { Authorization: bearer, Accept: "application/json" };
@@ -120,10 +130,14 @@ export async function completeOAuthLogin(captured) {
     if (!res.ok) throw new Error("me " + res.status);
     const me = await res.json();
     const u = (me && me.user) || {};
+    // The provider is read off the id the backend returned (`provider:subject`), never assumed:
+    // a KGSM password sign-in and a Discord one both land here, and stamping "discord" on a
+    // local account would put the wrong mark beside their name everywhere it is shown.
+    const provider = String(u.id || "").includes(":") ? String(u.id).split(":")[0] : "local";
     localStorage.setItem(AUTH_LS_KEY, JSON.stringify({
-      name: u.display || u.username || "Discord user",
+      name: u.display || u.username || "KGSM user",
       display: u.display || u.username || null,
-      provider: "discord", id: u.id || null, stay: true,
+      provider, id: u.id || null, stay: true,
     }));
 
     // 2 + 3: resolve the real host id, adopt the session under it, hydrate. Best-

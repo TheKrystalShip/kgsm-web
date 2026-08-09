@@ -32,11 +32,48 @@ function LoginPage() {
   const [origin, setOrigin] = React.useState(() => soleConnectionOrigin());
   const hostLabel = String(origin || "").replace(/^https?:\/\//, "") || "this host";
 
+  // The KGSM password form. Its own error, separate from the OAuth one above: a wrong password is
+  // this form's business and must not read as "sign-in didn't complete", which is about a redirect.
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [pwError, setPwError] = React.useState(null);
+
   const signIn = () => {
     if (busy || !origin) return;
     setBusy(true);
     rememberAuthAnchor(origin);   // the return leg calls /me on THIS node
     window.location.href = origin + "/auth/discord/start?prompt=consent";
+  };
+
+  // Sign in with a KGSM account. No redirect: the tokens come back in the response, and the same
+  // adoption path an OAuth return leg takes turns them into a live session on this node.
+  const signInWithPassword = async (e) => {
+    e.preventDefault();
+    if (busy || !origin || !username || !password) return;
+    setBusy(true);
+    setPwError(null);
+    try {
+      const res = await fetch(origin + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBusy(false);
+        setPwError(passwordErrorText(body, res));
+        return;
+      }
+      rememberAuthAnchor(origin);
+      const { establishNodeSession } = await import("../lib/authRedirect.js");
+      await establishNodeSession(origin, { access: body.token, refresh: body.refresh });
+      // A full reload, like every other identity change — several hooks live below the `!user`
+      // gate, so flipping it in place would break the Rules of Hooks.
+      window.location.reload();
+    } catch {
+      setBusy(false);
+      setPwError("Couldn’t reach this host. Check it is running and try again.");
+    }
   };
   const useDifferentHost = () => {
     try { sessionStore.forgetHosts(); } catch {}
@@ -62,9 +99,44 @@ function LoginPage() {
                 : "Sign-in didn’t complete — please try again."}
             </div>
           )}
-          <div className="login-card__sub">
-            This host verifies you through Discord and grants access based on your role in its community.
-          </div>
+          <form className="login-form" onSubmit={signInWithPassword}>
+            {pwError && (
+              <div className="login-card__error" role="alert">
+                <Icon name="alert-triangle" size={14} />
+                {pwError}
+              </div>
+            )}
+            <label className="login-form__label" htmlFor="login-username">Username</label>
+            <input
+              id="login-username"
+              className="login-form__input"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="off"
+              spellCheck="false"
+              value={username}
+              disabled={busy}
+              onChange={(e) => setUsername(e.target.value)} />
+
+            <label className="login-form__label" htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              className="login-form__input"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              disabled={busy}
+              onChange={(e) => setPassword(e.target.value)} />
+
+            <button
+              type="submit"
+              className="login-form__submit"
+              disabled={busy || !origin || !username || !password}>
+              {busy ? (<><span className="oauth-spinner" /> Signing in…</>) : "Sign in"}
+            </button>
+          </form>
+
+          <div className="login-divider"><span>or</span></div>
 
           <button
             type="button"
@@ -103,11 +175,32 @@ function LoginPage() {
         </div>
 
         <div className="login-shell__legal">
-          New here? This host sets up your access automatically on first sign-in, based on your Discord role.
+          New here? Ask an administrator of this host for an account.
         </div>
       </div>
     </div>
   );
+}
+
+// What a refused password sign-in should say.
+//
+// The backend deliberately gives one answer to a wrong username and a wrong password, so this is
+// careful not to re-open that distinction by guessing at one. `too_many_attempts` and
+// `account_disabled` are real, different facts a person needs, and `users_unavailable` is the
+// host's problem rather than theirs — saying "wrong password" there would send them hunting for
+// something they cannot fix.
+function passwordErrorText(body, res) {
+  const code = body && body.error && body.error.code;
+  if (code === "too_many_attempts") {
+    const wait = Number(res.headers.get("Retry-After"));
+    return wait > 0
+      ? `Too many attempts. Try again in ${wait} second${wait === 1 ? "" : "s"}.`
+      : "Too many attempts. Try again shortly.";
+  }
+  if (code === "account_disabled") return "That account is disabled on this host.";
+  if (code === "users_unavailable") return "This host can’t reach its accounts right now.";
+  if (code === "invalid_credentials") return "That username and password don’t match an account here.";
+  return "Sign-in didn’t complete — please try again.";
 }
 
 export { LoginPage, OAuthIcon };

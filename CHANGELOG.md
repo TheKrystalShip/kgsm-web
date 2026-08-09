@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Sign in with a KGSM password**, on both surfaces. The panel's sign-in screen leads with a
+  username and password and keeps Discord below it; the standalone assistant offers the same form on
+  its own sign-in screen. Neither redirects — the tokens come back in the response and take the same
+  adoption path an OAuth return leg takes, so a host with no Discord application configured is fully
+  usable.
+- **Settings → Accounts** — the host's KGSM accounts: create, rename, retier, approve, disable,
+  delete, and set someone's password. With the account store as the sole authority this is the only
+  way anyone's authority on a host ever changes. Scoped to ONE host and never rolled up, because
+  accounts are per-host and a merged list would imply an account exists somewhere it does not; the
+  section renders nothing at all without a live admin session on some host.
+- `api.users(hostId)` on the backend seam, plus root-routed `PATCH`/`DELETE` beside the existing
+  `rootGet`/`rootPost`.
+
+### Changed
+
+- **The silent assistant sign-in is not attempted for a KGSM-password session.** It is silent only
+  because a browser signed into the panel through Discord has already authorized the same
+  application for the leaf; somebody signed in with a password has authorized nothing, so the bounce
+  would not be silent and on a host with no Discord application cannot complete at all. Navigating
+  the whole page away to discover that is worse than the dock saying it needs a sign-in.
+- **The stored identity's provider is read off the id the backend returned** (`provider:subject`)
+  rather than assumed to be Discord, so a local account is not labelled as one.
+
+### Added
+
 - **Backups can be deleted.** The third button on a server's Backups tab calls
   `DELETE /servers/{id}/backups/{backupId}` and re-lists. The row disappears because the backend said
   the snapshot is gone, never optimistically ahead of it — a delete that failed has to leave the backup

@@ -199,8 +199,30 @@ function ensureSession(hostId) {
   if (status === "denied") return Promise.resolve(false);          // terminal; a retry loops forever
   if (status === "bootstrapping") return authorize(hostId);        // spend the refresh token instead
   if (attempted(hostId)) return Promise.resolve(false);            // already bounced this tab; the UI asks
+  // The silent bounce is a DISCORD round trip, and it is silent only because a browser signed into
+  // the panel through Discord has already authorized the same application for this leaf. Somebody
+  // signed in with a KGSM password has authorized nothing — the bounce would not be silent, and on a
+  // host with no Discord application at all it cannot complete. Navigating the whole page away to
+  // find that out is a far worse answer than the dock saying it needs a sign-in, so it is not
+  // attempted; the chat surface offers its own sign-in instead.
+  if (!signedInThroughAProvider()) return Promise.resolve(false);
   signIn(hostId);
   return Promise.resolve(false);                                   // we are navigating away
+}
+
+// Whether the panel identity came from an external provider — the only case the silent round trip
+// can complete without rendering anything. Read from the shell's stored user rather than passed in,
+// because every caller of ensureSession would otherwise have to thread it.
+function signedInThroughAProvider() {
+  try {
+    const raw = localStorage.getItem("krystal:auth");
+    const provider = raw ? (JSON.parse(raw) || {}).provider : null;
+    // Absent is treated as a provider login: this predates local accounts existing, so an old stored
+    // identity with no provider recorded is a Discord one, and refusing it would break its dock.
+    return !provider || provider !== "local";
+  } catch {
+    return true;
+  }
 }
 
 // Hand the browser to the leaf's Discord sign-in, asking to be returned HERE.
