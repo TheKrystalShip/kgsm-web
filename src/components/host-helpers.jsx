@@ -273,7 +273,16 @@ function HostDeniedNotice({ host, onBack, onManage, embedded }) {
   );
 }
 
-// ---------- OAuth icon (from LoginPage.jsx) ----------
+// ---------- OAuth providers ----------
+
+// What each provider is called in a sentence. Presentation only — a host names its providers and
+// says nothing about how to write them, so an unknown name falls through to the name itself rather
+// than being hidden: a host wired to something this build has never heard of is still signable-in.
+const PROVIDER_LABEL = { discord: "Discord", github: "GitHub", google: "Google", microsoft: "Microsoft" };
+
+function providerLabel(provider) {
+  return PROVIDER_LABEL[provider] || provider;
+}
 
 function OAuthIcon({ provider, size = 20 }) {
   const s = { width: size, height: size, display: "block" };
@@ -314,4 +323,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions };
+export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions, providerLabel };

@@ -698,7 +698,10 @@ import("./stores.js").then((m) => {
       reauth: (password) => withRetry(() => rootPost("/auth/reauth", { password }, id)),
       // Returns the URL to send the browser to. Navigating is the caller's — a bearer does not
       // survive a top-level navigation, so the start has to be an XHR and the bounce a location set.
-      startDiscord: () => withRetry(() => rootPost("/auth/identities/discord/start", {}, id)),
+      // The provider comes from the host's own list, never from a name written here.
+      startLink: (provider) =>
+        withRetry(() => rootPost(
+          "/auth/identities/" + encodeURIComponent(provider) + "/start", {}, id)),
       unlink: (credentialId) =>
         withRetry(() => rootDel("/auth/identities/" + encodeURIComponent(credentialId), id)),
     };

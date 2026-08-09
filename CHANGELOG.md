@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The login page draws the sign-in buttons a node reports** (`GET /auth/providers`) instead of one
+  hardcoded Discord button. A button is never offered for a provider the host is not wired to, and a
+  host wired to one this build predates is still reachable through it — an unrecognised name is
+  labelled with itself rather than hidden.
+- **Connecting an account takes the provider from the host's own list.** `api.identities().startLink(provider)`
+  replaces `startDiscord()`, and each button reports its own progress.
+- `providerLabel` moved beside `OAuthIcon` in `host-helpers.jsx`, so the two surfaces that name a
+  provider read from one place.
+
 ### Added
 
 - **A "Connected accounts" section on Settings** — what can sign you in to a host: your KGSM

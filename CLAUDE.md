@@ -238,7 +238,7 @@ break boot. Read the comments before "tidying" an import.
   mapped to the persona's home synchronously, so it never enters state or mounts.
 - **`assistantSession.js` — the session with the LEAF, separate from the node's, and obtained
   silently.** The assistant issues and revokes its own tokens, but every surface on a host is the
-  **same Discord application** (one `KgsmAuth__ClientId`, differing only in redirect URI), so a
+  **same Discord application** (one `KgsmAuth__Providers__discord__ClientId`, differing only in redirect URI), so a
   browser signed into the panel has already authorized the assistant: its round trip completes with
   `prompt=none`, rendering nothing. It is chained onto a panel login (already mid-redirect, so it
   costs nothing visible) and otherwise fires as soon as there is a targeted assistant host — which

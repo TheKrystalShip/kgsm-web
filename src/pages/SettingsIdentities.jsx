@@ -2,7 +2,7 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { Select } from "../components/Select.jsx";
-import { OAuthIcon } from "../components/host-helpers.jsx";
+import { OAuthIcon, providerLabel } from "../components/host-helpers.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { api } from "../lib/apiClient.js";
 import { takeLinkOutcome } from "../lib/oauthFragment.js";
@@ -24,11 +24,7 @@ import { sessionStore } from "../lib/sessionStore.js";
 // Per-host, like accounts and sessions: each host keeps its own, and a merged list would imply a
 // connection exists somewhere it does not.
 
-const PROVIDER_LABEL = { discord: "Discord", github: "GitHub", google: "Google", microsoft: "Microsoft" };
-
-function label(provider) {
-  return PROVIDER_LABEL[provider] || provider;
-}
+const label = providerLabel;
 
 function SettingsIdentities() {
   // Every host this browser holds a live session on. Unlike the accounts screen this is not
@@ -67,12 +63,12 @@ function SettingsIdentities() {
     setProving(() => action);
   };
 
-  const connect = () => {
-    setBusy("connect");
+  const connect = (provider) => () => {
+    setBusy("connect:" + provider);
     setError(null);
-    return api.identities(hostId).startDiscord().then(
+    return api.identities(hostId).startLink(provider).then(
       (r) => { if (r && r.url) location.assign(r.url); else { setBusy(null); setError("This host didn’t return anywhere to go."); } },
-      (e) => { setBusy(null); setError(messageOf(e, "Couldn’t start connecting a Discord account.")); });
+      (e) => { setBusy(null); setError(messageOf(e, `Couldn’t start connecting a ${label(provider)} account.`)); });
   };
 
   const disconnect = (identity) => {
@@ -162,9 +158,9 @@ function SettingsIdentities() {
         <div className="settings-foot">
           {linkable.map((p) => (
             <button key={p.provider} className="fb-editor__btn settings-link__connect"
-              disabled={busy === "connect"}
-              onClick={() => guarded(connect)}>
-              {busy === "connect" ? "Opening…" : `Connect ${label(p.provider)}`}
+              disabled={busy === "connect:" + p.provider}
+              onClick={() => guarded(connect(p.provider))}>
+              {busy === "connect:" + p.provider ? "Opening…" : `Connect ${label(p.provider)}`}
             </button>
           ))}
         </div>

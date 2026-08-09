@@ -1,22 +1,22 @@
 import React from "react";
-import { OAuthIcon } from "../components/host-helpers.jsx";
+import { OAuthIcon, providerLabel } from "../components/host-helpers.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { Select } from "../components/Select.jsx";
 import { rememberAuthAnchor, takeOAuthError } from "../lib/authRedirect.js";
 import { CONNECTIONS, soleConnectionOrigin } from "../lib/config.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
-// LoginPage — the unauthenticated landing surface.
-//
-// All of Krystal sits behind this. Discord OAuth is the primary path (the
-// product is built for a Discord crew), with Google / GitHub / Microsoft
-// shown as secondary providers for any future non-Discord audiences.
-
 // LoginPage — the unauthenticated gate, shown once a host is connected but no
-// identity is established yet. A full-page Discord OAuth bounce to a node's
-// /auth/discord/start. The callback 302s back to this SPA with the session in the
-// URL fragment (main.jsx → completeOAuthLogin), so there is no onLogin callback —
-// the app reboots already authed.
+// identity is established yet. All of Krystal sits behind it.
+//
+// A KGSM password is the way in that needs nothing outside the host. Beside it
+// sits one button per provider the chosen node reports from /auth/providers —
+// asked, never assumed, so a button is never drawn for a bounce that 503s and a
+// host wired to a provider this build predates is still reachable through it.
+// Each is a full-page OAuth bounce to that node's /auth/{provider}/start. The
+// callback 302s back to this SPA with the session in the URL fragment
+// (main.jsx → completeOAuthLogin), so there is no onLogin callback — the app
+// reboots already authed.
 //
 // Signing in picks the DOORWAY into the cluster: the session is minted by the node
 // you come through and vouches onto the rest, so with several nodes connected the
@@ -38,11 +38,27 @@ function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [pwError, setPwError] = React.useState(null);
 
-  const signIn = () => {
+  // Which providers this node offers. Asked rather than assumed: a button for one the host is not
+  // wired to bounces into a 503, and a host wired to one this SPA does not know about would
+  // otherwise be unreachable through anything but a password. Anonymous, because there is no session
+  // here yet. An unreachable node answers nothing, and the password form is still the way in.
+  const [providers, setProviders] = React.useState([]);
+  React.useEffect(() => {
+    if (!origin) { setProviders([]); return; }
+    let live = true;
+    fetch(origin + "/auth/providers", { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => { if (live) setProviders((body && body.providers) || []); })
+      .catch(() => { if (live) setProviders([]); });
+    return () => { live = false; };
+  }, [origin]);
+
+  const signIn = (provider) => () => {
     if (busy || !origin) return;
-    setBusy(true);
+    setBusy(provider);
     rememberAuthAnchor(origin);   // the return leg calls /me on THIS node
-    window.location.href = origin + "/auth/discord/start?prompt=consent";
+    window.location.href =
+      origin + "/auth/" + encodeURIComponent(provider) + "/start?prompt=consent";
   };
 
   // Sign in with a KGSM account. No redirect: the tokens come back in the response, and the same
@@ -136,17 +152,20 @@ function LoginPage() {
             </button>
           </form>
 
-          <div className="login-divider"><span>or</span></div>
+          {providers.length > 0 && <div className="login-divider"><span>or</span></div>}
 
-          <button
-            type="button"
-            className="oauth-btn oauth-btn--discord"
-            disabled={busy || !origin}
-            onClick={signIn}>
-            {busy
-              ? (<><span className="oauth-spinner" /> Redirecting to Discord…</>)
-              : (<><OAuthIcon provider="discord" /> Continue with Discord</>)}
-          </button>
+          {providers.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={"oauth-btn oauth-btn--" + p}
+              disabled={busy || !origin}
+              onClick={signIn(p)}>
+              {busy === p
+                ? (<><span className="oauth-spinner" /> Redirecting to {providerLabel(p)}…</>)
+                : (<><OAuthIcon provider={p} /> Continue with {providerLabel(p)}</>)}
+            </button>
+          ))}
 
           {nodes.length > 1 ? (
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12, color: "var(--fg-3)" }}>
