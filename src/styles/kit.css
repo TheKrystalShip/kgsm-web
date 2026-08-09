@@ -25,5 +25,6 @@
 @import "./kit/cluster.css";
 @import "./kit/leafconfig.css";
 @import "./kit/leaf.css";
+@import "./kit/theme-picker.css";
 @import "./kit/states.css";
 @import "./kit/extras.css";

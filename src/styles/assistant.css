@@ -27,5 +27,6 @@
    shrink this; it is a cascade change for the Control Panel, so not one to make in passing. */
 @import "./kit/onboarding.css";
 @import "./kit/catalog.css";
+@import "./kit/theme-picker.css";
 @import "./kit/states.css";
 @import "./kit/extras.css";

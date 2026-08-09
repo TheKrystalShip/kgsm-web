@@ -143,11 +143,10 @@
 /* ---- theme control (only on a surface where the chat is the whole app) ---- */
 .chat-theme {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  flex-direction: column;
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  min-height: 0;
 }
 
 .chat-theme__icon {
@@ -155,9 +154,39 @@
   flex-shrink: 0;
 }
 
-.chat-theme .k-select {
+/* Shut, the control is one row naming the theme in force. */
+.chat-theme__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-theme__toggle:hover { color: var(--fg-1); background: var(--veil-1); }
+
+.chat-theme__name {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Open, the grid scrolls within the rail rather than growing it — the conversation list above must
+   never be pushed off the screen by the theme control below it. */
+.chat-theme__panel {
+  max-height: 46vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* The popover copy exists for phone width, where the popover REPLACES the rail that normally

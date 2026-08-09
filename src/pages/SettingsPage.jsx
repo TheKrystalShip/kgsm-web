@@ -92,7 +92,7 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
 
             {/* Last on this tab, and on this tab because deleting an account is a fact about who you
                 are rather than about how you sign in. */}
-            <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
+            <SettingsSection icon="triangle-alert" title="Danger zone">
               {/* Disabled, and said plainly: no endpoint deletes an account on request yet. The row
                   is here because the capability is intended — but a button that looks live and does
                   nothing is the one thing a danger zone must never be. Until the endpoint exists,

@@ -10,11 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **The theme picker is a grid of swatches, grouped Dark and Light**, in place of a dropdown of
-  names. Each tile paints itself IN the theme it offers — `tokens.css` keys colour off a plain
-  `[data-theme]` attribute, so a tile carrying one resolves that palette's own tokens — and shows a
-  miniature of the panel rather than bare chips, because what you are choosing is how the app will
-  look. A retuned palette updates its own swatch, and a new theme arrives with a correct one for
-  free. Auto sits above the groups with both halves shown, since it is a rule rather than a palette.
+  names — **on both surfaces**. Each tile paints itself IN the theme it offers (`tokens.css` keys
+  colour off a plain `[data-theme]` attribute, so a tile carrying one resolves that palette's own
+  tokens) and draws a miniature of the panel — sidebar, heading, the KPI strip with its status
+  lights, a card — rather than bare chips, because what you are choosing is how the app will look,
+  and a palette is not one colour: how the rail sits against the canvas and how far a card lifts off
+  it are the differences chips cannot show. A retuned palette updates its own swatch, and a new theme
+  arrives with a correct one for free. Auto sits above the groups with both halves shown, since it is
+  a rule rather than a palette.
+- **The standalone assistant carries the same picker**, in a disclosure at the foot of its
+  conversation rail (and of the history popover at phone width, where that popover replaces the
+  rail). Shut it is one row naming the theme in force — more than the dropdown said, which showed its
+  value and nothing about it; open, the grid scrolls inside the rail so the conversation list is
+  never pushed off screen. Its styles are their own partial, imported by both surfaces' barrels.
 - **Change your own password**, on Settings → Signing in. The endpoint has always been there; nothing
   offered it, so the only way to get a password was to ask an administrator. It asks for the current
   one (a session can be a borrowed laptop) and for the new one twice — a mistyped new password is
@@ -38,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   produces is the landing tab's canonical address, and an unknown tab falls back to it rather than
   rendering an empty body. Appearance is a section of Profile, not a tab: it holds one preference,
   and a tab with a single control is an empty screen with a heading.
+- **The Danger zone card draws like every other card.** Its red left rule and tinted header edge
+  were a hairline nothing else on the site has; the heading and its icon already say what the card
+  is.
 - **`THEME_OPTS` entries carry `mode`** (`dark｜light`, absent on `auto`) — the palette's own
   character, declared rather than guessed from the name, and what the picker groups on.
 - **Settings is four cards about you** — You, Your access, Signing in, Devices, plus Appearance —

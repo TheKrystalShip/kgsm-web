@@ -19,7 +19,11 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 //
 // Switching is live and instant (`themeStore.set` re-cascades `<html data-theme>`), so there is no
 // apply step and nothing to confirm — clicking a swatch IS the preview.
-function ThemePicker() {
+// `compact` shrinks the tiles for the standalone assistant's 240px conversation rail. It changes
+// nothing about what a tile contains — the same miniature, smaller — because a rail that offered a
+// reduced set of themes, or told you less about each one, would be the surface where the picker
+// matters MOST answering with less: the standalone assistant has no Settings page behind it.
+function ThemePicker({ compact = false }) {
   const pref = useThemePref();
   const groups = [
     { mode: "dark", label: "Dark" },
@@ -27,7 +31,7 @@ function ThemePicker() {
   ];
 
   return (
-    <div className="theme-picker">
+    <div className={"theme-picker" + (compact ? " theme-picker--compact" : "")}>
       {/* Auto first and on its own: it is not a palette, it is a rule about which of the two to
           follow, so it neither belongs in a group nor sorts among them. Its tile shows both halves
           because both are what it means. */}
@@ -77,17 +81,39 @@ function ThemeSwatch({ opt, selected }) {
   );
 }
 
-// The miniature. Everything inside resolves against the `data-theme` on this element, so every
-// value here is a token and none is a literal.
+// The miniature — the panel itself, shrunk: the sidebar with its brand mark and nav, a heading, the
+// dashboard's KPI strip with its status lights, and a card below it. Recognisable on purpose, so
+// what a swatch shows is the thing being chosen rather than an abstract set of chips.
+//
+// It is also what makes a swatch informative. A palette is not one colour: the tiles differ in how
+// the rail sits against the canvas, how much a card lifts off it, whether the status lights read at
+// a glance. Two chips cannot show any of that; this shows all of it, and shows the colours in the
+// relationships they are actually used in.
+//
+// Everything inside resolves against the `data-theme` on this element, so every value below is that
+// palette's own token and none is a literal.
 function Mini({ theme }) {
   return (
     <span className="theme-mini" data-theme={theme}>
-      <span className="theme-mini__bar" />
-      <span className="theme-mini__card">
-        <span className="theme-mini__dot" />
-        <span className="theme-mini__lines">
-          <span className="theme-mini__line" />
-          <span className="theme-mini__line theme-mini__line--dim" />
+      <span className="theme-mini__rail">
+        <span className="theme-mini__brand" />
+        <span className="theme-mini__nav" />
+        <span className="theme-mini__nav" />
+        <span className="theme-mini__nav" />
+      </span>
+      <span className="theme-mini__main">
+        <span className="theme-mini__title" />
+        <span className="theme-mini__kpis">
+          <span className="theme-mini__kpi"><span className="theme-mini__led theme-mini__led--ok" /></span>
+          <span className="theme-mini__kpi"><span className="theme-mini__led theme-mini__led--warn" /></span>
+          <span className="theme-mini__kpi"><span className="theme-mini__led theme-mini__led--bad" /></span>
+        </span>
+        <span className="theme-mini__card">
+          <span className="theme-mini__dot" />
+          <span className="theme-mini__lines">
+            <span className="theme-mini__line" />
+            <span className="theme-mini__line theme-mini__line--dim" />
+          </span>
         </span>
       </span>
     </span>

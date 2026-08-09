@@ -1,0 +1,243 @@
+/* kit/theme-picker.css — the theme swatch grid.
+   Its own partial because BOTH surfaces carry the picker: the Control Panel's Settings
+   page and the standalone assistant's conversation rail, which loads its own stylesheet
+   and none of the panel's settings CSS. */
+
+/* ── Theme picker ───────────────────────────────────────────────────────────────
+   Each tile carries its own `data-theme`, so everything inside it resolves that
+   palette's tokens. Nothing in this block hardcodes a colour: the tiles paint
+   themselves, and the chrome around them uses the ACTIVE theme's tokens. */
+.theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 14px;
+}
+
+.theme-picker__group {
+  margin: 10px 0 8px;
+  color: var(--fg-3);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-swatch__tile {
+  position: relative;
+  display: flex;
+  height: 88px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
+}
+
+.theme-swatch:hover .theme-swatch__tile {
+  border-color: var(--border-strong, var(--krystal-teal));
+}
+
+.theme-swatch--on .theme-swatch__tile {
+  border-color: var(--krystal-teal);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--krystal-teal) 35%, transparent);
+}
+
+/* Auto shows both palettes, split down the middle — the two things it chooses between. */
+.theme-swatch__half {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.theme-swatch__half--first {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.theme-swatch__half .theme-mini {
+  width: 200%;
+}
+
+.theme-swatch__half:not(.theme-swatch__half--first) .theme-mini {
+  margin-left: -100%;
+}
+
+.theme-swatch__check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--krystal-teal);
+  color: var(--fg-inverse);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-swatch__label {
+  color: var(--fg-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-swatch--on .theme-swatch__label { color: var(--fg-1); }
+
+/* The miniature panel inside a tile: sidebar + canvas + KPI strip + a card, in that palette's own
+   tokens. Every dimension here is in px because it is a fixed-scale drawing, not a layout. */
+.theme-mini {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  background: var(--canvas);
+}
+
+.theme-mini__rail {
+  width: 22%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 4px;
+  background: var(--surface-0);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.theme-mini__brand {
+  height: 5px;
+  border-radius: 2px;
+  background: var(--krystal-teal);
+}
+
+.theme-mini__nav {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fg-3);
+  opacity: 0.55;
+}
+
+.theme-mini__nav:last-child { width: 65%; }
+
+.theme-mini__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px;
+}
+
+.theme-mini__title {
+  width: 45%;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--fg-1);
+}
+
+.theme-mini__kpis {
+  display: flex;
+  gap: 4px;
+}
+
+.theme-mini__kpi {
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--surface-1);
+}
+
+.theme-mini__led {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+}
+
+.theme-mini__led--ok { background: var(--success); }
+.theme-mini__led--warn { background: var(--warning); }
+.theme-mini__led--bad { background: var(--danger); }
+
+.theme-mini__card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--surface-1);
+}
+
+.theme-mini__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--krystal-teal);
+  flex-shrink: 0;
+}
+
+.theme-mini__lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-mini__line {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fg-1);
+}
+
+.theme-mini__line--dim {
+  width: 60%;
+  background: var(--fg-3);
+}
+
+/* Compact — the assistant's 240px conversation rail. The SAME miniature at a smaller scale: nothing
+   is dropped, because the standalone assistant has no Settings page to see the full one on. */
+.theme-picker--compact { padding: 10px 12px 12px; }
+
+.theme-picker--compact .theme-picker__grid {
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.theme-picker--compact .theme-swatch__tile { height: 60px; }
+.theme-picker--compact .theme-swatch__label { font-size: 10.5px; }
+.theme-picker--compact .theme-mini__rail { padding: 3px 3px; gap: 3px; }
+.theme-picker--compact .theme-mini__main { padding: 4px; gap: 3px; }
+.theme-picker--compact .theme-mini__brand { height: 4px; }
+.theme-picker--compact .theme-mini__nav { height: 2px; }
+.theme-picker--compact .theme-mini__title { height: 4px; }
+.theme-picker--compact .theme-mini__kpi { height: 10px; }
+.theme-picker--compact .theme-mini__led { width: 4px; height: 4px; }
+.theme-picker--compact .theme-mini__card { padding: 3px; gap: 3px; }
+.theme-picker--compact .theme-mini__dot { width: 8px; height: 8px; }
+.theme-picker--compact .theme-mini__line { height: 3px; }
+.theme-picker--compact .theme-swatch__check { width: 14px; height: 14px; top: 3px; right: 3px; }
