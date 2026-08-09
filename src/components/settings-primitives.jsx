@@ -40,9 +40,9 @@ function Toggle({ on, onChange }) {
   );
 }
 
-function SettingsSection({ icon, title, action, children }) {
+function SettingsSection({ icon, title, meta, action, children }) {
   return (
-    <BriefCard icon={icon} title={title} action={action}>
+    <BriefCard icon={icon} title={title} meta={meta} action={action}>
       <div className="chat-brief__list">{children}</div>
     </BriefCard>
   );

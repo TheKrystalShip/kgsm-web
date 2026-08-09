@@ -27,6 +27,7 @@ import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
 import { ApiOverview } from "./ApiOverview.jsx";
+import { ApiUsers } from "./ApiUsers.jsx";
 import { BotOverview } from "./BotOverview.jsx";
 import { FirewallOverview } from "./FirewallOverview.jsx";
 import { MonitorOverview } from "./MonitorOverview.jsx";
@@ -44,6 +45,11 @@ import { LeafSystem } from "./LeafSystem.jsx";
 const LEAF_TABS = {
   assistant: [
     { id: "conversations", label: "Conversations", icon: "messages-square", render: (p) => <AssistantConversations {...p} /> },
+  ],
+  // Accounts belong to the API leaf because kgsm-api is what holds the account store — administered
+  // where the service is, next to its logs and its configuration.
+  api: [
+    { id: "users", label: "Users", icon: "users", render: (p) => <ApiUsers {...p} /> },
   ],
 };
 

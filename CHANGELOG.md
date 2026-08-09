@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Account administration is a Users tab on the Control Panel API leaf**
+  (`#/cluster/<node>/services/api/users`), where kgsm-api's account store is — administered beside
+  that service's own logs and configuration. Settings is now about the person reading it: their
+  profile, what can sign them in, and the sessions those sign-ins produced. Deciding what everybody
+  else may do is a different question about a different subject, and it no longer sits on a page
+  answering "who am I". The node is fixed by the leaf page's route, so the host picker is gone; the
+  tab needs the administrator role on **that** node and says so plainly when the caller holds a
+  lesser one there.
 - **The login page draws the sign-in buttons a node reports** (`GET /auth/providers`) instead of one
   hardcoded Discord button. A button is never offered for a provider the host is not wired to, and a
   host wired to one this build predates is still reachable through it — an unrecognised name is

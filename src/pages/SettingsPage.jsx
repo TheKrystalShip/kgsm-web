@@ -4,12 +4,15 @@ import { SettingsRow, SettingsSection } from "../components/settings-primitives.
 import { Select } from "../components/Select.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
-import { SettingsUsers } from "./SettingsUsers.jsx";
 import { api } from "../lib/apiClient.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
-// SettingsPage — account-level settings (distinct from the per-server Settings
-// sub-tab). A single flat page with no subtabs.
+// SettingsPage — YOUR account: your profile, what can sign you in, and the sessions those sign-ins
+// produced. A single flat page with no subtabs, distinct from the per-server Settings sub-tab.
+//
+// The subject here is the person reading it, never the node. Administering other people's accounts
+// is the API leaf's Users tab (`leaf/ApiUsers.jsx`), where kgsm-api's account store is — a page
+// about who you are is the wrong place to decide what everybody else may do.
 
 function SettingsPage({ user, onLogout }) {
   const themePref = useThemePref();
@@ -75,10 +78,6 @@ function SettingsPage({ user, onLogout }) {
         <SettingsIdentities />
 
         <SettingsSessions onLogout={onLogout} />
-
-        {/* Admin-only, and it renders nothing at all without a live admin session — the
-            endpoints behind it are admin-gated, and a table that 403s is worse than absent. */}
-        <SettingsUsers />
 
         <SettingsSection icon="triangle-alert" title="Danger zone" className="settings-danger">
           <SettingsRow icon="log-out" title="Sign out everywhere" sub="End every active session on all devices.">
