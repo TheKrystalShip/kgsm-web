@@ -464,3 +464,124 @@
   gap: 8px;
   margin-top: 14px;
 }
+
+/* ── Connected accounts ─────────────────────────────────────────────────────
+   The same framed list as the accounts table, one row per way in. Every row is a
+   description plus at most one action, so the row is a container and never a control. */
+.settings-link {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.settings-link__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-link__row:last-child {
+  border-bottom: none;
+}
+
+.settings-link__mark {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--veil-2);
+  color: var(--fg-2);
+}
+
+.settings-link__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-link__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-link__sub {
+  font-size: 11.5px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-link__btn {
+  flex: 0 0 auto;
+  height: 27px;
+  padding: 0 11px;
+  border-radius: var(--r-sm);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-link__btn:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.settings-link__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The result of a link that just came back through the callback — the only place it can be
+   reported, since the browser arrives here from the provider. */
+.settings-link__outcome {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  background: var(--ok-bg, rgba(34, 197, 94, .12));
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  font-size: 12.5px;
+}
+
+.settings-link__outcome--bad {
+  background: var(--danger-bg, rgba(239, 68, 68, .12));
+}
+
+.settings-link__dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg-3);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-link__dismiss:hover {
+  color: var(--fg-1);
+}

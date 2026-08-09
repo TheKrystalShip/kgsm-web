@@ -17,6 +17,7 @@ const ASSISTANT_LOGIN_PARAM = "assistant_login";
 
 const PENDING_KEY = "krystal:oauth:pending";   // sessionStorage {access,refresh} (one-shot)
 const ERROR_KEY = "krystal:oauth:error";       // sessionStorage error code (one-shot)
+const LINK_KEY = "krystal:oauth:link";         // sessionStorage {provider}|{error} (one-shot)
 
 function stripHash(alsoDropParam) {
   try {
@@ -46,6 +47,25 @@ function issuerOfLanding() {
 export function captureOAuthFragment() {
   try {
     const h = (location.hash || "").replace(/^#/, "");
+
+    // Connecting an account, not signing in — no tokens involved, and the session that started it
+    // is still the session that comes back. The outcome is stashed for the settings screen and the
+    // browser is put back on it, because the callback can only return to the one configured URL and
+    // landing on the dashboard after connecting an account tells nobody whether it worked.
+    if (/(^|&)(linked|link_error)=/.test(h)) {
+      const p = new URLSearchParams(h);
+      const linkError = p.get("link_error");
+      try {
+        sessionStorage.setItem(LINK_KEY, JSON.stringify(
+          linkError ? { error: linkError } : { provider: p.get("linked") || "" }));
+      } catch {}
+      try {
+        const url = new URL(location.href);
+        history.replaceState(null, "", url.pathname + url.search + "#/settings");
+      } catch {}
+      return { issuer: "node", hostId: null, link: linkError ? { error: linkError } : { provider: p.get("linked") } };
+    }
+
     if (!h || !/(^|&)(access|error)=/.test(h)) return null;
     const { kind, hostId } = issuerOfLanding();
     const drop = kind === "assistant" ? ASSISTANT_LOGIN_PARAM : null;
@@ -74,4 +94,23 @@ export function captureOAuthFragment() {
   } catch { return null; }
 }
 
-export { ASSISTANT_LOGIN_PARAM, ERROR_KEY, PENDING_KEY };
+// The captured link outcome, for the connected-accounts section to surface.
+//
+// Consumed from storage once and then remembered for the life of the page: the outcome belongs to
+// this landing, and a component that mounts twice (React re-mounts one in development) must not see
+// it the first time and nothing the second.
+let takenLink;
+export function takeLinkOutcome() {
+  if (takenLink !== undefined) return takenLink;
+  takenLink = null;
+  try {
+    const raw = sessionStorage.getItem(LINK_KEY);
+    if (raw) {
+      sessionStorage.removeItem(LINK_KEY);
+      takenLink = JSON.parse(raw);
+    }
+  } catch {}
+  return takenLink;
+}
+
+export { ASSISTANT_LOGIN_PARAM, ERROR_KEY, LINK_KEY, PENDING_KEY };

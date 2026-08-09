@@ -677,6 +677,33 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // api.identities(id) — the caller's OWN sign-in methods on this host (/auth/identities…,
+  // root-routed like the session and account endpoints). Self-service throughout: an account
+  // carries the tier, and only its holder changes what proves it.
+  //
+  // ⚠ The link flow is SAME-ORIGIN. `startDiscord` sets a one-time HttpOnly ticket cookie the
+  // callback comes back with, and a cross-origin fetch does not store one — the deployed panel is
+  // served by the API it talks to, which is what makes this work. Against a separately-served dev
+  // API the start succeeds and the callback then honestly reports `invalid_state`.
+  function identitiesScoped(id) {
+    if (!id) throw new Error("api.identities() requires a concrete host id (got " + id + ")");
+    const withRetry = (call) => call().catch((e) => {
+      if (!(e && e.status === 401)) throw e;
+      sessionStore.expire(id);
+      return call();
+    });
+    return {
+      list: () => withRetry(() => rootGet("/auth/identities", id)),
+      // Prove the KGSM password again, opening the window both writes below need.
+      reauth: (password) => withRetry(() => rootPost("/auth/reauth", { password }, id)),
+      // Returns the URL to send the browser to. Navigating is the caller's — a bearer does not
+      // survive a top-level navigation, so the start has to be an XHR and the bounce a location set.
+      startDiscord: () => withRetry(() => rootPost("/auth/identities/discord/start", {}, id)),
+      unlink: (credentialId) =>
+        withRetry(() => rootDel("/auth/identities/" + encodeURIComponent(credentialId), id)),
+    };
+  }
+
   // api.peers(id) — the cluster peers surface (/api/v1/peers…): admin CRUD over
   // this host's peer roster + the viewer-safe converged roster. v1-routed (get/
   // post/patch/del, not rootGet/rootPost) because peers live under /api/v1, not
@@ -754,6 +781,7 @@ import("./stores.js").then((m) => {
     host: hostScoped,
     sessions: sessionsScoped,
     users: usersScoped,
+    identities: identitiesScoped,
     peers: peersScoped,
     reconnectHost, reconnectAll,
     __hostAuth: hostAuthStatus,

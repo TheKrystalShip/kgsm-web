@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A "Connected accounts" section on Settings** — what can sign you in to a host: your KGSM
+  password, and the provider accounts attached to yours. Connect a Discord account, disconnect one,
+  each per host because each host keeps its own. Both writes confirm your password first (the panel
+  asks before starting rather than after being refused) unless you have just signed in, which is
+  itself the confirmation. Disconnecting says what it does before it does it: the sessions that
+  account established end with it. The link callback returns to this screen and reports the outcome
+  there, because it is the only place that can.
+
 - **An awaiting-approval screen on both surfaces.** Signed in and holding nothing everywhere, the
   panel and the standalone assistant say the one true thing instead of rendering an empty roster
   behind a wall of 403s — and say *which* true thing, since "an administrator has to approve you" and

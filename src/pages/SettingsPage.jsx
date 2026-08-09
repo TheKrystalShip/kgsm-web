@@ -2,6 +2,7 @@ import React from "react";
 import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { Select } from "../components/Select.jsx";
+import { SettingsIdentities } from "./SettingsIdentities.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
 import { SettingsUsers } from "./SettingsUsers.jsx";
 import { api } from "../lib/apiClient.js";
@@ -69,6 +70,9 @@ function SettingsPage({ user, onLogout }) {
             <button className="fb-editor__btn">Save changes</button>
           </div>
         </SettingsSection>
+
+        {/* What can sign you in, above the sessions those sign-ins produced. */}
+        <SettingsIdentities />
 
         <SettingsSessions onLogout={onLogout} />
 

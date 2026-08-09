@@ -220,6 +220,16 @@ break boot. Read the comments before "tidying" an import.
   `App.jsx` renders `AwaitingApprovalPage` when every live session holds `none` —
   read off the SESSIONS, not the host list, since `GET /hosts` is itself gated and
   a tierless caller's empty roster would otherwise read as "no hosts configured".
+- **`SettingsIdentities.jsx` — connected accounts, per host.** Which provider accounts are attached
+  to the caller's own KGSM account, and attaching or detaching one. Both writes confirm the password
+  first (`POST /auth/reauth`), asked BEFORE starting rather than after being refused; a fresh sign-in
+  already counts, so the common path is never prompted. ⚠ **The link flow is same-origin**: the start
+  is an XHR (a bearer does not survive a top-level navigation) whose one-time ticket cookie the
+  callback comes back with, and a cross-origin fetch does not store one. The callback returns to the
+  configured frontend URL with `#linked=<provider>` or `#link_error=<code>`, which
+  `oauthFragment.js` captures into a one-shot the section reports — and it rewrites the hash to
+  `#/settings`, because the callback can only return to one address and landing on the dashboard
+  after connecting an account tells nobody whether it worked.
 - **`persona.js` — the authorization POLICY (single source of truth).** Roles are
   `admin｜operator｜viewer｜none`, resolved **per host** (you can be admin on one
   box, viewer on another). The rule: **`can(cap)` = aggregate (held on ANY host) for
