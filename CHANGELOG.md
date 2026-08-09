@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Backups can be deleted.** The third button on a server's Backups tab calls
+  `DELETE /servers/{id}/backups/{backupId}` and re-lists. The row disappears because the backend said
+  the snapshot is gone, never optimistically ahead of it — a delete that failed has to leave the backup
+  visibly still there.
+
+  It is **arm-then-fire**, the same misclick guard the lifecycle buttons use: the trash swaps to a
+  check for a few seconds and only a second click sends. There is no undo behind this one, and it is an
+  unlabelled icon sitting next to Restore in a dense row, so a single stray click must not be enough.
+  Armed, the button fills with the danger tint — with no label, the colour is most of what says the
+  next click destroys something.
+
 - **Backups can be downloaded.** The button on a server's Backups tab mints a short-lived ticket from
   kgsm-api and hands the browser the URL it returns, so the archive streams straight to disk with the
   browser's own progress and resume — rather than through `fetch`, which would buffer a multi-GB file

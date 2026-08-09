@@ -1114,6 +1114,16 @@ a.game-fact:hover {
   border-color: var(--danger);
 }
 
+/* Armed = the misclick guard is waiting for a second click. It has to read as a
+   different state, not a hover: the button carries no label, so the fill is most
+   of what says the next click destroys something. */
+.icon-btn--danger.is-armed,
+.icon-btn--danger.is-armed:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger-fg);
+}
+
 /* ============= Blueprint file editor (Phase 5) ============= */
 /* The blueprint editor card reuses the FileBrowser's .fb-editor__* button/bar/
    dirty/spacer/expand/modal styles — only the blueprint-specific pieces are new

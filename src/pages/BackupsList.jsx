@@ -5,6 +5,7 @@ import { api } from "../lib/apiClient.js";
 import { apiOriginOf } from "../lib/config.js";
 import { awaitJob } from "../lib/stores.js";
 import { formatBytes, fmtRelative } from "../lib/formatting.js";
+import { useConfirmAction } from "../components/ServerActions.jsx";
 
 // Backups list — one row per snapshot. Rendered through the shared BriefCard
 // shell; each entry uses the same .chat-brief__item row style as the dashboard's
@@ -16,8 +17,13 @@ import { formatBytes, fmtRelative } from "../lib/formatting.js";
 // plus whatever its manifest recorded — size, creation time, captured version.
 // Any of those may be absent (a backup the engine lists but has no manifest
 // for), and an absent field is simply not rendered: never a fabricated size or
-// age, never a "0 B" standing in for unknown. There is still no delete endpoint,
-// so that one stays a disabled affordance.
+// age, never a "0 B" standing in for unknown.
+//
+// Delete is arm-then-fire (the shared useConfirmAction, as the lifecycle buttons
+// use): the trash swaps to a check for a few seconds and only the second click
+// sends. There is no undo behind it — the snapshot is gone from the host — and
+// this is an icon in a dense row next to Restore, so a single misclick must not
+// be enough.
 //
 // Download is a two-step: POST a download-ticket, then send the browser to the
 // URL it returns. It cannot be a fetch — the archive is unbounded (several GB
@@ -42,10 +48,29 @@ function metaFor(b) {
   return parts.join(" · ");
 }
 
+// Its own component because the arm/fire state is a hook, and a hook cannot live inside the row map.
+// Armed, it shows a check and says so — the icon changing is the only thing telling a user their first
+// click did something other than nothing.
+function DeleteBackupButton({ name, busy, deleting, onDelete }) {
+  const { armed, trigger } = useConfirmAction(() => onDelete(name));
+  return (
+    <button
+      className={"icon-btn icon-btn--danger" + (armed ? " is-armed" : "")}
+      title={armed ? "Click again to delete — this cannot be undone" : "Delete"}
+      aria-label={armed ? "Confirm delete" : "Delete"}
+      onClick={trigger}
+      disabled={!!busy}
+    >
+      {deleting ? <span className="oauth-spinner" />
+        : <Icon name={armed ? "check" : "trash-2"} size={14} strokeWidth={armed ? 2.6 : 2} />}
+    </button>
+  );
+}
+
 function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
-  const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | null
+  const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | "download:<name>" | "delete:<name>" | null
 
   const load = React.useCallback(() => {
     if (!server || !server.hostId) return Promise.resolve();
@@ -104,6 +129,18 @@ function BackupsList({ server }) {
     );
   };
 
+  // Delete is NOT a job either — the backend unlinks the snapshot inside the request and answers 204,
+  // so the only thing left to do is re-list. The row is dropped because the backend said it is gone,
+  // never optimistically ahead of it: a delete that failed must leave the backup visibly still there.
+  const deleteBackup = (name) => {
+    setBusy("delete:" + name);
+    setError(null);
+    api.host(server.hostId).del("/servers/" + server.id + "/backups/" + encodeURIComponent(name) + "?origin=ui").then(
+      () => load().finally(() => setBusy(null)),
+      (err) => { setError(err && (err.userMessage || err.message) || "Could not delete the backup."); setBusy(null); }
+    );
+  };
+
   const count = list == null ? "—" : (list.length + (list.length === 1 ? " snapshot" : " snapshots"));
   return (
     <BriefCard
@@ -138,6 +175,7 @@ function BackupsList({ server }) {
           {list.map((b) => {
             const restoring = busy === ("restore:" + b.name);
             const downloading = busy === ("download:" + b.name);
+            const deleting = busy === ("delete:" + b.name);
             // `compressed` may be absent entirely (a backup the engine lists but whose manifest we
             // could not read). That is "we don't know", not "it's compressed" — and offering a
             // download that the backend would refuse is worse than not offering one, so an unknown
@@ -166,11 +204,12 @@ function BackupsList({ server }) {
                   >
                     {downloading ? <span className="oauth-spinner" /> : <Icon name="download" size={14} />}
                   </button>
-                  {/* Delete has no backend endpoint yet — kept as a disabled
-                      affordance (work in progress), never faked. */}
-                  <button className="icon-btn icon-btn--danger" title="Delete — not available yet" disabled>
-                    <Icon name="trash-2" size={14} />
-                  </button>
+                  <DeleteBackupButton
+                    name={b.name}
+                    busy={busy}
+                    deleting={deleting}
+                    onDelete={deleteBackup}
+                  />
                 </div>
               </div>
             );
