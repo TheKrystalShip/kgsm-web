@@ -161,6 +161,9 @@ export async function establishNodeSession(anchor, captured) {
         const { sessionStore } = await import("./sessionStore.js");
         sessionStore.adoptSession(hostId, {
           token: captured.access, refresh: captured.refresh || null, tier: (me && me.tier) || "none",
+          // Carried from the /me just read, so a tierless arrival can be told WHY on the very
+          // first paint rather than after the next reload re-reads it.
+          account: (me && me.status) || "unknown",
         });
         // Persist this host (with its REAL id) into the localStorage registry so a RELOAD
         // re-derives the connection WITH that stable id. The per-host session (keyed by id) then

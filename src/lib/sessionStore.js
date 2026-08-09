@@ -209,6 +209,9 @@ import { hostsStore } from "./stores.js";
       const cur = getRec(id);
       setRec(id, {
         status: "live", tier: (me && me.tier) || "none",
+        // What the node says about the ACCOUNT behind this session, so a `none` tier can
+        // be explained rather than just enforced.
+        account: (me && me.status) || "unknown",
         token: (cur && cur.token) || (me && me.token) || null,
         refresh: (cur && cur.refresh) || null, error: null,
       }, true);
@@ -237,7 +240,7 @@ import { hostsStore } from "./stores.js";
     writeRefresh(id, sess.refresh || null);
     setRec(id, {
       status: "live", token: sess.token || null, refresh: sess.refresh || null,
-      tier: sess.tier || "none", error: null,
+      tier: sess.tier || "none", account: sess.account || "unknown", error: null,
     }, true);
     return getRec(id);
   }
@@ -265,7 +268,12 @@ import { hostsStore } from "./stores.js";
       // Tier isn't in the vouch result — resolve it from the target's /me with the
       // freshly-adopted bearer (un-funneled: pass the token explicitly, like bootstrap).
       return api.meWith(res.accessToken, targetId).then(
-        me => { setRec(targetId, { tier: (me && me.tier) || "none" }, true); return true; },
+        me => {
+          setRec(targetId, {
+            tier: (me && me.tier) || "none", account: (me && me.status) || "unknown",
+          }, true);
+          return true;
+        },
         () => true,   // the session is live even if the tier probe hiccups; gating heals later
       );
     }, () => false);

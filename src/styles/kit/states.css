@@ -202,8 +202,9 @@
   font-size: 10px;
 }
 
-/* --- Full-screen states (cold start + app crash) share a shell --- */
+/* --- Full-screen states (cold start + app crash + awaiting approval) share a shell --- */
 .cold-down,
+.await-approval,
 .app-crash {
   position: fixed;
   inset: 0;
@@ -216,6 +217,7 @@
 }
 
 .cold-down__card,
+.await-approval__card,
 .app-crash__card {
   max-width: 460px;
   width: 100%;
@@ -228,6 +230,7 @@
 }
 
 .cold-down__icon,
+.await-approval__icon,
 .app-crash__icon {
   width: 64px;
   height: 64px;
@@ -249,6 +252,7 @@
 }
 
 .cold-down__title,
+.await-approval__title,
 .app-crash__title {
   font-size: 22px;
   font-weight: 700;
@@ -258,6 +262,7 @@
 }
 
 .cold-down__body,
+.await-approval__body,
 .app-crash__body {
   font-size: 14px;
   line-height: 1.6;
@@ -265,13 +270,28 @@
   margin: 0 0 24px;
 }
 
-.cold-down__actions {
+.await-approval__icon {
+  background: var(--info-bg, var(--surface-2));
+  color: var(--krystal-teal);
+}
+
+.await-approval__who {
+  font-size: 12.5px;
+  color: var(--fg-4);
+  margin: 0 0 22px;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.cold-down__actions,
+.await-approval__actions {
   display: flex;
   gap: 10px;
   justify-content: center;
 }
 
 .cold-down__retry,
+.await-approval__retry,
 .app-crash__btn {
   display: inline-flex;
   align-items: center;
@@ -290,6 +310,7 @@
 }
 
 .cold-down__retry:hover:not(:disabled),
+.await-approval__retry:hover:not(:disabled),
 .app-crash__btn:hover {
   background: var(--krystal-teal-hover);
 }
@@ -299,7 +320,8 @@
   cursor: default;
 }
 
-.cold-down__ghost {
+.cold-down__ghost,
+.await-approval__ghost {
   display: inline-flex;
   align-items: center;
   height: 42px;
@@ -314,7 +336,19 @@
   cursor: pointer;
 }
 
-.cold-down__ghost:hover {
+/* A phone leaves this card ~270px of content, which is not two buttons wide — so they wrap
+   onto their own lines instead of breaking their own labels in half. */
+.await-approval__actions {
+  flex-wrap: wrap;
+}
+
+.await-approval__retry,
+.await-approval__ghost {
+  white-space: nowrap;
+}
+
+.cold-down__ghost:hover,
+.await-approval__ghost:hover {
   color: var(--fg-1);
   background: var(--surface-2);
 }

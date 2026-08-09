@@ -21,6 +21,7 @@ import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
 import { HostReauthModal } from "./pages/HostReauth.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
+import { AwaitingApprovalPage } from "./pages/AwaitingApprovalPage.jsx";
 
 // Extracted modules
 import { readStoredUser, writeStoredUser } from "./lib/authStorage.js";
@@ -158,6 +159,17 @@ function AppInner({ user, setUser, route, setRoute }) {
     setUser(null);
   }, [hostsLoaded, hosts, sessionsByHost, setUser]);
 
+  // Approval happens elsewhere — on another admin's screen, minutes or days from now. This is
+  // how somebody finds out it happened without being told to reload: re-run each host's /me,
+  // which is the same read that decided they hold nothing.
+  const [recheckingAccess, setRecheckingAccess] = React.useState(false);
+  const recheckAccess = React.useCallback(() => {
+    setRecheckingAccess(true);
+    const ids = CONNECTIONS.map(c => c && c.id).filter(Boolean);
+    Promise.all(ids.map(id => sessionStore.bootstrap(id).catch(() => {})))
+      .then(() => setRecheckingAccess(false), () => setRecheckingAccess(false));
+  }, []);
+
   const activeServer = route.kind === "server"
     ? servers.find(s => s.id === route.id) || null
     : null;
@@ -240,6 +252,24 @@ function AppInner({ user, setUser, route, setRoute }) {
   }
   if (!user) {
     return <LoginPage />;
+  }
+
+  // Signed in and holding nothing, anywhere. Every screen past here would be an empty roster
+  // and a wall of 403s, so the panel says the one true thing instead — and says WHICH true
+  // thing, since "waiting for an admin" and "this host has no account for you" are the same
+  // `none` tier and opposite advice. Read off the sessions rather than the host list, because
+  // GET /hosts is itself gated: a tierless caller's host list is empty, and treating that as
+  // "no hosts configured" would send them to the add-a-host screen.
+  const liveSessions = CONNECTIONS
+    .map(c => (c && c.id ? sessionsByHost[c.id] : null))
+    .filter(s => s && s.status === "live");
+  if (liveSessions.length > 0 && liveSessions.every(s => (s.tier || "none") === "none")) {
+    return <AwaitingApprovalPage
+      account={liveSessions[0].account}
+      user={user}
+      checking={recheckingAccess}
+      onRetry={recheckAccess}
+      onLogout={handleLogout} />;
   }
 
   // The sidebar badge counts the CLUSTER's firing alerts — an alert on any node

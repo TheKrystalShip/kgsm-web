@@ -267,20 +267,54 @@
   overflow: hidden;
 }
 
+/* The row is a container, not the control: an account awaiting approval carries its own
+   Approve button, and a button inside a button is not markup a browser will render. */
 .settings-users__row {
   display: flex;
   align-items: center;
-  gap: 12px;
   width: 100%;
-  padding: 11px 13px;
   background: var(--surface-2);
-  border: none;
   border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--d-fast) var(--ease-out);
+}
+
+.settings-users__open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 11px 13px;
+  background: none;
+  border: none;
   color: var(--fg-1);
   font-family: var(--font-ui);
   text-align: left;
   cursor: pointer;
-  transition: background var(--d-fast) var(--ease-out);
+}
+
+.settings-users__approve {
+  flex: 0 0 auto;
+  margin-right: 13px;
+  height: 27px;
+  padding: 0 11px;
+  border-radius: var(--r-sm);
+  background: var(--krystal-teal);
+  color: var(--fg-inverse);
+  border: none;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings-users__approve:hover:not(:disabled) {
+  background: var(--krystal-teal-hover);
+}
+
+.settings-users__approve:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .settings-users__row:last-child {
@@ -289,6 +323,19 @@
 
 .settings-users__row:hover {
   background: var(--surface-3);
+}
+
+.settings-users__waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  background: var(--veil-1);
+  border: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  font-size: 12.5px;
 }
 
 .settings-users__avatar {

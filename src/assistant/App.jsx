@@ -45,6 +45,14 @@ function App() {
   // resolves into a session or into the one case that needs a person.
   if (!signedIn) return <SignIn status={status} />;
 
+  // Signed in, holding nothing. The leaf knows exactly who this is and has no authority for them —
+  // so say which of the two reasons it is, rather than opening a conversation that can answer
+  // nothing about their servers. `me` is still loading on the first paint, which is not the same as
+  // holding nothing, so this waits for the answer.
+  if (me && (me.tier || "none") === "none" && me.status !== "active") {
+    return <AwaitingApproval status={me.status} me={me} />;
+  }
+
   const tier = (me && me.tier) || (leaf && leaf.tier) || "none";
   const user = {
     name: (me && me.displayName) || "You",
@@ -101,6 +109,33 @@ function SignIn({ status }) {
         <button className="chat-suggestion" type="button"
           onClick={() => assistantSession.signIn(SELF, { prompt: "consent" })}>
           {needsConsent ? "Continue with Discord (permission needed)" : "Continue with Discord"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Signed in, and allowed to do nothing yet.
+//
+// Two states wear the same `none` tier and they are opposite advice: "pending" means this host has
+// an account for you and an administrator has to approve it, and anything else means it has no
+// account for you at all, so waiting achieves nothing. Guessing between them would tell half these
+// people to wait for something that is never coming.
+function AwaitingApproval({ status, me }) {
+  const waiting = status === "pending";
+  return (
+    <div className="assistant-signin">
+      <div className="chat-empty">
+        <span className="chat-empty__logo"><Icon name={waiting ? "hourglass" : "user-x"} size={26} /></span>
+        <h2>{waiting ? "Waiting for approval" : "No access on this host"}</h2>
+        <p>
+          {waiting
+            ? "You're signed in. An administrator has to approve your account before the assistant can help you — they'll find you on the Control Panel's accounts screen."
+            : "You're signed in, but this host has no account for you. An administrator has to create one; signing in again won't change it."}
+        </p>
+        {me && me.displayName && <p className="assistant-signin__who">{me.displayName}</p>}
+        <button className="chat-suggestion" type="button" onClick={() => window.location.reload()}>
+          Check again
         </button>
       </div>
     </div>

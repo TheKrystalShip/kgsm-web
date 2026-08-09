@@ -598,6 +598,12 @@ export function adaptMe(be) {
   return {
     user: be.user || null,
     tier: be.tier || "none",
+    // Why the caller holds nothing, when they hold nothing: "pending" is waiting on an
+    // admin, "unknown" is a host that has no account for them. Same tier, different
+    // sentences. Anything unrecognised reads as unknown rather than as a guess.
+    status: be.status === "active" || be.status === "pending" || be.status === "disabled"
+      ? be.status
+      : "unknown",
     scopes: be.scopes || [],
     // Recent login history (device = user-agent, may be null). Honest empty
     // default when the backend omits it — never fabricated.

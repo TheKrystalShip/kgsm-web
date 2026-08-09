@@ -208,11 +208,18 @@ break boot. Read the comments before "tidying" an import.
 
 ## Auth, RBAC, capabilities
 
-- **`sessionStore.js` — per-host identity (Model A).** Discord login is the
-  global SSO anchor; each host mints its OWN short-lived access token
-  (sessionStorage) + long-lived refresh token (localStorage, weeks) and resolves
-  the user's role via that host's bot. `authRedirect.js` captures the OAuth
-  fragment handoff at boot.
+- **`sessionStore.js` — per-host identity (Model A).** Two doors: a KGSM username
+  and password (`POST /auth/login`), and Discord as an SSO anchor. Each host mints
+  its OWN short-lived access token (sessionStorage) + long-lived refresh token
+  (localStorage, weeks), and resolves the user's **tier from that host's KGSM
+  account for them** — a provider proves who you are and nothing more.
+  `authRedirect.js` captures the OAuth fragment handoff at boot;
+  `establishNodeSession` is the shared adoption path both doors end in.
+  The per-host record carries `account` (`active｜pending｜unknown`) beside the
+  tier, because a `none` tier is two facts: waiting on an admin, and unknown here.
+  `App.jsx` renders `AwaitingApprovalPage` when every live session holds `none` —
+  read off the SESSIONS, not the host list, since `GET /hosts` is itself gated and
+  a tierless caller's empty roster would otherwise read as "no hosts configured".
 - **`persona.js` — the authorization POLICY (single source of truth).** Roles are
   `admin｜operator｜viewer｜none`, resolved **per host** (you can be admin on one
   box, viewer on another). The rule: **`can(cap)` = aggregate (held on ANY host) for

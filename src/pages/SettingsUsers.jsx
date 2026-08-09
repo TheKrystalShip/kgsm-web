@@ -49,9 +49,25 @@ function SettingsUsers() {
 
   React.useEffect(() => { reload(); }, [reload]);
 
+  // Approve in place: set the account active at viewer. Anything more is a tier decision, which is
+  // what the row's own editor is for.
+  const [approving, setApproving] = React.useState(null);
+  const approve = (u) => {
+    setApproving(u.id);
+    setError(null);
+    api.users(hostId).update(u.id, { status: "active", tier: u.tier === "none" ? "viewer" : u.tier }).then(
+      () => reload().then(() => setApproving(null)),
+      (e) => { setError(messageOf(e, "Couldn’t approve that account.")); setApproving(null); });
+  };
+
   if (!hosts.length) return null;
 
   const activeAdmins = (rows || []).filter((u) => u.status === "active" && u.tier === "admin").length;
+  const waiting = (rows || []).filter((u) => u.status === "pending").length;
+  // People waiting first. They are the only rows on this screen that need something done, and a
+  // host with twenty accounts would otherwise bury them.
+  const ordered = [...(rows || [])].sort(
+    (a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
 
   return (
     <SettingsSection icon="users" title="Accounts"
@@ -70,29 +86,50 @@ function SettingsUsers() {
         </div>
       )}
 
+      {waiting > 0 && (
+        <div className="settings-users__waiting">
+          <Icon name="hourglass" size={14} />
+          {waiting === 1
+            ? "1 person is waiting for approval. Until you approve them they can sign in and see nothing."
+            : `${waiting} people are waiting for approval. Until you approve them they can sign in and see nothing.`}
+        </div>
+      )}
+
       {rows === null ? (
         <div className="settings-users__empty">Loading…</div>
       ) : rows.length === 0 && !error ? (
         <div className="settings-users__empty">No accounts on this host yet.</div>
       ) : (
         <div className="settings-users">
-          {rows.map((u) => (
-            <button key={u.id} type="button" className="settings-users__row" onClick={() => setEditing(u)}>
-              <span className="settings-users__avatar">{(u.displayName || u.username || "?")[0].toUpperCase()}</span>
-              <span className="settings-users__who">
-                <span className="settings-users__name">{u.displayName || u.username}</span>
-                <span className="settings-users__handle">
-                  {u.username}
-                  {u.identities && u.identities.length > 0 && (
-                    <> · {u.identities.map((i) => i.provider).join(", ")}</>
-                  )}
-                  {!u.hasPassword && u.identities && u.identities.length === 0 && <> · no way to sign in</>}
+          {ordered.map((u) => (
+            <div key={u.id} className="settings-users__row">
+              <button type="button" className="settings-users__open" onClick={() => setEditing(u)}>
+                <span className="settings-users__avatar">{(u.displayName || u.username || "?")[0].toUpperCase()}</span>
+                <span className="settings-users__who">
+                  <span className="settings-users__name">{u.displayName || u.username}</span>
+                  <span className="settings-users__handle">
+                    {u.username}
+                    {u.identities && u.identities.length > 0 && (
+                      <> · {u.identities.map((i) => i.provider).join(", ")}</>
+                    )}
+                    {!u.hasPassword && u.identities && u.identities.length === 0 && <> · no way to sign in</>}
+                  </span>
                 </span>
-              </span>
-              <span className={"settings-users__tier settings-users__tier--" + u.tier}>{TIER_LABEL[u.tier] || u.tier}</span>
-              <span className={"settings-users__status settings-users__status--" + u.status}>{STATUS_LABEL[u.status] || u.status}</span>
-              <Icon name="chevron-right" size={14} />
-            </button>
+                <span className={"settings-users__tier settings-users__tier--" + u.tier}>{TIER_LABEL[u.tier] || u.tier}</span>
+                <span className={"settings-users__status settings-users__status--" + u.status}>{STATUS_LABEL[u.status] || u.status}</span>
+                <Icon name="chevron-right" size={14} />
+              </button>
+              {u.status === "pending" && (
+                /* One gesture, because this is the whole of what an admin does on this screen most
+                   days. It grants VIEWER and nothing more: approving somebody is deciding they
+                   belong here, and deciding what they may do is a second, deliberate act. */
+                <button type="button" className="settings-users__approve"
+                  disabled={approving === u.id}
+                  onClick={() => approve(u)}>
+                  {approving === u.id ? "Approving…" : "Approve"}
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

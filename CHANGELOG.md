@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An awaiting-approval screen on both surfaces.** Signed in and holding nothing everywhere, the
+  panel and the standalone assistant say the one true thing instead of rendering an empty roster
+  behind a wall of 403s — and say *which* true thing, since "an administrator has to approve you" and
+  "this host has no account for you" are the same `none` tier and opposite advice. The panel's
+  re-reads each host's `/me` on demand, because approval happens on somebody else's screen.
+- **Approve in one gesture on Settings → Accounts.** People awaiting approval sort to the top, a
+  banner counts them, and their row carries an Approve button that sets the account active at viewer —
+  what they may do beyond that stays a second, deliberate choice.
+
+### Fixed
+
+- **The standalone assistant's sign-in screen no longer forces a horizontal scrollbar.** Its 24px
+  padding sat outside a `width: 100%`, which this stylesheet has no global `border-box` reset to
+  absorb.
+
+### Added
+
 - **Sign in with a KGSM password**, on both surfaces. The panel's sign-in screen leads with a
   username and password and keeps Discord below it; the standalone assistant offers the same form on
   its own sign-in screen. Neither redirects — the tokens come back in the response and take the same
