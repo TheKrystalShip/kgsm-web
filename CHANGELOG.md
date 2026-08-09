@@ -7,8 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Change your own password**, on Settings → Signing in. The endpoint has always been there; nothing
+  offered it, so the only way to get a password was to ask an administrator. It asks for the current
+  one (a session can be a borrowed laptop) and for the new one twice — a mistyped new password is
+  something only the panel can catch, since the backend would accept and store it. Offered only to a
+  session established WITH a password: a provider session has none to prove.
+- **"Your access" on Settings** — the role you hold on each node you are signed in to, and, when you
+  hold none, which of the two reasons it is: waiting on an administrator, or no account here. Every
+  other surface answers this only by omitting controls.
+- **An account's live sessions inside the admin's edit modal** on the API leaf's Users tab: what that
+  person is signed in on, ending one, or signing them out everywhere. The confirmation says that this
+  ends sessions and does not disable the account, because an admin reaching for it mid-incident is
+  usually reaching for the other one.
+
 ### Changed
 
+- **Settings is four cards about you** — You, Your access, Signing in, Devices, plus Appearance —
+  and every control on it now does something. The display-name and username inputs are values, not
+  fields: `/me` is read-only, so what they offered to save was saved nowhere. "Recent logins" is no
+  longer a peer card that reads as a duplicate of the sessions above it; it is a collapsed "Earlier
+  sign-ins" lane inside Devices, which is where its difference can be stated — a record of what
+  happened, including sessions since ended, with nothing to log out of. The danger zone's duplicate
+  "Sign out everywhere" is gone (Devices owns that action); Delete account stays, disabled, with the
+  route that works named on the row.
+- **Administering another person's sessions moved to the API leaf's Users tab**, into the modal for
+  the account it belongs to. It was on the personal settings page behind a box that wanted a raw
+  `usr_…` id typed from memory.
+- **The sign-in method reads as words everywhere** (`signInMethodLabel`) — a password sign-in said
+  "Signed in via local", the internal handle prefix, in the sidebar and the account menu.
+- **`connect.js` derives the provider from the returned handle** instead of stamping `discord` on
+  every session, which put the wrong mark beside a password user's name and offered them the wrong
+  controls.
 - **Account administration is a Users tab on the Control Panel API leaf**
   (`#/cluster/<node>/services/api/users`), where kgsm-api's account store is — administered beside
   that service's own logs and configuration. Settings is now about the person reading it: their

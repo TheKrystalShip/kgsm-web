@@ -360,10 +360,12 @@ try {
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
     { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
     { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
-    // Account settings renders the Active-sessions section unconditionally (the
-    // section title is present even before the /auth/sessions fetch resolves and
-    // even in the no-host branch), so the title is a stable render assertion.
-    { hash: "#/settings",      label: "Settings — sessions",  must: ["Active sessions"] },
+    // Account settings renders the Devices section unconditionally (the section title is present
+    // even before the /auth/sessions fetch resolves and even in the no-node branch), so the title
+    // is a stable render assertion. The "Signing in" and "Your access" cards are deliberately NOT
+    // asserted: both render only for a node this browser holds a live session on, which an
+    // auth-disabled backend does not give the smoke.
+    { hash: "#/settings",      label: "Settings — sessions",  must: ["Devices"] },
   ];
   for (const c of GATED) {
     errors.length = 0;

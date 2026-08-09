@@ -1,44 +1,44 @@
 import React from "react";
+import { ConfirmRevokeDialog } from "../components/ConfirmRevokeDialog.jsx";
 import { Icon } from "../components/Icon.jsx";
-import { Modal } from "../components/Modal.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { api } from "../lib/apiClient.js";
 import { fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
-import { isAdminAnywhere } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
-// SettingsSessions.jsx — "Active sessions" + "Recent logins" (Settings page),
-// plus an admin-only "Manage user sessions" section.
+// SettingsSessions.jsx — "Devices": where this account is signed in, and ending any of it.
 //
-// Self-service session management against the root-routed kgsm-api session
-// endpoints (api.sessions(hostId), Slice 1): list every active session for
-// this user across devices, revoke one or all, and show a read-only
-// recent-login history from /api/v1/me's recentLogins. Component-local state
-// only (no new store) — mirrors DiscordPage.jsx's DiscordLiveConfig fetch
-// pattern. A revoke that includes the caller's OWN current session (a single
-// revoke on the "This device" row, or "Log out all", which always includes
-// it) proactively calls onLogout right after the 204: the backend has already
-// revoked server-side, so the app clears its local session and returns to the
-// login gate instead of sitting on a now-dead token.
+// Two lanes over two genuinely different sources, which is why they sit in ONE card rather than two
+// peer cards that look alike:
 //
-// "Active sessions" is a CLUSTER view: one login grants access everywhere and
-// each node mints its own session, so the list is a symmetric fan-out over every
-// node this browser holds a LIVE session on (sessionStore's registry + isLive),
-// with no node treated as primary. Sessions and recent logins are both unions
-// over whatever answered; a node that fails drops its rows and earns an honest
-// partial note rather than silently shrinking the list. Every current:true row
-// across those nodes is the SAME browser, so they collapse into one "This
-// device" row whose "Log out" revokes the caller's own session on each node.
+//   the list      — GET /auth/sessions, the live session REGISTRY. What is signed in RIGHT NOW, and
+//                   the only thing here that can be acted on.
+//   the history   — /me.recentLogins, the append-only auth.login AUDIT rows. What has HAPPENED,
+//                   including sign-ins whose sessions have since been revoked or expired.
 //
-// A single-row revoke goes to the node that row came from — the row carries its
-// own node. "Log out all" is cluster-wide and the backend fans session.revoke to
-// peers itself, so any live node performs it.
+// Rendered as peers they read as the same list twice, because a session row and a login row both
+// come down to a device and a time. So the history is a collapsed lane beneath the sessions, opened
+// deliberately, and its copy says what makes it different. It carries no buttons: an event that has
+// already happened cannot be revoked.
 //
-// The admin section is gated on the aggregate persona rule (admin on ANY node);
-// it looks up ANOTHER user's sessions by id and can revoke one or all of them
-// through one node. It never touches onLogout — an admin revoking someone else's
-// session never signs the admin out; the backend enforces the tier check
-// server-side, this gate is UX only.
+// The list is a CLUSTER view: one login grants access everywhere and each node mints its own
+// session, so it is a symmetric fan-out over every node this browser holds a LIVE session on, with
+// no node treated as primary. Both lanes are unions over whatever answered; a node that fails drops
+// its rows and earns an honest partial note rather than silently shrinking the list. Every
+// current:true row across those nodes is the SAME browser, so they collapse into one "This device"
+// row whose "Log out" revokes the caller's own session on each node.
+//
+// A single-row revoke goes to the node that row came from — the row carries its own node. "Log out
+// all" is cluster-wide and the backend fans session.revoke to peers itself, so any live node
+// performs it.
+//
+// A revoke that includes the caller's OWN current session proactively calls onLogout right after the
+// 204: the backend has already revoked server-side, so the app clears its local session and returns
+// to the login gate instead of sitting on a now-dead token.
+//
+// Administering ANOTHER person's sessions is not here — it is on the API leaf's Users tab, next to
+// the roster that names them. Reaching it from a page about yourself meant typing a raw account id
+// into a box.
 
 // Guard timestamp formatting against null/unparsable values — never throw,
 // never fabricate a value; render the honest placeholder instead.
@@ -55,53 +55,6 @@ function deviceLabel(text) {
 // for anything but glyph choice.
 function deviceIcon(userAgent) {
   return /mobile|android|iphone|ipad/i.test(userAgent || "") ? "smartphone" : "monitor";
-}
-
-// The destructive-confirm dialog, shaped like RemoveHostDialog
-// (src/pages/diagnostics/diagHostCards.jsx) — reuses its `.host-remove` /
-// `.host-btn` classes rather than adding a parallel set.
-//
-// Four variants, all sharing the same markup:
-//   "one"       — self-service, revoke the caller's own single session
-//   "all"       — self-service, "Log out all" (always includes the caller)
-//   "admin-one" — admin, revoke ONE of another user's sessions
-//   "admin-all" — admin, log another user out of every device
-// The admin variants take `targetUserId` so the copy names who's affected —
-// never a silent/anonymous destructive action.
-function ConfirmRevokeDialog({ mode, targetUserId, busy, onConfirm, onClose }) {
-  const isAdmin = mode === "admin-one" || mode === "admin-all";
-  const isAll = mode === "all" || mode === "admin-all";
-
-  let title = "Log out this device?";
-  let text = "This ends the session on that device. If it's your current device, you'll need to sign in again.";
-  if (mode === "all") {
-    title = "Log out everywhere?";
-    text = "This ends every active session on every device, including this one. You'll need to sign in again.";
-  } else if (mode === "admin-one") {
-    title = "Revoke this session for user " + targetUserId + "?";
-    text = "This ends that one session for user " + targetUserId + ". Their other devices stay signed in.";
-  } else if (mode === "admin-all") {
-    title = "Log user " + targetUserId + " out of every device?";
-    text = "This ends every active session for user " + targetUserId + ", on every device.";
-  }
-
-  return (
-    <Modal onClose={busy ? undefined : onClose} canClose={!busy}>
-      <div className="modal host-remove">
-        <div className="host-remove__icon host-remove__icon--danger">
-          <Icon name="log-out" size={20} />
-        </div>
-        <h2 className="host-remove__title">{title}</h2>
-        <p className="host-remove__text">{text}</p>
-        <div className="host-remove__foot">
-          <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="host-btn host-btn--danger" onClick={onConfirm} disabled={busy}>
-            <Icon name="log-out" size={14} /> {busy ? (isAdmin ? "Working…" : "Logging out…") : (isAdmin && isAll ? "Log out" : isAdmin ? "Revoke" : "Log out")}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
 }
 
 function SettingsSessions({ onLogout }) {
@@ -121,25 +74,11 @@ function SettingsSessions({ onLogout }) {
   const [otherNote, setOtherNote] = React.useState(null); // honest partial-fan-out-failure note, or null
   const [liveNodeCount, setLiveNodeCount] = React.useState(1); // nodes this browser fetched sessions from
   const [recentLogins, setRecentLogins] = React.useState([]);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState(null);
   const [busy, setBusy] = React.useState(null);       // sid being revoked, "all", "aggregated", or null
   const [confirm, setConfirm] = React.useState(null); // { mode: "one"|"all", sid?, nodeId?, aggregated?, nodeIds? } | null
-
-  // Admin cross-user revoke — a distinct, tier-gated section with its own
-  // state so it never interferes with the self-service list/dialog above.
-  // Real gate (the backend enforces the same check server-side; this is UX).
-  // Aggregate, per the persona rule: admin on ANY node reaches the section, and
-  // the node it acts through enforces its own tier.
-  const isAdmin = isAdminAnywhere();
-  const [targetUserId, setTargetUserId] = React.useState("");
-  const [adminSessions, setAdminSessions] = React.useState([]);
-  const [adminLoading, setAdminLoading] = React.useState(false);
-  const [adminErr, setAdminErr] = React.useState(null);
-  const [adminLookedUp, setAdminLookedUp] = React.useState(false);
-  const [adminNotice, setAdminNotice] = React.useState(null);
-  const [adminBusy, setAdminBusy] = React.useState(null);       // sid being revoked, "all", or null
-  const [adminConfirm, setAdminConfirm] = React.useState(null); // { mode: "admin-one"|"admin-all", sid?, userId } | null
 
   React.useEffect(() => {
     if (!hostId) { setLoading(false); return undefined; }
@@ -183,8 +122,8 @@ function SettingsSessions({ onLogout }) {
 
   if (!hostId) {
     return (
-      <SettingsSection icon="monitor-smartphone" title="Active sessions">
-        <SettingsRow icon="plug" title="No host connected" sub="Connect a host to manage your sessions." />
+      <SettingsSection icon="monitor-smartphone" title="Devices">
+        <SettingsRow icon="plug" title="No node connected" sub="Connect a node to manage your sessions." />
       </SettingsSection>
     );
   }
@@ -243,62 +182,12 @@ function SettingsSessions({ onLogout }) {
   // those rather than render an "Unknown device" placeholder for them.
   const shownLogins = recentLogins.filter(r => r && r.device && String(r.device).trim());
 
-  // Admin: look up another user's sessions by id. Trims + ignores empty —
-  // never fires a lookup for a blank id.
-  const runAdminLookup = () => {
-    const uid = targetUserId.trim();
-    if (!uid) return;
-    setAdminLoading(true);
-    setAdminErr(null);
-    setAdminNotice(null);
-    api.sessions(hostId).list(uid).then(
-      (s) => {
-        setAdminSessions((s && s.sessions) || []);
-        setAdminLoading(false);
-        setAdminLookedUp(true);
-      },
-      (e) => {
-        setAdminErr((e && e.userMessage) || "Couldn't load sessions for that user.");
-        setAdminSessions([]);
-        setAdminLoading(false);
-        setAdminLookedUp(true);
-      },
-    );
-  };
-
-  // Admin: revoke one session (admin-one) or every session for the target
-  // user (admin-all). Never proactively signs the ADMIN out — that only
-  // happens on the self-service path above, whatever userId is targeted here.
-  const runAdminRevoke = () => {
-    if (!adminConfirm) return;
-    const isAllMode = adminConfirm.mode === "admin-all";
-    setAdminBusy(isAllMode ? "all" : adminConfirm.sid);
-    const call = isAllMode
-      ? api.sessions(hostId).revokeUser(adminConfirm.userId)
-      : api.sessions(hostId).revokeSid(adminConfirm.sid);
-    call.then(
-      () => {
-        setAdminBusy(null);
-        setAdminConfirm(null);
-        if (isAllMode) {
-          setAdminSessions([]);
-          setAdminNotice("Logged out user " + adminConfirm.userId + " everywhere.");
-        } else {
-          setAdminSessions(prev => prev.filter(s => s.sid !== adminConfirm.sid));
-        }
-      },
-      (e) => {
-        setAdminBusy(null);
-        setAdminErr((e && e.userMessage) || "Couldn't complete that action.");
-      },
-    );
-  };
-
   return (
     <>
       <SettingsSection
         icon="monitor-smartphone"
-        title="Active sessions"
+        title="Devices"
+        meta="Where this account is signed in right now."
         action={hasSessions && (
           <button className="settings-btn-danger" onClick={() => setConfirm({ mode: "all" })} disabled={busy != null}>
             Log out all
@@ -318,9 +207,8 @@ function SettingsSessions({ onLogout }) {
         {loading && <div className="settings-notice">Loading…</div>}
         {!loading && !err && !hasSessions && <div className="settings-notice">No active sessions.</div>}
 
-        {/* N=1 (no other live-session node): the exact single-host row list,
-            untouched — same order, same fields, same revoke wiring as before
-            this page was cluster-aware. */}
+        {/* N=1 (no other live-session node): the exact single-host row list —
+            same order, same fields, same revoke wiring. */}
         {!loading && liveNodeCount <= 1 && sessions.map(s => (
           <SettingsRow
             key={s.sid}
@@ -396,88 +284,37 @@ function SettingsSessions({ onLogout }) {
             </button>
           </SettingsRow>
         ))}
-      </SettingsSection>
 
-      <SettingsSection icon="history" title="Recent logins">
-        {shownLogins.length === 0 && <div className="settings-notice">No recent logins.</div>}
-        {shownLogins.map((r, i) => (
-          <SettingsRow
-            key={(r && r.ts ? r.ts : "row") + "-" + i}
-            icon={deviceIcon(r.device)}
-            title={<span className="settings-session__device">{r.device}</span>}
-            sub={fmtGuard(r && r.ts, fmtTime) + " · " + fmtGuard(r && r.ts, d => fmtRelative(d))}
-          />
-        ))}
-      </SettingsSection>
-
-      {isAdmin && (
-        <SettingsSection
-          icon="shield"
-          title="Manage user sessions"
-          action={targetUserId.trim() && (
-            <button
-              className="settings-btn-danger"
-              onClick={() => setAdminConfirm({ mode: "admin-all", userId: targetUserId.trim() })}
-              disabled={adminBusy != null}
-            >
-              Log out this user everywhere
+        {/* The history lane. Shut by default and only offered when there is something behind it —
+            a disclosure that opens onto "no recent logins" is a worse answer than no disclosure. */}
+        {!loading && shownLogins.length > 0 && (
+          <>
+            <button type="button" className="settings-history__toggle"
+              aria-expanded={historyOpen} onClick={() => setHistoryOpen(o => !o)}>
+              <Icon name={historyOpen ? "chevron-down" : "chevron-right"} size={14} />
+              Earlier sign-ins
+              <span className="settings-history__count">{shownLogins.length}</span>
             </button>
-          )}
-        >
-          <SettingsRow
-            icon="user-search"
-            title="Look up a user's sessions"
-            sub="Enter another user's id to view and revoke their active sessions. Admin only."
-          >
-            <input
-              value={targetUserId}
-              onChange={(e) => { setTargetUserId(e.target.value); setAdminNotice(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter") runAdminLookup(); }}
-              placeholder="User ID"
-              spellCheck="false"
-              className="settings-input settings-input--mono"
-              style={{ width: 220 }}
-            />
-            <button className="settings-btn-ghost" onClick={runAdminLookup} disabled={!targetUserId.trim() || adminLoading}>
-              {adminLoading ? "Looking up…" : "Look up sessions"}
-            </button>
-          </SettingsRow>
-
-          {adminErr && (
-            <div className="settings-notice settings-notice--danger">
-              <Icon name="alert-triangle" size={13} /> {adminErr}
-            </div>
-          )}
-          {adminNotice && (
-            <div className="settings-notice settings-notice--ok">
-              <Icon name="circle-check-big" size={13} /> {adminNotice}
-            </div>
-          )}
-          {adminLookedUp && !adminLoading && !adminErr && adminSessions.length === 0 && (
-            <div className="settings-notice">No active sessions for that user.</div>
-          )}
-          {adminSessions.map(s => (
-            <SettingsRow
-              key={s.sid}
-              icon={deviceIcon(s.userAgent)}
-              title={<span className="settings-session__device">{deviceLabel(s.userAgent)}</span>}
-              sub={
-                "Signed in " + fmtGuard(s.created, d => fmtRelative(d)) +
-                " · last active " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
-                " · expires " + fmtGuard(s.expires, fmtTime)
-              }
-            >
-              <button
-                className="settings-btn-danger"
-                onClick={() => setAdminConfirm({ mode: "admin-one", sid: s.sid, userId: targetUserId.trim() })}
-                disabled={adminBusy != null}
-              >
-                {adminBusy === s.sid ? "Revoking…" : "Revoke"}
-              </button>
-            </SettingsRow>
-          ))}
-        </SettingsSection>
-      )}
+            {historyOpen && (
+              <>
+                <div className="settings-notice">
+                  <Icon name="info" size={13} /> Every sign-in this account has made recently,
+                  including ones whose sessions have since ended. A record of what happened — there
+                  is nothing here to log out of.
+                </div>
+                {shownLogins.map((r, i) => (
+                  <SettingsRow
+                    key={(r && r.ts ? r.ts : "row") + "-" + i}
+                    icon={deviceIcon(r.device)}
+                    title={<span className="settings-session__device">{r.device}</span>}
+                    sub={fmtGuard(r && r.ts, fmtTime) + " · " + fmtGuard(r && r.ts, d => fmtRelative(d))}
+                  />
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </SettingsSection>
 
       {confirm && (
         <ConfirmRevokeDialog
@@ -485,16 +322,6 @@ function SettingsSessions({ onLogout }) {
           busy={busy != null}
           onClose={() => setConfirm(null)}
           onConfirm={runRevoke}
-        />
-      )}
-
-      {adminConfirm && (
-        <ConfirmRevokeDialog
-          mode={adminConfirm.mode}
-          targetUserId={adminConfirm.userId}
-          busy={adminBusy != null}
-          onClose={() => setAdminConfirm(null)}
-          onConfirm={runAdminRevoke}
         />
       )}
     </>

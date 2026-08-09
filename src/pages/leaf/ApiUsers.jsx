@@ -19,11 +19,13 @@
 
 import React from "react";
 
+import { ConfirmRevokeDialog } from "../../components/ConfirmRevokeDialog.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { SettingsSection } from "../../components/settings-primitives.jsx";
 import { api } from "../../lib/apiClient.js";
+import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 
 const TIERS = ["viewer", "operator", "admin"];
@@ -262,6 +264,8 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
           </div>
         )}
 
+        {!creating && <UserSessions hostId={hostId} user={user} disabled={busy} />}
+
         <div className="settings-users__actions">
           {!creating && (
             <button className="host-btn host-btn--danger" onClick={remove} disabled={busy}>Delete</button>
@@ -276,6 +280,95 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
       </div>
     </Modal>
   );
+}
+
+// Where this account is signed in, and ending any of it — inside the modal for the person it
+// belongs to, so an administrator acts on somebody they have already named. The alternative was a
+// lookup box that took a raw `usr_…` id, which asked an admin to know an opaque string by heart to
+// perform the most consequential thing on this screen.
+//
+// Signing somebody out is deliberately NOT the same act as disabling them: the sessions end and the
+// account is untouched, so they can sign straight back in. The confirmation says so, because an
+// admin reaching for this during an incident is usually reaching for the other one.
+function UserSessions({ hostId, user, disabled }) {
+  const [rows, setRows] = React.useState(null);   // null = not loaded
+  const [error, setError] = React.useState(null);
+  const [busy, setBusy] = React.useState(null);   // a sid, "all", or null
+  const [confirm, setConfirm] = React.useState(null);
+  const name = user.displayName || user.username;
+
+  const reload = React.useCallback(() => {
+    setError(null);
+    return api.sessions(hostId).list(user.id).then(
+      (s) => setRows((s && s.sessions) || []),
+      (e) => { setRows([]); setError(messageOf(e, "Couldn’t load their sessions.")); });
+  }, [hostId, user.id]);
+
+  React.useEffect(() => { reload(); }, [reload]);
+
+  const run = () => {
+    if (!confirm) return;
+    const all = confirm.mode === "admin-all";
+    setBusy(all ? "all" : confirm.sid);
+    const call = all
+      ? api.sessions(hostId).revokeUser(user.id)
+      : api.sessions(hostId).revokeSid(confirm.sid);
+    call.then(
+      () => { setConfirm(null); setBusy(null); reload(); },
+      (e) => { setBusy(null); setError(messageOf(e, "Couldn’t end that session.")); });
+  };
+
+  return (
+    <div className="settings-users__sessions">
+      <div className="settings-users__sessions-head">
+        <span>Signed in on</span>
+        {rows && rows.length > 0 && (
+          <button type="button" className="settings-users__sessions-all"
+            disabled={disabled || busy != null}
+            onClick={() => setConfirm({ mode: "admin-all" })}>
+            {busy === "all" ? "Signing out…" : "Sign out everywhere"}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="login-card__error" role="alert"><Icon name="alert-triangle" size={14} />{error}</div>
+      )}
+
+      {rows === null && !error && <div className="settings-users__empty">Loading…</div>}
+      {rows !== null && rows.length === 0 && !error && (
+        <div className="settings-users__empty">No active sessions.</div>
+      )}
+
+      {(rows || []).map((s) => (
+        <div key={s.sid} className="settings-users__session">
+          <span className="settings-users__session-device">
+            {s.userAgent && String(s.userAgent).trim() ? s.userAgent : "Unknown device"}
+          </span>
+          <span className="settings-users__session-when">last active {rel(s.lastSeen)}</span>
+          <button type="button" className="settings-link__btn"
+            disabled={disabled || busy != null}
+            onClick={() => setConfirm({ mode: "admin-one", sid: s.sid })}>
+            {busy === s.sid ? "Ending…" : "End"}
+          </button>
+        </div>
+      ))}
+
+      {confirm && (
+        <ConfirmRevokeDialog
+          mode={confirm.mode}
+          targetName={name}
+          busy={busy != null}
+          onClose={() => setConfirm(null)}
+          onConfirm={run} />
+      )}
+    </div>
+  );
+}
+
+function rel(ts) {
+  if (!ts) return "—";
+  try { return fmtRelative(parseTs(ts)); } catch { return "—"; }
 }
 
 // The backend's own message when it wrote one, because it is more specific than anything guessable

@@ -5,7 +5,7 @@ import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { coverArtBg } from "../lib/art.js";
-import { OAuthIcon } from "./host-helpers.jsx";
+import { OAuthIcon, signInMethodLabel } from "./host-helpers.jsx";
 import { useStore } from "../lib/store.js";
 
 // Sidebar component — brand, primary nav, quick actions.
@@ -104,7 +104,7 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
             <div className="sidebar__account-menu__name">{user.display || user.name}</div>
             <div className="sidebar__account-menu__provider">
               <OAuthIcon provider={user.provider} size={11} />
-              Signed in via {user.provider}
+              Signed in with {signInMethodLabel(user.provider)}
             </div>
           </div>
           <button className="sidebar__account-menu__item" onClick={() => { setOpen(false); onSettings && onSettings(); }}><Icon name="key" size={14} />API tokens</button>
@@ -121,7 +121,7 @@ function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
           <>
             <span className="sidebar__account__text">
               <span className="sidebar__account__name">{user.display || user.name}</span>
-              <span className="sidebar__account__sub">Signed in via {user.provider}</span>
+              <span className="sidebar__account__sub">Signed in with {signInMethodLabel(user.provider)}</span>
             </span>
             <Icon name="chevrons-up-down" size={14} className="sidebar__account__caret" />
           </>
@@ -260,7 +260,7 @@ function TopNav({ tab, onTab, user, onLogout, onMenu, onHome, onAssistant, assis
               <div className="topbar__account-menu__name">{user.display || user.name}</div>
               <div className="topbar__account-menu__provider">
                 <OAuthIcon provider={user.provider} size={11} />
-                Signed in via {user.provider}
+                Signed in with {signInMethodLabel(user.provider)}
               </div>
             </div>
             <div className="topbar__account-menu__item" onClick={() => { setMenuOpen(false); onSettings && onSettings(); }}><Icon name="settings" size={14} />Settings</div>

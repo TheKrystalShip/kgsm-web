@@ -284,6 +284,15 @@ function providerLabel(provider) {
   return PROVIDER_LABEL[provider] || provider;
 }
 
+// How somebody signed in, in words. `local` is not a provider — it is the KGSM password — and the
+// derived handle prefix says `local` for it, so every surface that renders the raw value tells the
+// reader they signed in "via local". Shared so the sidebar and Settings cannot answer differently.
+function signInMethodLabel(provider) {
+  if (!provider) return "an unknown method";
+  if (provider === "local") return "a KGSM password";
+  return providerLabel(provider);
+}
+
 function OAuthIcon({ provider, size = 20 }) {
   const s = { width: size, height: size, display: "block" };
   if (provider === "discord") {
@@ -323,4 +332,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions, providerLabel };
+export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions, providerLabel, signInMethodLabel };

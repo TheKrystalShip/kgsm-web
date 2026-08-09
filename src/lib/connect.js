@@ -34,9 +34,14 @@ export function parseHandshake(json) {
 export function userFromMe(me) {
   const u = (me && me.user) || {};
   return {
-    name: u.display || u.username || "Discord user",
+    name: u.display || u.username || "KGSM user",
     display: u.display || u.username || null,
-    provider: "discord", id: u.id || null, stay: true,
+    // Read off the id the backend returned (`provider:subject`), never assumed — the same
+    // derivation authRedirect.js makes. A KGSM password sign-in and a provider one both land here,
+    // and stamping "discord" on a local account puts the wrong mark beside their name everywhere it
+    // is shown, and offers them the wrong controls in Settings.
+    provider: String(u.id || "").includes(":") ? String(u.id).split(":")[0] : "local",
+    id: u.id || null, stay: true,
   };
 }
 

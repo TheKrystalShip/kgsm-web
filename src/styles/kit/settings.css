@@ -219,6 +219,136 @@
   border-bottom-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
+/* An account's live sessions, inside the admin's edit modal for that account. */
+.settings-users__sessions {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-users__sessions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  color: var(--fg-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-users__sessions-all {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.settings-users__sessions-all:disabled { opacity: 0.5; cursor: default; }
+
+.settings-users__session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-users__session:last-child { border-bottom: none; }
+
+.settings-users__session-device {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-2);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-users__session-when {
+  color: var(--fg-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* A read-only value sitting where a control sits — the settings-row equivalent of an input the
+   panel does not own. Matches .settings-input's type scale so a card mixing the two keeps one
+   baseline. */
+.settings-value {
+  color: var(--fg-2);
+  font-size: 12.5px;
+}
+
+.settings-value--mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* The role chip on "Your access". Three tones, none of them inventing a state: ok = a real role,
+   warn = waiting on somebody, muted = no role here. */
+.settings-access__tier {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.settings-access__tier--ok {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.settings-access__tier--warn {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.settings-access__tier--muted {
+  background: var(--surface-3);
+  color: var(--fg-3);
+}
+
+/* The "Earlier sign-ins" disclosure inside the Devices card. A row-shaped toggle rather than a
+   card header: what it opens is a secondary lane of the card it sits in, not a card of its own. */
+.settings-history__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-history__toggle:hover {
+  color: var(--fg-1);
+  background: var(--veil-1);
+}
+
+.settings-history__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--fg-3);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   /* Stack each settings row on narrow screens: the icon + label/detail keep the
      first line to themselves (no more mid-word truncation), and the control(s)

@@ -9,7 +9,10 @@ import { takeLinkOutcome } from "../lib/oauthFragment.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { sessionStore } from "../lib/sessionStore.js";
 
-// SettingsIdentities — "Connected accounts": what can sign the caller in to a host.
+// SettingsIdentities — "Signing in": every way the caller can prove who they are on a host, and the
+// only place they change any of it. The KGSM password and the connected provider accounts are one
+// card because they are one question — a password that lives apart from the accounts that replace it
+// makes the reader hunt for the other half.
 //
 // A KGSM account is the primary object and a Discord account is one credential attached to it, so
 // any Discord account can be attached to any KGSM account and which server it is in says nothing
@@ -26,7 +29,7 @@ import { sessionStore } from "../lib/sessionStore.js";
 
 const label = providerLabel;
 
-function SettingsIdentities() {
+function SettingsIdentities({ sessionProvider }) {
   // Every host this browser holds a live session on. Unlike the accounts screen this is not
   // admin-only: it is the caller's own account on each of them.
   const hosts = React.useMemo(
@@ -41,6 +44,8 @@ function SettingsIdentities() {
   const [busy, setBusy] = React.useState(null);       // a credential id, or "connect"
   const [proving, setProving] = React.useState(null); // the pending action, awaiting a password
   const [confirming, setConfirming] = React.useState(null);
+  const [changingPassword, setChangingPassword] = React.useState(false);
+  const [passwordChanged, setPasswordChanged] = React.useState(false);
 
   // The outcome of a link that just came back through the callback. One-shot: the browser was
   // redirected here from Discord, and this is the only place that can say whether it worked.
@@ -85,10 +90,14 @@ function SettingsIdentities() {
   const identities = (data && data.identities) || [];
   const providers = (data && data.providers) || [];
   const linkable = providers.filter((p) => p.configured && !p.linked);
+  // Whether THIS session was established with the KGSM password, read off the handle the backend
+  // returned (`provider:subject`) — the same derivation the shell uses. Absent, treat it as not
+  // local: offering a change that the backend will refuse is worse than not offering it.
+  const localSession = sessionProvider === "local";
 
   return (
-    <SettingsSection icon="link" title="Connected accounts"
-      sub="What can sign you in. Signing in proves who you are; what you may do is on your account.">
+    <SettingsSection icon="key-round" title="Signing in"
+      meta="Signing in proves who you are; what you may do is on your account.">
       {hosts.length > 1 && (
         <SettingsRow icon="server" title="Host" sub="Each host keeps its own accounts and connections.">
           <Select value={hostId || ""} onChange={(e) => setHostId(e.target.value)}>
@@ -103,6 +112,16 @@ function SettingsIdentities() {
           <Icon name={outcome.error ? "alert-triangle" : "circle-check"} size={14} />
           {outcome.error ? linkErrorText(outcome.error) : `${label(outcome.provider)} is connected.`}
           <button type="button" className="settings-link__dismiss" onClick={() => setOutcome(null)}>Dismiss</button>
+        </div>
+      )}
+
+      {passwordChanged && (
+        <div className="settings-link__outcome" role="status">
+          <Icon name="circle-check" size={14} />
+          Your password is changed. Your other devices stay signed in — end them under Devices if
+          that is not what you want.
+          <button type="button" className="settings-link__dismiss"
+            onClick={() => setPasswordChanged(false)}>Dismiss</button>
         </div>
       )}
 
@@ -121,11 +140,18 @@ function SettingsIdentities() {
             <span className="settings-link__who">
               <span className="settings-link__name">KGSM password</span>
               <span className="settings-link__sub">
-                {data && data.hasPassword
-                  ? `Signs in as ${data.username}`
-                  : "Not set — an administrator can give you one"}
+                {passwordSub(data, localSession)}
               </span>
             </span>
+            {/* Changing it needs the CURRENT one, which only a session established with it can
+                prove. A provider session holds no password to prove, so the button is not offered
+                to it at all rather than offered and then refused. */}
+            {data && data.hasPassword && localSession && (
+              <button type="button" className="settings-link__btn"
+                onClick={() => { setPasswordChanged(false); setChangingPassword(true); }}>
+                Change
+              </button>
+            )}
           </div>
 
           {identities.map((i) => (
@@ -174,6 +200,13 @@ function SettingsIdentities() {
           onProved={() => { const run = proving; setProving(null); reload().then(() => run()); }} />
       )}
 
+      {changingPassword && (
+        <ChangePasswordDialog
+          hostId={hostId}
+          onClose={() => setChangingPassword(false)}
+          onChanged={() => { setChangingPassword(false); setPasswordChanged(true); reload(); }} />
+      )}
+
       {confirming && (
         <ConfirmDisconnectDialog
           identity={confirming}
@@ -181,6 +214,89 @@ function SettingsIdentities() {
           onConfirm={() => guarded(() => disconnect(confirming))} />
       )}
     </SettingsSection>
+  );
+}
+
+// What the password row says about itself. Three states, and the middle one is the one worth being
+// explicit about: an account CAN have a password that the current session simply cannot prove.
+function passwordSub(data, localSession) {
+  if (!data || !data.hasPassword) return "Not set — an administrator can give you one";
+  if (!localSession) {
+    return `Signs in as ${data.username} — sign in with it to change it`;
+  }
+  return `Signs in as ${data.username}`;
+}
+
+// Change your own password, proving the current one. The current password is required even though
+// the caller holds a live session, and for the reason it should be: a session can be a borrowed
+// laptop, and letting one set the password that would take the account back is how a temporary
+// compromise becomes a permanent one.
+//
+// The new password is typed twice. The backend cannot catch a typo — it would accept and store it —
+// so the only place a mistyped new password can be caught is here, before it becomes the one thing
+// that signs this person in.
+function ChangePasswordDialog({ hostId, onClose, onChanged }) {
+  const [current, setCurrent] = React.useState("");
+  const [next, setNext] = React.useState("");
+  const [again, setAgain] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const mismatch = again.length > 0 && next !== again;
+  const ready = !!current && !!next && next === again;
+
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.users(hostId).changePassword(current, next);
+      onChanged();
+    } catch (e) {
+      setBusy(false);
+      setError(messageOf(e, "Couldn’t change your password."));
+    }
+  };
+
+  return (
+    <Modal onClose={busy ? undefined : onClose} canClose={!busy}>
+      <div className="modal settings-users__form">
+        <h2 className="host-remove__title">Change your password</h2>
+        {error && (
+          <div className="login-card__error" role="alert"><Icon name="alert-triangle" size={14} />{error}</div>
+        )}
+
+        <label className="login-form__label" htmlFor="pw-current">Current password</label>
+        <input id="pw-current" className="login-form__input" type="password" value={current}
+          autoComplete="current-password" autoFocus disabled={busy}
+          onChange={(e) => setCurrent(e.target.value)} />
+
+        <label className="login-form__label" htmlFor="pw-new">New password</label>
+        <input id="pw-new" className="login-form__input" type="password" value={next}
+          autoComplete="new-password" disabled={busy}
+          onChange={(e) => setNext(e.target.value)} />
+
+        <label className="login-form__label" htmlFor="pw-again">New password again</label>
+        <input id="pw-again" className="login-form__input" type="password" value={again}
+          autoComplete="new-password" disabled={busy}
+          onChange={(e) => setAgain(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && ready) submit(); }} />
+        {mismatch && (
+          <div className="settings-users__note">
+            <Icon name="alert-triangle" size={14} />
+            Those two don’t match.
+          </div>
+        )}
+
+        <div className="settings-users__actions">
+          <span style={{ flex: 1 }} />
+          <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="host-btn host-btn--primary" onClick={submit} disabled={busy || !ready}>
+            {busy ? "Changing…" : "Change password"}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
