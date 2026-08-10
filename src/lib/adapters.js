@@ -509,14 +509,18 @@ export function adaptLeafConfigApply(be) {
 // api returns { data:[Alert] }; the FE alerts store consumes an array. The
 // honest backend shape carries no `icon` — an icon is PRESENTATION, not a
 // measured fact (like SERVER_STATUS maps a run-state to a label), so we derive
-// one from the alert's real `source`/`severity`. Only the watchdog crash
-// producer is live today (M6·a), so source→icon is the honest common path; the
-// severity map is the forward-compat fallback for producers that land later.
+// one from the alert's real `source`/`severity`. source→icon is the honest
+// common path; the severity map is the fallback for a producer this map does
+// not name.
 const ALERT_ICON_BY_SOURCE = {
   watchdog: "alert-triangle",
   "host-monitor": "server",
   metrics: "gauge",
   assistant: "sparkles",
+  // kgsm itself — update availability. Same glyph the audit log gives
+  // `server.update_available`, so the condition and the event that produced it
+  // read as the same thing across the two surfaces.
+  engine: "circle-arrow-up",
 };
 const ALERT_ICON_BY_SEVERITY = { danger: "alert-triangle", warn: "circle-alert", info: "info" };
 function alertIcon(a) {

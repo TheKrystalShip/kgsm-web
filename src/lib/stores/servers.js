@@ -189,17 +189,16 @@ api.stream.subscribe(["jobs"], (m) => {
       }
     } else if (verb === "update") {
       if (state === "done") {
-        // On a successful update, the game is now on the latest build. The backend's own
-        // UpdateCheckCache.MarkUpdated (called synchronously in CommandRunner and from the
-        // kgsm event consumer) ensures the verify server.patch also carries cleared state;
-        // this optimistic patch closes the race window between the job.patch event arriving
-        // and the verify server.patch following ~200ms later.
+        // On a successful update, the game is now on the latest build. kgsm re-reads its own record
+        // and the verify server.patch that follows ~200ms later carries the cleared state; this
+        // optimistic patch only closes that window, so it clears the chip and nothing else.
+        //
+        // It deliberately does NOT touch update_checked_at. That timestamp is when the ENGINE last
+        // fetched an upstream version, which is the scheduler's sweep, not this moment — stamping
+        // "now" here would make the panel claim a freshness nobody measured, and the honest value
+        // arrives on the verify patch regardless.
         if (!m.data.error) {
-          serversStore.patch(serverId, {
-            job: null,
-            update_available: null,
-            update_checked_at: new Date().toISOString(),
-          });
+          serversStore.patch(serverId, { job: null, update_available: null });
         } else {
           serversStore.patch(serverId, { job: null });
         }

@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The panel no longer claims to have checked for updates at the moment one was applied.** A
+  finished update optimistically stamped `update_checked_at` with the browser's clock, so a server
+  read "Checked just now" when the last real upstream fetch may have been an hour earlier — a
+  fabricated freshness for a number whose whole job is to say how stale the answer is. The
+  optimistic patch clears the update chip and nothing else; the honest timestamp arrives on the
+  verify `server.patch` that follows.
+
 ### Added
+
+- **The alert feed knows the `engine` source.** kgsm-api raises an `info` alert while a server has a
+  game update waiting (`update:<serverId>`), and it resolves when the update is applied — so an
+  available update reaches Needs Attention, the Alerts page and the server's contextual alerts, not
+  only the update chip. It takes the `circle-arrow-up` glyph the audit log already gives
+  `server.update_available`, so the condition and the event that produced it read as one thing.
 
 - **Themes can change the panel's SHAPE, not just its colours.** A closed set of structural tokens —
   the radius ladder, the border shorthands, elevation, focus, the UI type family and the motion
