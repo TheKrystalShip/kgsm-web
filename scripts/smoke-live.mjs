@@ -848,6 +848,85 @@ try {
   assert(rotated === true && signInCalls.length === 0,
     "ensureSession: a held refresh token is spent on a silent rotate, never on a redirect");
 
+  // ---- what ends a leaf session, and what merely failed to ask ----------------------------
+  // The refresh token is a thirty-day credential and the only thing standing between the user and
+  // another sign-in, so it is discarded ONLY when the leaf refuses it. Each case drives the real
+  // rotate through the fetch seam on its own host, so nothing here perturbs the sign-in assertions.
+  const ROTATE_HOST = "rotate-host";
+  st.hostsStore.add({
+    id: ROTATE_HOST, name: "Rotate", capabilities: {
+      assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
+  });
+  const refreshOf = () => localStorage.getItem("krystal:assistant:refresh:" + ROTATE_HOST);
+  const answerRefresh = (fn) => {
+    globalThis.fetch = async (url, opts) => {
+      const u = typeof url === "string" ? url : (url && url.url) || "";
+      if (u === LEAF + "/auth/session/refresh") return fn(JSON.parse(opts.body).refresh);
+      return realFetch(url, opts);
+    };
+  };
+
+  // The leaf never answered. We know nothing about the session, so the credential stays.
+  assistantSession.adopt(ROTATE_HOST, { token: "t", refresh: "keep-me", tier: "admin" });
+  answerRefresh(() => { throw new TypeError("Failed to fetch"); });
+  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === "keep-me"
+      && assistantSession.statusOf(ROTATE_HOST) === "bootstrapping",
+    "rotate: an unreachable leaf keeps the refresh token — a dropped packet is not a sign-out");
+
+  // A leaf mid-restart answers 503. Same reasoning: it did not refuse, it did not answer.
+  answerRefresh(() => new Response("nope", { status: 503 }));
+  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === "keep-me"
+      && assistantSession.statusOf(ROTATE_HOST) === "bootstrapping",
+    "rotate: a 5xx keeps the refresh token (the leaf did not refuse it — it did not answer)");
+
+  // Two tabs, one shared token: the other tab rotated first, so ours is refused and the token it
+  // won is already in storage. That is a superseded credential, not a dead session.
+  localStorage.setItem("krystal:assistant:refresh:" + ROTATE_HOST, "won-by-another-tab");
+  const presentedTokens = [];
+  answerRefresh((presented) => {
+    presentedTokens.push(presented);
+    return presented === "won-by-another-tab"
+      ? new Response(JSON.stringify({ access: "fresh", refresh: "r3", tier: "admin" }),
+        { status: 200, headers: { "content-type": "application/json" } })
+      : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+  });
+  const healed = await assistantSession.rotate(ROTATE_HOST);
+  assert(healed === "fresh" && presentedTokens.length === 2 && refreshOf() === "r3"
+      && assistantSession.statusOf(ROTATE_HOST) === "live",
+    "rotate: a 401 re-reads storage and retries with the token another tab won — neither tab is signed out");
+
+  // Nothing newer to try: this is the session actually ending.
+  answerRefresh(() => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === null
+      && assistantSession.statusOf(ROTATE_HOST) === "expired",
+    "rotate: a refused token with nothing newer behind it IS terminal — cleared, not kept");
+
+  // A token whose own `exp` has passed buys nothing by being sent: the seam rotates first, so the
+  // leaf never sees a bearer it was always going to refuse.
+  // Padded base64 with the url-safe substitutions the seam undoes — an unpadded payload is a
+  // decode the browser's atob may reject, which would test the catch rather than the expiry.
+  const deadJwt = "x." + Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))
+    .toString("base64").replace(/\+/g, "-").replace(/\//g, "_") + ".y";
+  assistantSession.adopt(ROTATE_HOST, { token: deadJwt, refresh: "r4", tier: "admin" });
+  const seen = [];
+  globalThis.fetch = async (url, opts) => {
+    const u = typeof url === "string" ? url : (url && url.url) || "";
+    seen.push(u);
+    if (u === LEAF + "/auth/session/refresh")
+      return new Response(JSON.stringify({ access: "live-token", refresh: "r5", tier: "admin" }),
+        { status: 200, headers: { "content-type": "application/json" } });
+    if (u === LEAF + "/conversations")
+      return new Response(JSON.stringify(
+        { authorization: (opts.headers || {}).Authorization, conversations: [] }),
+      { status: 200, headers: { "content-type": "application/json" } });
+    return realFetch(url, opts);
+  };
+  const read = await assistant.host(ROTATE_HOST).conversations();
+  globalThis.fetch = realFetch;
+  assert(seen[0] === LEAF + "/auth/session/refresh" && seen.length === 2
+      && read.authorization === "Bearer live-token",
+    "assistant seam: a lapsed access token is rotated BEFORE the call, never spent on a 401 first");
+
   // Nothing held: this is what a redirect is for — exactly once per host per tab.
   assistantSession.signOut(SIGNIN_HOST);
   sessionStorage.removeItem("krystal:assistant:tried:" + SIGNIN_HOST);

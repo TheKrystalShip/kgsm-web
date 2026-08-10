@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Only the assistant leaf refusing a refresh token ends that session.** The rotate discarded the
+  thirty-day credential on every failure, so a dropped packet or a leaf mid-restart cost a sign-in
+  that nothing had actually invalidated. A request that never completed, a 5xx and an answer with no
+  token in it all leave the credential where it is and the host `bootstrapping`, which the next call
+  spends; only a 401 or a 400 is terminal.
+
+- **Two browser tabs no longer sign each other out of the assistant.** The refresh token is shared
+  by every tab on the origin while the in-flight dedupe is per-tab, so two tabs waking together
+  present the same token and the leaf rotates it for whichever arrives first — correctly refusing
+  the second, which then cleared the credential the first had just won. A refusal re-reads storage
+  and retries once against what is there now, so the tab that lost picks up the token that won.
+
+- **A lapsed assistant token is rotated before the call, not spent on a 401 first.** The chat's
+  opening reads went out with whatever access token the tab held; fifteen minutes after the last
+  one was minted that is a token the leaf was always going to refuse, so opening the dock produced a
+  pair of 401s that then healed. A token whose own `exp` has passed is treated as no token, which
+  spends the same rotation without the round trip that could not have succeeded. An unreadable `exp`
+  says nothing and is still healed reactively.
+
 - **Opening the chat no longer asks the leaf to point a stream that is not open yet.** An attach
   names the stream it is re-pointing with `X-Assistant-Origin`, and a surface has no name until the
   leaf's `hello` frame gives it one — so the attach that fires when the dock opens carried no header

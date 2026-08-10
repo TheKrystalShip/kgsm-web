@@ -143,7 +143,12 @@ async function json(hostId, method, path, body, opts) {
     }
   };
 
+  // A token whose own `exp` has passed is not worth a request: the leaf will refuse it, and the 401
+  // below would rotate anyway. Treating it as no token spends the same rotation without the round
+  // trip that could not have succeeded — the leaf is still the judge of a token we actually hold,
+  // and an unreadable `exp` says nothing, so that one is sent and healed reactively as before.
   let token = assistantSession.tokenOf(hostId);
+  if (token && lapsed(token)) token = null;
   if (!token && assistantSession.statusOf(hostId) !== "none") token = await assistantSession.rotate(hostId);
   if (!token) throw authError();
 

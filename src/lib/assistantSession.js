@@ -141,40 +141,78 @@ function signOut(hostId) {
 }
 
 // Exchange the long-lived refresh token for a fresh pair, straight at the leaf. The leaf
-// rotates the refresh token too, so the reply's `refresh` replaces the stored one. A refusal
-// is terminal for this session: the token was revoked or aged out, and only a new Discord
-// consent produces another.
+// rotates the refresh token too, so the reply's `refresh` replaces the stored one. Deduped per
+// host, so several calls healing from 401 at once spend one token between them rather than
+// racing each other for it.
 function rotate(hostId) {
   if (rotations[hostId]) return rotations[hostId];
-  const origin = originOf(hostId);
-  const refresh = (recOf(hostId) || {}).refresh || readRefresh(hostId);
-  if (!origin || !refresh) {
-    setRec(hostId, { status: "expired", token: null, error: "expired" });
-    return Promise.resolve(null);
-  }
-  const p = fetch(origin + "/auth/session/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ refresh }),
-  })
-    .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-    .then((j) => {
-      const token = (j && (j.access || j.token)) || null;
-      if (!token) throw new Error("no token in refresh response");
-      adopt(hostId, { token, refresh: (j && j.refresh) || refresh, tier: (j && j.tier) || tierOf(hostId) });
-      return token;
-    })
-    .catch(() => {
-      // The refresh token no longer buys a session — say so and stop, rather than holding a
-      // token we know is dead and re-presenting it on every call.
-      try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
-      writeRefresh(hostId, null);
-      setRec(hostId, { status: "expired", token: null, refresh: null, error: "expired" });
-      return null;
-    })
-    .finally(() => { delete rotations[hostId]; });
+  const p = rotateSession(hostId).finally(() => { delete rotations[hostId]; });
   rotations[hostId] = p;
   return p;
+}
+
+// Only the leaf REFUSING the token ends the session — it was revoked or aged out, and only a new
+// Discord consent produces another. Everything else (the request never completing, a 5xx, an answer
+// with no token in it) says we could not ask: the credential is left where it is and the host stays
+// `bootstrapping`, so the next call tries again. Discarding a thirty-day token because one request
+// lost a packet, or because the leaf was mid-restart, costs a sign-in nobody needed.
+//
+// A refusal has one ordinary cause besides the end of the session: the refresh token is shared by
+// every tab on this origin while this dedupe is per-tab, so two tabs waking together present the
+// same token and the leaf, correctly, rotates it for whichever arrives first. The other is holding a
+// token that was superseded a moment ago, not a dead session — so a refusal re-reads storage, and
+// retries once against what is there now before concluding anything.
+async function rotateSession(hostId) {
+  const origin = originOf(hostId);
+  let presented = (recOf(hostId) || {}).refresh || readRefresh(hostId);
+  if (!origin || !presented) {
+    setRec(hostId, { status: "expired", token: null, error: "expired" });
+    return null;
+  }
+
+  // At most two: the token we hold, and — if that one was refused — the one another tab won with.
+  for (let attempt = 0; attempt < 2 && presented; attempt++) {
+    let res;
+    try {
+      res = await fetch(origin + "/auth/session/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ refresh: presented }),
+      });
+    } catch {
+      return unreachable(hostId);
+    }
+
+    if (res.ok) {
+      let j = null;
+      try { j = await res.json(); } catch { j = null; }
+      const token = (j && (j.access || j.token)) || null;
+      if (!token) return unreachable(hostId);
+      adopt(hostId, {
+        token, refresh: (j && j.refresh) || presented, tier: (j && j.tier) || tierOf(hostId),
+      });
+      return token;
+    }
+
+    if (res.status !== 401 && res.status !== 400) return unreachable(hostId);
+
+    const stored = readRefresh(hostId);
+    if (stored && stored !== presented) { presented = stored; continue; }
+    break;
+  }
+
+  try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
+  writeRefresh(hostId, null);
+  setRec(hostId, { status: "expired", token: null, refresh: null, error: "expired" });
+  return null;
+}
+
+// We could not ask, so we know nothing about the session. `bootstrapping` is the state of holding a
+// refresh token and no access token, which is exactly true here — `ensureSession` spends it on the
+// next attempt rather than bouncing the browser at a leaf that is not answering.
+function unreachable(hostId) {
+  setRec(hostId, { status: "bootstrapping", token: null, error: "unreachable" });
+  return null;
 }
 
 // Ensure a live session for a host, silently, without asking the user for anything. A seeded
