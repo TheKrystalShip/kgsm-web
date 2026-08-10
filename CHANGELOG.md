@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Opening the chat no longer asks the leaf to point a stream that is not open yet.** An attach
+  names the stream it is re-pointing with `X-Assistant-Origin`, and a surface has no name until the
+  leaf's `hello` frame gives it one — so the attach that fires when the dock opens carried no header
+  and the leaf refused it, once per open and once per reconnect gap. The conversation on screen is
+  attached by the stream's own open handler, which reads it from the ref it is already kept in; the
+  re-point call is for a stream that is running.
+
 - **The panel no longer claims to have checked for updates at the moment one was applied.** A
   finished update optimistically stamped `update_checked_at` with the browser's clock, so a server
   read "Checked just now" when the last real upstream fetch may have been an hour earlier — a

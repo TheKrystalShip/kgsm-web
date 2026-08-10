@@ -37,6 +37,11 @@ function useConversationStream({ hostId, enabled, conversationId, onEvent, onRes
   React.useEffect(() => {
     watchingRef.current = conversationId;
     if (!hostId || !enabled) return;
+    // Only an OPEN stream can be re-pointed: an attach names a stream, and this surface has no name
+    // until the leaf's `hello` frame has arrived. With no stream there is nothing to say — the open
+    // handler below attaches to whatever this ref holds, so a conversation selected before the stream
+    // is running, or during a reconnect gap, is picked up the moment one is.
+    if (!assistant.host(hostId).streamId()) return;
     assistant.host(hostId).attach(conversationId).catch(() => {});
   }, [hostId, enabled, conversationId]);
 
