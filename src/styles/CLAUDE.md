@@ -43,6 +43,21 @@ The rest follows the same rules as any other theme: a `cvd-*` block is the FULL
 colour set, and `THEME_OPTS` carries the `cvd:` field that puts it in the
 picker's own badged section.
 
+## The tribute pack is quoted, not designed
+
+Six themes here — matrix, win95, winamp, lcars, cyberpunk, dos-blue — take their
+colours from a screen somebody already knows, and the pack's banner comment says
+what that costs. A source palette rarely carries five status families: CGA has no
+orange, LCARS has no green, the VGA sixteen were drawn for a black text mode and
+sit under 3:1 on a silver face. Each block resolves that the same way — the
+nearest colour from the SAME source, with the deviation named in the comment.
+
+**Don't tidy a tribute's ramp with a colour the source never had.** That is the
+edit that turns a quotation into just another dark theme, and it is invisible in
+review because the result looks better. Contrast was measured on the surfaces each
+value actually lands on, including each `-fg` on its own `-bg` tint, so a
+retune means re-measuring rather than eyeballing.
+
 ## `kit.css` is a BARREL — do not edit it, edit the partial
 
 The old ~6,300-line monolith was split into focused partials under `kit/`.

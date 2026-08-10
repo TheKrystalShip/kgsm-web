@@ -127,8 +127,11 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   **declared not derived**, and is what the swatch picker groups on. `cvd` names,
   in words, the deficiency a colour-vision palette is built for; its presence —
   not the `cvd-` id prefix — is what puts a theme in the picker's own badged
-  section, so the grouping survives a rename. Mirror the `index.html` /
-  `assistant.html` boot scripts when you change the list.
+  section, so the grouping survives a rename. `tribute` does the same job for a
+  palette quoting a screen from somewhere else and names what it quotes — the
+  picker's Tributes section and each swatch's tooltip. A theme carries at most one
+  of the two. Mirror the `index.html` / `assistant.html` boot scripts when you
+  change the list.
 - `formatting.js` / `labels.js` / `art.js` / `servers.js` / `leaves.js` —
   formatting, display-label vocabulary, key-art helpers, server-shape helpers,
   and the leaf vocabulary (run-state → tone+label, iconography, kind). `leaves.js`

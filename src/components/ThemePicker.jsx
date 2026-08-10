@@ -23,18 +23,24 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 // nothing about what a tile contains — the same miniature, smaller — because a rail that offered a
 // reduced set of themes, or told you less about each one, would be the surface where the picker
 // matters MOST answering with less: the standalone assistant has no Settings page behind it.
-// The colour-vision pack is its OWN section rather than being folded into Dark and Light. Somebody
-// arrives at this picker either wanting a look or needing a palette they can read, and those are
-// different errands: mixed in among nineteen others, the palettes built for a deficiency would only
-// be findable by knowing their names already. Each tile is badged as well as grouped, because the
-// section heading is not always in view — the assistant's rail scrolls, and the badge is what
-// identifies a swatch on its own.
+// Two packs get their OWN section rather than being folded into Dark and Light, because somebody
+// arrives at this picker on one of three errands: wanting a look, wanting a particular screen
+// quoted back at them, or needing a palette they can read. Mixed into one grid of thirty-odd, the
+// palettes built for a deficiency would only be findable by knowing their names already, and the
+// tributes would read as more editor colour schemes. Each section carries a sentence, because
+// neither "LCARS" nor "Deuteranopia Dark" explains itself from the label.
+//
+// The colour-vision tiles are badged as well as grouped — the section heading is not always in
+// view, the assistant's rail scrolls, and the badge is what identifies one of those on its own.
+// The tributes are not: which screen a palette is quoting is decoration, and a mark on every
+// second tile would cost the grid more than it tells anyone.
 function ThemePicker({ compact = false }) {
   const pref = useThemePref();
   const groups = [
     { mode: "dark", label: "Dark" },
     { mode: "light", label: "Light" },
   ];
+  const tributes = THEME_OPTS.filter((o) => o.tribute);
   const cvd = THEME_OPTS.filter((o) => o.cvd);
 
   return (
@@ -50,12 +56,25 @@ function ThemePicker({ compact = false }) {
         <div key={g.mode}>
           <div className="theme-picker__group">{g.label}</div>
           <div className="theme-picker__grid">
-            {THEME_OPTS.filter((o) => o.mode === g.mode && !o.cvd).map((o) => (
+            {THEME_OPTS.filter((o) => o.mode === g.mode && !o.cvd && !o.tribute).map((o) => (
               <ThemeSwatch key={o.id} opt={o} selected={pref === o.id} />
             ))}
           </div>
         </div>
       ))}
+
+      <div>
+        <div className="theme-picker__group">Tributes</div>
+        <p className="theme-picker__note">
+          Palettes borrowed from screens you have already stared at. Hover one to see what it
+          is quoting.
+        </p>
+        <div className="theme-picker__grid">
+          {tributes.map((o) => (
+            <ThemeSwatch key={o.id} opt={o} selected={pref === o.id} />
+          ))}
+        </div>
+      </div>
 
       <div>
         <div className="theme-picker__group">Colour-vision friendly</div>
@@ -80,7 +99,7 @@ function ThemeSwatch({ opt, selected }) {
       type="button"
       className={"theme-swatch" + (selected ? " theme-swatch--on" : "")}
       aria-pressed={selected}
-      title={opt.cvd ? `${opt.label} — for ${opt.cvd}` : opt.label}
+      title={opt.cvd ? `${opt.label} — for ${opt.cvd}` : opt.tribute || opt.label}
       onClick={() => themeStore.set(opt.id)}
     >
       <span className="theme-swatch__tile">

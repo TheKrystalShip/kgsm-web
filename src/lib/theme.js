@@ -35,6 +35,13 @@ const THEME_KEY = "krystal:theme";
 // able to disagree: a theme that is listed as colour-vision friendly but describes itself as
 // something else is worse than one that says nothing. Its presence — not the `cvd-` id prefix — is
 // what every surface tests, so the grouping survives an id being renamed.
+//
+// `tribute` works the same way for a palette quoting a screen from somewhere else, and names what
+// it is quoting. It carries the source because the label alone does not: "LCARS" and "DOS Blue"
+// mean nothing to somebody who has not seen them, and the sentence is what turns the swatch grid
+// into something readable. A theme carries at most one of `cvd` and `tribute` — they are the two
+// reasons a palette sits outside the plain Dark and Light lists, and a theme in both sections
+// would be the same swatch twice.
 const THEME_OPTS = [
   { id: "auto",             label: "Auto (system)"                            },
   { id: "dark",             label: "Krystal Blue Dark",          mode: "dark"  },
@@ -55,6 +62,16 @@ const THEME_OPTS = [
   { id: "solarized-light",  label: "Solarized Light",            mode: "light" },
   { id: "catppuccin-latte", label: "Catppuccin Latte",           mode: "light" },
   { id: "nord-light",       label: "Nord Light",                 mode: "light" },
+
+  // The tribute pack — palettes quoting a screen somebody already knows, rather than an editor
+  // colour scheme. Dark first, then the one light member, since that is also the order the
+  // picker's other sections run in.
+  { id: "matrix",    label: "The Matrix",     mode: "dark",  tribute: "The Matrix (1999) — falling code on vampire black" },
+  { id: "winamp",    label: "Winamp Classic", mode: "dark",  tribute: "Winamp's base skin — grey chrome and a green LCD" },
+  { id: "lcars",     label: "LCARS",          mode: "dark",  tribute: "LCARS — the TNG-era Starfleet okudagram" },
+  { id: "cyberpunk", label: "Cyberpunk 2077", mode: "dark",  tribute: "Cyberpunk 2077 — Night City's yellow-on-black HUD" },
+  { id: "dos-blue",  label: "DOS Blue",       mode: "dark",  tribute: "The DOS blue screen — Norton Commander and EDIT.COM" },
+  { id: "win95",     label: "Windows 95",     mode: "light", tribute: "Windows 95 — silver bevels, a navy title bar, the teal desktop" },
 
   // The colour-vision pack. Ordered most-broadly-useful first: red-green covers by far the most
   // people, then the two single deficiencies it compromises between, then the rarer tritan, then

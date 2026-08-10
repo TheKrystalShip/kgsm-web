@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A tribute pack: six themes quoting a screen you have already stared at** — The Matrix, Windows
+  95, Winamp's classic skin, LCARS, Cyberpunk 2077 and the DOS blue screen — in their own section
+  of the picker, with each swatch's tooltip naming what it is quoting. Every one takes its colours
+  from the source it names: the vampire-black-and-phosphor of the film's own production palette, the
+  registry defaults for the 3D face and the navy title bar, the base skin's grey chrome and green
+  LCD, the LCARS colour names, Night City's yellow-on-black, and the CGA sixteen.
+
+  The five status families are the one thing no source screen is a guide for — nothing in The Matrix
+  is red on purpose, LCARS has no green and CGA has no orange — so each theme spends its source
+  palette on the families first and says in its own block comment where that forced a deviation,
+  rather than reaching for a foreign hue to make the ramp tidy. What that does not cost is
+  legibility: text, fills and button ink were measured on the surfaces they actually land on,
+  including each `-fg` on its own tint, which is what moved Windows 95's VGA fills one step down
+  from their text-mode values (a VGA mid-tone sits under 3:1 on a silver face).
+
 - **A colour-vision pack: twelve themes for viewers who cannot rely on hue**, in their own badged
   section of the picker (a dark/light pair each for deuteranopia, protanopia, tritanopia, the two
   red-green deficiencies together, all three at once, and achromatopsia). The panel signals with

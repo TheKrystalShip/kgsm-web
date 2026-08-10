@@ -11,7 +11,7 @@
       (function () {
         try {
           var p = localStorage.getItem("krystal:theme");
-          var concrete = ["dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox", "amber-crt", "one-dark", "rose-pine", "kanagawa", "everforest", "github-light", "solarized-light", "catppuccin-latte", "nord-light", "cvd-redgreen-dark", "cvd-redgreen-light", "cvd-deuteran-dark", "cvd-deuteran-light", "cvd-protan-dark", "cvd-protan-light", "cvd-tritan-dark", "cvd-tritan-light", "cvd-universal-dark", "cvd-universal-light", "cvd-mono-dark", "cvd-mono-light"];
+          var concrete = ["dark", "amoled", "light", "nord", "catppuccin-mocha", "dracula", "tokyo-night", "synthwave", "gruvbox", "amber-crt", "one-dark", "rose-pine", "kanagawa", "everforest", "github-light", "solarized-light", "catppuccin-latte", "nord-light", "matrix", "win95", "winamp", "lcars", "cyberpunk", "dos-blue", "cvd-redgreen-dark", "cvd-redgreen-light", "cvd-deuteran-dark", "cvd-deuteran-light", "cvd-protan-dark", "cvd-protan-light", "cvd-tritan-dark", "cvd-tritan-light", "cvd-universal-dark", "cvd-universal-light", "cvd-mono-dark", "cvd-mono-light"];
           var t = concrete.includes(p) ? p
                 : (p === "auto" && window.matchMedia
                     && matchMedia("(prefers-color-scheme: light)").matches) ? "light"

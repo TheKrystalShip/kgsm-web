@@ -1671,6 +1671,529 @@
 }
 
 /* ============================================================
+   THEMES — THE TRIBUTE PACK
+   ------------------------------------------------------------
+   Six palettes lifted from screens people already know: a film, an
+   operating system, a media player, a starship, a game and a DOS
+   file manager. They are the only themes here whose colours are
+   chosen for RECOGNITION rather than for comfort — a tribute that
+   sands off the thing it is quoting is not a tribute.
+
+   What that costs is stated per theme. What it does NOT cost is
+   legibility: each one still resolves the full token set, and text,
+   fills and button ink were measured against WCAG contrast on the
+   surfaces they actually land on. Where the source palette could
+   not carry a family — CGA has no orange, LCARS has no green — the
+   nearest colour from the SAME source is used and the deviation is
+   named in the comment, rather than a foreign hue being smuggled in.
+
+   The five status families still need five separable hues, which is
+   the one place a source screen is no guide: nothing in The Matrix
+   is red on purpose. Each theme therefore spends its source palette
+   on the families first and the decoration second.
+   ============================================================ */
+
+/* ============================================================
+   THEME — THE MATRIX
+   ------------------------------------------------------------
+   Falling code: vampire black under phosphor green, the palette
+   the film's production design borrowed from monochrome monitors
+   and printed money. Green is both the brand and "running", which
+   is what the world looks like when it is working.
+   The other four families come from the parts of the film that
+   are NOT green — the red pill, Zion's amber lamps, the cold blue
+   of the real world — because a screen that is only green cannot
+   tell an operator which server is on fire.
+   Palette source: https://www.schemecolor.com/matrix-code-green.php
+   ============================================================ */
+[data-theme="matrix"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #0D0208;
+  /* vampire black */
+  --surface-0: #060104;
+  /* sidebar — deeper than the void */
+  --surface-1: #0A1509;
+  /* card — the faintest phosphor bloom */
+  --surface-2: #0F1F0E;
+  /* nested / hovered */
+  --surface-3: #142B13;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(0, 255, 65, 0.14);
+  --border-strong: rgba(0, 255, 65, 0.28);
+  --border-accent: rgba(0, 255, 65, 0.60);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #D2FFDD;
+  /* washed phosphor — body text, not the code green */
+  --fg-2: #85E89C;
+  --fg-3: #4FAF66;
+  --fg-4: #3B8450;
+  --fg-inverse: #0D0208;
+  --btn-accent-fg: #001A06;
+  /* dark ink on code green (17:1 on #00FF41) */
+  --btn-success-fg: #001A06;
+
+  /* ---------- Brand & accent — code green ---------------- */
+  --krystal-teal: #00FF41;
+  --krystal-teal-hover: #5CFF83;
+  --krystal-teal-press: #00D936;
+  --krystal-teal-dim: rgba(0, 255, 65, 0.14);
+  --krystal-teal-ring: rgba(0, 255, 65, 0.35);
+  --krystal-ink: #0D0208;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #00FF41;
+  /* the code itself */
+  --success-bg: rgba(0, 255, 65, 0.12);
+  --success-fg: #57FF85;
+
+  --danger: #FF2E2E;
+  /* the red pill */
+  --danger-bg: rgba(255, 46, 46, 0.15);
+  --danger-fg: #FF7070;
+
+  --warning: #FFB300;
+  /* Zion's amber lamps */
+  --warning-bg: rgba(255, 179, 0, 0.13);
+  --warning-fg: #FFC64D;
+
+  --update: #00D9C0;
+  --update-bg: rgba(0, 217, 192, 0.13);
+  --update-fg: #4CE8D6;
+
+  --info: #5B8CFF;
+  /* the cold blue of the real world */
+  --info-bg: rgba(91, 140, 255, 0.14);
+  --info-fg: #93B4FF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(0, 255, 65, 0.06);
+  --veil-2: rgba(0, 255, 65, 0.09);
+  --veil-3: rgba(0, 255, 65, 0.12);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(0, 255, 65, 0.24);
+  --scrollbar-thumb-hover: rgba(0, 255, 65, 0.42);
+}
+
+/* ============================================================
+   THEME — WINDOWS 95
+   ------------------------------------------------------------
+   The 3D face (#C0C0C0), the navy active title bar (#000080), the
+   white client area and the black text — the default scheme, read
+   off its own registry keys. The app is treated as ONE window: the
+   silver is the frame, cards are the white document area inside it.
+   The teal desktop (#008080) is where it belongs — behind the
+   window, as the modal backdrop, since it is the one Win95 colour
+   nothing was ever meant to be read on top of.
+   Two deviations, both forced by the silver: #808080 is the
+   authentic disabled grey but sinks to 2.7:1 on the face, so it
+   holds only the placeholder rank and labels use a darker grey;
+   and the status fills sit one step below their VGA values for
+   the same reason.
+   ============================================================ */
+[data-theme="win95"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #C0C0C0;
+  /* 3D face — the window itself */
+  --surface-0: #ACACAC;
+  /* sidebar — recedes into the frame */
+  --surface-1: #C0C0C0;
+  /* card — 3D face; a Win95 panel does not lift, it bevels */
+  --surface-2: #D0D0D0;
+  /* nested / hovered */
+  --surface-3: #FFFFFF;
+  /* input fill — the white edit control */
+
+  /* ---------- Borders ------------------------------------- */
+  /* Hard, not hairline: every Win95 edge is a bevel, so borders
+     carry real weight here rather than the usual whisper. */
+  --border-subtle: rgba(0, 0, 0, 0.28);
+  --border-strong: rgba(0, 0, 0, 0.50);
+  --border-accent: rgba(0, 0, 128, 0.60);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #000000;
+  --fg-2: #2B2B2B;
+  --fg-3: #3F3F3F;
+  --fg-4: #808080;
+  /* the authentic disabled grey — placeholder rank only */
+  --fg-inverse: #FFFFFF;
+  /* white on the navy accent */
+  --btn-accent-fg: #FFFFFF;
+  /* 15.9:1 on #000080 */
+  --btn-success-fg: #FFFFFF;
+  /* 5.6:1 on the green */
+
+  /* ---------- Brand & accent — active title navy --------- */
+  --krystal-teal: #000080;
+  --krystal-teal-hover: #1B4FB8;
+  --krystal-teal-press: #00005C;
+  --krystal-teal-dim: rgba(0, 0, 128, 0.12);
+  --krystal-teal-ring: rgba(0, 0, 128, 0.35);
+  --krystal-ink: #000000;
+
+  /* ---------- Semantic — the VGA sixteen ----------------- */
+  /* Hues are VGA's, values are one step down from it: the palette
+     was drawn for a black text mode, and a VGA mid-tone sits under
+     3:1 on a silver face. The -fg text variants go darker still,
+     since they are read rather than glanced at. */
+  --success: #007A00;
+  --success-bg: rgba(0, 122, 0, 0.14);
+  --success-fg: #004E00;
+
+  --danger: #AA0000;
+  --danger-bg: rgba(170, 0, 0, 0.12);
+  --danger-fg: #7D0000;
+
+  --warning: #666600;
+  /* olive — VGA has no amber */
+  --warning-bg: rgba(102, 102, 0, 0.16);
+  --warning-fg: #444400;
+
+  --update: #9C4E00;
+  --update-bg: rgba(156, 78, 0, 0.14);
+  --update-fg: #6B3400;
+
+  --info: #006E6E;
+  --info-bg: rgba(0, 110, 110, 0.14);
+  --info-fg: #004747;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(0, 0, 0, 0.07);
+  --veil-2: rgba(0, 0, 0, 0.11);
+  --veil-3: rgba(0, 0, 0, 0.15);
+  --scrim-base: #005C5C;
+  /* the desktop behind the window */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.30);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.46);
+}
+
+/* ============================================================
+   THEME — WINAMP CLASSIC
+   ------------------------------------------------------------
+   Grey chrome, black inset displays, green readouts: the base skin,
+   where the only saturated colour on the whole player is the text
+   in the LCD. Body copy stays neutral grey for the same reason it
+   did in 1997 — the green is a READOUT, and a window entirely in
+   it is unreadable — so the green does the accent work and the
+   inputs take the black display panel as their fill.
+   The status ramp is the spectrum analyser's own green → yellow →
+   red, with the playlist's selection blue (#0000C6) lifted for
+   contrast as info.
+   Palette source: the base skin's pledit.txt and viscolor.txt.
+   ============================================================ */
+[data-theme="winamp"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #202020;
+  /* the player's chrome */
+  --surface-0: #171717;
+  /* sidebar */
+  --surface-1: #2A2A2A;
+  /* card — the raised metal */
+  --surface-2: #323232;
+  /* nested / hovered */
+  --surface-3: #000000;
+  /* input fill — the inset LCD panel */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+  --border-accent: rgba(0, 255, 0, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #E4E4E4;
+  --fg-2: #BDBDBD;
+  --fg-3: #9A9A9A;
+  --fg-4: #6E6E6E;
+  --fg-inverse: #000000;
+  --btn-accent-fg: #001800;
+  /* dark ink on the LCD green */
+  --btn-success-fg: #001800;
+
+  /* ---------- Brand & accent — LCD green ----------------- */
+  --krystal-teal: #00FF00;
+  --krystal-teal-hover: #5BFF5B;
+  --krystal-teal-press: #00D000;
+  --krystal-teal-dim: rgba(0, 255, 0, 0.14);
+  --krystal-teal-ring: rgba(0, 255, 0, 0.35);
+  --krystal-ink: #202020;
+
+  /* ---------- Semantic — the spectrum analyser ----------- */
+  --success: #00FF00;
+  --success-bg: rgba(0, 255, 0, 0.12);
+  --success-fg: #5CFF5C;
+
+  --danger: #FF4B4B;
+  --danger-bg: rgba(255, 75, 75, 0.15);
+  --danger-fg: #FF7C7C;
+
+  --warning: #FFD400;
+  --warning-bg: rgba(255, 212, 0, 0.13);
+  --warning-fg: #FFE04D;
+
+  --update: #FF9A2E;
+  --update-bg: rgba(255, 154, 46, 0.14);
+  --update-fg: #FFB463;
+
+  --info: #4B6BFF;
+  /* the playlist selection blue, lifted off #0000C6 */
+  --info-bg: rgba(75, 107, 255, 0.16);
+  --info-fg: #8CA1FF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 255, 255, 0.05);
+  --veil-2: rgba(255, 255, 255, 0.08);
+  --veil-3: rgba(255, 255, 255, 0.11);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(0, 255, 0, 0.22);
+  --scrollbar-thumb-hover: rgba(0, 255, 0, 0.40);
+}
+
+/* ============================================================
+   THEME — LCARS
+   ------------------------------------------------------------
+   The okudagram: pure black, atomic tangerine, and panels in the
+   lilac / gold / periwinkle set the TNG-era displays were built
+   from. Black ink on an orange fill is the LCARS button, so
+   --btn-accent-fg inverts the way the show does.
+   LCARS has no green. "Running" is therefore anakiwa blue, which
+   is what a nominal reading looks like on a Starfleet console —
+   the deliberate deviation of this theme, and the reason the
+   colour-vision pack exists for anyone who needs green to mean
+   green. Muted labels are lilac rather than grey; the set has no
+   neutral either.
+   Palette source: the LCARS colour names catalogued by the Voyager
+   and TNG display palettes (orange #FF9900, lilac #CC99CC,
+   golden-tanoi #FFCC66, anakiwa #99CCFF, melrose #9999FF).
+   ============================================================ */
+[data-theme="lcars"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #000000;
+  /* LCARS is black — not nearly black */
+  --surface-0: #08060B;
+  --surface-1: #14101B;
+  /* card — a panel, faintly purple */
+  --surface-2: #1E1826;
+  --surface-3: #291F33;
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(255, 153, 0, 0.20);
+  --border-strong: rgba(255, 153, 0, 0.38);
+  --border-accent: rgba(255, 153, 0, 0.65);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #F4E4D4;
+  --fg-2: #FFCC99;
+  /* tanoi */
+  --fg-3: #CC99CC;
+  /* lilac — the set has no grey */
+  --fg-4: #8A749A;
+  --fg-inverse: #000000;
+  --btn-accent-fg: #000000;
+  /* black on orange — the LCARS button (11.5:1 on #FF9900) */
+  --btn-success-fg: #000000;
+
+  /* ---------- Brand & accent — atomic tangerine ---------- */
+  --krystal-teal: #FF9900;
+  --krystal-teal-hover: #FFB84D;
+  --krystal-teal-press: #E08600;
+  --krystal-teal-dim: rgba(255, 153, 0, 0.14);
+  --krystal-teal-ring: rgba(255, 153, 0, 0.40);
+  --krystal-ink: #000000;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #99CCFF;
+  /* anakiwa — nominal */
+  --success-bg: rgba(153, 204, 255, 0.14);
+  --success-fg: #B8DBFF;
+
+  --danger: #DD6644;
+  /* red-damask */
+  --danger-bg: rgba(221, 102, 68, 0.16);
+  --danger-fg: #EE8A6E;
+
+  --warning: #FFCC66;
+  /* golden-tanoi */
+  --warning-bg: rgba(255, 204, 102, 0.14);
+  --warning-fg: #FFDA92;
+
+  --update: #CC99CC;
+  /* lilac */
+  --update-bg: rgba(204, 153, 204, 0.16);
+  --update-fg: #DFB8DF;
+
+  --info: #9999FF;
+  /* melrose */
+  --info-bg: rgba(153, 153, 255, 0.16);
+  --info-fg: #B8B8FF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 153, 0, 0.07);
+  --veil-2: rgba(255, 153, 0, 0.11);
+  --veil-3: rgba(255, 153, 0, 0.15);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(255, 153, 0, 0.30);
+  --scrollbar-thumb-hover: rgba(255, 153, 0, 0.50);
+}
+
+/* ============================================================
+   THEME — CYBERPUNK 2077
+   ------------------------------------------------------------
+   Night City's HUD: near-black with the yellow (#FCEE0A) that the
+   game puts on everything it wants you to press, and the cyan the
+   readouts answer in. The status ramp is the rest of the game's
+   neon — hot red, orange, magenta, violet — which happens to be
+   the widest hue spread of any theme here.
+   Green never appears in this palette, so "running" is cyan.
+   ============================================================ */
+[data-theme="cyberpunk"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #060608;
+  --surface-0: #0B0B0D;
+  --surface-1: #121216;
+  --surface-2: #1A1A1F;
+  --surface-3: #24242A;
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(252, 238, 10, 0.14);
+  --border-strong: rgba(252, 238, 10, 0.28);
+  --border-accent: rgba(252, 238, 10, 0.65);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #F2F2E8;
+  --fg-2: #C9C9B8;
+  --fg-3: #94948A;
+  --fg-4: #70706A;
+  --fg-inverse: #060608;
+  --btn-accent-fg: #0A0A00;
+  /* black ink on the yellow — how the game draws its buttons */
+  --btn-success-fg: #001518;
+  /* dark ink on cyan */
+
+  /* ---------- Brand & accent — the yellow ---------------- */
+  --krystal-teal: #FCEE0A;
+  --krystal-teal-hover: #FFF64D;
+  --krystal-teal-press: #DACF00;
+  --krystal-teal-dim: rgba(252, 238, 10, 0.14);
+  --krystal-teal-ring: rgba(252, 238, 10, 0.38);
+  --krystal-ink: #060608;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #00F0FF;
+  /* cyan — the palette has no green */
+  --success-bg: rgba(0, 240, 255, 0.12);
+  --success-fg: #5CF4FF;
+
+  --danger: #FF003C;
+  --danger-bg: rgba(255, 0, 60, 0.16);
+  --danger-fg: #FF5C82;
+
+  --warning: #FF9F1C;
+  --warning-bg: rgba(255, 159, 28, 0.14);
+  --warning-fg: #FFB552;
+
+  --update: #FF00D6;
+  --update-bg: rgba(255, 0, 214, 0.15);
+  --update-fg: #FF63E4;
+
+  --info: #7B61FF;
+  --info-bg: rgba(123, 97, 255, 0.18);
+  --info-fg: #A594FF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 255, 255, 0.06);
+  --veil-2: rgba(255, 255, 255, 0.09);
+  --veil-3: rgba(255, 255, 255, 0.12);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(252, 238, 10, 0.28);
+  --scrollbar-thumb-hover: rgba(252, 238, 10, 0.48);
+}
+
+/* ============================================================
+   THEME — DOS BLUE
+   ------------------------------------------------------------
+   The blue screen everyone typed on before windows: Norton
+   Commander, EDIT.COM, Turbo Pascal. Canvas is CGA blue (#0000AA),
+   panels are shades of it, and the brand is the yellow the file
+   manager highlighted the cursor line with. Every status colour is
+   a literal CGA bright — the sixteen text-mode colours happen to
+   land on five well-separated hues.
+   CGA has no orange, so warning takes #FFAA55 from EGA's wider
+   sixty-four, which is the same palette one bit deeper.
+   ============================================================ */
+[data-theme="dos-blue"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #0000AA;
+  /* CGA blue — the screen */
+  --surface-0: #000066;
+  /* sidebar — the darker panel */
+  --surface-1: #0000C4;
+  /* card lift */
+  --surface-2: #1A1AD2;
+  /* nested / hovered */
+  --surface-3: #000080;
+  /* input fill — sunken */
+
+  /* ---------- Borders ------------------------------------- */
+  /* Cyan, because that is what a Norton Commander frame is drawn in. */
+  --border-subtle: rgba(85, 255, 255, 0.22);
+  --border-strong: rgba(85, 255, 255, 0.42);
+  --border-accent: rgba(255, 255, 85, 0.70);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #FFFFFF;
+  --fg-2: #C6C6C6;
+  /* light grey — the standard text attribute */
+  --fg-3: #B6B6E4;
+  --fg-4: #7878B4;
+  --fg-inverse: #000000;
+  --btn-accent-fg: #000000;
+  /* black on yellow (16.4:1 on #FFFF55) */
+  --btn-success-fg: #000000;
+  /* black on bright green */
+
+  /* ---------- Brand & accent — the cursor-line yellow ---- */
+  --krystal-teal: #FFFF55;
+  --krystal-teal-hover: #FFFF99;
+  --krystal-teal-press: #E5E53C;
+  --krystal-teal-dim: rgba(255, 255, 85, 0.14);
+  --krystal-teal-ring: rgba(255, 255, 85, 0.40);
+  --krystal-ink: #0000AA;
+
+  /* ---------- Semantic — the CGA brights ----------------- */
+  --success: #55FF55;
+  --success-bg: rgba(85, 255, 85, 0.14);
+  --success-fg: #7DFF7D;
+
+  --danger: #FF5555;
+  --danger-bg: rgba(255, 85, 85, 0.18);
+  --danger-fg: #FF8484;
+
+  --warning: #FFAA55;
+  /* EGA's light brown — CGA has no orange */
+  --warning-bg: rgba(255, 170, 85, 0.16);
+  --warning-fg: #FFC48C;
+
+  --update: #FF55FF;
+  --update-bg: rgba(255, 85, 255, 0.16);
+  --update-fg: #FF8CFF;
+
+  --info: #55FFFF;
+  --info-bg: rgba(85, 255, 255, 0.14);
+  --info-fg: #8CFFFF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 255, 255, 0.08);
+  --veil-2: rgba(255, 255, 255, 0.12);
+  --veil-3: rgba(255, 255, 255, 0.16);
+  --scrim-base: #000033;
+  --scrollbar-thumb: rgba(85, 255, 255, 0.32);
+  --scrollbar-thumb-hover: rgba(85, 255, 255, 0.52);
+}
+
+/* ============================================================
    THEMES — THE COLOUR-VISION PACK
    ------------------------------------------------------------
    Twelve palettes for viewers whose colour discrimination differs
