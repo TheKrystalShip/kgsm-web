@@ -21,7 +21,7 @@
 .topbar__menu-btn {
   display: none;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-1);
   width: 36px;
   height: 36px;
@@ -355,7 +355,7 @@
     align-items: center;
     gap: 10px;
     background: var(--surface-1);
-    border: 1px solid var(--border-subtle);
+    border: var(--edge);
     border-radius: var(--r-sm);
     padding: 0 12px;
     height: 44px;

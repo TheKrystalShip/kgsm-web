@@ -34,7 +34,7 @@ body {
 
 *::-webkit-scrollbar-thumb {
    background: var(--scrollbar-thumb);
-   border-radius: 8px;
+   border-radius: var(--r-md);
    border: 3px solid transparent;
    background-clip: padding-box;
 }

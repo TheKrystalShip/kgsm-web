@@ -69,7 +69,7 @@
   padding: 0 12px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   font-family: var(--font-ui);
   font-size: 12.5px;
@@ -245,7 +245,7 @@
 
 .dash-summary .tile {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 16px 18px;
 }
@@ -291,14 +291,14 @@
   height: 4px;
   margin-top: 11px;
   background: var(--veil-1);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 
 .kpi__bar>i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 600ms var(--ease-out);
 }
 
@@ -330,7 +330,7 @@
 /* Host capacity strip — shares the briefing card chrome (header bar + body) */
 .cap-strip {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
 }
@@ -367,7 +367,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .cap-strip__alert {
@@ -377,7 +377,7 @@
   font-size: 12px;
   font-weight: 600;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .cap-strip__alert--warn {
@@ -399,7 +399,7 @@
   padding: 0 12px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   font-size: 12.5px;
   font-weight: 600;
@@ -422,7 +422,7 @@
 
 .cap-meter {
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 12px 14px;
 }
@@ -458,7 +458,7 @@
 
 .cap-meter__track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -466,7 +466,7 @@
 .cap-meter__fill {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   transition: width var(--d-slow) var(--ease-out);
 }
@@ -545,7 +545,7 @@
   color: var(--fg-3);
   background: var(--surface-2);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .server-grid {
@@ -556,7 +556,7 @@
 
 .server-tile {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   transition: border-color var(--d-fast) var(--ease-out);
@@ -595,7 +595,7 @@
   font-size: 11px;
   font-weight: 600;
   padding: 3px 8px 3px 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -604,7 +604,7 @@
 .server-tile__pill .dot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .server-tile__pill--online {
@@ -804,7 +804,7 @@
   height: 28px;
   padding: 0 6px;
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-2);
   font-size: 11px;
@@ -888,7 +888,7 @@
   height: 26px;
   padding: 0 10px;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-3);
   font-size: 11px;
@@ -960,7 +960,7 @@
   gap: 6px;
   padding: 60px 24px;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-3);
 }
@@ -988,7 +988,7 @@
   gap: 10px;
   padding: 22px 18px;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-3);
   font-size: 13.5px;
@@ -1024,7 +1024,7 @@
 
 .alerts-section {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
 }
@@ -1074,7 +1074,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .alerts-section__list {
@@ -1214,7 +1214,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .alert-sev--danger {
@@ -1308,7 +1308,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .alert-card__escalation {
@@ -1414,7 +1414,7 @@
   padding: 0 10px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   font-size: 12px;
   font-weight: 600;
@@ -1485,7 +1485,7 @@
 .ctx-alert {
   position: relative;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-1);
 }
@@ -1507,7 +1507,7 @@
 
 /* Section-top strip: header band + a list of the shared cards. */
 .ctx-strip {
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   overflow: hidden;
   margin-bottom: 16px;
@@ -1555,7 +1555,7 @@
 
 .ctx-strip__count {
   background: rgba(0, 0, 0, 0.28);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 8px;
   line-height: 18px;
   font-size: 11px;
@@ -1592,7 +1592,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1621,7 +1621,7 @@
   flex-direction: column;
   gap: 1px;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
 }

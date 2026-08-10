@@ -273,9 +273,20 @@ Plain CSS, no Tailwind/CSS-modules. Three files load in order (`main.jsx`):
 properties — **a component must never hardcode a color; add or extend a token.**
 
 - **`tokens.css` — the design-token source of truth, split by concern:**
-  - A plain `:root` holds **structural** tokens (type, spacing, radius, shadow,
-    motion, layout) — theme-invariant. Shadow/ring tokens may reference color vars;
+  - A plain `:root` holds **structural** tokens (type, spacing, radius, edge,
+    shadow, motion, layout). Shadow/ring/edge tokens may reference color vars;
     `var()` is late-bound, so they pick up the active theme automatically.
+    Most of these are invariant, but a closed subset — **the shape surface** —
+    may be re-valued by a theme; the block's banner names it exactly.
+  - **Borders are the elevation model here** (~180 hairlines against two dozen
+    shadows), so the whole shorthand is a token: `--edge` / `--edge-strong` /
+    `--edge-accent`. Those are the OUTLINE OF A SURFACE; a one-sided
+    `border-top`/`border-bottom` is a **divider**, keeps the longhand, and stays a
+    hairline in every theme.
+  - **Radii must go through `var(--r-*)`.** `--r-sm` carries ~260 of the kit's
+    radius declarations and `--r-pill` another ~150, which is what makes corner
+    geometry a one-line theme change. A literal `border-radius: 4px` is legal CSS
+    and simply will not follow a theme.
   - **Color** tokens live in theme scopes: `:root, [data-theme="dark"]` (the
     default — applies with no attribute too) and `[data-theme="light"]`. Plus the
     overlay tokens that used to be hardcoded everywhere: `--veil-1/2/3` (white-alpha
@@ -332,6 +343,19 @@ replaces the rail). Landmines:
   the one edit to refuse. A `THEME_OPTS` entry joins them by carrying a `tribute:`
   field naming what it quotes, which the pickers group on and show as the swatch's
   tooltip.
+- **The tributes are also the only themes that re-value SHAPE** — corner radius,
+  border weight, elevation, the UI font, transition durations. An upstream editor
+  scheme never had an opinion about a corner; a tribute is quoting a whole
+  interface, so the shape is part of the quotation. Win95, DOS Blue and the C64
+  set every duration to `0ms` because nothing on those screens eased; LCARS
+  triples the radius ladder because the elbow *is* the design. A `THEME_OPTS`
+  entry declares it with a `shape:` field saying in words what changes, since a
+  swatch cannot show a duration. The permitted token set is fixed — see the
+  structural banner in `tokens.css`, and don't widen it without a reason.
+- **`npm run check:tokens`** fails on any `var(--…)` that names a property nothing
+  defines. That is silent otherwise: an undefined custom property goes
+  invalid-at-computed-value-time, so a border falls back to `currentColor` and a
+  radius computes to 0, forever, with no warning from CSS or the build.
 - **A theme named after an upstream scheme ships that scheme's values unretouched**,
   including where they are low-contrast by design — Solarized and Nord both are.
   Only the palettes this repo invents (the tribute and colour-vision packs) are held

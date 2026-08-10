@@ -1,7 +1,7 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.92.0",
+  "version": "1.93.0",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
@@ -14,7 +14,8 @@
     "build:assistant": "vite build --config vite.assistant.config.js",
     "dev:assistant": "vite --config vite.assistant.config.js",
     "deploy:assistant": "deploy/deploy-assistant.sh",
-    "check:assistant": "node scripts/check-assistant-bundle.mjs"
+    "check:assistant": "node scripts/check-assistant-bundle.mjs",
+    "check:tokens": "node scripts/check-tokens.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

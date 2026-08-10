@@ -42,6 +42,13 @@ const THEME_KEY = "krystal:theme";
 // into something readable. A theme carries at most one of `cvd` and `tribute` — they are the two
 // reasons a palette sits outside the plain Dark and Light lists, and a theme in both sections
 // would be the same swatch twice.
+//
+// `shape` marks a theme that also re-values STRUCTURE — corner radius, border weight, elevation,
+// the UI font, how fast things move — and says in words what it does, because that is a much
+// bigger change than a recolour and a swatch cannot show it. Only tributes carry it: an upstream
+// editor scheme is a syntax palette and never had an opinion about a corner, whereas a tribute is
+// quoting a whole interface. The set of tokens a theme is permitted to re-value is fixed and
+// listed in tokens.css's structural banner; this field is only the human-readable half.
 const THEME_OPTS = [
   { id: "auto",             label: "Auto (system)"                            },
   { id: "dark",             label: "Krystal Blue Dark",          mode: "dark"  },
@@ -76,14 +83,22 @@ const THEME_OPTS = [
   // The tribute pack — palettes quoting a screen somebody already knows, rather than an editor
   // colour scheme. Dark first, then the one light member, since that is also the order the
   // picker's other sections run in.
-  { id: "matrix",    label: "The Matrix",     mode: "dark",  tribute: "The Matrix (1999) — falling code on vampire black" },
-  { id: "winamp",    label: "Winamp Classic", mode: "dark",  tribute: "Winamp's base skin — grey chrome and a green LCD" },
-  { id: "lcars",     label: "LCARS",          mode: "dark",  tribute: "LCARS — the TNG-era Starfleet okudagram" },
-  { id: "cyberpunk", label: "Cyberpunk 2077", mode: "dark",  tribute: "Cyberpunk 2077 — Night City's yellow-on-black HUD" },
-  { id: "dos-blue",  label: "DOS Blue",       mode: "dark",  tribute: "The DOS blue screen — Norton Commander and EDIT.COM" },
-  { id: "pico8",     label: "PICO-8",         mode: "dark",  tribute: "PICO-8 — the fantasy console's fixed sixteen colours" },
-  { id: "c64",       label: "Commodore 64",   mode: "dark",  tribute: "The Commodore 64 boot screen — the VIC-II's screen blue" },
-  { id: "win95",     label: "Windows 95",     mode: "light", tribute: "Windows 95 — silver bevels, a navy title bar, the teal desktop" },
+  { id: "matrix",    label: "The Matrix",     mode: "dark",  tribute: "The Matrix (1999) — falling code on vampire black",
+    shape: "square corners and a monospace UI — a terminal, not a window" },
+  { id: "winamp",    label: "Winamp Classic", mode: "dark",  tribute: "Winamp's base skin — grey chrome and a green LCD",
+    shape: "square corners and hard pixel shadows — a skin is a bitmap" },
+  { id: "lcars",     label: "LCARS",          mode: "dark",  tribute: "LCARS — the TNG-era Starfleet okudagram",
+    shape: "heavy rounded elbows and no elevation — the shape IS the design" },
+  { id: "cyberpunk", label: "Cyberpunk 2077", mode: "dark",  tribute: "Cyberpunk 2077 — Night City's yellow-on-black HUD",
+    shape: "hard corners and a snapping, unblurred HUD" },
+  { id: "dos-blue",  label: "DOS Blue",       mode: "dark",  tribute: "The DOS blue screen — Norton Commander and EDIT.COM",
+    shape: "square, monospace and motionless — a text mode repaints, it does not animate" },
+  { id: "pico8",     label: "PICO-8",         mode: "dark",  tribute: "PICO-8 — the fantasy console's fixed sixteen colours",
+    shape: "square corners and a monospace UI — a rounded corner costs a pixel" },
+  { id: "c64",       label: "Commodore 64",   mode: "dark",  tribute: "The Commodore 64 boot screen — the VIC-II's screen blue",
+    shape: "square, monospace and motionless, inside a screen border" },
+  { id: "win95",     label: "Windows 95",     mode: "light", tribute: "Windows 95 — silver bevels, a navy title bar, the teal desktop",
+    shape: "square corners, 2px edges and instant transitions — nothing in 1995 eased" },
 
   // The colour-vision pack. Ordered most-broadly-useful first: red-green covers by far the most
   // people, then the two single deficiencies it compromises between, then the rarer tritan, then

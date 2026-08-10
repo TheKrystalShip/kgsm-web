@@ -52,7 +52,7 @@
   position: relative;
   display: flex;
   height: 88px;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   transition: border-color var(--d-fast) var(--ease-out), box-shadow var(--d-fast) var(--ease-out);
@@ -92,7 +92,7 @@
   right: 5px;
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   display: inline-flex;
@@ -110,9 +110,9 @@
   left: 5px;
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   color: var(--fg-2);
   display: inline-flex;
   align-items: center;
@@ -193,15 +193,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-subtle);
-  border-radius: 3px;
+  border: var(--edge);
+  border-radius: var(--r-sm);
   background: var(--surface-1);
 }
 
 .theme-mini__led {
   width: 5px;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .theme-mini__led--ok { background: var(--success); }
@@ -214,15 +214,15 @@
   align-items: center;
   gap: 5px;
   padding: 5px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 3px;
+  border: var(--edge);
+  border-radius: var(--r-sm);
   background: var(--surface-1);
 }
 
 .theme-mini__dot {
   width: 11px;
   height: 11px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   flex-shrink: 0;
 }

@@ -43,12 +43,47 @@
 }
 
 /* ============================================================
-   STRUCTURAL TOKENS — theme-invariant.
-   Type, spacing, radius, shadow, motion, layout. These never change
-   between themes, so they live in a plain :root. Shadow/ring tokens
-   may reference color vars (e.g. --border-strong, --krystal-teal-ring);
-   var() is late-bound, so they pick up the ACTIVE theme's color at use.
-   All COLOR tokens live in the theme scopes that follow this block.
+   STRUCTURAL TOKENS — the defaults, and the small subset a theme
+   is allowed to re-value.
+   ------------------------------------------------------------
+   Type, spacing, radius, shadow, motion, layout. Shadow/ring/edge
+   tokens may reference color vars (e.g. --border-strong,
+   --krystal-teal-ring); var() is late-bound, so they pick up the
+   ACTIVE theme's color at use. All COLOR tokens live in the theme
+   scopes that follow this block.
+
+   THE SHAPE SURFACE. Most of what is here is invariant, but a theme
+   may re-value this closed set — and nothing else:
+
+       --r-sm  --r-md  --r-lg  --r-xl        corner geometry
+       --r-pill                              chips, badges, status pills
+       --edge  --edge-strong  --edge-accent  border width + style
+       --shadow-1  --shadow-2  --shadow-pop  elevation
+       --ring-focus  --ring-input            focus
+       --font-ui                             UI type family
+       --d-fast  --d-base  --d-slow          motion
+       --ease-out  --ease-in-out
+
+   Everything else — the type scale, the 4px spacing scale, --font-mono
+   and the layout metrics — is the same in every theme, because those
+   are what keep a page laid out the way it was designed. A theme
+   changes how the furniture is SHAPED, never where it stands.
+
+   Two of these carry nearly all the weight: --r-sm is ~260 of the
+   radius declarations in the kit and --r-pill another ~150, so between
+   them one line re-values the corner geometry of the whole app. That
+   only holds while radii go through the tokens — `npm run check:tokens`
+   catches a reference to a property that does not exist, but a raw
+   `border-radius: 4px` is legal CSS and simply will not follow a theme.
+   Add radii as var(--r-*).
+
+   WHICH themes use it: only the tribute pack. A theme named after an
+   upstream editor scheme — Nord, Gruvbox, Solarized, Ayu — re-values
+   colour and nothing else, because those were syntax palettes and
+   never had an opinion about a corner or a button. A tribute is
+   quoting a whole INTERFACE, so its shape is part of the quotation.
+   Theme blocks are emitted after this one and match at equal
+   specificity, so a re-value in a theme block wins on source order.
    ============================================================ */
 :root {
   /* ---------- TYPE — Families ------------------------------ */
@@ -108,6 +143,24 @@
   --r-lg: 12px;
   --r-xl: 16px;
   --r-pill: 999px;
+
+  /* ---------- EDGE — the whole border shorthand ------------
+     Elevation here is drawn with BORDERS, not shadows: ~170 surfaces
+     carry an identical hairline, and only two dozen carry a shadow.
+     Holding the shorthand — width, style and colour together — is
+     what lets a theme make that hairline 2px, or drop it to nothing,
+     without touching a rule. The colour half stays a var() so the
+     theme's own border tokens still feed it.
+
+     These are the OUTLINE OF A SURFACE — a card, a button, a field.
+     A one-sided `border-top`/`border-bottom` is a different job: it
+     is a divider between rows or sections, it stays a hairline in
+     every theme, and it keeps the longhand so that a theme thickening
+     its edges does not also thicken every table rule on the page.
+     ----------------------------------------------------------- */
+  --edge: 1px solid var(--border-subtle);
+  --edge-strong: 1px solid var(--border-strong);
+  --edge-accent: 1px solid var(--border-accent);
 
   /* ---------- SHADOW & ELEVATION --------------------------- */
   --shadow-0: none;
@@ -2584,6 +2637,26 @@
   --scrim-base: #000000;
   --scrollbar-thumb: rgba(0, 255, 65, 0.24);
   --scrollbar-thumb-hover: rgba(0, 255, 65, 0.42);
+
+  /* ---------- Shape — a terminal, not a window ------------
+     Nothing on that screen is rounded, lit or eased: it is a monospace
+     grid on a monitor. Boxes are DRAWN with a rule rather than lifted
+     with a shadow, and the only glow in the theme is the phosphor
+     bloom under a modal.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --font-ui: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --edge: 1px solid var(--border-strong);
+  --edge-strong: 1px solid #00FF41;
+  --shadow-1: none;
+  --shadow-2: 0 0 0 1px var(--border-strong);
+  --shadow-pop: 0 0 32px rgba(0, 255, 65, 0.16), 0 0 0 1px #00FF41;
+  --ring-focus: 0 0 0 1px #00FF41;
+  --ring-input: 0 0 0 1px rgba(0, 255, 65, 0.35);
 }
 
 /* ============================================================
@@ -2677,6 +2750,34 @@
   /* the desktop behind the window */
   --scrollbar-thumb: rgba(0, 0, 0, 0.30);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.46);
+
+  /* ---------- Shape — 1995: square, hard, instant ---------
+     Not one corner in that shell was rounded and not one thing on it
+     animated, so the radii go to zero and the durations go with them —
+     a Win95 control changed state on the same frame you clicked it.
+     The 2px edge stands in for the bevel: a real raised bevel needs
+     four different edge colours, which the shorthand cannot carry, so
+     this is the honest half of it rather than a fake of the whole.
+     Shadows lose their blur — a Win95 drop shadow was a hard offset
+     rectangle. Tahoma leads the stack because MS Sans Serif is not
+     ours to ship; Inter still catches the fall.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --font-ui: Tahoma, Verdana, "Inter", system-ui, sans-serif;
+  --edge: 2px solid var(--border-strong);
+  --edge-strong: 2px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-pop: 3px 3px 0 rgba(0, 0, 0, 0.40);
+  --ring-focus: 0 0 0 1px #000000;
+  --ring-input: none;
+  --d-fast: 0ms;
+  --d-base: 0ms;
+  --d-slow: 0ms;
 }
 
 /* ============================================================
@@ -2758,6 +2859,27 @@
   --scrim-base: #000000;
   --scrollbar-thumb: rgba(0, 255, 0, 0.22);
   --scrollbar-thumb-hover: rgba(0, 255, 0, 0.40);
+
+  /* ---------- Shape — skinned chrome, cut to the pixel ----
+     A Winamp skin is a bitmap: every widget is a rectangle stamped out
+     of one image, so nothing is rounded and nothing is soft. The
+     shadows are hard offsets because that is what a skin's drop shadow
+     was — pixels, not blur — and the timings tighten because the
+     player answered a click immediately.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --edge: 1px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: 2px 2px 0 rgba(0, 0, 0, 0.55);
+  --shadow-pop: 2px 2px 0 rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-strong);
+  --ring-focus: 0 0 0 1px #00FF00;
+  --d-fast: 60ms;
+  --d-base: 90ms;
+  --d-slow: 140ms;
 }
 
 /* ============================================================
@@ -2845,6 +2967,30 @@
   --scrim-base: #000000;
   --scrollbar-thumb: rgba(255, 153, 0, 0.30);
   --scrollbar-thumb-hover: rgba(255, 153, 0, 0.50);
+
+  /* ---------- Shape — the elbow is the whole design -------
+     LCARS is not a palette with rounded corners bolted on; the shape IS
+     the identity. Every panel on those screens is a block with one
+     heavily rounded end, so the radius ladder here is far larger than
+     anywhere else in the app — this is the one theme where leaving the
+     house geometry alone would make the colours a costume.
+     Nothing is elevated: an okudagram is flat blocks of colour with no
+     shadow anywhere, so the elevation tokens go to nothing and a modal
+     is separated by a ring in the brand orange instead.
+     -------------------------------------------------------- */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+  --edge: 2px solid var(--border-subtle);
+  --edge-strong: 2px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-pop: 0 0 0 2px var(--krystal-teal);
+  --ring-focus: 0 0 0 3px var(--krystal-teal-ring);
+  --d-fast: 70ms;
+  --d-base: 110ms;
+  --d-slow: 180ms;
 }
 
 /* ============================================================
@@ -2918,6 +3064,28 @@
   --scrim-base: #000000;
   --scrollbar-thumb: rgba(252, 238, 10, 0.28);
   --scrollbar-thumb-hover: rgba(252, 238, 10, 0.48);
+
+  /* ---------- Shape — a HUD with no radius ----------------
+     Night City's interface is chamfered and hard-cornered, drawn as if
+     it were etched rather than laid out, and it snaps rather than
+     eases. The yellow does the elevation: instead of a soft lift, a
+     raised surface throws a hard offset in the accent, and a modal
+     gets a 1px yellow keyline over a much deeper scrim.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --edge: 1px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: 4px 4px 0 rgba(252, 238, 10, 0.10);
+  --shadow-pop: 0 0 0 1px #FCEE0A, 0 16px 48px rgba(0, 0, 0, 0.75);
+  --ring-focus: 0 0 0 2px #FCEE0A;
+  --ring-input: 0 0 0 1px rgba(252, 238, 10, 0.40);
+  --d-fast: 60ms;
+  --d-base: 90ms;
+  --d-slow: 140ms;
 }
 
 /* ============================================================
@@ -3000,6 +3168,31 @@
   --scrim-base: #000033;
   --scrollbar-thumb: rgba(85, 255, 255, 0.32);
   --scrollbar-thumb-hover: rgba(85, 255, 255, 0.52);
+
+  /* ---------- Shape — 80x25, and not one pixel between ----
+     A text mode has no radii and no sub-character geometry: everything
+     is a cell, so the corners go to zero and the UI font becomes the
+     monospace one — in EDIT.COM there was no other. The stronger edge
+     doubles up for the box-drawing rule those panels were framed with.
+     Durations go to zero because a text mode did not animate; it
+     repainted.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --font-ui: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --edge: 1px solid var(--border-strong);
+  --edge-strong: 2px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: 2px 2px 0 rgba(0, 0, 0, 0.45);
+  --shadow-pop: 2px 2px 0 rgba(0, 0, 0, 0.55);
+  --ring-focus: 0 0 0 1px #FFFF55;
+  --ring-input: none;
+  --d-fast: 0ms;
+  --d-base: 0ms;
+  --d-slow: 0ms;
 }
 
 /* ============================================================
@@ -3090,6 +3283,29 @@
   --scrim-base: #150F30;
   --scrollbar-thumb: rgba(184, 199, 111, 0.30);
   --scrollbar-thumb-hover: rgba(184, 199, 111, 0.50);
+
+  /* ---------- Shape — 40 columns inside a screen border ---
+     The C64 booted into a monospace text screen framed by a border of
+     its own colour, which is what the 2px edge is quoting. Same
+     reasoning as the other text modes: no radii, no elevation, no
+     animation — a 1MHz machine drew the character and moved on.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --font-ui: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --edge: 2px solid var(--border-strong);
+  --edge-strong: 2px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-pop: 0 0 0 2px #8FBECA;
+  --ring-focus: 0 0 0 2px #8FBECA;
+  --ring-input: none;
+  --d-fast: 0ms;
+  --d-base: 0ms;
+  --d-slow: 0ms;
 }
 
 /* ============================================================
@@ -3176,6 +3392,27 @@
   --scrim-base: #000000;
   --scrollbar-thumb: rgba(255, 236, 39, 0.26);
   --scrollbar-thumb-hover: rgba(255, 236, 39, 0.46);
+
+  /* ---------- Shape — 128x128, one pixel is one pixel -----
+     PICO-8 draws on a 128-square grid, so a rounded corner would cost
+     a pixel it does not have. Corners go to zero and shadows lose
+     their blur. The timings tighten but do not go to zero — unlike the
+     text modes this is a console, and it runs at 30fps.
+     -------------------------------------------------------- */
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 0;
+  --font-ui: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --edge: 1px solid var(--border-strong);
+  --shadow-1: none;
+  --shadow-2: 2px 2px 0 rgba(0, 0, 0, 0.60);
+  --shadow-pop: 0 0 0 2px #FFEC27, 0 8px 32px rgba(0, 0, 0, 0.70);
+  --ring-focus: 0 0 0 2px #FFEC27;
+  --d-fast: 60ms;
+  --d-base: 80ms;
+  --d-slow: 120ms;
 }
 
 /* ============================================================
@@ -4065,7 +4302,7 @@ pre {
   line-height: 1.55;
   color: var(--fg-2);
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: var(--s-4);
 }

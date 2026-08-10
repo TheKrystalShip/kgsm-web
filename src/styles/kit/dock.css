@@ -13,7 +13,7 @@
   padding: 0 12px;
   margin-right: 4px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-2);
   cursor: pointer;
@@ -90,7 +90,7 @@
   align-items: center;
   justify-content: center;
   background: var(--krystal-teal-dim);
-  border: 1px solid var(--border-accent);
+  border: var(--edge-accent);
   color: var(--krystal-teal);
   cursor: pointer;
   transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
@@ -136,7 +136,7 @@
   z-index: 55;
   width: 52px;
   height: 52px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -187,7 +187,7 @@
   background: color-mix(in srgb, var(--surface-1) 92%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-left: none;
   /* fg-4 so the chevron matches the Fleet-row "go" chevron (dash-fleet-row__go). */
   color: var(--fg-4);
@@ -269,7 +269,7 @@
 .asst-host__dot {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 
@@ -313,7 +313,7 @@
   position: fixed;
   min-width: 226px;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 6px;
@@ -414,7 +414,7 @@
   height: 38px;
   padding: 0 12px;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-1);
   font-size: 13px;
@@ -447,7 +447,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .assistant-dock .chat-page--docked .chat-railbar__new {
@@ -474,7 +474,7 @@
   left: 0;
   right: 0;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   overflow: hidden;
@@ -534,7 +534,7 @@
   width: 3px;
   height: 36px;
   margin-top: -18px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--border-strong);
   transition: background var(--d-fast);
 }
@@ -565,7 +565,7 @@
   align-items: center;
   gap: 6px;
   background: var(--krystal-teal-dim);
-  border: 1px solid var(--border-accent);
+  border: var(--edge-accent);
   border-radius: var(--r-pill);
   color: var(--krystal-teal);
   cursor: pointer;

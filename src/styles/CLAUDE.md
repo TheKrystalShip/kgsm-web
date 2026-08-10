@@ -11,10 +11,22 @@ the full theming narrative; this is the local map + the one rule that matters.
 in theme scopes in `tokens.css`; a rule references them via `var(--…)`. This is
 what makes theme switching (and adding a theme) a data change, not a code hunt.
 
+The same now applies to **radius** and to a surface's **border**: write
+`border-radius: var(--r-sm)` and `border: var(--edge)`, never a literal, because
+those two tokens are how a theme re-shapes the whole app at once.
+
+**`npm run check:tokens` is the guard.** It fails on any `var(--…)` naming a
+property nothing defines — the failure mode CSS gives you for free otherwise, in
+which `border-color: var(--typo)` silently becomes `currentColor` and
+`border-radius: var(--typo)` silently becomes `0`. Two whole families of that had
+shipped here before the check existed. It cannot catch a raw literal, though: a
+`border-radius: 4px` is valid CSS that simply will not follow a theme.
+
 ## `tokens.css` — the design-token source of truth
 
-- Plain `:root` holds **structural** tokens (type, spacing, radius, shadow,
-  motion, layout) — theme-invariant.
+- Plain `:root` holds **structural** tokens (type, spacing, radius, edge, shadow,
+  motion, layout). Most are invariant; a **closed subset** is re-valuable by a
+  theme — see "Themes change shape too" below.
 - **Color** tokens live in theme scopes: `:root, [data-theme="dark"]` (default —
   applies with no attribute) and `[data-theme="light"]`. Plus overlay tokens
   (`--veil-1/2/3`, `--scrim-base`, `--scrollbar-*`). **A theme = the FULL color
@@ -76,6 +88,36 @@ edit that turns a quotation into just another dark theme, and it is invisible in
 review because the result looks better. Contrast was measured on the surfaces each
 value actually lands on, including each `-fg` on its own `-bg` tint, so a
 retune means re-measuring rather than eyeballing.
+
+## Themes change shape too — but only the tributes, and only these tokens
+
+A theme may re-value a **closed set** of structural tokens: the radius ladder
+(`--r-sm/md/lg/xl` and `--r-pill`), the border shorthands (`--edge*`), elevation
+(`--shadow-*`), focus (`--ring-*`), `--font-ui`, and the motion tokens
+(`--d-*`, `--ease-*`). The exact list is in the structural banner in `tokens.css`;
+it is closed on purpose. **The type scale, the 4px spacing scale, `--font-mono`
+and the layout metrics are not on it** — a theme changes how the furniture is
+shaped, never where it stands, because a palette should not be able to break a
+page's layout.
+
+**Only the tribute pack uses it.** An upstream editor scheme re-values colour and
+nothing else: Nord and Solarized were syntax palettes and never had an opinion
+about a corner or a button. A tribute is quoting a whole *interface*, so shape is
+part of the quotation — Win95, DOS Blue and the C64 set every duration to `0ms`
+because nothing on those screens eased, and LCARS triples the radius ladder
+because the elbow is the entire design language, not decoration on top of it.
+
+Theme blocks are emitted after the structural block and match at equal
+specificity, so a re-value in a theme block wins on source order — no `!important`
+and no extra selector weight needed.
+
+Two limits worth knowing before you extend this. A true Win95 **bevel** needs four
+different edge colours and the `border` shorthand cannot carry them, so that theme
+ships the honest half — a 2px flat edge — rather than a fake of the whole; doing it
+properly means a shared button/card primitive, which does not exist yet (buttons
+are per-domain classes across ~20 partials). And **Monaco cannot read CSS custom
+properties**: `CodeEditor.jsx` samples resolved colours at runtime, so the editor
+follows a theme's palette but keeps the house geometry and font.
 
 ## `kit.css` is a BARREL — do not edit it, edit the partial
 

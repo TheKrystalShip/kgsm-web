@@ -41,7 +41,7 @@
 
 .k-modal {
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-pop);
   width: 100%;
@@ -158,7 +158,7 @@
 
 .k-field input {
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   height: 38px;
   padding: 0 12px;
@@ -223,7 +223,7 @@
   -webkit-appearance: none;
   width: 100%;
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
@@ -346,7 +346,7 @@
 .k-modal__btn--secondary {
   background: transparent;
   color: var(--fg-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
 }
 
 .k-modal__btn--secondary:hover {

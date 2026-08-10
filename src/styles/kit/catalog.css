@@ -31,7 +31,7 @@
 
 .library-search {
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   height: 40px;
   padding: 0 12px;
@@ -62,10 +62,10 @@
   font-size: 13px;
   height: 32px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: transparent;
   color: var(--fg-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   cursor: pointer;
 }
 
@@ -88,7 +88,7 @@
 
 .game-card {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   cursor: pointer;
@@ -161,7 +161,7 @@
   font-size: 11px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 /* ---- Blueprint card — the library grid tile ----
@@ -170,7 +170,7 @@
    made legible instead of hidden in a corner badge. */
 .bp-card {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   cursor: pointer;
@@ -232,7 +232,7 @@
   gap: 5px;
   height: 24px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--canvas) 50%, transparent);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -253,7 +253,7 @@
   gap: 5px;
   height: 24px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--canvas) 55%, transparent);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(245, 158, 11, 0.34);
@@ -280,7 +280,7 @@
   gap: 6px;
   height: 24px;
   padding: 0 10px 0 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   font-size: 11px;
@@ -291,7 +291,7 @@
 .bp-card__rundot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--canvas) 45%, transparent);
 }
 
@@ -309,7 +309,7 @@
   align-items: center;
   height: 22px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--info-bg);
   color: var(--info-fg);
   border: 1px solid rgba(56, 189, 248, 0.32);
@@ -398,7 +398,7 @@
 .bp-card__livedot {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--success);
   flex-shrink: 0;
   animation: kr-pulse 1.8s ease-in-out infinite;
@@ -441,7 +441,7 @@
 .bp-card__cta--act:focus-visible {
   outline: 2px solid var(--krystal-teal);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 /* ---- Grouped view — Windows-Explorer-style foldable sections ---- */
@@ -508,7 +508,7 @@
   font-weight: 700;
   color: var(--fg-3);
   background: var(--surface-3);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 2px 8px;
   line-height: 1.5;
 }
@@ -526,7 +526,7 @@
 .lib-group__subdot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
 }
 
@@ -576,11 +576,11 @@ a.game-fact:hover {
   align-items: center;
   background: var(--surface-2);
   color: var(--fg-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   font-size: 12px;
   font-weight: 500;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .game-empty {
@@ -616,7 +616,7 @@ a.game-fact:hover {
   display: grid;
   grid-template-columns: var(--fb-tree-w, 260px) minmax(0, 1fr);
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   min-height: 640px;
@@ -758,13 +758,13 @@ a.game-fact:hover {
   gap: 5px;
   padding: 3px 8px;
   background: var(--warning-bg);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .fb-editor__dirty .dot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--warning);
 }
 
@@ -965,7 +965,7 @@ a.game-fact:hover {
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
@@ -1005,7 +1005,7 @@ a.game-fact:hover {
   justify-content: center;
   gap: 10px;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-3);
   text-align: center;
@@ -1025,7 +1025,7 @@ a.game-fact:hover {
   gap: 16px;
   align-items: center;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 14px 18px;
 }
@@ -1070,7 +1070,7 @@ a.game-fact:hover {
   font-size: 11px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--veil-1);
   color: var(--fg-3);
 }
@@ -1092,7 +1092,7 @@ a.game-fact:hover {
 
 .icon-btn {
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   width: 32px;
   height: 32px;
@@ -1173,7 +1173,7 @@ a.game-fact:hover {
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--fg-3);
   text-transform: capitalize;
@@ -1310,7 +1310,7 @@ a.game-fact:hover {
   height: 34px;
   max-width: 340px;
   padding: 0 10px;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-md);
   background: var(--surface-2);
   color: var(--fg-1);
@@ -1358,7 +1358,7 @@ a.game-fact:hover {
   align-items: center;
   gap: 5px;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 4px 10px;
   color: var(--fg-2);
@@ -1379,7 +1379,7 @@ a.game-fact:hover {
 
 .bp-editor__host-menu {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   min-width: 160px;

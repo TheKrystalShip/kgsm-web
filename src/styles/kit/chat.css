@@ -206,7 +206,7 @@
 .chat-conn .dot {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 
@@ -247,7 +247,7 @@
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   overflow: hidden;
   min-width: 0;
 }
@@ -281,12 +281,12 @@
   color: var(--krystal-teal);
   background: var(--krystal-teal-dim);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .chat-iconbtn {
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   width: 34px;
   height: 34px;
@@ -397,7 +397,7 @@
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   color: var(--fg-inverse);
   font-size: 9px;
@@ -427,7 +427,7 @@
 .chat-ctx__track {
   width: 38px;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
   overflow: hidden;
   flex-shrink: 0;
@@ -436,7 +436,7 @@
 .chat-ctx__track>i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   transition: width var(--d-slow) var(--ease-out), background var(--d-fast) var(--ease-out);
 }
@@ -495,7 +495,7 @@
   width: 244px;
   max-width: 84vw;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 12px 14px 13px;
@@ -541,7 +541,7 @@
 .chat-ctx__pop-track {
   margin: 11px 0 8px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -549,7 +549,7 @@
 .chat-ctx__pop-track>i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
   transition: width var(--d-slow) var(--ease-out);
 }
@@ -595,7 +595,7 @@
   height: 32px;
   padding: 0 12px;
   background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   color: var(--fg-1);
   font-size: 12.5px;
@@ -651,7 +651,7 @@
   width: 282px;
   max-width: 84vw;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   display: flex;
@@ -733,7 +733,7 @@
 .chat-msg__bot {
   width: 28px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal-dim);
   color: var(--krystal-teal);
   display: inline-flex;
@@ -805,13 +805,13 @@
   background: var(--surface-0);
   color: var(--krystal-teal);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .chat-code {
   position: relative;
   background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 12px 14px;
   margin: 8px 0;
@@ -849,7 +849,7 @@
   width: fit-content;
   padding: 9px 13px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: 13px 13px 13px 4px;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
 }
@@ -857,7 +857,7 @@
 .chat-typing span {
   width: 5px;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--fg-3);
   animation: chat-typing-dot 1.4s ease-in-out infinite;
 }
@@ -951,7 +951,7 @@
   height: 12px;
   border: 2px solid var(--krystal-teal-dim);
   border-top-color: var(--krystal-teal);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   animation: chat-ctx-spin 0.7s linear infinite;
 }
 
@@ -1058,7 +1058,7 @@
 
 .ev-card {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   animation: chat-ctx-in var(--d-base) var(--ease-out);
@@ -1115,7 +1115,7 @@
   align-items: center;
   gap: 4px;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--krystal-teal);
   cursor: pointer;
   font-size: 11.5px;
@@ -1141,7 +1141,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
   font-family: var(--font-ui);
 }
@@ -1456,7 +1456,7 @@
 .ev-health__icon {
   width: 16px;
   height: 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1520,7 +1520,7 @@
 .ev-fleet__icon {
   width: 16px;
   height: 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1578,7 +1578,7 @@
 .ev-search__icon {
   width: 16px;
   height: 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1722,7 +1722,7 @@ a.ev-search__src:hover {
 .ev-chain__dot {
   width: 9px;
   height: 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   margin-top: 4px;
   flex-shrink: 0;
   z-index: 1;
@@ -1872,7 +1872,7 @@ a.ev-search__src:hover {
 /* write_file proposal: the path + a scrollable preview of the exact content to be written */
 .chat-filepreview {
   margin: 8px 0;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--veil-1);
@@ -1911,7 +1911,7 @@ a.ev-search__src:hover {
    The interactive twin of .ev-bp (the terminal outcome card); shares its verdict styling. */
 .chat-bp {
   margin: 8px 0;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   background: var(--veil-1);
@@ -2086,7 +2086,7 @@ a.ev-search__src:hover {
   gap: 7px;
   margin: 0 11px 11px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
@@ -2102,7 +2102,7 @@ a.ev-search__src:hover {
   align-items: center;
   gap: 7px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   color: var(--fg-1);
   font-family: var(--font-ui);
@@ -2147,7 +2147,7 @@ a.ev-search__src:hover {
 }
 
 .chat-action--disabled:hover {
-  border-color: var(--border);
+  border-color: var(--border-subtle);
   background: var(--surface-2);
 }
 
@@ -2210,7 +2210,7 @@ a.ev-search__src:hover {
 
 .chat-action__cancel {
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   border-radius: var(--r-sm);
   font-weight: 600;
@@ -2301,7 +2301,7 @@ a.ev-search__src:hover {
   color: var(--fg-2);
   background: rgba(0, 0, 0, 0.18);
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .chat-verify__chip b {
@@ -2318,7 +2318,7 @@ a.ev-search__src:hover {
   width: 100%;
   text-align: left;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   overflow: hidden;
   margin-top: 4px;
@@ -2445,7 +2445,7 @@ a.ev-search__src:hover {
   font-weight: 700;
   letter-spacing: 0;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .chat-brief__hide {
@@ -2589,7 +2589,7 @@ a.ev-search__src:hover {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .chat-brief__item--escalated {
@@ -2701,8 +2701,8 @@ a.ev-search__src:hover {
   height: 30px;
   padding: 0 10px;
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
+  border: var(--edge);
+  border-radius: var(--r-pill);
   color: var(--fg-3);
   cursor: pointer;
   font-size: 12.5px;
@@ -2758,7 +2758,7 @@ a.ev-search__src:hover {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  color: var(--fg-muted);
+  color: var(--fg-3);
 }
 
 .chat-queued__item {
@@ -2767,10 +2767,10 @@ a.ev-search__src:hover {
   gap: 5px;
   max-width: 190px;
   padding: 3px 7px;
-  border: 1px dashed var(--border-1);
-  border-radius: var(--radius-pill, 999px);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--r-pill);
   background: var(--veil-1);
-  color: var(--fg-muted);
+  color: var(--fg-3);
   font-size: 11.5px;
   line-height: 1.2;
   cursor: pointer;
@@ -2779,7 +2779,7 @@ a.ev-search__src:hover {
 
 .chat-queued__item:hover {
   color: var(--fg-1);
-  border-color: var(--border-2);
+  border-color: var(--border-strong);
 }
 
 /* The prompt, kept to one line: the chip says what is waiting, the tooltip says all of it. */
@@ -2826,7 +2826,7 @@ a.ev-search__src:hover {
   align-items: center;
   gap: 6px;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-pill);
   color: var(--fg-2);
   cursor: pointer;
@@ -2958,7 +2958,7 @@ a.ev-search__src:hover {
 .chat-suggestion {
   text-align: left;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 10px 12px;
   color: var(--fg-2);
@@ -2982,8 +2982,8 @@ a.ev-search__src:hover {
   gap: 8px;
   margin: 0 16px;
   padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: var(--edge);
+  border-radius: var(--r-md);
   background: var(--surface-3);
   color: var(--fg-2);
   font-size: 12.5px;
@@ -2992,15 +2992,15 @@ a.ev-search__src:hover {
 .chat-signin__go {
   flex: none;
   padding: 4px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border: var(--edge-strong);
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   color: var(--fg-1);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
-.chat-signin__go:hover { background: var(--surface-4); }
+.chat-signin__go:hover { background: var(--veil-2); }
 
 /* ---- composer ---- */
 .chat-composer {
@@ -3014,7 +3014,7 @@ a.ev-search__src:hover {
   align-items: stretch;
   gap: 6px;
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 10px 10px 8px 14px;
   max-width: 760px;
@@ -3117,7 +3117,7 @@ a.ev-search__src:hover {
   font-family: var(--font-mono);
   font-size: 10px;
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--veil-1);
   color: var(--fg-3);
 }
@@ -3136,10 +3136,10 @@ a.ev-search__src:hover {
   max-height: 320px;
   overflow-y: auto;
   padding: 6px;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-lg);
+  border: var(--edge-strong);
+  border-radius: var(--r-lg);
   background: var(--surface-2);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-2);
 }
 
 .chat-cmdmenu__row {
@@ -3149,7 +3149,7 @@ a.ev-search__src:hover {
   width: 100%;
   padding: 7px 9px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -3183,12 +3183,12 @@ a.ev-search__src:hover {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  color: var(--warn-fg);
+  color: var(--warning-fg);
 }
 
 .chat-cmdmenu__hint {
   padding: 6px 9px 2px;
-  border-top: 1px solid var(--border-1);
+  border-top: 1px solid var(--border-subtle);
   margin-top: 4px;
   font-size: 10.5px;
   color: var(--fg-4);
@@ -3199,7 +3199,7 @@ a.ev-search__src:hover {
   font-size: 10px;
   padding: 0 3px;
   margin-right: 2px;
-  border: 1px solid var(--border-2);
+  border: var(--edge-strong);
   border-radius: 3px;
   color: var(--fg-3);
 }
@@ -3210,8 +3210,8 @@ a.ev-search__src:hover {
   max-width: min(680px, 100%);
   margin: 2px 0;
   padding: 10px 12px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
+  border: var(--edge);
+  border-radius: var(--r-lg);
   background: var(--veil-1);
 }
 
@@ -3297,7 +3297,7 @@ a.ev-search__src:hover {
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--fg-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3319,7 +3319,7 @@ a.ev-search__src:hover {
   max-width: 760px;
   margin: 0 auto;
   background: var(--surface-3);
-  border: 1px solid var(--border-accent);
+  border: var(--edge-accent);
   box-shadow: var(--ring-input);
   border-radius: var(--r-sm);
   padding: 7px 8px 7px 10px;
@@ -3478,7 +3478,7 @@ a.ev-search__src:hover {
   margin: 2px 0 8px;
   padding: 7px 12px 7px 8px;
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-pill);
   max-width: 340px;
 }
@@ -3558,7 +3558,7 @@ a.ev-search__src:hover {
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
@@ -3663,7 +3663,7 @@ a.ev-search__src:hover {
     height: 42px;
     padding: 0 12px;
     background: var(--surface-1);
-    border: 1px solid var(--border-subtle);
+    border: var(--edge);
     border-radius: var(--r-sm);
     color: var(--fg-1);
     font-size: 13.5px;
@@ -3696,7 +3696,7 @@ a.ev-search__src:hover {
     color: var(--fg-3);
     background: var(--surface-3);
     padding: 1px 7px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
   }
 
   .chat-railbar__new {
@@ -3723,7 +3723,7 @@ a.ev-search__src:hover {
     left: 0;
     right: 0;
     background: var(--surface-1);
-    border: 1px solid var(--border-strong);
+    border: var(--edge-strong);
     border-radius: var(--r-sm);
     box-shadow: var(--shadow-2);
     overflow: hidden;
@@ -3886,7 +3886,7 @@ a.ev-search__src:hover {
   height: 11px;
   border: 2px solid var(--krystal-teal-dim);
   border-top-color: var(--krystal-teal);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   animation: chat-ctx-spin 0.7s linear infinite;
 }
 
@@ -4105,7 +4105,7 @@ a.ev-search__src:hover {
   flex: 1 1 200px;
   min-width: 0;
   padding: 5px 9px;
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   background: var(--surface-2);
   color: var(--fg-1);
@@ -4115,11 +4115,11 @@ a.ev-search__src:hover {
 
 .chat-fb__input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--border-accent);
 }
 
 .chat-fb__save {
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   background: var(--surface-2);
   color: var(--fg-2);

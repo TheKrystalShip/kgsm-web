@@ -15,18 +15,18 @@
   margin: 2px 0 10px;
   height: 40px;
   padding: 0 10px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-md);
+  border: var(--edge);
+  border-radius: var(--r-md);
   background: var(--surface-1);
   color: var(--fg-2);
   cursor: pointer;
   text-align: left;
-  transition: background var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  transition: background var(--d-fast), border-color var(--d-fast), color var(--d-fast);
 }
 
 .cluster-status:hover {
   background: var(--surface-2);
-  border-color: var(--border-2);
+  border-color: var(--border-strong);
   color: var(--fg-1);
 }
 
@@ -52,7 +52,7 @@
 .cluster-status__sep {
   width: 1px;
   height: 14px;
-  background: var(--border-1);
+  background: var(--border-subtle);
   flex: none;
 }
 
@@ -95,17 +95,17 @@
   align-items: center;
   gap: 9px;
   padding: 9px 12px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-md);
+  border: var(--edge);
+  border-radius: var(--r-md);
   background: var(--surface-1);
   font-size: 12.5px;
   color: var(--fg-2);
   line-height: 1.45;
 }
 
-.node-access__row--expired { border-color: color-mix(in srgb, var(--warning) 40%, var(--border-1)); }
+.node-access__row--expired { border-color: color-mix(in srgb, var(--warning) 40%, var(--border-subtle)); }
 .node-access__row--expired > svg { color: var(--warning); }
-.node-access__row--denied { border-color: color-mix(in srgb, var(--danger) 34%, var(--border-1)); }
+.node-access__row--denied { border-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle)); }
 .node-access__row--denied > svg { color: var(--danger); }
 
 .node-access__text { flex: 1; }
@@ -114,8 +114,8 @@
 .node-access__act {
   flex: none;
   padding: 4px 10px;
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-sm);
+  border: var(--edge-strong);
+  border-radius: var(--r-sm);
   background: var(--surface-2);
   color: var(--fg-1);
   font-size: 11.5px;
@@ -148,8 +148,8 @@
   background: color-mix(in srgb, var(--scrim-base) 62%, transparent);
   backdrop-filter: blur(4px);
   padding: 3px 8px 3px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
+  border: var(--edge);
 }
 
 /* Always white — this pill overlays cover art, not the page canvas. */
@@ -169,11 +169,11 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   background: color-mix(in srgb, var(--scrim-base) 62%, transparent);
   backdrop-filter: blur(4px);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-3);
   opacity: 0;
   transition: opacity var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out),
@@ -226,7 +226,7 @@
   padding: 0 12px;
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   color: var(--fg-2);
   font-size: 12.5px;
   font-weight: 600;
@@ -247,7 +247,7 @@
   gap: 22px;
   flex-wrap: wrap;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 16px 20px;
   margin-bottom: 16px;
@@ -305,7 +305,7 @@
   text-align: left;
   cursor: pointer;
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 16px 18px;
   display: flex;
@@ -340,7 +340,7 @@
 .fleet-card__dot {
   width: 9px;
   height: 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 
@@ -376,7 +376,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .fleet-card__alerts {
@@ -386,7 +386,7 @@
   font-size: 12px;
   font-weight: 700;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .fleet-card__alerts--warn {
@@ -439,7 +439,7 @@
 
 .fleet-meter__track {
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -447,7 +447,7 @@
 .fleet-meter__track i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
 }
 
@@ -524,7 +524,7 @@
   z-index: 30;
   min-width: 190px;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-pop);
   padding: 6px;
@@ -605,7 +605,7 @@
 
 .host-card {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   padding: 16px 18px;
   display: flex;
@@ -632,13 +632,13 @@
   font-weight: 600;
   text-transform: capitalize;
   padding: 3px 9px 3px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .host-card__status-dot {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .host-card__status--online {
@@ -755,7 +755,7 @@
 
 .host-mini__track {
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -763,7 +763,7 @@
 .host-mini__track i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--krystal-teal);
 }
 
@@ -832,7 +832,7 @@
 .host-card__add-icon {
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--surface-2);
   display: inline-flex;
   align-items: center;
@@ -946,7 +946,7 @@
 
 .modal {
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-pop);
   width: 100%;
@@ -1039,7 +1039,7 @@
 
 .host-field__input {
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   height: 38px;
   padding: 0 12px;
@@ -1085,7 +1085,7 @@
 .host-remove__icon {
   width: 48px;
   height: 48px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1181,7 +1181,7 @@
 .dash-fleet-row__dot {
   width: 9px;
   height: 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 
@@ -1220,7 +1220,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 

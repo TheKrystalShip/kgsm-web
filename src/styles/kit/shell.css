@@ -18,13 +18,20 @@
   align-items: center;
   gap: 10px;
   padding: 4px 8px 6px;
+  min-width: 0;
 }
 
+/* The wordmark holds one line whatever --font-ui a theme sets. The rail is a fixed
+   240px, and the tributes that swap the UI face to a monospace one push twelve
+   characters past what the sans fits — which wrapped the brand to two lines and
+   shunted the whole rail down. It shrinks rather than wraps: a wordmark broken
+   across lines reads as a layout fault, a slightly smaller one does not. */
 .sidebar__brand-wordmark {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--fg-1);
+  white-space: nowrap;
 }
 
 /* Primary nav + quick-action groups */
@@ -64,7 +71,7 @@
 /* Server search */
 .sidebar__search {
   background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   border-radius: var(--r-sm);
   height: 34px;
   display: flex;
@@ -173,7 +180,7 @@
   color: var(--fg-3);
   background: var(--surface-3);
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   line-height: 16px;
 }
 
@@ -273,7 +280,7 @@
   left: 0;
   right: 0;
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
+  border: var(--edge-strong);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-2);
   padding: 6px;
@@ -375,7 +382,7 @@
   margin-left: auto;
   font-size: 11px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--veil-2);
   color: var(--fg-2);
   font-weight: 600;
@@ -424,7 +431,7 @@
 .server-row__dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   flex-shrink: 0;
 }
 
@@ -603,7 +610,7 @@
   flex-shrink: 0;
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--edge);
   display: flex;
   align-items: center;
   justify-content: center;

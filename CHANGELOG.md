@@ -7,7 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Themes can change the panel's SHAPE, not just its colours.** A closed set of structural tokens —
+  the radius ladder, the border shorthands, elevation, focus, the UI type family and the motion
+  durations — is re-valuable by a theme; the type scale, the spacing scale and the layout metrics
+  are not, because a palette must not be able to move where anything stands. The permitted set is
+  named in `tokens.css`'s structural banner.
+
+  **Only the tribute pack uses it.** A theme named after an upstream editor scheme re-values colour
+  and nothing else: Nord and Solarized were syntax palettes and never had an opinion about a corner
+  or a button. A tribute is quoting a whole interface, so the shape is part of the quotation. All
+  eight now carry one: The Matrix, DOS Blue, the Commodore 64 and PICO-8 go square with a monospace
+  UI; Windows 95, DOS Blue and the C64 set every duration to `0ms`, because nothing on those screens
+  eased; Winamp and Cyberpunk 2077 trade blurred elevation for hard offset shadows; and LCARS
+  triples the radius ladder, since the elbow is the design language rather than decoration on it.
+  A `THEME_OPTS` entry declares this with a `shape:` field saying in words what changes, since a
+  swatch cannot show a duration — though the picker's miniatures do now preview the geometry,
+  being built from the same tokens.
+
+  Windows 95's bevel is the one thing quoted at half strength: a raised 3D edge needs four different
+  border colours and the `border` shorthand carries one, so it ships a 2px flat edge rather than a
+  fake of the whole.
+
+- **`npm run check:tokens`** fails the moment a stylesheet reads a custom property that nothing
+  defines. CSS gives no warning for that on its own — the declaration goes
+  invalid-at-computed-value-time, so `border-color: var(--typo)` silently becomes `currentColor` and
+  `border-radius: var(--typo)` silently becomes `0`, permanently and invisibly.
+
+### Fixed
+
+- **Twenty-five references to custom properties that were never defined**, found by the new check
+  and left over from an older naming convention. `--border-1`/`--border-2` (14 uses across the hosts
+  and leaf surfaces) were drawing their borders in `currentColor` and one divider in nothing at all;
+  `--radius-sm`/`--radius-md`/`--radius-lg` (8 uses in the chat and hosts surfaces) were rendering
+  square corners by accident; and `--accent`, `--border`, `--fg-muted`, `--motion-fast`,
+  `--shadow-lg`, `--surface-4` and `--warn-fg` each missed in the chat surface both surfaces share —
+  the three `--motion-fast` reads meant the cluster-status control had no transition at all.
+
+- **The sidebar wordmark holds one line** whatever UI face a theme sets. The rail is a fixed 240px
+  and the monospace tributes pushed "Krystal Ship" past what the sans fits, wrapping the brand to
+  two lines and shunting the rail down with it.
+
 ### Changed
+
+- **A surface's border is one token, and radii go through `--r-*`.** `--edge`/`--edge-strong`/
+  `--edge-accent` hold the whole shorthand across ~180 call sites, because elevation here is drawn
+  with borders rather than shadows and a theme needs the width and style, not just the colour. A
+  one-sided `border-top`/`border-bottom` keeps the longhand: that is a divider, and it stays a
+  hairline in every theme so a thick-edged palette does not also thicken every table rule. Radius
+  literals fold onto `--r-sm` (~260 uses) and `--r-pill` (~150), which is what makes corner geometry
+  a one-line change per theme.
+
 
 - **The bot's overview page reads the leaf's plural guild shape.** A KGSM host announces into any
   number of Discord servers, each set up from inside Discord with `/setup`, so the page leads with

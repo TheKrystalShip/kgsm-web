@@ -34,6 +34,12 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 // view, the assistant's rail scrolls, and the badge is what identifies one of those on its own.
 // The tributes are not: which screen a palette is quoting is decoration, and a mark on every
 // second tile would cost the grid more than it tells anyone.
+//
+// The tributes are also the only themes that re-value STRUCTURE — corners, border weight,
+// elevation, the UI font, transition durations — so the section says so in its note and each
+// tile's tooltip carries the `shape` sentence under the `tribute` one. The miniature shows it
+// too, without any help: it is built from the same tokens, so an LCARS tile is visibly rounder
+// and a Windows 95 tile visibly squarer than the palette alone would make it.
 function ThemePicker({ compact = false }) {
   const pref = useThemePref();
   const groups = [
@@ -66,8 +72,9 @@ function ThemePicker({ compact = false }) {
       <div>
         <div className="theme-picker__group">Tributes</div>
         <p className="theme-picker__note">
-          Palettes borrowed from screens you have already stared at. Hover one to see what it
-          is quoting.
+          Palettes borrowed from screens you have already stared at. These are the only themes
+          that change the panel&rsquo;s shape as well as its colours &mdash; corners, borders and
+          how fast things move. Hover one to see what it is quoting.
         </p>
         <div className="theme-picker__grid">
           {tributes.map((o) => (
@@ -99,7 +106,13 @@ function ThemeSwatch({ opt, selected }) {
       type="button"
       className={"theme-swatch" + (selected ? " theme-swatch--on" : "")}
       aria-pressed={selected}
-      title={opt.cvd ? `${opt.label} — for ${opt.cvd}` : opt.tribute || opt.label}
+      title={
+        opt.cvd
+          ? `${opt.label} — for ${opt.cvd}`
+          : opt.tribute
+            ? `${opt.tribute}${opt.shape ? `\n${opt.shape}` : ""}`
+            : opt.label
+      }
       onClick={() => themeStore.set(opt.id)}
     >
       <span className="theme-swatch__tile">
