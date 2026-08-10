@@ -66,6 +66,12 @@ const THEME_OPTS = [
   { id: "solarized-light",  label: "Solarized Light",            mode: "light" },
   { id: "catppuccin-latte", label: "Catppuccin Latte",           mode: "light" },
   { id: "nord-light",       label: "Nord Light",                 mode: "light" },
+  { id: "gruvbox-light",    label: "Gruvbox Light",              mode: "light" },
+  { id: "everforest-light", label: "Everforest Light",           mode: "light" },
+  { id: "rose-pine-dawn",   label: "Rosé Pine Dawn",             mode: "light" },
+  { id: "tokyo-night-day",  label: "Tokyo Night Day",            mode: "light" },
+  { id: "one-light",        label: "One Light",                  mode: "light" },
+  { id: "ayu-light",        label: "Ayu Light",                  mode: "light" },
 
   // The tribute pack — palettes quoting a screen somebody already knows, rather than an editor
   // colour scheme. Dark first, then the one light member, since that is also the order the

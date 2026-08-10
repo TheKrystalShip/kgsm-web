@@ -21,6 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Six light themes, each completing a pair the picker was already half of** — **Gruvbox Light**,
+  **Everforest Light**, **Rosé Pine Dawn**, **Tokyo Night Day**, **One Light** and **Ayu Light**.
+  The Light group goes from five to eleven, and every dark scheme here that publishes a light sibling
+  now has it.
+
+  Each takes the sibling's accent assignment with it, so the two halves stay legible as one scheme:
+  gruvbox keeps orange, everforest green, Rosé Pine iris, Tokyo Night blue. Gruvbox's semantic
+  colours are its FADED set rather than the dark theme's brights, which is the pairing gruvbox itself
+  publishes — the brights are drawn for a dark background. Tokyo Night Day's foreground is blue
+  (`#3760bf`) and not a near-black, which is the scheme's own choice and the thing that makes it
+  recognisable across a room.
+
+  All six ship their upstream values unretouched, including where those are low-contrast by design:
+  Ayu Light's accent orange is a caret-and-focus tint upstream, so as link text it sits at 2.2:1 on
+  its own paper. That is the rule for any theme named after an outside scheme, and it is why the
+  colour-vision and tribute packs — which this repo authors — are the only ones held to floors.
+
 - **Six more themes.** Four upstream schemes that fill gaps the picker already had — **Solarized
   Dark** and **GitHub Dark**, whose light siblings were shipping alone, plus **Monokai** and **Ayu
   Mirage** — and two more tributes: **Commodore 64** and **PICO-8**.

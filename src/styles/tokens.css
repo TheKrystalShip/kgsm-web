@@ -2001,6 +2001,485 @@
 }
 
 /* ============================================================
+   THEME — GRUVBOX LIGHT
+   ------------------------------------------------------------
+   Gruvbox Light Hard, the mirror of the dark one: the same warm
+   retro paper with orange as the accent. Light mode is where
+   gruvbox's FADED accent set belongs — the brights are for a dark
+   background and the faded ones for this — so every semantic
+   colour here is the faded variant of the dark sibling's bright.
+   Palette source: https://github.com/morhetz/gruvbox
+   ============================================================ */
+[data-theme="gruvbox-light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #fbf1c7;
+  /* light0 */
+  --surface-0: #f2e5bc;
+  /* light0_soft — sidebar recedes */
+  --surface-1: #f9f5d7;
+  /* light0_hard — card lifts */
+  --surface-2: #f2e5bc;
+  /* light0_soft — nested / hovered */
+  --surface-3: #ebdbb2;
+  /* light1 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(60, 56, 52, 0.14);
+  --border-strong: rgba(60, 56, 52, 0.26);
+  --border-accent: rgba(175, 58, 3, 0.50);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #282828;
+  /* dark0 */
+  --fg-2: #3c3836;
+  /* dark1 */
+  --fg-3: #504945;
+  /* dark2 */
+  --fg-4: #7c6f64;
+  /* dark4 */
+  --fg-inverse: #fbf1c7;
+  --btn-accent-fg: #fbf1c7;
+  --btn-success-fg: #fbf1c7;
+
+  /* ---------- Brand & accent — faded orange -------------- */
+  --krystal-teal: #af3a03;
+  --krystal-teal-hover: #c8500f;
+  --krystal-teal-press: #8f2f02;
+  --krystal-teal-dim: rgba(175, 58, 3, 0.12);
+  --krystal-teal-ring: rgba(175, 58, 3, 0.32);
+  --krystal-ink: #282828;
+
+  /* ---------- Semantic — the faded set ------------------- */
+  --success: #79740e;
+  --success-bg: rgba(121, 116, 14, 0.14);
+  --success-fg: #79740e;
+
+  --danger: #9d0006;
+  --danger-bg: rgba(157, 0, 6, 0.12);
+  --danger-fg: #9d0006;
+
+  --warning: #b57614;
+  --warning-bg: rgba(181, 118, 20, 0.14);
+  --warning-fg: #b57614;
+
+  --update: #af3a03;
+  /* orange — same as accent, as in the dark sibling */
+  --update-bg: rgba(175, 58, 3, 0.13);
+  --update-fg: #af3a03;
+
+  --info: #076678;
+  /* faded blue */
+  --info-bg: rgba(7, 102, 120, 0.13);
+  --info-fg: #076678;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(60, 56, 52, 0.05);
+  --veil-2: rgba(60, 56, 52, 0.07);
+  --veil-3: rgba(60, 56, 52, 0.10);
+  --scrim-base: #3c3836;
+  --scrollbar-thumb: rgba(60, 56, 52, 0.22);
+  --scrollbar-thumb-hover: rgba(60, 56, 52, 0.36);
+}
+
+/* ============================================================
+   THEME — EVERFOREST LIGHT
+   ------------------------------------------------------------
+   Everforest's light medium palette: the same green-forward calm
+   on warm paper. Accent stays the green the dark sibling uses.
+   The green is mid-luminance, so the ink on accent and success
+   buttons is the palette's own near-black rather than its paper.
+   Palette source: https://github.com/sainnhe/everforest
+   ============================================================ */
+[data-theme="everforest-light"] {
+  /* ---------- Canvas & surfaces (medium) ----------------- */
+  --canvas: #F4F0D9;
+  /* bg1 */
+  --surface-0: #EFEBD4;
+  /* bg2 — sidebar */
+  --surface-1: #FDF6E3;
+  /* bg0 — card */
+  --surface-2: #F4F0D9;
+  /* bg1 — nested / hovered */
+  --surface-3: #E6E2CC;
+  /* bg3 — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(92, 106, 114, 0.16);
+  --border-strong: rgba(92, 106, 114, 0.30);
+  --border-accent: rgba(141, 161, 1, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #5C6A72;
+  /* fg */
+  --fg-2: #708089;
+  --fg-3: #829181;
+  /* grey2 */
+  --fg-4: #939F91;
+  /* grey1 */
+  --fg-inverse: #2D353B;
+  --btn-accent-fg: #2D353B;
+  --btn-success-fg: #2D353B;
+
+  /* ---------- Brand & accent — green --------------------- */
+  --krystal-teal: #8DA101;
+  --krystal-teal-hover: #A0B71D;
+  --krystal-teal-press: #758700;
+  --krystal-teal-dim: rgba(141, 161, 1, 0.14);
+  --krystal-teal-ring: rgba(141, 161, 1, 0.32);
+  --krystal-ink: #2D353B;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #8DA101;
+  --success-bg: rgba(141, 161, 1, 0.14);
+  --success-fg: #8DA101;
+
+  --danger: #F85552;
+  --danger-bg: rgba(248, 85, 82, 0.14);
+  --danger-fg: #F85552;
+
+  --warning: #DFA000;
+  --warning-bg: rgba(223, 160, 0, 0.14);
+  --warning-fg: #DFA000;
+
+  --update: #F57D26;
+  --update-bg: rgba(245, 125, 38, 0.14);
+  --update-fg: #F57D26;
+
+  --info: #3A94C5;
+  --info-bg: rgba(58, 148, 197, 0.14);
+  --info-fg: #3A94C5;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(92, 106, 114, 0.05);
+  --veil-2: rgba(92, 106, 114, 0.08);
+  --veil-3: rgba(92, 106, 114, 0.11);
+  --scrim-base: #4F585E;
+  --scrollbar-thumb: rgba(92, 106, 114, 0.22);
+  --scrollbar-thumb-hover: rgba(92, 106, 114, 0.36);
+}
+
+/* ============================================================
+   THEME — ROSÉ PINE DAWN
+   ------------------------------------------------------------
+   Dawn: the light member of Rosé Pine, the same soho palette on
+   warm off-white. Iris is the accent, as in the dark sibling, and
+   the named roles carry across unchanged — pine is "running",
+   love is "down", gold is warning, rose is the one in motion.
+   Palette source: https://rosepinetheme.com/palette
+   ============================================================ */
+[data-theme="rose-pine-dawn"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #faf4ed;
+  /* base */
+  --surface-0: #f2e9e1;
+  /* overlay — sidebar */
+  --surface-1: #fffaf3;
+  /* surface — card */
+  --surface-2: #f4ede8;
+  /* highlight low */
+  --surface-3: #dfdad9;
+  /* highlight med — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(87, 82, 121, 0.14);
+  --border-strong: rgba(87, 82, 121, 0.26);
+  --border-accent: rgba(144, 122, 169, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #575279;
+  /* text */
+  --fg-2: #6D6989;
+  --fg-3: #797593;
+  /* subtle */
+  --fg-4: #9893a5;
+  /* muted */
+  --fg-inverse: #fffaf3;
+  --btn-accent-fg: #fffaf3;
+  --btn-success-fg: #fffaf3;
+
+  /* ---------- Brand & accent — iris ---------------------- */
+  --krystal-teal: #907aa9;
+  --krystal-teal-hover: #a48dbc;
+  --krystal-teal-press: #7c6595;
+  --krystal-teal-dim: rgba(144, 122, 169, 0.13);
+  --krystal-teal-ring: rgba(144, 122, 169, 0.32);
+  --krystal-ink: #575279;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #286983;
+  /* pine */
+  --success-bg: rgba(40, 105, 131, 0.13);
+  --success-fg: #286983;
+
+  --danger: #b4637a;
+  /* love */
+  --danger-bg: rgba(180, 99, 122, 0.13);
+  --danger-fg: #b4637a;
+
+  --warning: #ea9d34;
+  /* gold */
+  --warning-bg: rgba(234, 157, 52, 0.16);
+  --warning-fg: #ea9d34;
+
+  --update: #d7827e;
+  /* rose */
+  --update-bg: rgba(215, 130, 126, 0.15);
+  --update-fg: #d7827e;
+
+  --info: #56949f;
+  /* foam */
+  --info-bg: rgba(86, 148, 159, 0.14);
+  --info-fg: #56949f;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(87, 82, 121, 0.05);
+  --veil-2: rgba(87, 82, 121, 0.07);
+  --veil-3: rgba(87, 82, 121, 0.10);
+  --scrim-base: #575279;
+  --scrollbar-thumb: rgba(87, 82, 121, 0.20);
+  --scrollbar-thumb-hover: rgba(87, 82, 121, 0.34);
+}
+
+/* ============================================================
+   THEME — TOKYO NIGHT DAY
+   ------------------------------------------------------------
+   The daytime member of Tokyo Night. Its foreground is BLUE
+   (#3760bf) rather than a grey or a near-black — that is the
+   scheme's own choice and the thing that makes it recognisable
+   from across a room, so it is kept.
+   Palette source: https://github.com/folke/tokyonight.nvim
+   ============================================================ */
+[data-theme="tokyo-night-day"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #e1e2e7;
+  /* bg */
+  --surface-0: #d0d5e3;
+  /* bg_dark — sidebar */
+  --surface-1: #e9e9ed;
+  /* bg_float — card */
+  --surface-2: #e1e2e7;
+  /* nested / hovered */
+  --surface-3: #c4c8da;
+  /* bg_highlight — input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(55, 96, 191, 0.16);
+  --border-strong: rgba(55, 96, 191, 0.28);
+  --border-accent: rgba(46, 125, 233, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #3760bf;
+  /* fg — blue, on purpose */
+  --fg-2: #6172b0;
+  /* fg_dark */
+  --fg-3: #848cb5;
+  /* comment */
+  --fg-4: #a8aecb;
+  /* fg_gutter */
+  --fg-inverse: #e1e2e7;
+  --btn-accent-fg: #e1e2e7;
+  --btn-success-fg: #e1e2e7;
+
+  /* ---------- Brand & accent — blue ---------------------- */
+  --krystal-teal: #2e7de9;
+  --krystal-teal-hover: #4a90f0;
+  --krystal-teal-press: #1f68cc;
+  --krystal-teal-dim: rgba(46, 125, 233, 0.12);
+  --krystal-teal-ring: rgba(46, 125, 233, 0.32);
+  --krystal-ink: #3760bf;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #587539;
+  --success-bg: rgba(88, 117, 57, 0.14);
+  --success-fg: #587539;
+
+  --danger: #f52a65;
+  --danger-bg: rgba(245, 42, 101, 0.13);
+  --danger-fg: #f52a65;
+
+  --warning: #8c6c3e;
+  --warning-bg: rgba(140, 108, 62, 0.14);
+  --warning-fg: #8c6c3e;
+
+  --update: #b15c00;
+  --update-bg: rgba(177, 92, 0, 0.13);
+  --update-fg: #b15c00;
+
+  --info: #007197;
+  --info-bg: rgba(0, 113, 151, 0.13);
+  --info-fg: #007197;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(55, 96, 191, 0.05);
+  --veil-2: rgba(55, 96, 191, 0.08);
+  --veil-3: rgba(55, 96, 191, 0.11);
+  --scrim-base: #3760bf;
+  --scrollbar-thumb: rgba(55, 96, 191, 0.22);
+  --scrollbar-thumb-hover: rgba(55, 96, 191, 0.36);
+}
+
+/* ============================================================
+   THEME — ONE LIGHT
+   ------------------------------------------------------------
+   Atom's One Light — the counterpart to One Dark Pro. Near-white
+   paper, the mono-1/2/3 grey ladder for text, and the same eight
+   hues the dark one uses, at the darker end each is published at
+   for a light background.
+   Palette source: https://github.com/atom/one-light-syntax
+   ============================================================ */
+[data-theme="one-light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #FAFAFA;
+  --surface-0: #EAEAEB;
+  /* sidebar */
+  --surface-1: #FFFFFF;
+  /* card */
+  --surface-2: #F2F2F3;
+  /* nested / hovered */
+  --surface-3: #E5E5E6;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(56, 58, 66, 0.12);
+  --border-strong: rgba(56, 58, 66, 0.24);
+  --border-accent: rgba(64, 120, 242, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #383A42;
+  /* mono-1 */
+  --fg-2: #4F5158;
+  --fg-3: #696C77;
+  /* mono-2 */
+  --fg-4: #A0A1A7;
+  /* mono-3 */
+  --fg-inverse: #FAFAFA;
+  --btn-accent-fg: #FAFAFA;
+  --btn-success-fg: #FAFAFA;
+
+  /* ---------- Brand & accent — blue ---------------------- */
+  --krystal-teal: #4078F2;
+  --krystal-teal-hover: #5A8CF5;
+  --krystal-teal-press: #2E63D4;
+  --krystal-teal-dim: rgba(64, 120, 242, 0.12);
+  --krystal-teal-ring: rgba(64, 120, 242, 0.32);
+  --krystal-ink: #383A42;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #50A14F;
+  --success-bg: rgba(80, 161, 79, 0.14);
+  --success-fg: #3F8A3E;
+
+  --danger: #E45649;
+  --danger-bg: rgba(228, 86, 73, 0.13);
+  --danger-fg: #CA1243;
+  /* the darker of One Light's two reds */
+
+  --warning: #C18401;
+  --warning-bg: rgba(193, 132, 1, 0.14);
+  --warning-fg: #986801;
+
+  --update: #986801;
+  --update-bg: rgba(152, 104, 1, 0.13);
+  --update-fg: #986801;
+
+  --info: #0184BC;
+  --info-bg: rgba(1, 132, 188, 0.13);
+  --info-fg: #0184BC;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(56, 58, 66, 0.05);
+  --veil-2: rgba(56, 58, 66, 0.07);
+  --veil-3: rgba(56, 58, 66, 0.10);
+  --scrim-base: #383A42;
+  --scrollbar-thumb: rgba(56, 58, 66, 0.20);
+  --scrollbar-thumb-hover: rgba(56, 58, 66, 0.34);
+}
+
+/* ============================================================
+   THEME — AYU LIGHT
+   ------------------------------------------------------------
+   Ayu's light variant, sibling to the mirage one already here.
+   Its UI and editor backgrounds are again two different values,
+   which lands as the sidebar/card split, and the accent orange
+   carries its own documented ink (#804B00) rather than white —
+   ayu publishes that pairing, and white on this orange would be
+   worse than either.
+   Palette source: https://github.com/ayu-theme/ayu-colors
+   ============================================================ */
+[data-theme="ayu-light"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #F8F9FA;
+  /* ui.bg */
+  --surface-0: #EFF1F3;
+  /* sidebar */
+  --surface-1: #FCFCFC;
+  /* editor.bg — card */
+  --surface-2: #FAFAFA;
+  /* ui.panel.bg */
+  --surface-3: #EFF1F3;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(107, 125, 143, 0.16);
+  --border-strong: rgba(107, 125, 143, 0.30);
+  --border-accent: rgba(242, 151, 24, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #5C6166;
+  /* editor.fg */
+  --fg-2: #6E7377;
+  --fg-3: #828E9F;
+  /* ui.fg */
+  --fg-4: #A0A8B2;
+  --fg-inverse: #804B00;
+  --btn-accent-fg: #804B00;
+  /* common.accent.on */
+  --btn-success-fg: #FCFCFC;
+
+  /* ---------- Brand & accent — common.accent ------------- */
+  --krystal-teal: #F29718;
+  --krystal-teal-hover: #FFAA33;
+  --krystal-teal-press: #D8830D;
+  --krystal-teal-dim: rgba(242, 151, 24, 0.14);
+  --krystal-teal-ring: rgba(242, 151, 24, 0.32);
+  --krystal-ink: #5C6166;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #6CBF43;
+  /* vcs.added */
+  --success-bg: rgba(108, 191, 67, 0.16);
+  --success-fg: #4E9B2B;
+
+  --danger: #E65050;
+  /* common.error */
+  --danger-bg: rgba(230, 80, 80, 0.13);
+  --danger-fg: #E65050;
+
+  --warning: #FF7E33;
+  /* keyword */
+  --warning-bg: rgba(255, 126, 51, 0.14);
+  --warning-fg: #D9611A;
+
+  --update: #A37ACC;
+  /* constant */
+  --update-bg: rgba(163, 122, 204, 0.14);
+  --update-fg: #8B5FB8;
+
+  --info: #55B4D4;
+  /* tag */
+  --info-bg: rgba(85, 180, 212, 0.16);
+  --info-fg: #2E8FB0;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(107, 125, 143, 0.05);
+  --veil-2: rgba(107, 125, 143, 0.08);
+  --veil-3: rgba(107, 125, 143, 0.11);
+  --scrim-base: #5C6166;
+  --scrollbar-thumb: rgba(107, 125, 143, 0.22);
+  --scrollbar-thumb-hover: rgba(107, 125, 143, 0.36);
+}
+
+/* ============================================================
    THEMES — THE TRIBUTE PACK
    ------------------------------------------------------------
    Six palettes lifted from screens people already know: a film, an
