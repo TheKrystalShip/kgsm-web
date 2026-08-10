@@ -23,15 +23,6 @@
   text-transform: uppercase;
 }
 
-/* The colour-vision section's heading carries the same mark its swatches are badged with, so the
-   badge on a tile is readable as "one of those" without the heading being on screen. */
-.theme-picker__group--cvd {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--fg-2);
-}
-
 .theme-picker__note {
   margin: 0 0 9px;
   max-width: 62ch;
@@ -109,8 +100,9 @@
   justify-content: center;
 }
 
-/* The colour-vision mark. Opaque and drawn from the ACTIVE theme's tokens, like the check: it sits
-   over a tile painting some other palette, so it cannot borrow that tile's colours and stay legible.
+/* The colour-vision mark — what identifies a tile as one of the pack when its section heading has
+   scrolled away. Opaque and drawn from the ACTIVE theme's tokens, like the check: it sits over a
+   tile painting some other palette, so it cannot borrow that tile's colours and stay legible.
    Top-left, because the check owns top-right and a selected swatch shows both. */
 .theme-swatch__badge {
   position: absolute;

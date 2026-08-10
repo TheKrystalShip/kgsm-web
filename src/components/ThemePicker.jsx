@@ -26,9 +26,9 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 // The colour-vision pack is its OWN section rather than being folded into Dark and Light. Somebody
 // arrives at this picker either wanting a look or needing a palette they can read, and those are
 // different errands: mixed in among nineteen others, the palettes built for a deficiency would only
-// be findable by knowing their names already. Each is ALSO badged, because the section heading is
-// not always in view — the assistant's rail scrolls, and the badge is what identifies a swatch on
-// its own.
+// be findable by knowing their names already. Each tile is badged as well as grouped, because the
+// section heading is not always in view — the assistant's rail scrolls, and the badge is what
+// identifies a swatch on its own.
 function ThemePicker({ compact = false }) {
   const pref = useThemePref();
   const groups = [
@@ -58,10 +58,7 @@ function ThemePicker({ compact = false }) {
       ))}
 
       <div>
-        <div className="theme-picker__group theme-picker__group--cvd">
-          <Icon name="eye" size={13} strokeWidth={2.2} />
-          <span>Colour-vision friendly</span>
-        </div>
+        <div className="theme-picker__group">Colour-vision friendly</div>
         <p className="theme-picker__note">
           Status colours held apart under a simulation of each deficiency, so running, warning
           and down never collapse into one another.
