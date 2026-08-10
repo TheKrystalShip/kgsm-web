@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The bot's overview page reads the leaf's plural guild shape.** A KGSM host announces into any
+  number of Discord servers, each set up from inside Discord with `/setup`, so the page leads with
+  how many of them the client actually resolved and lists them in their own table: the announcement
+  channel, whether per-server channels are on there, and whether the bot still holds the permission
+  they need. The attention lane calls out each one separately — an unresolved guild, an announcement
+  channel the bot cannot see, a board whose `Manage Channels` was revoked — plus an unreadable guild
+  store, which is the single condition under which nothing is announced anywhere while the unit and
+  the gateway both read healthy. **No Discord server set up is a deliberate state, not a fault**, and
+  is worded as one.
+
 ### Added
 
 - **The theme picker is a grid of swatches, grouped Dark and Light**, in place of a dropdown of

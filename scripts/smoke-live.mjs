@@ -1836,6 +1836,27 @@ try {
     assert(acts.length > 0 && cmdHtml.includes("acts") && Object.keys(botCmds.gates).every(g => cmdHtml.toLowerCase().includes(g)),
       "leaf Commands tab: grouped by the gate that admits each command, every bucket the manifest carries");
   }
+
+  // The bot's Overview reads a leaf payload that is a LIST of Discord servers — a KGSM host announces
+  // into as many as an admin has run /setup in, and none until one has. Every field on that page moved
+  // when the leaf went guild-agnostic, and a stale field name renders as an empty cell rather than a
+  // crash, so assert the page prints what the socket actually said: the guild's own name, and one row
+  // per instance→channel binding the leaf reports.
+  const botStatus = await fetch(API + "/api/v1/hosts/" + hmId + "/services/bot/status")
+    .then(r => (r.ok ? r.json() : null));
+  if (botStatus) {
+    const botHtml = await nav(`#/cluster/${hmId}/services/bot`);
+    const guilds = botStatus.guilds || [];
+    const bindings = guilds.flatMap(g => g.channels || []);
+    assert(guilds.every(g => botHtml.includes(g.guildId) && (!g.name || botHtml.includes(g.name))),
+      `leaf Overview (bot): every Discord server the leaf reports is named (${guilds.length})`);
+    assert(bindings.every(c => botHtml.includes(c.instance) && botHtml.includes(c.channelId)),
+      `leaf Overview (bot): every instance→channel binding renders (${bindings.length} across ${guilds.length} server(s))`);
+    // "Set up nowhere" is a real, deliberate state — the page must say so rather than read as a fault.
+    assert(guilds.length > 0 || botHtml.includes("No Discord server is set up"),
+      "leaf Overview (bot): a bot set up in no Discord server says so, rather than looking broken");
+  }
+
   let cmds404 = 0;
   await fetch(API + "/api/v1/hosts/" + hmId + "/services/monitor/commands").then(r => { cmds404 = r.status; });
   const monitorCmdHtml = await nav(`#/cluster/${hmId}/services/monitor`);

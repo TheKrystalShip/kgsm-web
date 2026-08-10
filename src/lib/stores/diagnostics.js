@@ -239,9 +239,10 @@ function fetchLeafMonitorStats(hostId) {
   return fetchLeafOverview(hostId, "monitor", "stats");
 }
 
-// The Discord bot's live gateway/guild/channel state. Relayed verbatim, and deliberately not reduced:
-// `guildResolved` being null while `guildConfigured` is set is the failure this whole payload exists to
-// expose, and collapsing the pair into a boolean here would erase it.
+// The Discord bot's live gateway/guild/channel state, one row per Discord server an admin set up with
+// `/setup`. Relayed verbatim, and deliberately not reduced: a row whose `name` is null is a guild the
+// client never populated — configured, connected, and unable to post — which is the failure this whole
+// payload exists to expose, and collapsing it into a boolean here would erase it.
 function fetchLeafBotStatus(hostId) {
   return fetchLeafOverview(hostId, "bot", "status");
 }

@@ -40,11 +40,12 @@ function usage(cmd) {
 function gateNote(gate, surface) {
   if (gate === "none") {
     return surface === "discord"
-      ? "The bot checks no role before running these — anyone Discord lets use the command can. "
-        + "Restrict them per-command in the server’s Integrations settings if that is not what you want."
-      : "The leaf checks nothing before running these.";
+      ? "The bot states the gate none — it checks no role before running these, so anyone Discord lets "
+        + "use the command can. Restrict them per-command in the server’s Integrations settings if that "
+        + "is not what you want."
+      : "The leaf states the gate none — it checks nothing before running these.";
   }
-  if (gate === "viewer") return "Anyone with access to this host can run these.";
+  if (gate === "viewer") return "Anyone with a KGSM account on this host can run these.";
   if (gate === "operator") return "Only an operator or an admin can run these.";
   if (gate === "admin") return "Only an admin can run these.";
   return null;
@@ -54,11 +55,13 @@ function gateNote(gate, surface) {
 // nobody can. A bucket the manifest does not carry simply does not appear.
 const GATE_ORDER = ["none", "viewer", "operator", "admin"];
 
-// The heading for a bucket. A tier this build does not know keeps the leaf's own word as its
-// heading, because printing an unfamiliar tier is better than hiding the commands under it.
+// The heading for a bucket: the tier itself, spelled the way the Users admin spells it, so the
+// bucket a command sits in and the tier somebody holds are visibly the same word. A tier this build
+// does not know keeps the leaf's own word as its heading, because printing an unfamiliar tier is
+// better than hiding the commands under it.
 const GATE_TITLE = {
   none: "Unrestricted",
-  viewer: "Anyone",
+  viewer: "Viewer",
   operator: "Operator",
   admin: "Admin",
 };
