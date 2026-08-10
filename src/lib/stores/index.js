@@ -8,7 +8,7 @@ export { adaptServerMetrics };
 export { __setJobTiming, serversStore, jobsStore, resolveGameNames, commandServer, sendConsoleInput, moderatePlayer, awaitJob, installServer, fetchSettings, patchSettings, deleteServer, saveServerNote } from "./servers.js";
 export { hostsStore, syncCapabilitySubscriptions, subscribeHostMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents, fetchHostDetail } from "./hosts.js";
 export { filesKey, filesStore } from "./files.js";
-export { serverHostId, auditEventHost, auditInScope, auditStore } from "./audit.js";
+export { serverHostId, auditEventHost, auditInScope, auditStore, AUDIT_CAP } from "./audit.js";
 export { libraryStore } from "./library.js";
 export { blueprintFileStore } from "./blueprintFile.js";
 export { logsStore, logSourcesStore, leafLogsStore, servicesStore, subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned, fetchLeafConfig, fetchLeafCommands, applyLeafConfig, fetchLeafMetricsHistory, fetchLeafSchedules, fetchLeafSupervision, fetchLeafMonitorStats, fetchLeafBotStatus } from "./diagnostics.js";

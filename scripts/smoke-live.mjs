@@ -1694,17 +1694,25 @@ try {
     "audit page→backend glue: deep-link ?severity=attention → effect → refresh({severity:'warn,danger'}) (filters truly push down, not client-only)");
   await nav("#/dashboard");
 
-  // (c) refresh() walks to completion on a small per-host log → cursor null = the
-  // whole log is loaded, so NO incompleteness disclosure.
+  // (c) refresh() walks the keyset until the log ends or the cap stops it. WHICH of those
+  // happens is a property of the host, not of the code: a log grows without bound and this
+  // one crosses the cap eventually, so the assertion is that the walk ends for one of exactly
+  // two reasons — never that this host's log is small enough to fit.
   const fullRows = await st.auditStore.refresh();
-  assert(fullRows.length > 1 && st.auditStore.getState().nextCursor === null,
-    `audit refresh: walked the cursor to completion (${fullRows.length} rows, nextCursor null = complete)`);
+  const auditComplete = st.auditStore.getState().nextCursor === null;
+  assert(fullRows.length > 1 && (auditComplete || fullRows.length >= st.AUDIT_CAP),
+    `audit refresh: walked the keyset to ${auditComplete ? "the end of the log" : "the cap"} `
+    + `(${fullRows.length} rows${auditComplete ? ", complete" : `, cap ${st.AUDIT_CAP} — older rows still behind a cursor`})`);
 
-  // (d) loadMore() is a no-op once complete (no cursor) — never double-fetches
-  const lenComplete = st.auditStore.getState().list.length;
+  // (d) the cursor never lies about what is left. Complete ⇒ loadMore has nothing to pull and
+  // must not double-fetch; capped ⇒ the cursor names real older rows and must yield them.
+  const lenBefore = st.auditStore.getState().list.length;
   await st.auditStore.loadMore();
-  assert(st.auditStore.getState().list.length === lenComplete,
-    "audit loadMore: no-op when the log is complete (no cursor → nothing to pull)");
+  const lenAfter = st.auditStore.getState().list.length;
+  assert(auditComplete ? lenAfter === lenBefore : lenAfter > lenBefore,
+    auditComplete
+      ? "audit loadMore: no-op when the log is complete (no cursor → nothing to pull)"
+      : `audit loadMore: a capped walk's cursor yields the older page it promised (${lenBefore} → ${lenAfter} rows)`);
 
   // (e) the cursor WALK + incomplete UI. The page's mount effect re-queries to a
   // complete load, so to exercise the partial-window UI we nav FIRST (effect loads

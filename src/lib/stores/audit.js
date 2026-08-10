@@ -41,6 +41,9 @@ auditStore.prepend = (entry) =>
   auditStore.setState(s => ({ ...s, list: [_withHost(entry), ...s.list] }));
 
 const AUDIT_BATCH = 200;
+// How far one refresh walks the keyset before it stops and leaves the rest behind the cursor. A log
+// grows without bound, so a walk that ran to the end would grow with it; stopping is what the page's
+// incompleteness note and its Load-older affordance exist to disclose.
 const AUDIT_CAP = 1000;
 let _auditGen = 0;
 const _fetchAuditPage = (cursor, params) => {
@@ -113,5 +116,5 @@ api.stream.subscribe(["audit"], (m) => {
 
 export {
   serverHostId, auditEventHost, auditInScope,
-  auditStore,
+  auditStore, AUDIT_CAP,
 };
