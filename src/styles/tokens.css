@@ -1334,6 +1334,336 @@
 }
 
 /* ============================================================
+   THEME — SOLARIZED DARK
+   ------------------------------------------------------------
+   The other half of Solarized: the same eight accents on the
+   base03/base02 end of the ramp. Surfaces run base03 → base02 and
+   the greys are the base0x ladder, exactly as the light sibling
+   uses them mirrored.
+   The accents are Schoonover's own values, unretouched — the same
+   eight the light sibling ships, and each -fg is its own fill, as
+   there. Solarized is deliberately low-contrast: the accents are
+   tuned to sit at equal weight against BOTH backgrounds, and
+   raising them for contrast would be raising them off the thing
+   that makes it Solarized.
+   Palette source: https://ethanschoonover.com/solarized/
+   ============================================================ */
+[data-theme="solarized-dark"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #002B36;
+  /* base03 */
+  --surface-0: #00212A;
+  /* sidebar — below base03 */
+  --surface-1: #073642;
+  /* base02 — primary card */
+  --surface-2: #0B404E;
+  /* nested / hovered */
+  --surface-3: #0F4A59;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(147, 161, 161, 0.12);
+  --border-strong: rgba(147, 161, 161, 0.22);
+  --border-accent: rgba(38, 139, 210, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #EEE8D5;
+  /* base2 */
+  --fg-2: #93A1A1;
+  /* base1 */
+  --fg-3: #839496;
+  /* base0 */
+  --fg-4: #586E75;
+  /* base01 */
+  --fg-inverse: #002B36;
+  --btn-accent-fg: #002B36;
+  --btn-success-fg: #002B36;
+
+  /* ---------- Brand & accent — blue --------------------- */
+  --krystal-teal: #268BD2;
+  --krystal-teal-hover: #3D9CE0;
+  --krystal-teal-press: #1A6FB5;
+  --krystal-teal-dim: rgba(38, 139, 210, 0.14);
+  --krystal-teal-ring: rgba(38, 139, 210, 0.35);
+  --krystal-ink: #002B36;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #859900;
+  /* green */
+  --success-bg: rgba(133, 153, 0, 0.14);
+  --success-fg: #859900;
+
+  --danger: #DC322F;
+  /* red */
+  --danger-bg: rgba(220, 50, 47, 0.16);
+  --danger-fg: #DC322F;
+
+  --warning: #B58900;
+  /* yellow */
+  --warning-bg: rgba(181, 137, 0, 0.14);
+  --warning-fg: #B58900;
+
+  --update: #CB4B16;
+  /* orange */
+  --update-bg: rgba(203, 75, 22, 0.16);
+  --update-fg: #CB4B16;
+
+  --info: #2AA198;
+  /* cyan */
+  --info-bg: rgba(42, 161, 152, 0.14);
+  --info-fg: #2AA198;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(147, 161, 161, 0.05);
+  --veil-2: rgba(147, 161, 161, 0.08);
+  --veil-3: rgba(147, 161, 161, 0.11);
+  --scrim-base: #001217;
+  --scrollbar-thumb: rgba(147, 161, 161, 0.20);
+  --scrollbar-thumb-hover: rgba(147, 161, 161, 0.34);
+}
+
+/* ============================================================
+   THEME — GITHUB DARK
+   ------------------------------------------------------------
+   Primer's dark scheme: the canvas/subtle/inset surface ladder,
+   the #30363D border, and github.com's own semantic foregrounds —
+   success, danger, attention, severe and done, which map onto
+   this panel's five families almost one to one. "Done" purple is
+   what carries info, since accent blue is already the brand.
+   Palette source: https://primer.style/ (github-vscode-theme)
+   ============================================================ */
+[data-theme="github-dark"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #0D1117;
+  /* canvas.default */
+  --surface-0: #010409;
+  /* canvas.inset — sidebar */
+  --surface-1: #161B22;
+  /* canvas.subtle — card */
+  --surface-2: #1C2128;
+  /* nested / hovered */
+  --surface-3: #21262D;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(240, 246, 252, 0.10);
+  --border-strong: rgba(240, 246, 252, 0.20);
+  --border-accent: rgba(88, 166, 255, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #E6EDF3;
+  --fg-2: #C9D1D9;
+  --fg-3: #8B949E;
+  --fg-4: #6E7681;
+  --fg-inverse: #0D1117;
+  --btn-accent-fg: #0D1117;
+  --btn-success-fg: #0D1117;
+
+  /* ---------- Brand & accent — accent.fg ----------------- */
+  --krystal-teal: #58A6FF;
+  --krystal-teal-hover: #79C0FF;
+  --krystal-teal-press: #388BFD;
+  --krystal-teal-dim: rgba(88, 166, 255, 0.14);
+  --krystal-teal-ring: rgba(88, 166, 255, 0.35);
+  --krystal-ink: #0D1117;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #3FB950;
+  --success-bg: rgba(63, 185, 80, 0.14);
+  --success-fg: #56D364;
+
+  --danger: #F85149;
+  --danger-bg: rgba(248, 81, 73, 0.14);
+  --danger-fg: #FF7B72;
+
+  --warning: #D29922;
+  /* attention */
+  --warning-bg: rgba(210, 153, 34, 0.15);
+  --warning-fg: #E3B341;
+
+  --update: #DB6D28;
+  /* severe */
+  --update-bg: rgba(219, 109, 40, 0.15);
+  --update-fg: #F0883E;
+
+  --info: #A371F7;
+  /* done */
+  --info-bg: rgba(163, 113, 247, 0.15);
+  --info-fg: #BC8CFF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(240, 246, 252, 0.06);
+  --veil-2: rgba(240, 246, 252, 0.09);
+  --veil-3: rgba(240, 246, 252, 0.12);
+  --scrim-base: #010409;
+  --scrollbar-thumb: rgba(240, 246, 252, 0.16);
+  --scrollbar-thumb-hover: rgba(240, 246, 252, 0.28);
+}
+
+/* ============================================================
+   THEME — MONOKAI
+   ------------------------------------------------------------
+   The Sublime Text classic: warm olive-black under six loud
+   accents. Those six divide exactly — pink, green, yellow,
+   orange, cyan and violet — so each status family gets one and
+   the violet, which no family needs, becomes the brand. That is
+   the whole reason the brand here is not the famous pink: pink is
+   Monokai's red, and a destructive action must not be painted in
+   the same colour as the accent it sits beside.
+   Palette source: the Monokai scheme as shipped with Sublime Text
+   ============================================================ */
+[data-theme="monokai"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #272822;
+  --surface-0: #1E1F1A;
+  /* sidebar */
+  --surface-1: #2E2F28;
+  /* card */
+  --surface-2: #383A32;
+  /* nested / hovered */
+  --surface-3: #41433A;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(248, 248, 242, 0.10);
+  --border-strong: rgba(248, 248, 242, 0.20);
+  --border-accent: rgba(174, 129, 255, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #F8F8F2;
+  --fg-2: #CFCFC2;
+  --fg-3: #A1A192;
+  --fg-4: #75715E;
+  /* the comment colour, at placeholder rank */
+  --fg-inverse: #272822;
+  --btn-accent-fg: #272822;
+  --btn-success-fg: #272822;
+
+  /* ---------- Brand & accent — violet -------------------- */
+  --krystal-teal: #AE81FF;
+  --krystal-teal-hover: #C4A2FF;
+  --krystal-teal-press: #9560F0;
+  --krystal-teal-dim: rgba(174, 129, 255, 0.14);
+  --krystal-teal-ring: rgba(174, 129, 255, 0.35);
+  --krystal-ink: #272822;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #A6E22E;
+  --success-bg: rgba(166, 226, 46, 0.13);
+  --success-fg: #A6E22E;
+
+  --danger: #F92672;
+  --danger-bg: rgba(249, 38, 114, 0.16);
+  --danger-fg: #FB5C93;
+
+  --warning: #E6DB74;
+  --warning-bg: rgba(230, 219, 116, 0.13);
+  --warning-fg: #E6DB74;
+
+  --update: #FD971F;
+  --update-bg: rgba(253, 151, 31, 0.15);
+  --update-fg: #FDAE4F;
+
+  --info: #66D9EF;
+  --info-bg: rgba(102, 217, 239, 0.13);
+  --info-fg: #66D9EF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(248, 248, 242, 0.05);
+  --veil-2: rgba(248, 248, 242, 0.08);
+  --veil-3: rgba(248, 248, 242, 0.11);
+  --scrim-base: #16170F;
+  --scrollbar-thumb: rgba(248, 248, 242, 0.16);
+  --scrollbar-thumb-hover: rgba(248, 248, 242, 0.28);
+}
+
+/* ============================================================
+   THEME — AYU MIRAGE
+   ------------------------------------------------------------
+   Ayu's middle variant: a soft blue-grey that is neither its dark
+   nor its light, with a single warm accent. The UI and editor
+   backgrounds are two different values in ayu, which is exactly
+   the sidebar/card split this token set wants, so both land where
+   the scheme already puts them.
+   Ayu is a warm palette and its brand sits in the same corner as
+   warning, so update takes the constant violet rather than a
+   third orange.
+   Palette source: https://github.com/ayu-theme/ayu-colors
+   ============================================================ */
+[data-theme="ayu-mirage"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #1F2430;
+  /* ui.bg */
+  --surface-0: #171B24;
+  /* ui.line — sidebar */
+  --surface-1: #242936;
+  /* editor.bg — card */
+  --surface-2: #282E3B;
+  /* ui.panel.bg */
+  --surface-3: #2D3444;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(204, 202, 194, 0.10);
+  --border-strong: rgba(204, 202, 194, 0.20);
+  --border-accent: rgba(255, 204, 102, 0.55);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #CCCAC2;
+  /* editor.fg */
+  --fg-2: #B3B8C4;
+  --fg-3: #8A9199;
+  /* the gutter grey */
+  --fg-4: #707A8C;
+  /* ui.fg */
+  --fg-inverse: #1F2430;
+  --btn-accent-fg: #1F2430;
+  --btn-success-fg: #1F2430;
+
+  /* ---------- Brand & accent — common.accent ------------- */
+  --krystal-teal: #FFCC66;
+  --krystal-teal-hover: #FFDA8C;
+  --krystal-teal-press: #E6B34D;
+  --krystal-teal-dim: rgba(255, 204, 102, 0.14);
+  --krystal-teal-ring: rgba(255, 204, 102, 0.35);
+  --krystal-ink: #1F2430;
+
+  /* ---------- Semantic ----------------------------------- */
+  --success: #87D96C;
+  /* vcs.added */
+  --success-bg: rgba(135, 217, 108, 0.14);
+  --success-fg: #9BE283;
+
+  --danger: #FF6666;
+  /* common.error */
+  --danger-bg: rgba(255, 102, 102, 0.15);
+  --danger-fg: #FF8585;
+
+  --warning: #FFAD66;
+  /* keyword */
+  --warning-bg: rgba(255, 173, 102, 0.14);
+  --warning-fg: #FFC08C;
+
+  --update: #DFBFFF;
+  /* constant */
+  --update-bg: rgba(223, 191, 255, 0.14);
+  --update-fg: #E9D2FF;
+
+  --info: #5CCFE6;
+  /* tag */
+  --info-bg: rgba(92, 207, 230, 0.14);
+  --info-fg: #7EDBED;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(204, 202, 194, 0.05);
+  --veil-2: rgba(204, 202, 194, 0.08);
+  --veil-3: rgba(204, 202, 194, 0.11);
+  --scrim-base: #12151C;
+  --scrollbar-thumb: rgba(204, 202, 194, 0.16);
+  --scrollbar-thumb-hover: rgba(204, 202, 194, 0.28);
+}
+
+/* ============================================================
    THEME — GITHUB LIGHT
    ------------------------------------------------------------
    GitHub Light: clean developer-oriented light theme.
@@ -2191,6 +2521,182 @@
   --scrim-base: #000033;
   --scrollbar-thumb: rgba(85, 255, 255, 0.32);
   --scrollbar-thumb-hover: rgba(85, 255, 255, 0.52);
+}
+
+/* ============================================================
+   THEME — COMMODORE 64
+   ------------------------------------------------------------
+   The boot screen: the VIC-II's screen blue under its own
+   sixteen, with cyan doing the accent work and the yellow-olive
+   reserved for warning.
+   The VIC-II palette was drawn for a CRT across a room, and
+   against the screen blue most of it is far too dark to read —
+   light red, light blue, purple and cyan all land under the floor
+   this file holds. Those four appear here raised along their own
+   hue until they clear it, and that is the entire deviation: no
+   colour comes from outside the sixteen, and the greens, the
+   yellow and the white are untouched. The authentic light blue
+   is still here at placeholder rank, which is the one job that
+   does not need the contrast.
+   Palette source: Philip Timmermann's measured VIC-II palette
+   (https://www.pepto.de/projects/colorvic/)
+   ============================================================ */
+[data-theme="c64"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #352879;
+  /* the screen blue */
+  --surface-0: #2A1F63;
+  /* sidebar — the border, darkened */
+  --surface-1: #3E308C;
+  /* card */
+  --surface-2: #493A9C;
+  /* nested / hovered */
+  --surface-3: #2C216A;
+  /* input fill — sunken back toward the screen */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(108, 94, 181, 0.50);
+  /* light blue */
+  --border-strong: rgba(154, 147, 214, 0.65);
+  --border-accent: rgba(143, 190, 202, 0.70);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #FFFFFF;
+  --fg-2: #DCD8F5;
+  --fg-3: #BCB5E6;
+  --fg-4: #6C5EB5;
+  /* the authentic READY. light blue */
+  --fg-inverse: #352879;
+  --btn-accent-fg: #000000;
+  --btn-success-fg: #000000;
+
+  /* ---------- Brand & accent — cyan, raised -------------- */
+  --krystal-teal: #8FBECA;
+  --krystal-teal-hover: #A8CFD9;
+  --krystal-teal-press: #70A4B2;
+  --krystal-teal-dim: rgba(143, 190, 202, 0.16);
+  --krystal-teal-ring: rgba(143, 190, 202, 0.38);
+  --krystal-ink: #352879;
+
+  /* ---------- Semantic — the VIC-II sixteen -------------- */
+  --success: #9AD284;
+  /* light green */
+  --success-bg: rgba(154, 210, 132, 0.16);
+  --success-fg: #B0DD9E;
+
+  --danger: #C08A78;
+  /* light red, raised */
+  --danger-bg: rgba(192, 138, 120, 0.18);
+  --danger-fg: #E4BCB0;
+
+  --warning: #B8C76F;
+  /* yellow */
+  --warning-bg: rgba(184, 199, 111, 0.16);
+  --warning-fg: #C8D48C;
+
+  --update: #B47FD0;
+  /* purple, raised */
+  --update-bg: rgba(180, 127, 208, 0.18);
+  --update-fg: #DBBCEB;
+
+  --info: #9184D8;
+  /* light blue, raised */
+  --info-bg: rgba(145, 132, 216, 0.20);
+  --info-fg: #C6BFF0;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.11);
+  --veil-3: rgba(255, 255, 255, 0.15);
+  --scrim-base: #150F30;
+  --scrollbar-thumb: rgba(184, 199, 111, 0.30);
+  --scrollbar-thumb-hover: rgba(184, 199, 111, 0.50);
+}
+
+/* ============================================================
+   THEME — PICO-8
+   ------------------------------------------------------------
+   The fantasy console: black screen, dark-blue panels, and the
+   sixteen fixed colours everything ever drawn on it was made of.
+   Two of those sixteen do the structural work — black is the
+   screen and dark blue is every card — which leaves the eight
+   brights for one status family each, with the yellow as the
+   brand.
+   PICO-8 has one red family, so danger is the red and update is
+   the pink; they read apart on lightness rather than hue. The
+   lavender is raised for muted labels and kept at its own value
+   for placeholders.
+   Palette source: the PICO-8 sixteen
+   (https://pico-8.fandom.com/wiki/Palette)
+   ============================================================ */
+[data-theme="pico8"] {
+  /* ---------- Canvas & surfaces --------------------------- */
+  --canvas: #000000;
+  /* the screen */
+  --surface-0: #0B1226;
+  /* sidebar */
+  --surface-1: #1D2B53;
+  /* dark blue — the card */
+  --surface-2: #26366A;
+  /* nested / hovered */
+  --surface-3: #141E3C;
+  /* input fill */
+
+  /* ---------- Borders ------------------------------------- */
+  --border-subtle: rgba(194, 195, 199, 0.18);
+  /* light grey */
+  --border-strong: rgba(194, 195, 199, 0.32);
+  --border-accent: rgba(255, 236, 39, 0.65);
+
+  /* ---------- Foreground --------------------------------- */
+  --fg-1: #FFF1E8;
+  /* white */
+  --fg-2: #C2C3C7;
+  /* light grey */
+  --fg-3: #B0A2CB;
+  /* lavender, raised */
+  --fg-4: #83769C;
+  /* lavender */
+  --fg-inverse: #000000;
+  --btn-accent-fg: #000000;
+  --btn-success-fg: #000000;
+
+  /* ---------- Brand & accent — yellow -------------------- */
+  --krystal-teal: #FFEC27;
+  --krystal-teal-hover: #FFF37A;
+  --krystal-teal-press: #E0CF10;
+  --krystal-teal-dim: rgba(255, 236, 39, 0.14);
+  --krystal-teal-ring: rgba(255, 236, 39, 0.38);
+  --krystal-ink: #000000;
+
+  /* ---------- Semantic — the eight brights --------------- */
+  --success: #00E436;
+  --success-bg: rgba(0, 228, 54, 0.14);
+  --success-fg: #3BEE63;
+
+  --danger: #FF004D;
+  --danger-bg: rgba(255, 0, 77, 0.20);
+  --danger-fg: #FF7099;
+
+  --warning: #FFA300;
+  --warning-bg: rgba(255, 163, 0, 0.16);
+  --warning-fg: #FFBC4D;
+
+  --update: #FF77A8;
+  --update-bg: rgba(255, 119, 168, 0.18);
+  --update-fg: #FF9CBF;
+
+  --info: #29ADFF;
+  --info-bg: rgba(41, 173, 255, 0.16);
+  --info-fg: #63C4FF;
+
+  /* ---------- Overlays, veils & scrims ------------------- */
+  --veil-1: rgba(255, 241, 232, 0.06);
+  --veil-2: rgba(255, 241, 232, 0.10);
+  --veil-3: rgba(255, 241, 232, 0.14);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(255, 236, 39, 0.26);
+  --scrollbar-thumb-hover: rgba(255, 236, 39, 0.46);
 }
 
 /* ============================================================

@@ -21,6 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Six more themes.** Four upstream schemes that fill gaps the picker already had — **Solarized
+  Dark** and **GitHub Dark**, whose light siblings were shipping alone, plus **Monokai** and **Ayu
+  Mirage** — and two more tributes: **Commodore 64** and **PICO-8**.
+
+  Monokai's six accents divide exactly across the five status families with the violet left over,
+  which is why the brand here is violet and not the famous pink: pink is Monokai's red, and a
+  destructive action must not be painted the same colour as the accent beside it. The two tributes
+  hold the tribute pack's measured floors — most of the VIC-II palette is unreadable against its own
+  screen blue, so the C64's light red, light blue, purple and cyan are raised along their own hue
+  until they clear it, and nothing comes from outside the sixteen.
+
+  Solarized Dark ships Schoonover's accents unretouched, low contrast and all, because its accents
+  are tuned to sit at equal weight against both of its backgrounds and raising them would be raising
+  them off the thing that makes it Solarized. That is now written down as the rule for every theme
+  named after an upstream scheme, and the split between those and the palettes this repo invents —
+  which *are* measured — is in `src/styles/CLAUDE.md`.
+
 - **A tribute pack: six themes quoting a screen you have already stared at** — The Matrix, Windows
   95, Winamp's classic skin, LCARS, Cyberpunk 2077 and the DOS blue screen — in their own section
   of the picker, with each swatch's tooltip naming what it is quoting. Every one takes its colours

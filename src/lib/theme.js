@@ -57,6 +57,10 @@ const THEME_OPTS = [
   { id: "rose-pine",        label: "Rosé Pine",                  mode: "dark"  },
   { id: "kanagawa",         label: "Kanagawa",                   mode: "dark"  },
   { id: "everforest",       label: "Everforest",                 mode: "dark"  },
+  { id: "solarized-dark",   label: "Solarized Dark",             mode: "dark"  },
+  { id: "github-dark",      label: "GitHub Dark",                mode: "dark"  },
+  { id: "monokai",          label: "Monokai",                    mode: "dark"  },
+  { id: "ayu-mirage",       label: "Ayu Mirage",                 mode: "dark"  },
   { id: "light",            label: "Krystal Blue Light",         mode: "light" },
   { id: "github-light",     label: "GitHub Light",               mode: "light" },
   { id: "solarized-light",  label: "Solarized Light",            mode: "light" },
@@ -71,6 +75,8 @@ const THEME_OPTS = [
   { id: "lcars",     label: "LCARS",          mode: "dark",  tribute: "LCARS — the TNG-era Starfleet okudagram" },
   { id: "cyberpunk", label: "Cyberpunk 2077", mode: "dark",  tribute: "Cyberpunk 2077 — Night City's yellow-on-black HUD" },
   { id: "dos-blue",  label: "DOS Blue",       mode: "dark",  tribute: "The DOS blue screen — Norton Commander and EDIT.COM" },
+  { id: "pico8",     label: "PICO-8",         mode: "dark",  tribute: "PICO-8 — the fantasy console's fixed sixteen colours" },
+  { id: "c64",       label: "Commodore 64",   mode: "dark",  tribute: "The Commodore 64 boot screen — the VIC-II's screen blue" },
   { id: "win95",     label: "Windows 95",     mode: "light", tribute: "Windows 95 — silver bevels, a navy title bar, the teal desktop" },
 
   // The colour-vision pack. Ordered most-broadly-useful first: red-green covers by far the most

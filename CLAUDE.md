@@ -325,12 +325,17 @@ replaces the rail). Landmines:
   carrying a `cvd:` field naming who it is for; that field, not the id prefix, is
   what the pickers group and badge on. See `src/styles/CLAUDE.md`.
 - **The tribute themes quote a screen from somewhere else** — The Matrix, Windows
-  95, Winamp, LCARS, Cyberpunk 2077, the DOS blue screen. Their colours are chosen
-  for recognition, so where a source palette can't carry a status family the
-  nearest colour from the SAME source is used and the deviation is named in the
-  block's comment; a foreign hue smuggled in to make the ramp tidy is the one edit
-  to refuse. A `THEME_OPTS` entry joins them by carrying a `tribute:` field naming
-  what it quotes, which the pickers group on and show as the swatch's tooltip.
+  95, Winamp, LCARS, Cyberpunk 2077, the DOS blue screen, the Commodore 64, PICO-8.
+  Their colours are chosen for recognition, so where a source palette can't carry a
+  status family the nearest colour from the SAME source is used and the deviation is
+  named in the block's comment; a foreign hue smuggled in to make the ramp tidy is
+  the one edit to refuse. A `THEME_OPTS` entry joins them by carrying a `tribute:`
+  field naming what it quotes, which the pickers group on and show as the swatch's
+  tooltip.
+- **A theme named after an upstream scheme ships that scheme's values unretouched**,
+  including where they are low-contrast by design — Solarized and Nord both are.
+  Only the palettes this repo invents (the tribute and colour-vision packs) are held
+  to contrast floors. `src/styles/CLAUDE.md` has the split.
 - **Test themes with the visual harness's `--theme <id>` flag** (jsdom smoke does
   NOT lay out CSS, so it can't catch a theme regression). It seeds `krystal:theme`
   with whatever id you give it, so any palette in `THEME_OPTS` can be shot.

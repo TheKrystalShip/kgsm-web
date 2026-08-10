@@ -43,14 +43,33 @@ The rest follows the same rules as any other theme: a `cvd-*` block is the FULL
 colour set, and `THEME_OPTS` carries the `cvd:` field that puts it in the
 picker's own badged section.
 
+## Two kinds of palette live here, and they answer to different rules
+
+**A theme named after an upstream scheme ships that scheme's values, unretouched.**
+Nord, Dracula, Gruvbox, One Dark, Solarized, Catppuccin, Ayu, Monokai, GitHub —
+all of them. Several are deliberately low-contrast (Solarized most of all: its
+accents are tuned to sit at equal weight against *both* of its backgrounds, and
+Nord's `#bf616a` red is 2.5:1 on its own card). Raising them would be raising them
+off the thing that makes them recognisable, so **don't "fix" one**: measured
+against WCAG floors the eighteen upstream palettes here carry well over a hundred
+misses between them, and that is the house position, not an oversight.
+
+**A palette this repo invents is measured.** The colour-vision pack and the
+tribute pack are both ours, so both hold: text at 4.5:1 on every surface it lands
+on, fills at 3:1, each `-fg` at 4.5:1 over its own `-bg` tint. The one relaxation
+is `--fg-4` — placeholder and disabled rank, which the default `dark` theme itself
+ships at 2.4:1.
+
 ## The tribute pack is quoted, not designed
 
-Six themes here — matrix, win95, winamp, lcars, cyberpunk, dos-blue — take their
-colours from a screen somebody already knows, and the pack's banner comment says
-what that costs. A source palette rarely carries five status families: CGA has no
-orange, LCARS has no green, the VGA sixteen were drawn for a black text mode and
-sit under 3:1 on a silver face. Each block resolves that the same way — the
-nearest colour from the SAME source, with the deviation named in the comment.
+Eight themes — matrix, win95, winamp, lcars, cyberpunk, dos-blue, c64, pico8 —
+take their colours from a screen somebody already knows, and the pack's banner
+comment says what that costs. A source palette rarely carries five status
+families: CGA has no orange, LCARS has no green, the VGA sixteen were drawn for a
+black text mode and sit under 3:1 on a silver face, and most of the VIC-II is
+unreadable against its own screen blue. Each block resolves that the same way —
+the nearest colour from the SAME source, raised along its own hue where the floor
+demands it, with the deviation named in the comment.
 
 **Don't tidy a tribute's ramp with a colour the source never had.** That is the
 edit that turns a quotation into just another dark theme, and it is invisible in
