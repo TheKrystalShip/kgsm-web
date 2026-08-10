@@ -1671,6 +1671,787 @@
 }
 
 /* ============================================================
+   THEMES — THE COLOUR-VISION PACK
+   ------------------------------------------------------------
+   Twelve palettes for viewers whose colour discrimination differs
+   from the one the other themes assume. They share a deliberately
+   hue-free neutral ramp — canvas, surfaces and text greys carry no
+   tint, so nothing competes with the accents — and stronger borders
+   than the other themes, because a viewer who cannot lean on hue is
+   leaning on edges and lightness instead.
+
+   Each palette is built against a simulation of the deficiency it
+   names (Machado, Oliveira & Fernandes 2009, severity 1.0) and holds,
+   AS THAT VIEWER SEES IT:
+
+     • every pair of status colours ≥ 12 ΔE2000 apart, and the trio
+       the operator acts on — success / danger / warning — ≥ 20;
+     • the same for the -fg text variants at ≥ 8 / ≥ 15, looser
+       because text arrives with a word beside it and a dot does not;
+     • fills ≥ 3:1 on both canvas and card (WCAG 1.4.11), -fg text
+       ≥ 4.5:1 on the card, button ink ≥ 4.5:1 on its own button.
+
+   Contrast is checked THROUGH the simulation too, not only in normal
+   vision: a deficiency moves luminance as well as hue — protanopia
+   dims red enough to sink a red fill that passes for a trichromat.
+
+   Hues come from the Okabe–Ito / Wong Color-Universal-Design set and,
+   for the tritan and universal palettes, its six-colour tritan-safe
+   subset. Where hue runs out the separation is carried by lightness,
+   which is the one channel every deficiency leaves intact.
+   ============================================================ */
+
+/* ============================================================
+   THEME — RED–GREEN SAFE (DARK)
+   Protanopia and deuteranopia at once — the palette to reach for
+   when both forms of red-green blindness have to read the same
+   screen, and the one to try first, since red-green is by far the
+   most common deficiency. Both collapse red and green onto a single
+   blue↔yellow axis, so "good" is cyan rather than green and the
+   three warm states are separated by lightness as much as by hue.
+   ============================================================ */
+[data-theme="cvd-redgreen-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #0D0F12;
+  --surface-0: #121519;
+  --surface-1: #171B21;
+  --surface-2: #1E232B;
+  --surface-3: #262C35;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(0, 196, 251, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #F7F9FB;
+  --fg-2: #CBD3DC;
+  --fg-3: #9AA5B1;
+  --fg-4: #6C7784;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #00C4FB;
+  --krystal-teal-hover: #59CBFB;
+  --krystal-teal-press: #00B7EB;
+  --krystal-teal-dim: rgba(0, 196, 251, 0.12);
+  --krystal-teal-ring: rgba(0, 196, 251, 0.38);
+  --krystal-ink: #0D0F12;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #15FFFC;
+  --success-bg: rgba(21, 255, 252, 0.12);
+  --success-fg: #15FFFC;
+  --danger: #CB4679;
+  --danger-bg: rgba(203, 70, 121, 0.12);
+  --danger-fg: #F36C9C;
+  --warning: #FCEF5D;
+  --warning-bg: rgba(252, 239, 93, 0.12);
+  --warning-fg: #FCEF5D;
+  --update: #C36900;
+  --update-bg: rgba(195, 105, 0, 0.12);
+  --update-fg: #EB7F00;
+  --info: #0094FA;
+  --info-bg: rgba(0, 148, 250, 0.12);
+  --info-fg: #1298FF;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.1);
+  --veil-3: rgba(255, 255, 255, 0.13);
+  --scrim-base: #05070A;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+/* ============================================================
+   THEME — RED–GREEN SAFE (LIGHT)
+   The same palette on a light canvas: same hues, re-valued so the
+   accents darken enough to hold 4.5:1 as text on white.
+   ============================================================ */
+[data-theme="cvd-redgreen-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #F5F7FA;
+  --surface-0: #EBEEF2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --surface-3: #E6EAF0;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --border-accent: rgba(0, 146, 170, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #0E131A;
+  --fg-2: #323B47;
+  --fg-3: #556170;
+  --fg-4: #87919E;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #0092AA;
+  --krystal-teal-hover: #59A1B5;
+  --krystal-teal-press: #00889F;
+  --krystal-teal-dim: rgba(0, 146, 170, 0.1);
+  --krystal-teal-ring: rgba(0, 146, 170, 0.38);
+  --krystal-ink: #F5F7FA;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #009988;
+  --success-bg: rgba(0, 153, 136, 0.1);
+  --success-fg: #00776A;
+  --danger: #790058;
+  --danger-bg: rgba(121, 0, 88, 0.1);
+  --danger-fg: #790058;
+  --warning: #B18200;
+  --warning-bg: rgba(177, 130, 0, 0.1);
+  --warning-fg: #8B6500;
+  --update: #7F1F00;
+  --update-bg: rgba(127, 31, 0, 0.1);
+  --update-fg: #7F1F00;
+  --info: #406FF5;
+  --info-bg: rgba(64, 111, 245, 0.1);
+  --info-fg: #0056D5;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.05);
+  --veil-2: rgba(0, 0, 0, 0.08);
+  --veil-3: rgba(0, 0, 0, 0.11);
+  --scrim-base: #0E131A;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================
+   THEME — DEUTERANOPIA (DARK)
+   Green-blind only. M-cone loss barely touches luminance, so red
+   keeps its weight here and the separation budget goes instead into
+   pulling "good" away from the blues — which is where a deuteranope
+   sees green sitting.
+   ============================================================ */
+[data-theme="cvd-deuteran-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #0D0F12;
+  --surface-0: #121519;
+  --surface-1: #171B21;
+  --surface-2: #1E232B;
+  --surface-3: #262C35;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(0, 166, 254, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #F7F9FB;
+  --fg-2: #CBD3DC;
+  --fg-3: #9AA5B1;
+  --fg-4: #6C7784;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #00A6FE;
+  --krystal-teal-hover: #59B2FE;
+  --krystal-teal-press: #009BEE;
+  --krystal-teal-dim: rgba(0, 166, 254, 0.12);
+  --krystal-teal-ring: rgba(0, 166, 254, 0.38);
+  --krystal-ink: #0D0F12;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #00FEED;
+  --success-bg: rgba(0, 254, 237, 0.12);
+  --success-fg: #00FEED;
+  --danger: #BA5330;
+  --danger-bg: rgba(186, 83, 48, 0.12);
+  --danger-fg: #DA6E49;
+  --warning: #FFE137;
+  --warning-bg: rgba(255, 225, 55, 0.12);
+  --warning-fg: #FFE137;
+  --update: #DE008E;
+  --update-bg: rgba(222, 0, 142, 0.12);
+  --update-fg: #FF11A4;
+  --info: #006AF3;
+  --info-bg: rgba(0, 106, 243, 0.12);
+  --info-fg: #6989FF;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.1);
+  --veil-3: rgba(255, 255, 255, 0.13);
+  --scrim-base: #05070A;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+/* ============================================================
+   THEME — DEUTERANOPIA (LIGHT)
+   The light-canvas half of the deuteranopia pair.
+   ============================================================ */
+[data-theme="cvd-deuteran-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #F5F7FA;
+  --surface-0: #EBEEF2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --surface-3: #E6EAF0;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --border-accent: rgba(18, 133, 255, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #0E131A;
+  --fg-2: #323B47;
+  --fg-3: #556170;
+  --fg-4: #87919E;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #1285FF;
+  --krystal-teal-hover: #5B97FF;
+  --krystal-teal-press: #107CEF;
+  --krystal-teal-dim: rgba(18, 133, 255, 0.1);
+  --krystal-teal-ring: rgba(18, 133, 255, 0.38);
+  --krystal-ink: #F5F7FA;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #009F91;
+  --success-bg: rgba(0, 159, 145, 0.1);
+  --success-fg: #00796E;
+  --danger: #7D2000;
+  --danger-bg: rgba(125, 32, 0, 0.1);
+  --danger-fg: #7D2000;
+  --warning: #BB7E00;
+  --warning-bg: rgba(187, 126, 0, 0.1);
+  --warning-fg: #8E5F00;
+  --update: #7A0053;
+  --update-bg: rgba(122, 0, 83, 0.1);
+  --update-fg: #7A0053;
+  --info: #005EDC;
+  --info-bg: rgba(0, 94, 220, 0.1);
+  --info-fg: #005EDC;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.05);
+  --veil-2: rgba(0, 0, 0, 0.08);
+  --veil-3: rgba(0, 0, 0, 0.11);
+  --scrim-base: #0E131A;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================
+   THEME — PROTANOPIA (DARK)
+   Red-blind only, and the reason it needs its own palette rather
+   than sharing the deuteranopia one: L-cone loss DIMS red badly, so
+   a saturated red on a dark canvas goes muddy and dark at once.
+   Danger is a light rose that keeps its weight when the hue drains,
+   and reads by lightness when it does.
+   ============================================================ */
+[data-theme="cvd-protan-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #0D0F12;
+  --surface-0: #121519;
+  --surface-1: #171B21;
+  --surface-2: #1E232B;
+  --surface-3: #262C35;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(59, 173, 255, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #F7F9FB;
+  --fg-2: #CBD3DC;
+  --fg-3: #9AA5B1;
+  --fg-4: #6C7784;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #3BADFF;
+  --krystal-teal-hover: #68B7FF;
+  --krystal-teal-press: #37A2EF;
+  --krystal-teal-dim: rgba(59, 173, 255, 0.12);
+  --krystal-teal-ring: rgba(59, 173, 255, 0.38);
+  --krystal-ink: #0D0F12;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #00F8FD;
+  --success-bg: rgba(0, 248, 253, 0.12);
+  --success-fg: #00F8FD;
+  --danger: #FF316E;
+  --danger-bg: rgba(255, 49, 110, 0.12);
+  --danger-fg: #FF6987;
+  --warning: #DED426;
+  --warning-bg: rgba(222, 212, 38, 0.12);
+  --warning-fg: #DED426;
+  --update: #BA6900;
+  --update-bg: rgba(186, 105, 0, 0.12);
+  --update-fg: #DB8424;
+  --info: #0075E5;
+  --info-bg: rgba(0, 117, 229, 0.12);
+  --info-fg: #3F8CFF;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.1);
+  --veil-3: rgba(255, 255, 255, 0.13);
+  --scrim-base: #05070A;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+/* ============================================================
+   THEME — PROTANOPIA (LIGHT)
+   The light-canvas half of the protanopia pair.
+   ============================================================ */
+[data-theme="cvd-protan-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #F5F7FA;
+  --surface-0: #EBEEF2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --surface-3: #E6EAF0;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --border-accent: rgba(0, 97, 189, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #0E131A;
+  --fg-2: #323B47;
+  --fg-3: #556170;
+  --fg-4: #87919E;
+  --fg-inverse: #FFFFFF;
+  --btn-accent-fg: #FFFFFF;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #0061BD;
+  --krystal-teal-hover: #597EC5;
+  --krystal-teal-press: #005AB1;
+  --krystal-teal-dim: rgba(0, 97, 189, 0.1);
+  --krystal-teal-ring: rgba(0, 97, 189, 0.38);
+  --krystal-ink: #F5F7FA;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #009988;
+  --success-bg: rgba(0, 153, 136, 0.1);
+  --success-fg: #00776A;
+  --danger: #920053;
+  --danger-bg: rgba(146, 0, 83, 0.1);
+  --danger-fg: #920053;
+  --warning: #A78900;
+  --warning-bg: rgba(167, 137, 0, 0.1);
+  --warning-fg: #836B00;
+  --update: #862B03;
+  --update-bg: rgba(134, 43, 3, 0.1);
+  --update-fg: #862B03;
+  --info: #6978FF;
+  --info-bg: rgba(105, 120, 255, 0.1);
+  --info-fg: #004FDE;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.05);
+  --veil-2: rgba(0, 0, 0, 0.08);
+  --veil-3: rgba(0, 0, 0, 0.11);
+  --scrim-base: #0E131A;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================
+   THEME — TRITANOPIA (DARK)
+   Blue-yellow. Blue↔green and yellow↔pink both collapse, which
+   leaves two usable poles — warm/red and cyan — so five families
+   are placed as two hue groups at three lightness steps each.
+   Yellow cannot carry "warning" here; a light warm tone does,
+   separated from danger by lightness alone.
+   ============================================================ */
+[data-theme="cvd-tritan-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #0D0F12;
+  --surface-0: #121519;
+  --surface-1: #171B21;
+  --surface-2: #1E232B;
+  --surface-3: #262C35;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(0, 245, 206, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #F7F9FB;
+  --fg-2: #CBD3DC;
+  --fg-3: #9AA5B1;
+  --fg-4: #6C7784;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #00F5CE;
+  --krystal-teal-hover: #59F6D4;
+  --krystal-teal-press: #00E5C1;
+  --krystal-teal-dim: rgba(0, 245, 206, 0.12);
+  --krystal-teal-ring: rgba(0, 245, 206, 0.38);
+  --krystal-ink: #0D0F12;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #00C56F;
+  --success-bg: rgba(0, 197, 111, 0.12);
+  --success-fg: #00C56F;
+  --danger: #CD4020;
+  --danger-bg: rgba(205, 64, 32, 0.12);
+  --danger-fg: #F4613D;
+  --warning: #FFBE66;
+  --warning-bg: rgba(255, 190, 102, 0.12);
+  --warning-fg: #FFBE66;
+  --update: #9E50D3;
+  --update-bg: rgba(158, 80, 211, 0.12);
+  --update-fg: #B867ED;
+  --info: #0071D9;
+  --info-bg: rgba(0, 113, 217, 0.12);
+  --info-fg: #3E8BFA;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.1);
+  --veil-3: rgba(255, 255, 255, 0.13);
+  --scrim-base: #05070A;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+/* ============================================================
+   THEME — TRITANOPIA (LIGHT)
+   The light-canvas half of the tritanopia pair.
+   ============================================================ */
+[data-theme="cvd-tritan-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #F5F7FA;
+  --surface-0: #EBEEF2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --surface-3: #E6EAF0;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --border-accent: rgba(0, 158, 99, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #0E131A;
+  --fg-2: #323B47;
+  --fg-3: #556170;
+  --fg-4: #87919E;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #FFFFFF;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #009E63;
+  --krystal-teal-hover: #59AB7F;
+  --krystal-teal-press: #00945C;
+  --krystal-teal-dim: rgba(0, 158, 99, 0.1);
+  --krystal-teal-ring: rgba(0, 158, 99, 0.38);
+  --krystal-ink: #F5F7FA;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #006009;
+  --success-bg: rgba(0, 96, 9, 0.1);
+  --success-fg: #006009;
+  --danger: #7B1500;
+  --danger-bg: rgba(123, 21, 0, 0.1);
+  --danger-fg: #7B1500;
+  --warning: #A68E00;
+  --warning-bg: rgba(166, 142, 0, 0.1);
+  --warning-fg: #7F6C00;
+  --update: #6C2FA3;
+  --update-bg: rgba(108, 47, 163, 0.1);
+  --update-fg: #6C2FA3;
+  --info: #007FFB;
+  --info-bg: rgba(0, 127, 251, 0.1);
+  --info-fg: #005EBD;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.05);
+  --veil-2: rgba(0, 0, 0, 0.08);
+  --veil-3: rgba(0, 0, 0, 0.11);
+  --scrim-base: #0E131A;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================
+   THEME — UNIVERSAL (DARK)
+   One palette that clears protanopia, deuteranopia AND tritanopia
+   together, built inside the tritan-safe subset of Okabe–Ito — so it
+   gives up the two hues a tritanope confuses (orange and sky blue)
+   and works with what is left. Fewer usable hues than any
+   single-deficiency palette; that is the price of covering all three,
+   and the reason to prefer a specific one when the viewer is known.
+   ============================================================ */
+[data-theme="cvd-universal-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #0D0F12;
+  --surface-0: #121519;
+  --surface-1: #171B21;
+  --surface-2: #1E232B;
+  --surface-3: #262C35;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-accent: rgba(0, 180, 182, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #F7F9FB;
+  --fg-2: #CBD3DC;
+  --fg-3: #9AA5B1;
+  --fg-4: #6C7784;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #00B4B6;
+  --krystal-teal-hover: #59BDBF;
+  --krystal-teal-press: #00A8AA;
+  --krystal-teal-dim: rgba(0, 180, 182, 0.12);
+  --krystal-teal-ring: rgba(0, 180, 182, 0.38);
+  --krystal-ink: #0D0F12;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #00FBE2;
+  --success-bg: rgba(0, 251, 226, 0.12);
+  --success-fg: #00FBE2;
+  --danger: #D54659;
+  --danger-bg: rgba(213, 70, 89, 0.12);
+  --danger-fg: #FF6C7B;
+  --warning: #FFCF31;
+  --warning-bg: rgba(255, 207, 49, 0.12);
+  --warning-fg: #FFCF31;
+  --update: #BEAEFF;
+  --update-bg: rgba(190, 174, 255, 0.12);
+  --update-fg: #BEAEFF;
+  --info: #496BD4;
+  --info-bg: rgba(73, 107, 212, 0.12);
+  --info-fg: #6F8AF7;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.07);
+  --veil-2: rgba(255, 255, 255, 0.1);
+  --veil-3: rgba(255, 255, 255, 0.13);
+  --scrim-base: #05070A;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+}
+
+/* ============================================================
+   THEME — UNIVERSAL (LIGHT)
+   The light-canvas half of the universal pair.
+   ============================================================ */
+[data-theme="cvd-universal-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #F5F7FA;
+  --surface-0: #EBEEF2;
+  --surface-1: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --surface-3: #E6EAF0;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.24);
+  --border-accent: rgba(0, 118, 104, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #0E131A;
+  --fg-2: #323B47;
+  --fg-3: #556170;
+  --fg-4: #87919E;
+  --fg-inverse: #FFFFFF;
+  --btn-accent-fg: #FFFFFF;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #007668;
+  --krystal-teal-hover: #598C82;
+  --krystal-teal-press: #006E61;
+  --krystal-teal-dim: rgba(0, 118, 104, 0.1);
+  --krystal-teal-ring: rgba(0, 118, 104, 0.38);
+  --krystal-ink: #F5F7FA;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #009988;
+  --success-bg: rgba(0, 153, 136, 0.1);
+  --success-fg: #007366;
+  --danger: #7D1009;
+  --danger-bg: rgba(125, 16, 9, 0.1);
+  --danger-fg: #7D1009;
+  --warning: #9D8C00;
+  --warning-bg: rgba(157, 140, 0, 0.1);
+  --warning-fg: #7B6E00;
+  --update: #002FA7;
+  --update-bg: rgba(0, 47, 167, 0.1);
+  --update-fg: #002FA7;
+  --info: #9670FF;
+  --info-bg: rgba(150, 112, 255, 0.1);
+  --info-fg: #5F40E5;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.05);
+  --veil-2: rgba(0, 0, 0, 0.08);
+  --veil-3: rgba(0, 0, 0, 0.11);
+  --scrim-base: #0E131A;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================
+   THEME — MONOCHROME (DARK)
+   Achromatopsia: no hue channel at all, so the status families ARE
+   lightness steps and nothing else, ordered by how loudly the state
+   should read — success quietest, since it is the state the panel is
+   in nearly all the time, danger brightest. Five steps spend every
+   bit of separation lightness has to give, which is why the brand
+   tone sits inside the ladder: it is told apart by being a button and
+   a logo rather than a 5px dot, and the panel's icons and labels
+   carry what colour cannot. Pure black canvas, for the light
+   sensitivity that usually comes with achromatopsia.
+   ============================================================ */
+[data-theme="cvd-mono-dark"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #000000;
+  --surface-0: #0A0A0A;
+  --surface-1: #141414;
+  --surface-2: #1F1F1F;
+  --surface-3: #2B2B2B;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.32);
+  --border-accent: rgba(193, 193, 193, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #FFFFFF;
+  --fg-2: #D6D6D6;
+  --fg-3: #A6A6A6;
+  --fg-4: #767676;
+  --fg-inverse: #0A0D11;
+  --btn-accent-fg: #0A0D11;
+  --btn-success-fg: #FFFFFF;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #C1C1C1;
+  --krystal-teal-hover: #C8C8C8;
+  --krystal-teal-press: #B4B4B4;
+  --krystal-teal-dim: rgba(193, 193, 193, 0.12);
+  --krystal-teal-ring: rgba(193, 193, 193, 0.38);
+  --krystal-ink: #000000;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #666666;
+  --success-bg: rgba(102, 102, 102, 0.12);
+  --success-fg: #868686;
+  --danger: #FFFFFF;
+  --danger-bg: rgba(255, 255, 255, 0.12);
+  --danger-fg: #FFFFFF;
+  --warning: #AEAEAE;
+  --warning-bg: rgba(174, 174, 174, 0.12);
+  --warning-fg: #C1C1C1;
+  --update: #D4D4D4;
+  --update-bg: rgba(212, 212, 212, 0.12);
+  --update-fg: #DFDFDF;
+  --info: #898989;
+  --info-bg: rgba(137, 137, 137, 0.12);
+  --info-fg: #A3A3A3;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(255, 255, 255, 0.08);
+  --veil-2: rgba(255, 255, 255, 0.12);
+  --veil-3: rgba(255, 255, 255, 0.16);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.26);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
+}
+
+/* ============================================================
+   THEME — MONOCHROME (LIGHT)
+   The same ladder inverted onto white, for reading in bright rooms.
+   ============================================================ */
+[data-theme="cvd-mono-light"] {
+  /* ---------- Canvas & surfaces ------------------------- */
+  --canvas: #FFFFFF;
+  --surface-0: #F0F0F0;
+  --surface-1: #FFFFFF;
+  --surface-2: #F5F5F5;
+  --surface-3: #E8E8E8;
+
+  /* ---------- Borders ----------------------------------- */
+  --border-subtle: rgba(0, 0, 0, 0.22);
+  --border-strong: rgba(0, 0, 0, 0.38);
+  --border-accent: rgba(53, 53, 53, 0.55);
+
+  /* ---------- Foreground -------------------------------- */
+  --fg-1: #000000;
+  --fg-2: #2B2B2B;
+  --fg-3: #4A4A4A;
+  --fg-4: #767676;
+  --fg-inverse: #FFFFFF;
+  --btn-accent-fg: #FFFFFF;
+  --btn-success-fg: #0A0D11;
+
+  /* ---------- Brand & accent ---------------------------- */
+  --krystal-teal: #353535;
+  --krystal-teal-hover: #666666;
+  --krystal-teal-press: #313131;
+  --krystal-teal-dim: rgba(53, 53, 53, 0.1);
+  --krystal-teal-ring: rgba(53, 53, 53, 0.38);
+  --krystal-ink: #FFFFFF;
+
+  /* ---------- Semantic ---------------------------------- */
+  --success: #919191;
+  --success-bg: rgba(145, 145, 145, 0.1);
+  --success-fg: #6D6D6D;
+  --danger: #000000;
+  --danger-bg: rgba(0, 0, 0, 0.1);
+  --danger-fg: #000000;
+  --warning: #474747;
+  --warning-bg: rgba(71, 71, 71, 0.1);
+  --warning-fg: #373737;
+  --update: #262626;
+  --update-bg: rgba(38, 38, 38, 0.1);
+  --update-fg: #1D1D1D;
+  --info: #6A6A6A;
+  --info-bg: rgba(106, 106, 106, 0.1);
+  --info-fg: #505050;
+
+  /* ---------- Overlays, veils & scrims ------------------ */
+  --veil-1: rgba(0, 0, 0, 0.06);
+  --veil-2: rgba(0, 0, 0, 0.1);
+  --veil-3: rgba(0, 0, 0, 0.14);
+  --scrim-base: #000000;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.32);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.48);
+}
+
+/* ============================================================
    SEMANTIC ELEMENT STYLES
    ============================================================ */
 

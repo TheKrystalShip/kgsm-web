@@ -23,6 +23,23 @@
   text-transform: uppercase;
 }
 
+/* The colour-vision section's heading carries the same mark its swatches are badged with, so the
+   badge on a tile is readable as "one of those" without the heading being on screen. */
+.theme-picker__group--cvd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-2);
+}
+
+.theme-picker__note {
+  margin: 0 0 9px;
+  max-width: 62ch;
+  color: var(--fg-3);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 .theme-picker__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
@@ -87,6 +104,24 @@
   border-radius: 999px;
   background: var(--krystal-teal);
   color: var(--fg-inverse);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The colour-vision mark. Opaque and drawn from the ACTIVE theme's tokens, like the check: it sits
+   over a tile painting some other palette, so it cannot borrow that tile's colours and stay legible.
+   Top-left, because the check owns top-right and a selected swatch shows both. */
+.theme-swatch__badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  color: var(--fg-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -241,3 +276,5 @@
 .theme-picker--compact .theme-mini__dot { width: 8px; height: 8px; }
 .theme-picker--compact .theme-mini__line { height: 3px; }
 .theme-picker--compact .theme-swatch__check { width: 14px; height: 14px; top: 3px; right: 3px; }
+.theme-picker--compact .theme-swatch__badge { width: 14px; height: 14px; top: 3px; left: 3px; }
+.theme-picker--compact .theme-picker__note { font-size: 10.5px; margin-bottom: 7px; }

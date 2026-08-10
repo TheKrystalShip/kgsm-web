@@ -124,8 +124,11 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   reload. Owns `THEME_OPTS`, the offered themes as `{ id, label, mode }` — both
   surfaces' pickers read it and `VALID` derives from it, so a theme is declared
   once. `mode` (`dark｜light`, absent on `auto`) is the palette's own character,
-  **declared not derived**, and is what the swatch picker groups on. Mirror the
-  `index.html` / `assistant.html` boot scripts when you change the list.
+  **declared not derived**, and is what the swatch picker groups on. `cvd` names,
+  in words, the deficiency a colour-vision palette is built for; its presence —
+  not the `cvd-` id prefix — is what puts a theme in the picker's own badged
+  section, so the grouping survives a rename. Mirror the `index.html` /
+  `assistant.html` boot scripts when you change the list.
 - `formatting.js` / `labels.js` / `art.js` / `servers.js` / `leaves.js` —
   formatting, display-label vocabulary, key-art helpers, server-shape helpers,
   and the leaf vocabulary (run-state → tone+label, iconography, kind). `leaves.js`

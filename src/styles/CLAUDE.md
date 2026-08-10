@@ -24,6 +24,25 @@ what makes theme switching (and adding a theme) a data change, not a code hunt.
   picker reads it), and the concrete-theme list in the `index.html` /
   `assistant.html` boot scripts, which cannot import.
 
+## The colour-vision pack (`cvd-*`) is checked, not eyeballed
+
+Twelve of the themes here are built for viewers who cannot rely on hue, and they
+carry a **measured guarantee**: every pair of status colours stays a stated
+ΔE2000 apart, and every contrast floor holds, *under a simulation of the
+deficiency the theme names*. The pack's banner comment in `tokens.css` states
+the exact floors.
+
+**Touching a `cvd-*` token means re-running the check** —
+`node /home/heisen/tks/scripts/cvd-check/verify.mjs` — which parses these blocks
+back out of this file and re-measures them. A palette here is a solved artefact,
+not a preference: "that green looks nicer" is how a theme silently stops being
+the thing it claims. That directory also holds the solver that produced the
+palettes and a contact-sheet renderer; its `README.md` covers adding one.
+
+The rest follows the same rules as any other theme: a `cvd-*` block is the FULL
+colour set, and `THEME_OPTS` carries the `cvd:` field that puts it in the
+picker's own badged section.
+
 ## `kit.css` is a BARREL — do not edit it, edit the partial
 
 The old ~6,300-line monolith was split into focused partials under `kit/`.

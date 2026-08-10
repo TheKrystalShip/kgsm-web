@@ -23,12 +23,19 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 // nothing about what a tile contains — the same miniature, smaller — because a rail that offered a
 // reduced set of themes, or told you less about each one, would be the surface where the picker
 // matters MOST answering with less: the standalone assistant has no Settings page behind it.
+// The colour-vision pack is its OWN section rather than being folded into Dark and Light. Somebody
+// arrives at this picker either wanting a look or needing a palette they can read, and those are
+// different errands: mixed in among nineteen others, the palettes built for a deficiency would only
+// be findable by knowing their names already. Each is ALSO badged, because the section heading is
+// not always in view — the assistant's rail scrolls, and the badge is what identifies a swatch on
+// its own.
 function ThemePicker({ compact = false }) {
   const pref = useThemePref();
   const groups = [
     { mode: "dark", label: "Dark" },
     { mode: "light", label: "Light" },
   ];
+  const cvd = THEME_OPTS.filter((o) => o.cvd);
 
   return (
     <div className={"theme-picker" + (compact ? " theme-picker--compact" : "")}>
@@ -43,12 +50,28 @@ function ThemePicker({ compact = false }) {
         <div key={g.mode}>
           <div className="theme-picker__group">{g.label}</div>
           <div className="theme-picker__grid">
-            {THEME_OPTS.filter((o) => o.mode === g.mode).map((o) => (
+            {THEME_OPTS.filter((o) => o.mode === g.mode && !o.cvd).map((o) => (
               <ThemeSwatch key={o.id} opt={o} selected={pref === o.id} />
             ))}
           </div>
         </div>
       ))}
+
+      <div>
+        <div className="theme-picker__group theme-picker__group--cvd">
+          <Icon name="eye" size={13} strokeWidth={2.2} />
+          <span>Colour-vision friendly</span>
+        </div>
+        <p className="theme-picker__note">
+          Status colours held apart under a simulation of each deficiency, so running, warning
+          and down never collapse into one another.
+        </p>
+        <div className="theme-picker__grid">
+          {cvd.map((o) => (
+            <ThemeSwatch key={o.id} opt={o} selected={pref === o.id} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -60,7 +83,7 @@ function ThemeSwatch({ opt, selected }) {
       type="button"
       className={"theme-swatch" + (selected ? " theme-swatch--on" : "")}
       aria-pressed={selected}
-      title={opt.label}
+      title={opt.cvd ? `${opt.label} — for ${opt.cvd}` : opt.label}
       onClick={() => themeStore.set(opt.id)}
     >
       <span className="theme-swatch__tile">
@@ -72,6 +95,9 @@ function ThemeSwatch({ opt, selected }) {
             </>
           )
           : <Mini theme={opt.id} />}
+        {opt.cvd && (
+          <span className="theme-swatch__badge"><Icon name="eye" size={10} strokeWidth={2.4} /></span>
+        )}
         {selected && (
           <span className="theme-swatch__check"><Icon name="check" size={12} strokeWidth={3} /></span>
         )}

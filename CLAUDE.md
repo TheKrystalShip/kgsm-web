@@ -296,7 +296,8 @@ properties — **a component must never hardcode a color; add or extend a token.
 - **`consumer.css`** — a few consumer surfaces (connect/MOTD/login persona).
 
 **Themes (`src/lib/theme.js`).** A client-only preference (`localStorage
-krystal:theme` = `auto｜dark｜light`, default `dark`) that NEVER round-trips to a
+krystal:theme` = `auto` or a concrete palette id from `THEME_OPTS`, default
+`dark`) that NEVER round-trips to a
 host — same model as favorites. `auto` resolves via `matchMedia` and live-updates
 on OS change. Switching is **LIVE — no page reload** (swaps `<html data-theme>`,
 which re-cascades instantly). Each surface offers it where it has room for it: the
@@ -316,6 +317,13 @@ replaces the rail). Landmines:
   `tokens.css`, then one entry in `theme.js`'s `THEME_OPTS` (id + label — `VALID`
   is derived from it, and every picker reads it), and the concrete-theme list in
   the `index.html` / `assistant.html` boot scripts, which cannot import.
+- **The `cvd-*` colour-vision themes carry a measured guarantee** — status colours
+  a stated ΔE2000 apart and every contrast floor held, *under a simulation of the
+  deficiency each names*. Editing one of their tokens means re-running
+  `node /home/heisen/tks/scripts/cvd-check/verify.mjs`, which re-measures the
+  blocks straight out of `tokens.css`. A `THEME_OPTS` entry joins the pack by
+  carrying a `cvd:` field naming who it is for; that field, not the id prefix, is
+  what the pickers group and badge on. See `src/styles/CLAUDE.md`.
 - **Test themes with the visual harness's `--theme dark|light` flag** (jsdom smoke
   does NOT lay out CSS, so it can't catch a theme regression).
 

@@ -21,6 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A colour-vision pack: twelve themes for viewers who cannot rely on hue**, in their own badged
+  section of the picker (a dark/light pair each for deuteranopia, protanopia, tritanopia, the two
+  red-green deficiencies together, all three at once, and achromatopsia). The panel signals with
+  five colour families and the default palette separates them by hue alone, which is exactly what a
+  deficiency takes away: to a deuteranope the green "running" dot and the red "down" dot are the
+  same brownish yellow. Each palette is instead **built against a simulation** of the deficiency it
+  names (Machado, Oliveira & Fernandes 2009 at severity 1.0) and holds, as that viewer sees it,
+  ≥ 12 ΔE2000 between every pair of status colours and ≥ 20 across success/danger/warning — with
+  contrast re-checked through the same simulation, since a deficiency moves luminance as well as hue
+  and protanopia dims red enough to sink a red fill that passes for a trichromat. Hues come from the
+  Okabe–Ito / Wong Color-Universal-Design set and, for the tritan and universal palettes, its
+  tritan-safe subset; where hue runs out the separation is carried by lightness, which every
+  deficiency leaves intact. The monochrome pair goes further and drops hue entirely, coding status
+  as a lightness ladder. Palettes are searched rather than hand-picked — six colours that stay apart
+  for a dichromat is not something an eye can place — by
+  `/home/heisen/tks/scripts/cvd-check/`, which also re-verifies the shipped tokens.
 - **The theme picker is a grid of swatches, grouped Dark and Light**, in place of a dropdown of
   names — **on both surfaces**. Each tile paints itself IN the theme it offers (`tokens.css` keys
   colour off a plain `[data-theme]` attribute, so a tile carrying one resolves that palette's own
