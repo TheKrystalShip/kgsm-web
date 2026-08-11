@@ -79,6 +79,9 @@ function uptimeShort(bootTime) {
 const ACTION_META = {
   "server.install":        { label: "Server installed",   icon: "package-plus",  tone: "success" },
   "server.start":          { label: "Server started",     icon: "play",          tone: "success" },
+  // Its own row, not a repeat of the start above it: that one says the process spawned, this says
+  // the game will accept a connection, and on a big world the two are minutes apart.
+  "server.ready":          { label: "Ready to play",      icon: "circle-check",  tone: "success" },
   "server.stop":           { label: "Server stopped",     icon: "square",        tone: "danger"  },
   "server.restart":        { label: "Server restarted",   icon: "rotate-cw",     tone: "update"  },
   "server.update":         { label: "Server updated",     icon: "download",      tone: "info"    },

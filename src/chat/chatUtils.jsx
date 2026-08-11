@@ -196,6 +196,7 @@ function auditEventRow(e, fleetWide) {
 // audit page does — so a future kgsm event still shows up, never guessed into a wrong meaning.
 const RAW_EVENT_ACTION = {
   instance_started:         { action: "server.start",       summary: (i) => "started " + i },
+  instance_ready:           { action: "server.ready",       summary: (i) => i + " is ready to play" },
   instance_stopped:         { action: "server.stop",        summary: (i) => "stopped " + i },
   instance_restarted:       { action: "server.restart",     summary: (i) => "restarted " + i },
   instance_uninstalled:     { action: "server.uninstall",   summary: (i) => "uninstalled " + i },

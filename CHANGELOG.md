@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **"Ready to play" is its own row in the activity feed.** kgsm-api emits `server.ready` for the
+  moment a game finishes loading and will accept a connection, which is not what `server.start`
+  reports — that one says the process spawned, and on a big world the two are minutes apart. Labelled
+  and iconed alongside the rest of the `server.*` vocabulary, on the audit page and in the chat card
+  that renders raw engine events.
+
 - **The dashboard's Servers and Catalog cards reach every entry, on a scroll-snapped rail.**
   Both cards rendered only what fitted one row and dropped the rest — 4 of 6 servers and 6 of 32
   blueprints on this host. They are now horizontal shelves (`components/Rail.jsx`,
