@@ -298,8 +298,8 @@ properties — **a component must never hardcode a color; add or extend a token.
 - **`kit.css` is a BARREL, not a file to edit.** The old ~6,300-line monolith is
   split into **focused partials under `src/styles/kit/`** (`base`, `shell`,
   `server`, `catalog`, `modal`, `onboarding`, `dashboard`, `observability`,
-  `controls`, `responsive`, `chat`, `settings`, `dock`, `hosts`, `states`,
-  `extras`). `kit.css` only `@import`s them. **Add a rule to the partial that owns
+  `controls`, `responsive`, `chat`, `rail`, `settings`, `dock`, `hosts`,
+  `states`, `extras`). `kit.css` only `@import`s them. **Add a rule to the partial that owns
   the domain — do NOT grow a monolith again.** Import **order is load-bearing**
   (later wins on equal specificity): keep the `@import` sequence; a new domain gets
   a new partial appended to the barrel. `@import` must precede other rules, which

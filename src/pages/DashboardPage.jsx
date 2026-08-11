@@ -7,10 +7,12 @@ import { ServerTile } from "../components/ServerCard.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { GameCard } from "../components/GameCard.jsx";
 import { ClusterReach } from "../components/host-helpers.jsx";
+import { Rail } from "../components/Rail.jsx";
 import { RecentActivity } from "../components/RecentActivity.jsx";
 import { capUsable } from "../lib/capabilities.js";
 import { parseTs } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
+import { instancesOfBlueprint } from "../lib/servers.js";
 import { useStore } from "../lib/store.js";
 import { auditStore, clusterStore, favoritesStore, hostsStore, libraryStore, pingStore, serversStore } from "../lib/stores.js";
 import { startPingLoop } from "../lib/stores/ui.js";
@@ -35,12 +37,12 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const servers = useStore(serversStore, s => s.list);
   const onlineCount = servers.filter(s => s.status === "online").length;
   const totalPlayers = servers.reduce((n, s) => n + (s.players?.current || 0), 0);
-  // Bottom "Servers" card — a single fit-to-width row (max 4), UNFILTERED by
-  // status so it's not a duplicate of the "Online" KPI above. Servers carry no
-  // added/created date, so instead of arbitrary list order we surface the ones
-  // worth a glance. The user's FAVOURITES always come first (a pinned server is
-  // the one they care about most), then within each group: most-active online
-  // first, then the ones in transition (they need watching), then offline last.
+  // Bottom "Servers" card — the WHOLE fleet on a rail, UNFILTERED by status so
+  // it's not a duplicate of the "Online" KPI above. Servers carry no
+  // added/created date, so instead of arbitrary list order the ones worth a
+  // glance lead: the user's FAVOURITES first (a pinned server is the one they
+  // care about most, whatever it's doing), then most-active online, then the
+  // ones in transition (they need watching), then offline last.
   // "View all" opens the full Servers page.
   const SERVER_STATUS_RANK = { online: 0, starting: 1, restarting: 2, stopping: 3, updating: 4, offline: 5 };
   const favIds = useStore(favoritesStore, s => s.ids);
@@ -65,74 +67,21 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   const hosts = useStore(hostsStore, s => s.list);
   const pings = useStore(pingStore, s => s.byHost);
   const dataLoading = useStore(serversStore, s => s.status === "loading" && !s.everLoaded);
-  // Catalog preview — a compact window onto the installable library, in RANDOM
-  // order. The backend blueprint catalog carries no "added" date (the LibraryEntry
-  // DTO has no timestamp) and only one row's worth is shown, so a fixed slice
-  // would surface the same handful of games forever; shuffling makes the row a
-  // rotating sampler of what's installable. This is the dashboard's ordering
-  // only — the Library page renders the catalog in its own order. "View all"
-  // opens the full Library.
+  // Catalog — the whole installable library on a rail, ordered so the actionable
+  // half comes first: what you could add, then what you already run. The backend
+  // blueprint catalog carries no "added" date (the LibraryEntry DTO has no
+  // timestamp), so within each half the order is alphabetical — predictable
+  // enough to find a game in, which is what matters once the rail reaches all of
+  // them. "View all" opens the full Library.
   const libraryList = useStore(libraryStore, s => s.list);
-  // The seed is drawn once per mount, and a card's position is a pure function of
-  // (seed, entry id): a catalog refresh or a resize therefore reshuffles nothing,
-  // while each fresh visit to the dashboard deals a new order.
-  const catalogSeed = React.useRef(null);
-  if (catalogSeed.current === null) catalogSeed.current = (Math.random() * 0x100000000) >>> 0;
-  const catalogShuffled = React.useMemo(() => {
-    const seed = catalogSeed.current;
-    const rank = id => {
-      // FNV-1a over the id, seeded — an arbitrary but stable number per entry.
-      let h = (seed ^ 0x811c9dc5) >>> 0;
-      const s = String(id);
-      for (let i = 0; i < s.length; i++) {
-        h ^= s.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-      }
-      h ^= h >>> 15;
-      return h >>> 0;
-    };
-    return [...libraryList].sort((a, b) => rank(a.id) - rank(b.id));
-  }, [libraryList]);
-  // Show only as many cards as fit in one row at the current width — drop the
-  // overflow entirely rather than wrapping or scrolling. Cards then stretch to
-  // fill the row evenly (grid 1fr).
-  const catalogRowRef = React.useRef(null);
-  const [catalogFit, setCatalogFit] = React.useState(6);
-  React.useLayoutEffect(() => {
-    const el = catalogRowRef.current;
-    if (!el) return;
-    const MIN = 158, GAP = 12, PAD = 28; // card min width, gap, row h-padding
-    const compute = () => {
-      const w = el.clientWidth - PAD;
-      setCatalogFit(Math.max(1, Math.floor((w + GAP) / (MIN + GAP))));
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [dataLoading]);
-  const catalogVisible = catalogShuffled.slice(0, catalogFit);
-  // Fit-to-width for the bottom Servers row, mirroring Recently added but
-  // capped at 4 — show only as many tiles as fit one row, never more than 4.
-  // The layout itself is the shared `.server-grid` (same as the Library page),
-  // so MIN matches that grid's `minmax(280px, 1fr)` column — this just caps how
-  // many featured tiles to render so the preview stays a single row.
-  const serverRowRef = React.useRef(null);
-  const [serverFit, setServerFit] = React.useState(4);
-  React.useLayoutEffect(() => {
-    const el = serverRowRef.current;
-    if (!el) return;
-    const MIN = 280, GAP = 12, PAD = 0; // tile min width, gap (no row padding)
-    const compute = () => {
-      const w = el.clientWidth - PAD;
-      setServerFit(Math.max(1, Math.min(4, Math.floor((w + GAP) / (MIN + GAP)))));
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [dataLoading]);
-  const featuredVisible = featuredServers.slice(0, serverFit);
+  const catalogOrdered = React.useMemo(() => {
+    return [...libraryList].sort((a, b) => {
+      const ia = instancesOfBlueprint(a, servers).length ? 1 : 0;
+      const ib = instancesOfBlueprint(b, servers).length ? 1 : 0;
+      if (ia !== ib) return ia - ib;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [libraryList, servers]);
   // Fleet capacity strip — one mini-meter row per CLUSTER NODE (connected host
   // + federation "ghost" peers), built from the same merge the Cluster page
   // renders from (buildClusterNodes) so the two surfaces never drift. Capacity
@@ -300,66 +249,59 @@ function DashboardPage({ user, onOpenServer, onAction, onLibrary, onInstall, onA
   if (libraryList.length > 0) bands.push({
     id: "recent", label: "Catalog",
     node: (
-      // Catalog — a single, non-collapsing row of installable games sampled at
-      // random from the library. Clicking a card opens the install flow; "View
-      // all" opens the full Library catalog.
-      <div className="chat-brief">
-        <div className="chat-brief__head">
-          <span className="chat-brief__title">
-            <Icon name="library" size={13} /> {KRYSTAL_LABELS.catalog || "Catalog"}
-            <span className="chat-brief__count chat-brief__count--neutral">{libraryList.length}</span>
-          </span>
-          <button className="dash-section__more" onClick={() => onLibrary && onLibrary()}>
-            View all <Icon name="arrow-right" size={11} strokeWidth={2.2} />
-          </button>
-        </div>
-        <div className="dash-recent" ref={catalogRowRef} style={{ gridTemplateColumns: `repeat(${Math.min(catalogFit, libraryList.length)}, 1fr)` }}>
-          {catalogVisible.map(g => (
-            <GameCard
-              key={g.id}
-              game={g}
-              compact
-              onPick={onInstall ? onInstall : () => onLibrary && onLibrary()}
-            />
-          ))}
-        </div>
-      </div>
+      // Catalog — every installable game on a rail, uninstalled first. Clicking a
+      // card opens the install flow; "View all" opens the full Library catalog.
+      <Rail
+        variant="catalog"
+        icon="library"
+        title={KRYSTAL_LABELS.catalog || "Catalog"}
+        count={libraryList.length}
+        items={catalogOrdered}
+        disabled={customize}
+        onViewAll={() => onLibrary && onLibrary()}
+        renderItem={g => (
+          <GameCard game={g} compact onPick={onInstall ? onInstall : () => onLibrary && onLibrary()} />
+        )}
+      />
     )
   });
   bands.push({
     id: "servers", label: "Servers",
     node: (
-      // Online servers — full-width operational band, mirroring the Servers page
-      // exactly (same ServerTile cards). Unfiltered by status — the "Online" KPI
-      // above already covers the live count — so this is a quick glance at the
-      // fleet, most-active first. A single fit-to-width row (max 4); "View all"
-      // opens the full Servers page.
-      <div className="chat-brief">
-        <div className="chat-brief__head">
-          <span className="chat-brief__title">
-            <Icon name="server" size={13} /> Servers
-            <span className="chat-brief__count chat-brief__count--neutral">{servers.length}</span>
-          </span>
-          <button className="dash-section__more" onClick={() => onServers()}>
-            View all <Icon name="arrow-right" size={11} strokeWidth={2.2} />
-          </button>
-        </div>
-        <div className="chat-brief__body">
-          {servers.length === 0 ? (
+      // Servers — the whole fleet on a rail, most-worth-a-glance first, with the
+      // same ServerTile the Servers page renders. Unfiltered by status; the
+      // "Online" KPI above already covers the live count. "View all" opens the
+      // full, filterable Servers page.
+      servers.length === 0 ? (
+        <div className="chat-brief">
+          <div className="chat-brief__head">
+            <span className="chat-brief__title">
+              <Icon name="server" size={13} /> Servers
+              <span className="chat-brief__count chat-brief__count--neutral">0</span>
+            </span>
+          </div>
+          <div className="chat-brief__body">
             <div className="dash-servers-empty">
               <Icon name="moon" size={20} />
               <span>No servers yet.</span>
               <button className="dash-servers-empty__link" onClick={() => onServers()}>View all servers</button>
             </div>
-          ) : (
-            <div className="server-grid" ref={serverRowRef}>
-              {featuredVisible.map(s => (
-                <ServerTile key={s.id} server={s} onOpen={onOpenServer} onAction={onAction} showHost={hosts.length > 1} />
-              ))}
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <Rail
+          variant="servers"
+          icon="server"
+          title="Servers"
+          count={servers.length}
+          items={featuredServers}
+          disabled={customize}
+          onViewAll={() => onServers()}
+          renderItem={s => (
+            <ServerTile server={s} onOpen={onOpenServer} onAction={onAction} showHost={hosts.length > 1} />
+          )}
+        />
+      )
     )
   });
 

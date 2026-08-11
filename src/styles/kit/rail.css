@@ -1,0 +1,153 @@
+/* rail.css — the dashboard's horizontal shelves (components/Rail.jsx).
+
+   The track is a real scroll container with scroll snapping; how many cards it
+   shows is `--rail-per-view`, resolved in container query units so the rail
+   reacts to the sidebar and the assistant dock, which change its width without
+   changing the viewport's. That number is deliberately FRACTIONAL: the partial
+   card cut off at the right edge is what tells the user there is more, and it
+   is a stronger signal than the arrows. */
+
+.rail {
+  container-type: inline-size;
+  container-name: rail;
+}
+
+/* ---- head: arrows sit beside "View all" -------------------------------- */
+
+.rail__nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail__arrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--surface-2);
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: border-color var(--d-fast) var(--ease-out),
+              color var(--d-fast) var(--ease-out),
+              opacity var(--d-fast) var(--ease-out);
+}
+
+.rail__arrow:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--fg-1);
+}
+
+.rail__arrow:disabled {
+  opacity: .3;
+  cursor: default;
+}
+
+/* ---- the track --------------------------------------------------------- */
+
+.rail__track {
+  --rail-per-view: 3.4;
+  --rail-gap: 12px;
+  --rail-pad: 14px;
+  --rail-fade: 30px;
+  /* Fade the edge only where there is content past it; both collapse to 0 when
+     the rail is at rest, so a rail that fits shows no fade at all. */
+  --rail-fade-l: var(--rail-fade);
+  --rail-fade-r: var(--rail-fade);
+  display: flex;
+  /* stretch levels every card against the tallest, so a title that wraps to a
+     second line doesn't leave the row with ragged bottoms. */
+  align-items: stretch;
+  gap: var(--rail-gap);
+  padding: 14px var(--rail-pad);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: var(--rail-pad);
+  /* The arrows, the peek and the edge fade carry the affordance; a horizontal
+     scrollbar under the cards would only add height. */
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade-l), #000 calc(100% - var(--rail-fade-r)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-fade-l), #000 calc(100% - var(--rail-fade-r)), transparent 100%);
+}
+
+.rail__track::-webkit-scrollbar {
+  display: none;
+}
+
+.rail__track[data-start] {
+  --rail-fade-l: 0px;
+}
+
+.rail__track[data-end] {
+  --rail-fade-r: 0px;
+}
+
+.rail__track:focus-visible {
+  outline: 2px solid var(--krystal-teal);
+  outline-offset: -3px;
+  border-radius: var(--r-sm);
+}
+
+/* Band reordering owns the pointer while Customize is on — a rail that also
+   scrolled sideways would fight the drag. */
+.rail[data-disabled] .rail__track {
+  overflow-x: hidden;
+}
+
+/* ---- items ------------------------------------------------------------- */
+
+.rail__item {
+  flex: 0 0 auto;
+  width: calc((100cqi - (2 * var(--rail-pad)) - ((var(--rail-per-view) - 1) * var(--rail-gap))) / var(--rail-per-view));
+  min-width: 0;
+  scroll-snap-align: start;
+  /* Cards whose titles wrap to a second line would otherwise leave the row with
+     ragged bottoms. The wrapper is already stretched by the row, so handing that
+     height down through a nested flex keeps every card level WITHOUT a
+     percentage height — which resolves against a flex-derived box in Chromium
+     and collapses in Firefox. */
+  display: flex;
+}
+
+.rail__item > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- per-rail density -------------------------------------------------- */
+
+.rail--servers .rail__track {
+  --rail-per-view: 3.4;
+}
+
+.rail--catalog .rail__track {
+  --rail-per-view: 6.4;
+}
+
+@container rail (max-width: 1000px) {
+  .rail--servers .rail__track {
+    --rail-per-view: 2.35;
+  }
+
+  .rail--catalog .rail__track {
+    --rail-per-view: 4.4;
+  }
+}
+
+@container rail (max-width: 640px) {
+  .rail--servers .rail__track {
+    --rail-per-view: 1.12;
+  }
+
+  .rail--catalog .rail__track {
+    --rail-per-view: 2.35;
+  }
+}

@@ -28,11 +28,35 @@ the shell thin. Don't re-inline them.
   `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ConnectivityBanner`/
   `ContentError`/`AppCrash`) — the layout chrome.
 
+## `<Rail>` — the horizontal shelf
+
+`Rail.jsx` renders a brief card whose body is a scroll-snapped row of `items`: the
+dashboard's Servers and Catalog cards use it to reach their whole collection. It is
+a **real scroll container, not a transform carousel** — that is what makes a touch
+swipe native scrolling (no swipe-vs-tap ambiguity against cards that are themselves
+click targets), keeps trackpad/shift-wheel working, and scrolls a tab-focused
+off-screen card into view. There is no slide index, so nothing can desync from what
+is on screen; the arrows only call `scrollBy`.
+
+Card width comes from `--rail-per-view` in **container query units** (`kit/rail.css`),
+so the rail follows the sidebar and the assistant dock, which resize it without
+resizing the viewport. It is deliberately fractional — the cut-off next card is the
+primary "there is more" affordance, with an edge fade behind it and the arrows third.
+
+Two things a caller has to respect:
+
+- **The track carries `data-hswipe`**, which is how `hooks/useMobileSwipe.js` knows
+  to leave the gesture alone. That hook arms the nav drawer anywhere within 28px of
+  the viewport edge, and a rail's leftmost card sits inside that zone — drop the
+  attribute and a swipe meant for the rail also opens the drawer.
+- **Pass `disabled` while the dashboard is in Customize mode.** Sideways scrolling
+  otherwise fights `DashLayout`'s band drag.
+
 ## The rest, by rough category
 
 - **Cards / lists:** `ServerCard`, `LeafCard`, `GameCard`, `AlertCard`, `BriefCard`,
   `CardTable`, `HostCardBody`, `RecentActivity`, `NeedsAttention`,
-  `ContextualAlerts`, `Skeletons`, `Pagination`.
+  `ContextualAlerts`, `Skeletons`, `Pagination`, `Rail`.
 - **Server surfaces:** `ServerHero`, `ServerActions`, `ServerConnect`,
   `ServerNotice`, `ConsolePanel`, `ConsoleView`, `InstallModal`, `SubTabs`,
   `Toolbar`.

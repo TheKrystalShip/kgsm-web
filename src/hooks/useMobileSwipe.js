@@ -10,6 +10,13 @@ function useMobileSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOp
     const EDGE = 28, THRESH = 60;
     const onStart = (e) => {
       const t = e.touches[0];
+      // A horizontal rail (the dashboard shelves) owns its own sideways gesture:
+      // its cards sit inside the EDGE zone, so a swipe meant to scroll the rail
+      // would otherwise also open the drawer.
+      if (e.target && e.target.closest && e.target.closest("[data-hswipe]")) {
+        tracking = false;
+        return;
+      }
       sx = t.clientX; sy = t.clientY;
       fromLeft = sx <= EDGE;
       fromRight = sx >= window.innerWidth - EDGE;

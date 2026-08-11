@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The dashboard's Servers and Catalog cards reach every entry, on a scroll-snapped rail.**
+  Both cards rendered only what fitted one row and dropped the rest — 4 of 6 servers and 6 of 32
+  blueprints on this host. They are now horizontal shelves (`components/Rail.jsx`,
+  `styles/kit/rail.css`): a real scroll container, so a swipe on touch is native scrolling with no
+  swipe-vs-tap ambiguity against cards that are themselves click targets, trackpad and shift-wheel
+  work, and tabbing to an off-screen card scrolls it into view. Prev/next buttons in the card head
+  page by just under a viewport and disable at each end; the next card is always cut off at the
+  right edge, which is the primary "there is more" signal, with an edge fade behind it. How many
+  cards show is `--rail-per-view` in container query units, so the rail reacts to the sidebar and
+  the assistant dock, which change its width without changing the viewport's.
+### Changed
+
+- **The dashboard Catalog card is ordered, not shuffled.** It sampled the library at random because
+  only one row's worth was ever shown; now that the rail reaches all of it, the uninstalled
+  blueprints come first (they are the actionable ones) and each half is alphabetical, which is
+  what makes a game findable in a rail of 32. The Servers rail keeps the order the card already
+  sorted by: favourites, then most-active online, then in transition, then offline.
+
 ### Fixed
+
+- **A horizontal swipe on a dashboard card no longer also opens the nav drawer.** The drawer gesture
+  arms anywhere within 28px of the viewport edge, and a rail's leftmost card sits inside that zone.
+  A touch starting in a rail is left to the rail.
 
 - **A server being installed keeps showing its install until the install is over.** kgsm writes an
   instance's config before it downloads a byte, so the engine publishes the instance — measured
