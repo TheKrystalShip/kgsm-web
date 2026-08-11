@@ -12,6 +12,7 @@ import React from "react";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { ConsoleView } from "../../components/ConsoleView.jsx";
 import { Icon } from "../../components/Icon.jsx";
+import { copyText } from "../../lib/clipboard.js";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import {
   Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer,
@@ -64,7 +65,7 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
   const [reviewing, setReviewing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [result, setResult] = React.useState(null);
-  const [copiedKey, setCopiedKey] = React.useState(null);
+  const [copyState, setCopyState] = React.useState(null); // { key, ok } | null
   const [showLogs, setShowLogs] = React.useState(false);
 
   const host = hosts.find(h => h.id === hostId) || null;
@@ -134,11 +135,15 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
     });
   }, [setField]);
 
+  // Reports the outcome, never the intent: a refused clipboard is worth knowing
+  // about here, since the whole point of the button is to paste the line into a
+  // unit file or a shell.
   const copyEnv = (f) => {
     const line = f.envName + "=" + (f.effective == null ? "" : f.effective);
-    try { navigator.clipboard.writeText(line); } catch { /* clipboard unavailable */ }
-    setCopiedKey(f.key);
-    setTimeout(() => setCopiedKey(k => (k === f.key ? null : k)), 1200);
+    copyText(line).then(ok => {
+      setCopyState({ key: f.key, ok });
+      setTimeout(() => setCopyState(c => (c && c.key === f.key ? null : c)), ok ? 1200 : 2600);
+    });
   };
 
   const discard = () => { setDrafts({}); setResets(new Set()); };
@@ -378,7 +383,7 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
                         <LeafConfigRow key={f.key} f={f} editable={editable}
                           drafts={drafts} resets={resets}
                           onChange={setField} onToggleReset={toggleReset}
-                          onCopy={copyEnv} copiedKey={copiedKey} />
+                          onCopy={copyEnv} copyState={copyState} />
                       ))}
                     </div>
                   </BriefCard>

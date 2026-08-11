@@ -1,6 +1,7 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
 import { serverJoin } from "../lib/persona.js";
+import { copyText } from "../lib/clipboard.js";
 
 // ServerConnect — the "go play on this server" surface. It does two things, and
 // the split is deliberate: a Steam title gets a one-click LAUNCH
@@ -16,7 +17,7 @@ import { serverJoin } from "../lib/persona.js";
 
 function ServerConnect({ server, variant }) {
   const join = serverJoin(server);
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = React.useState(null); // null | "ok" | "fail"
   const online = join.online;
   // Launched but not yet joinable — only a truly "online" (finished booting)
   // server can be joined, so this stays gated the same as offline; only the
@@ -34,22 +35,25 @@ function ServerConnect({ server, variant }) {
     : restarting ? "Server is restarting…"
     : "Server is offline";
 
+  // Only ever claims "Copied" once the write has actually resolved — a refused
+  // clipboard says so instead, since a button that reports success over an empty
+  // clipboard sends the player to paste nothing into a server browser.
   const copy = (e) => {
     if (e) e.stopPropagation();
     const text = join.address;
     if (!text) return;              // no known address → never copy a literal "null"
-    try {
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
-    } catch {}
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    copyText(text).then(ok => {
+      setCopied(ok ? "ok" : "fail");
+      setTimeout(() => setCopied(null), ok ? 1600 : 2600);
+    });
   };
 
   // The copy button's tooltip carries the whole instruction, since "Play" alone
   // doesn't tell you how you actually get in.
   const copyHint = !join.address
     ? "The connect address isn’t available yet"
-    : copied ? "Copied"
+    : copied === "ok" ? "Copied"
+    : copied === "fail" ? `Your browser blocked the copy — the address is ${join.address}`
     : join.isSteam
       ? `Copy ${join.address} — paste it into ${server.game}’s server browser once it opens`
       : `Copy ${join.address} — connect from ${server.game}’s own menu`;
@@ -65,8 +69,8 @@ function ServerConnect({ server, variant }) {
         onClick={online ? copy : (e) => e.stopPropagation()}
         disabled={!online || !join.address}
         title={online ? copyHint : offHint}>
-        <Icon name={copied ? "check" : "copy"} size={13} />
-        {compact ? null : (copied ? "Copied" : (online ? "Copy IP" : offWord))}
+        <Icon name={copied === "ok" ? "check" : copied === "fail" ? "x" : "copy"} size={13} />
+        {compact ? null : (copied === "ok" ? "Copied" : copied === "fail" ? "Blocked" : (online ? "Copy IP" : offWord))}
       </button>
     );
     if (join.isSteam) {
@@ -113,7 +117,7 @@ function ServerConnect({ server, variant }) {
           onClick={copy}
           disabled={!join.address}
           title={copyHint}>
-          <Icon name={copied ? "check" : "copy"} size={15} />
+          <Icon name={copied === "ok" ? "check" : copied === "fail" ? "x" : "copy"} size={15} />
         </button>
         {join.isSteam && (
           <a
@@ -149,8 +153,8 @@ function ServerConnect({ server, variant }) {
           onClick={copy}
           disabled={!join.address}
           title={copyHint}>
-          <Icon name={copied ? "check" : "copy"} size={14} />
-          {copied ? "Copied" : "Copy IP : port"}
+          <Icon name={copied === "ok" ? "check" : copied === "fail" ? "x" : "copy"} size={14} />
+          {copied === "ok" ? "Copied" : copied === "fail" ? "Blocked" : "Copy IP : port"}
         </button>
       </div>
       <div className="connect__note">

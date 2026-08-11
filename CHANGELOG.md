@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A copy button never claims "Copied" over an empty clipboard.** Both call sites (the server's
+  connect address, the leaf-config env line) wrapped `navigator.clipboard.writeText` in a
+  `try`/`catch` and then reported success unconditionally — but that call returns a **promise**, so
+  the catch saw none of the ways a browser refuses it, and `navigator.clipboard` is undefined
+  outside a secure context, which reaching the panel over plain http on a LAN address is enough to
+  trigger. Copying now goes through `lib/clipboard.js`, which falls back to a selection copy when
+  the async API is missing (so the LAN case now genuinely copies) and resolves false when neither
+  path worked, at which point the button says the copy was blocked and shows the address to read
+  instead.
+
 - **A horizontal swipe on a dashboard card no longer also opens the nav drawer.** The drawer gesture
   arms anywhere within 28px of the viewport edge, and a rail's leftmost card sits inside that zone.
   A touch starting in a rail is left to the rail.

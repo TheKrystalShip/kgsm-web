@@ -324,7 +324,8 @@ function ChatPage({
         ? { ...c, stale: true } : c)));
       loadServerHistory();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- liveTurn is read through liveTurnRef so a frame handler is not rebuilt on every delta
+    // liveTurn is absent from the deps on purpose: it is read through liveTurnRef so a frame
+    // handler is not rebuilt on every delta.
   }, [loadServerHistory, applyTurnFrame]);
 
   // Read inside the frame handler through a ref: the handler must not be rebuilt on every text delta,

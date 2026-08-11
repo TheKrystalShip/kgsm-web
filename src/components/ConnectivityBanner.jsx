@@ -1,4 +1,3 @@
-import React from "react";
 import { Icon } from "./Icon.jsx";
 import { api, connectionStore, realtimeStore } from "../lib/apiClient.js";
 import { useStore } from "../lib/store.js";

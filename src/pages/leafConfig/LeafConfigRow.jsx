@@ -89,8 +89,11 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
       <div className="lcf-ro">
         <code className={"lcf-ro__v" + (isBlank(f, f.effective) ? " is-null" : "")}>{t == null ? "unset" : t}</code>
         {!f.isSecret && f.effective != null && (
-          <button className="lcf-iconbtn" onClick={() => onCopy(f)} title="Copy the env line">
-            <Icon name={copied ? "check" : "copy"} size={13} />
+          <button
+            className="lcf-iconbtn"
+            onClick={() => onCopy(f)}
+            title={copied === "fail" ? "Your browser blocked the copy" : copied === "ok" ? "Copied" : "Copy the env line"}>
+            <Icon name={copied === "ok" ? "check" : copied === "fail" ? "x" : "copy"} size={13} />
           </button>
         )}
       </div>
@@ -167,7 +170,7 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
   );
 }
 
-function LeafConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, onCopy, copiedKey }) {
+function LeafConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, onCopy, copyState }) {
   const willReset = resets.has(f.key);
   const dirty = isDirty(f, drafts, resets);
   const cls = "lcf-row" + (willReset ? " is-reset" : dirty ? " is-dirty" : "");
@@ -190,7 +193,8 @@ function LeafConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, o
       </div>
       <div className="lcf-row__r">
         <Control f={f} editable={editable} draft={draftOf(f, drafts)} rawDraft={drafts[f.key]} willReset={willReset}
-          onChange={onChange} onCopy={onCopy} copied={copiedKey === f.key} />
+          onChange={onChange} onCopy={onCopy}
+          copied={copyState && copyState.key === f.key ? (copyState.ok ? "ok" : "fail") : null} />
         <div className="lcf-row__under">
           <Chain f={f} />
           {editable && isOverridden(f) && (

@@ -260,11 +260,10 @@ Hash routing (`router.js`) — the URL is the source of truth (Back/Forward,
 deep links, refresh all work). **Login/logout/session-loss do a full
 `window.location.reload()` rather than swapping components in place** — this is
 deliberate: several hooks live below the `!user` gate, so flipping `user` in
-place would trip React's Rules of Hooks. Keep that pattern. Server sub-tabs with
-no backend source yet (Files, Settings, Performance, Players) keep their full UI
-but render an honest "Work in progress — not available yet" state behind a
-`…_WIRED = false` flag — never fabricated data; flip the flag + hydrate when the
-endpoint lands.
+place would trip React's Rules of Hooks. Keep that pattern. Every server sub-tab
+(Files, Settings, Performance, Players) is backed by a real endpoint; a value the
+backend can't supply renders as "—" or its own honest not-measurable state, never
+as a fabricated number.
 
 ## Styling & themes (`src/styles/`)
 
@@ -377,11 +376,11 @@ replaces the rail). Landmines:
   also built, for BOTH surfaces** — each installs as its own app, with its own manifest,
   production-only service worker and icons under `public-<surface>/` (see the
   "PWA / installability" section in `README.md`, `scripts/public-overlay.js`, and
-  `src/lib/registerSW.js`). Genuinely still deferred: TypeScript, a
-  unit-test runner, a full Workbox **precache** (`vite-plugin-pwa`; the current SW
-  caches on demand, not the whole build manifest), the Files/Settings/Performance/
-  Players backends (their tabs render a "work in progress" state), and parts of
-  multi-host fan-out. Describe current state from code + git, not from that list.
+  `src/lib/registerSW.js`). The Files/Settings/Performance/Players tabs are wired
+  to real endpoints too. Genuinely still deferred: TypeScript, a unit-test runner,
+  a full Workbox **precache** (`vite-plugin-pwa`; the current SW caches on demand,
+  not the whole build manifest), and parts of multi-host fan-out. Describe current
+  state from code + git, not from that list.
 - **`MIGRATION.md` is a historical playbook and partly stale** — it references
   `src/lib/api.js` / `api-contract.js`, which no longer exist (the seam is
   `apiClient.js` + `adapters.js` + `config.js`).

@@ -6,8 +6,6 @@
 // no logic here: a second implementation of the config surface would drift from the one the
 // standalone page uses, and the descriptor contract is the same either way.
 
-import React from "react";
-
 import { LeafConfigPage } from "../leafConfig/LeafConfigPage.jsx";
 
 function LeafSettingsTab({ hostId, leafId }) {

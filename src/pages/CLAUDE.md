@@ -61,9 +61,13 @@ folder** rather than another append.
 (a library blueprint) render sub-tabs via `route.tab` (`overview` is the default
 and is omitted from the URL). A tab the persona can't reach is left out of the
 strip and `safeTab` falls back to overview, so a stale URL never mounts an empty
-body — the game page's File tab is operator-only on that basis. Server
-tabs with **no backend source yet** (Files, Settings, Performance, Players) keep
-their full UI but render an honest "work in progress" state behind a
-`…_WIRED = false` flag — **never fabricated data**. Flip the flag + hydrate when
-the endpoint lands; don't invent numbers to fill the tab. (Ecosystem-wide
-"never fabricate a metric" invariant — see root `CLAUDE.md` and `../lib/adapters.js`.)
+body — the game page's File tab is operator-only on that basis. Every server
+tab is backed by a real endpoint: `FileBrowser`, `ServerSettings`,
+`PerformanceTab` and `PlayersTab` all render measured data.
+
+**A tab whose backend can't answer says so — it never fills itself in.** A value
+the API doesn't provide arrives as `null`/`"unknown"`/`[]` from `../lib/adapters.js`
+and renders as "—"; a roster that can't be measured renders its own honest
+not-measurable state rather than "0 players". Adding a tab means wiring its
+endpoint, not inventing numbers to fill it. (Ecosystem-wide "never fabricate a
+metric" invariant — see root `CLAUDE.md` and `../lib/adapters.js`.)
