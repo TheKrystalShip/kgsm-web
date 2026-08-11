@@ -90,7 +90,7 @@ an upward edge (a store importing a page, a component reaching into a page).
 | `lib/` | Data layer + policy: apiClient, adapters, stores, persona, router, config | `lib/CLAUDE.md` |
 | `lib/stores/` | Domain-split reactive stores (was the `stores.js` monolith) | `lib/stores/CLAUDE.md` |
 | `components/` | Shared/presentational UI + the `<Modal>` primitive | `components/CLAUDE.md` |
-| `hooks/` | `useRouteSync` (URL↔route sync), `useMobileSwipe` (drawer/dock gestures) | — |
+| `hooks/` | `useRouteSync` (URL↔route sync), `useMobileSwipe` (drawer/dock gestures), `usePortalPopover` (portalled popovers — shared by chat and the panel) | — |
 | `styles/` | Plain CSS: `tokens.css` → `kit.css` (barrel over `kit/`) → `consumer.css` | `styles/CLAUDE.md` |
 
 ## Guardrails (the ESLint gate — see root `../CLAUDE.md`)

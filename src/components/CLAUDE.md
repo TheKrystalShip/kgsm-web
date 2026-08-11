@@ -52,6 +52,37 @@ Two things a caller has to respect:
 - **Pass `disabled` while the dashboard is in Customize mode.** Sideways scrolling
   otherwise fights `DashLayout`'s band drag.
 
+## `<Toasts>` / `<NotificationsPanel>` — outcome reporting
+
+`lib/toasts.js` holds one store; `Toasts.jsx` renders the live cards (portalled to
+body, mounted once per surface) and `NotificationsPanel.jsx` renders the history
+from the sidebar's foot.
+
+**The rule: a toast reports the outcome of something the user DID — never something
+that merely happened.** Fleet events already have the Alerts feed, the tiles and
+Recent activity; routing those here would bury the panel during a mass restart.
+
+It exists for the **shell-level** handlers only. Every write path that owns a
+component already renders its error beside the control that failed
+(`ConsolePanel`, `ServerNotice`, `PlayersTab`, `ServerSettings`) and that is the
+better place for it — `App.jsx`'s lifecycle and install handlers own no control,
+which is why they are the ones that route through `toast.fromError`. Don't convert
+a working inline error into a toast.
+
+The **history is client-side** (`localStorage krystal:notifications`, newest 50,
+7-day cap) and is **not** a duplicate of the audit log. kgsm-api writes its audit
+row from the *engine echo*, so every command it refuses up front — unknown verb,
+unknown server, an inadmissible no-op, a command already in flight — is answered
+before the engine is touched and **never produces an audit row**. Those refusals
+exist nowhere else. The audit log stays the authority for what happened to the
+fleet; this records what was asked for and how it went, which is why the panel
+links to the audit log rather than trying to be it.
+
+⚠ Keep **Notifications** distinct from **Alerts**: Alerts are AlertEngine
+conditions about the fleet, server-side and the same for everyone; Notifications
+are yours and this browser's. The foot placement and the `bell` vs `triangle-alert`
+icons are what hold them apart.
+
 ## The rest, by rough category
 
 - **Cards / lists:** `ServerCard`, `LeafCard`, `GameCard`, `AlertCard`, `BriefCard`,

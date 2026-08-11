@@ -44,7 +44,7 @@ Four screens were too big and were broken into folders (root-`CLAUDE.md` refacto
 
 | Entry | Folder | Holds |
 |---|---|---|
-| `ChatPage.jsx` (512) | `chat/` | thread/message/parts, evidence cards, context meter, host picker, `chatUtils`/`chatConstants`, `usePortalPopover` |
+| `ChatPage.jsx` (512) | `chat/` | thread/message/parts, evidence cards, context meter, host picker, `chatUtils`/`chatConstants` |
 | `DiagnosticsPage.jsx` (290) | `diagnostics/` | `DiagOverview/Resources/Services/Logs`, host cards, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |

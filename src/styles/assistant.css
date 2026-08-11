@@ -17,6 +17,7 @@
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
 @import "./kit/chat.css";
+@import "./kit/toast.css";
 /* modal: the evidence cards' expanded chart uses <Modal>. */
 @import "./kit/modal.css";
 /* Two chat widgets have their rules filed under other domains: the sign-in spinner

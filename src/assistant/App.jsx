@@ -4,6 +4,7 @@ import { ChatPage } from "../chat/ChatPage.jsx";
 import { assistant } from "../lib/assistantClient.js";
 import { assistantSession } from "../lib/assistantSession.js";
 import { useStore } from "../lib/store.js";
+import { Toasts } from "../components/Toasts.jsx";
 
 // The standalone assistant: a chat with one leaf, and nothing else.
 //
@@ -65,14 +66,20 @@ function App() {
   };
 
   return (
-    <ChatPage
-      user={user}
-      assistantHost={{ id: SELF, name: "Assistant" }}
-      connection={{ tone: "online", label: "Connected", usable: true, message: null }}
-      canSeeActions={rankOf(tier) >= TIER_RANK.operator}
-      canUseActions={rankOf(tier) >= TIER_RANK.admin}
-      pageClass="chat-page--solo"
-    />
+    <>
+      <ChatPage
+        user={user}
+        assistantHost={{ id: SELF, name: "Assistant" }}
+        connection={{ tone: "online", label: "Connected", usable: true, message: null }}
+        canSeeActions={rankOf(tier) >= TIER_RANK.operator}
+        canUseActions={rankOf(tier) >= TIER_RANK.admin}
+        pageClass="chat-page--solo"
+      />
+      {/* The host is mounted here too so a shared chat/ component can report an
+          outcome on either surface. This surface has no sidebar, so it gets the
+          live cards but no history browser. */}
+      <Toasts />
+    </>
   );
 }
 

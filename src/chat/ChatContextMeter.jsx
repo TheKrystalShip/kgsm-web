@@ -5,7 +5,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon.jsx";
-import { usePortalPopover } from "./usePortalPopover.js";
+import { usePortalPopover } from "../hooks/usePortalPopover.js";
 
 function ChatContextMeter({ usage, onCompact }) {
   const win = usage && usage.contextWindow > 0 ? usage.contextWindow : 0;

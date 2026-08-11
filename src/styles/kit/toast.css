@@ -1,0 +1,275 @@
+/* toast.css — the live outcome cards (components/Toasts.jsx) and the history
+   popover they fall into (components/NotificationsPanel.jsx).
+
+   One domain, one partial. ⚠ This file is imported by BOTH barrels (kit.css and
+   assistant.css): the toast host mounts on the standalone assistant too, and a
+   partial missing from that barrel renders unstyled with nothing failing. */
+
+/* ---- the live stack ---------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  z-index: 90;
+  right: 24px;
+  /* Clear of the assistant FAB, which owns the bottom-right corner. */
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(380px, calc(100vw - 48px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--surface-1);
+  border: var(--edge);
+  border-left: 3px solid var(--fg-4);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
+  animation: toast-in var(--d-base) var(--ease-out);
+}
+
+/* The tributes set every duration to 0ms, which correctly lands here as "no
+   slide at all" rather than needing a special case. */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
+.toast--error   { border-left-color: var(--danger-fg); }
+.toast--success { border-left-color: var(--success-fg); }
+.toast--info    { border-left-color: var(--info-fg); }
+
+.toast__icon { flex: none; margin-top: 1px; }
+.toast--error   .toast__icon { color: var(--danger-fg); }
+.toast--success .toast__icon { color: var(--success-fg); }
+.toast--info    .toast__icon { color: var(--info-fg); }
+
+.toast__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.toast__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.toast__count,
+.notif__count {
+  flex: none;
+  padding: 0 5px;
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fg-3);
+}
+
+/* The backend's own sentence. It wraps rather than truncating — a reason you
+   cannot read is the thing this whole surface exists to stop. */
+.toast__detail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.toast__action {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--krystal-teal);
+  cursor: pointer;
+}
+
+.toast__action:hover { color: var(--krystal-teal-hover); }
+
+.toast__close {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--fg-4);
+  cursor: pointer;
+}
+
+.toast__close:hover { color: var(--fg-1); background: var(--surface-2); }
+
+/* ---- the history popover ------------------------------------------------ */
+
+.notif__menu {
+  position: fixed;
+  z-index: 95;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(460px, 70vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+
+.notif__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.notif__head-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.notif__clear {
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+
+.notif__clear:hover { color: var(--fg-1); }
+
+.notif__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.notif__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--fg-3);
+  font-size: 12.5px;
+}
+
+.notif__empty > svg { color: var(--fg-4); }
+
+.notif__empty-sub {
+  font-size: 11.5px;
+  color: var(--fg-4);
+}
+
+.notif__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+}
+
+.notif__item + .notif__item { border-top: 1px solid var(--border-subtle); }
+
+.notif__item--link { cursor: pointer; }
+.notif__item--link:hover { background: var(--surface-2); }
+
+.notif__icon { flex: none; margin-top: 1px; }
+.notif__item--error   .notif__icon { color: var(--danger-fg); }
+.notif__item--success .notif__icon { color: var(--success-fg); }
+.notif__item--info    .notif__icon { color: var(--info-fg); }
+
+.notif__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notif__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.notif__detail {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.notif__meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--fg-4);
+}
+
+.notif__code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-4);
+}
+
+.notif__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--krystal-teal);
+  cursor: pointer;
+}
+
+.notif__foot:hover { color: var(--krystal-teal-hover); background: var(--surface-2); }
+
+/* ---- phones -------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .toasts {
+    right: 12px;
+    left: 12px;
+    width: auto;
+    /* Centred and clear of the FAB, which sits lower-right on a phone too. */
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+}

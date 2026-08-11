@@ -6,6 +6,8 @@ import { ConnectivityBanner } from "./components/ConnectivityBanner.jsx";
 import { NodeAccessNotice } from "./components/host-helpers.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
+import { Toasts } from "./components/Toasts.jsx";
+import { toast } from "./lib/toasts.js";
 import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
@@ -195,6 +197,10 @@ function AppInner({ user, setUser, route, setRoute }) {
       serversStore.patch(s.id, { status: "starting" });
       commandServer(s, action).catch(err => {
         if (err && err.code === 401) setReauthHostId(s.hostId);
+        // A 401 is already answered by the reauth modal; anything else has a
+        // reason the caller can act on (a port clash, a command already in
+        // flight) and used to die here silently.
+        else toast.fromError(err, "Couldn't start " + (s.name || s.id));
         const cur = serversStore.find(s.id);
         if (cur && cur.status === "starting") serversStore.patch(s.id, { status: prevStatus });
       });
@@ -208,12 +214,14 @@ function AppInner({ user, setUser, route, setRoute }) {
       serversStore.patch(s.id, { job: { verb: action, state: "running" } });
       commandServer(s, action).catch(err => {
         if (err && err.code === 401) setReauthHostId(s.hostId);
+        else toast.fromError(err, "Couldn't " + action + " " + (s.name || s.id));
         serversStore.patch(s.id, { job: null });
       });
       return;
     }
     commandServer(s, action).catch(err => {
       if (err && err.code === 401) setReauthHostId(s.hostId);
+      else toast.fromError(err, "Couldn't " + action + " " + (s.name || s.id));
     });
   };
 
@@ -236,6 +244,9 @@ function AppInner({ user, setUser, route, setRoute }) {
       setRoute({ kind: "servers" });
     }, err => {
       if (err && err.code === 401) setReauthHostId(cfg.hostId);
+      // The modal is left open on purpose — the config is still on screen and
+      // the failure is usually something to change and retry.
+      else toast.fromError(err, "Couldn't install " + ((cfg.game && cfg.game.name) || "the server"));
     });
   };
 
@@ -430,6 +441,8 @@ function AppInner({ user, setUser, route, setRoute }) {
           <AssistantFabIcon size={22} />
         </button>
       )}
+
+      <Toasts />
 
       {reauthHostId && (
         <HostReauthModal

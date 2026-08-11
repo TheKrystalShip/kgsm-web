@@ -126,7 +126,7 @@ The old ~6,300-line monolith was split into focused partials under `kit/`.
 split. Add a rule to the partial that owns the domain:
 
 `base` · `shell` · `server` · `catalog` · `modal` · `onboarding` · `dashboard`
-· `observability` · `controls` · `responsive` · `chat` · `rail` · `settings`
+· `observability` · `controls` · `responsive` · `chat` · `rail` · `toast` · `settings`
 · `dock` · `hosts` · `states` · `extras`
 
 - **Import order is load-bearing** (later wins on equal specificity) — keep the

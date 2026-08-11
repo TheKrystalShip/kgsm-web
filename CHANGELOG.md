@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A refused action says why, instead of nothing at all.** Pressing Start on a server the backend
+  turns down used to flicker the tile to "Starting", snap it back to Offline, and discard the
+  reason — and the reasons are the ones worth having: a port clash, a bad config, or the common
+  "a command is already in flight for this server". The lifecycle and install handlers in the shell
+  own no control to render an error into, which is why they were the only paths that swallowed;
+  they now raise a toast carrying the backend's own sentence and its error code
+  (`lib/toasts.js`, `components/Toasts.jsx`). Errors stay on screen until dismissed, repeats inside
+  a five-second window fold into one card with a count, and hovering pauses the timer. The write
+  paths that already render an error beside the control that failed are untouched — that is the
+  better place for it.
+
+- **A Notifications entry in the sidebar keeps what the toasts said.** A message that vanishes
+  before it is read is barely better than none, so every toast also lands in a list above the
+  account row (`components/NotificationsPanel.jsx`): the reason, the code, how long ago, an unread
+  badge, and a click through to the server it concerned. Held per-browser (newest 50, 7 days), and
+  deliberately not server-side — kgsm-api writes its audit row from the engine echo, so a command
+  it refuses up front never produces one, and these refusals exist nowhere else. The audit log
+  stays the authority for what happened to the fleet; the panel links out to it.
+
 - **"Ready to play" is its own row in the activity feed.** kgsm-api emits `server.ready` for the
   moment a game finishes loading and will accept a connection, which is not what `server.start`
   reports — that one says the process spawned, and on a big world the two are minutes apart. Labelled
