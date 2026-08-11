@@ -145,6 +145,13 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   directions, never coerced to `0`. **A sort accessor returns the raw value —
   never `x || 0`, and never the formatted text the cell renders.**
 - `registerSW.js` — production-only PWA service-worker registration.
+- `push.js` — the browser half of Web Push: capability probe, subscribe/unsubscribe, device list.
+  `support()` distinguishes **`needs-install`** from `unsupported`, because on iOS push works only
+  for a Home-Screen install and that is a step away rather than a dead end. Two platform rules it
+  encodes: permission must come from a user gesture (a load-time prompt earns a permanent refusal
+  that cannot be re-prompted), and Chrome's `userVisibleOnly` means every push shows a notification —
+  push is not a quiet data channel. A subscription is per HOST (signed by that host's VAPID key), so
+  every call is node-scoped.
 
 ## The init-order landmine — do not "tidy"
 

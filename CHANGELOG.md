@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Push notifications, per device, opt-in from Settings → Devices.** Fleet events — crashes,
+  updates, backups — now reach a device with the panel closed, delivered by the browser's own push
+  service and rendered by the service worker (`public-panel/sw.js` gains `push` and
+  `notificationclick`; the client half is `lib/push.js`, the UI is `pages/SettingsPush.jsx`).
+  Tapping one opens the panel on the server it concerned, which is the thing a Discord message
+  cannot do. **On iPhone this needs the panel installed to the Home Screen** — Safari does not
+  deliver push to a tab — so that case reads as "install the app first" rather than "unsupported",
+  because it is one step away and not a dead end.
+  Subscribing stays behind an explicit button: asking for notification permission on load is how a
+  browser learns to refuse permanently, and a denied permission cannot be re-prompted. A
+  subscription belongs to ONE host (it is signed by that host's key), so the section asks per node
+  rather than implying a cluster-wide switch.
+
+### Added
+
 - **A refused action says why, instead of nothing at all.** Pressing Start on a server the backend
   turns down used to flicker the tile to "Starting", snap it back to Offline, and discard the
   reason — and the reasons are the ones worth having: a port clash, a bad config, or the common

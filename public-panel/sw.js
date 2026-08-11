@@ -105,3 +105,62 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// ---------------------------------------------------------------------------
+// Web Push
+//
+// The panel's notifications reach a closed app through the browser's own push
+// service. Note the constraint that shapes this code: Chrome requires
+// `userVisibleOnly: true` on the subscription, so EVERY push must result in a
+// visible notification — there is no silent-data-sync path here, and a handler
+// that decides not to show something is a permissions violation, not a choice.
+//
+// On iPhone this only runs at all when the panel is installed to the Home
+// Screen; Safari does not deliver push to a tab.
+// ---------------------------------------------------------------------------
+
+self.addEventListener("push", (event) => {
+  // A push with no body still has to show something — see userVisibleOnly. A
+  // generic line is the honest fallback; inventing a specific event would be
+  // worse than saying little.
+  let payload = { title: "Krystal Ship", body: "Something happened on your fleet.", serverId: null };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {
+    // Not JSON — fall back to the raw text rather than dropping the message.
+    try { payload.body = event.data.text() || payload.body; } catch {}
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      // Collapse repeats about the same server: a crash loop should replace its
+      // own notification rather than stack a column of them on the lock screen.
+      // The API already coalesces per (provider, server, event); this is the
+      // second line of defence, on the device.
+      tag: payload.serverId ? `kgsm-server-${payload.serverId}` : "kgsm",
+      renotify: true,
+      data: { serverId: payload.serverId || null },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const serverId = event.notification.data && event.notification.data.serverId;
+  const target = serverId ? `/#/servers/${encodeURIComponent(serverId)}` : "/#/";
+
+  // Focus an open panel rather than opening a second one, and take it to the
+  // server the notification was about — the thing a Discord message cannot do.
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      for (const win of wins) {
+        if (new URL(win.url).origin !== self.location.origin) continue;
+        return win.focus().then((w) => (w && "navigate" in w ? w.navigate(target) : w));
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});

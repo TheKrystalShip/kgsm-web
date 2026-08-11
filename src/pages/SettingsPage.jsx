@@ -5,6 +5,7 @@ import { SettingsRow, SettingsSection } from "../components/settings-primitives.
 import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { SettingsAccess } from "./SettingsAccess.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
+import { SettingsPush } from "./SettingsPush.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
 
 // SettingsPage — YOUR account, and nothing about anybody else's. Four tabs, in the order somebody
@@ -115,7 +116,14 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
         {active === "security" && <SettingsIdentities sessionProvider={sessionProvider} />}
 
         {/* Where you are signed in, and the history of getting there. */}
-        {active === "devices" && <SettingsSessions onLogout={onLogout} />}
+        {active === "devices" && (
+          <>
+            <SettingsSessions onLogout={onLogout} />
+            {/* Beneath sessions on purpose: both are "your devices", but one is where you are
+                signed in and the other is where you get notified. */}
+            <SettingsPush />
+          </>
+        )}
       </div>
     </>
   );
