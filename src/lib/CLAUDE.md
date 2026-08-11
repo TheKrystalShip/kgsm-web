@@ -151,7 +151,8 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   encodes: permission must come from a user gesture (a load-time prompt earns a permanent refusal
   that cannot be re-prompted), and Chrome's `userVisibleOnly` means every push shows a notification —
   push is not a quiet data channel. A subscription is per HOST (signed by that host's VAPID key), so
-  every call is node-scoped.
+  every call is node-scoped. It also carries the per-account event **preferences** — note the
+  default: an event with no stored row is ON, so treat a missing entry as yes, never as no.
 
 ## The init-order landmine — do not "tidy"
 

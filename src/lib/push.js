@@ -143,6 +143,16 @@ async function unsubscribe(hostId) {
   }
 }
 
+/** The caller's own event choices on this host, over that host's catalog. */
+async function preferences(hostId) {
+  return push(hostId).get("/push/preferences");
+}
+
+/** Change some of them. Sparse — only the ids passed change; answers with the full new view. */
+async function setPreference(hostId, id, enabled) {
+  return push(hostId).patch("/push/preferences", { events: [{ id, enabled }] });
+}
+
 /** The caller's registered devices on this host. */
 async function devices(hostId) {
   const endpoint = await currentEndpoint();
@@ -171,4 +181,4 @@ function urlBase64ToUint8Array(base64Url) {
   return out;
 }
 
-export { currentEndpoint, devices, subscribe, support, unsubscribe };
+export { currentEndpoint, devices, preferences, setPreference, subscribe, support, unsubscribe };

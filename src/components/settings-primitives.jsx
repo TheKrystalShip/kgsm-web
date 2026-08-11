@@ -21,15 +21,20 @@ function SettingsRow({ icon, title, sub, tone, children }) {
   );
 }
 
-function Toggle({ on, onChange }) {
+// `disabled` renders the switch inert and faded — for a setting that exists but cannot be changed
+// from here (one an admin has turned off host-wide, say). It stays visible rather than being hidden,
+// because a missing row reads as "no such setting" when the truth is "not yours to change"; give the
+// row a `sub` saying which.
+function Toggle({ on, onChange, disabled = false, label }) {
   return (
-    <button type="button" onClick={() => onChange(!on)} style={{
+    <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!on)} style={{
       width: 38, height: 22, borderRadius: 999,
       background: on ? "var(--krystal-teal)" : "var(--surface-3)",
       border: "1px solid " + (on ? "transparent" : "var(--border-subtle)"),
-      position: "relative", cursor: "pointer", padding: 0,
-      transition: "background 140ms",
-    }} aria-pressed={on}>
+      position: "relative", cursor: disabled ? "default" : "pointer", padding: 0,
+      opacity: disabled ? 0.45 : 1,
+      transition: "background 140ms, opacity 140ms",
+    }} aria-pressed={on} aria-label={label}>
       <span style={{
         position: "absolute", top: 2, left: on ? 18 : 2,
         width: 16, height: 16, borderRadius: 999,

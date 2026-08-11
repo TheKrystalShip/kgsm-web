@@ -5,12 +5,12 @@ import { SettingsRow, SettingsSection } from "../components/settings-primitives.
 import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { SettingsAccess } from "./SettingsAccess.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
-import { SettingsPush } from "./SettingsPush.jsx";
+import { SettingsNotifications } from "./SettingsNotifications.jsx";
 import { SettingsSessions } from "./SettingsSessions.jsx";
 
-// SettingsPage — YOUR account, and nothing about anybody else's. Four tabs, in the order somebody
-// actually asks the questions: who am I (Profile), how do I get in (Security), where am I signed in
-// (Devices), how does this look (Appearance).
+// SettingsPage — YOUR account, and nothing about anybody else's. Tabs in the order somebody actually
+// asks the questions: who am I (Profile), how do I get in (Security), where am I signed in (Devices),
+// how do I get told things (Notifications). Appearance lives on Profile.
 //
 // Tabbed rather than one long column because the four are genuinely different subjects, and stacked
 // as equal cards none of them read as primary — the page became a list of slabs with no hierarchy.
@@ -34,6 +34,7 @@ const TABS = [
   { id: "profile", label: "Profile", icon: "user" },
   { id: "security", label: "Security", icon: "key-round" },
   { id: "devices", label: "Devices", icon: "monitor-smartphone" },
+  { id: "notifications", label: "Notifications", icon: "bell" },
 ];
 
 function SettingsPage({ user, onLogout, tab, onTabChange }) {
@@ -116,14 +117,9 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
         {active === "security" && <SettingsIdentities sessionProvider={sessionProvider} />}
 
         {/* Where you are signed in, and the history of getting there. */}
-        {active === "devices" && (
-          <>
-            <SettingsSessions onLogout={onLogout} />
-            {/* Beneath sessions on purpose: both are "your devices", but one is where you are
-                signed in and the other is where you get notified. */}
-            <SettingsPush />
-          </>
-        )}
+        {active === "devices" && <SettingsSessions onLogout={onLogout} />}
+
+        {active === "notifications" && <SettingsNotifications />}
       </div>
     </>
   );

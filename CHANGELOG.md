@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A Notifications tab in Settings, with a switch per event.** Every event the host's catalog
+  offers — online, offline, crash, updated, update available, installed, backed up — is a toggle
+  you own, saved to your account and applied to every device you subscribe
+  (`pages/SettingsNotifications.jsx`). Built from the existing settings furniture: the same
+  `SubTabs`, `SettingsSection`, `SettingsRow` and `Toggle` the rest of the page uses, so it reads
+  as part of the site rather than a new idiom.
+  An event an admin has switched off for the whole host renders its switch **inert and says so**,
+  rather than letting you turn it on and then hear nothing.
+  One card per host, because a subscription is signed by one host's key and the catalog is that
+  host's own.
+
+### Changed
+
+- **Push moved from Devices to Notifications.** Turning it on for a device and choosing what it
+  carries are one decision, and having them on separate tabs made the second half hard to find.
+  Devices goes back to being purely where you are signed in.
+- `Toggle` takes an optional `disabled` (and `label`), for a setting that exists but is not yours to
+  change. Additive — the five existing call sites are unaffected.
+
+### Added
+
 - **Push notifications, per device, opt-in from Settings → Devices.** Fleet events — crashes,
   updates, backups — now reach a device with the panel closed, delivered by the browser's own push
   service and rendered by the service worker (`public-panel/sw.js` gains `push` and
