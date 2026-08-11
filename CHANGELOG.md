@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A server being installed keeps showing its install until the install is over.** kgsm writes an
+  instance's config before it downloads a byte, so the engine publishes the instance — measured
+  `stopped`, with the install still running — around a minute into a multi-minute download. The tile
+  read that frame as the handover and became an ordinary card reading "Offline" about a server that
+  did not exist yet, for the rest of the download; a reload landed on the same state. A tile is now a
+  phantom for exactly as long as the row's own job says an install is running, wherever the row came
+  from — a stream frame, a REST re-hydrate, or a browser that opened the panel halfway through
+  someone else's install — and the phase (Preparing / Downloading / Deploying) keeps rendering
+  throughout. The handover is the verify frame that follows the install settling, which is the frame
+  carrying the finished server, so a card never flips to a completed install the backend has not
+  described. A failed install holds its "Failed" tile until dismissed instead of being overwritten.
+
 - **Only the assistant leaf refusing a refresh token ends that session.** The rotate discarded the
   thirty-day credential on every failure, so a dropped packet or a leaf mid-restart cost a sign-in
   that nothing had actually invalidated. A request that never completed, a 5xx and an answer with no

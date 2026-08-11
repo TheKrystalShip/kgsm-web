@@ -561,7 +561,10 @@ export function adaptJob(be) {
 // Build a phantom server row for an in-progress install. Injected into serversStore
 // immediately on POST /servers 202 (or reactively from job.patch SSE for other users),
 // flagged _phantom:true so the card renders its installing state instead of lifecycle actions.
-// Replaced in-place when the real server.patch SSE arrives after install completes.
+// This is the row for an install the backend has no instance for YET — the engine publishes one
+// partway through, and from that point the phantom is a real row that keeps rendering as a phantom
+// because its job says so (stores/servers.js owns that rule). It is handed over to an ordinary card
+// by the verify frame that follows the install settling.
 export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }) {
   return {
     id,

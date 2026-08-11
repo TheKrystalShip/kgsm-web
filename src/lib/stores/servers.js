@@ -18,10 +18,12 @@ import { libraryStore } from "./library.js";
 // shut down is still genuinely "running" (the process is up, draining and saving its world), an
 // instance being updated is genuinely "stopped", and one being restarted reads as whichever side of
 // the bounce it happens to be on — none of that is what an operator who just pressed the button needs
-// to see. `start` is the one lifecycle verb absent, because the backend already has an honest
-// run-state for it: "starting", the watchdog's own boot window, which says more than a job would. An
-// in-flight install has no server row at all — it renders as a phantom tile.
-const JOB_STATUS = { update: "updating", stop: "stopping", restart: "restarting" };
+// to see. An instance being installed is the sharpest case of all: the engine writes its config before
+// it downloads a byte, so it joins the roster measurably-stopped while several minutes of download
+// remain, and its run-state says "offline" about a server that has never existed. `start` is the one
+// lifecycle verb absent, because the backend already has an honest run-state for it: "starting", the
+// watchdog's own boot window, which says more than a job would.
+const JOB_STATUS = { install: "installing", update: "updating", stop: "stopping", restart: "restarting" };
 
 // How long a job we know about locally survives a server frame that carries none. The backend carries the
 // active job on every server read, so an in-flight job normally re-arrives with each frame; this window
@@ -31,16 +33,27 @@ const JOB_GRACE_MS = 15000;
 
 const jobIsLive = (job) => !!job && !!job.state && job.state !== "done";
 
+// A row belongs to an install that has not landed yet. This — not "no backend row has arrived" — is
+// what makes a tile a phantom: the engine publishes the instance the moment it writes its config,
+// roughly a minute before the download finishes, so a row can be fully hydrated and still be a server
+// nobody can start. The job settling is what ends it.
+const installInFlight = (job) => jobIsLive(job) && job.verb === "install";
+
 // Merge a partial into a row and re-derive its display status. `status` in the partial is the
 // authoritative run-state the backend just reported — it is kept verbatim as `runStatus` so the derived
 // value can never be mistaken for it, and so the real state comes back the moment the job settles.
 // `at` stamps when we last had evidence the job is live (see pickJob).
+//
+// An install in flight also forces the row to render as a phantom, wherever it came from — a backend
+// frame, a REST re-hydrate, a browser that opened the panel halfway through someone else's install.
+// Deriving it here rather than at each call site is what makes that one rule instead of three.
 function applyPatch(row, partial) {
   const next = partial ? { ...row, ...partial } : { ...row };
   next.runStatus = partial && "status" in partial ? partial.status : (row.runStatus ?? row.status);
   const live = jobIsLive(next.job);
   if (live && next.job.at == null) next.job = { ...next.job, at: Date.now() };
   next.status = (live && JOB_STATUS[next.job.verb]) || next.runStatus;
+  if (installInFlight(next.job)) next._phantom = true;
   return next;
 }
 
@@ -84,7 +97,12 @@ serversStore.refresh = () => {
         const cur = new Map(s.list.map(x => [x.id, x]));
         const next = list.map(srv => {
           const c = cur.get(srv.id);
-          if (!c || c._phantom) return applyPatch(srv, null);
+          // A row we hold no live state for, or one still owned by an install: take the backend's
+          // shape wholesale. A phantom's own status is a display value, never a run-state, so it is
+          // the one row whose `status` must NOT carry over — but its job does, through the same grace
+          // window every other path uses, so a read that raced the job's registration can't strand an
+          // install that this client already knows is running.
+          if (!c || c._phantom) return applyPatch({ ...srv, job: pickJob(c?.job, srv.job) }, null);
           // The stream is the fresher authority for the live fields, so a re-hydrate keeps what it put
           // there — including the run-state, which is why `runStatus` and not the derived `status` is
           // what carries over.
@@ -120,17 +138,26 @@ api.stream.subscribe(["servers"], (m) => {
     if (serversStore.find(m.data.id)) {
       const { id, ...patch } = m.data;
       const existing = serversStore.find(id);
-      if (existing?._phantom && existing?.job?.verb === "uninstall") return;
+      // A phantom the operator still has to see out owns its tile: an uninstall in flight (the row is
+      // on its way out — there is nothing in the frame worth merging), and an install that failed and
+      // is waiting to be dismissed. Everything else merges, including an install still running.
+      if (existing?._phantom && (existing.job?.verb === "uninstall" || existing.status === "install-failed"))
+        return;
+      // The frame carries whatever job the backend has in flight for this server, so it is what
+      // decides here — a running update survives every patch that lands mid-run, and the row goes
+      // idle again the moment the backend says nothing owns it.
+      const job = pickJob(existing?.job, patch.job);
       serversStore.patch(id, {
         ...patch,
         network: existing?.network ?? patch.network ?? null,
         cover:   existing?.cover   ?? patch.cover   ?? null,
         hero:    existing?.hero    ?? patch.hero    ?? null,
-        _phantom: false,
-        // The frame carries whatever job the backend has in flight for this server, so it is what
-        // decides here — a running update survives every patch that lands mid-run, and the row goes
-        // idle again the moment the backend says nothing owns it.
-        job: pickJob(existing?.job, patch.job),
+        // The handover, in one expression: the tile stays a phantom for exactly as long as the row's
+        // own job says an install is running, and becomes an ordinary server on the first frame that
+        // says otherwise. That frame is also the one carrying the real data, so nothing flips to a
+        // finished card the backend hasn't described yet.
+        _phantom: installInFlight(job),
+        job,
       });
     } else {
       serversStore.add(m.data);
@@ -171,8 +198,11 @@ api.stream.subscribe(["jobs"], (m) => {
         });
       }
       if (state === "done") {
-        // Clear the job on BOTH outcomes: a settled job never keeps owning the row, and the phantom
-        // tile hands over to the real server the moment the install's own server.patch lands.
+        // Clear the job on BOTH outcomes — a settled job never keeps owning the row. The tile itself
+        // is handed over by the verify `server.patch` the backend pushes on the same settle, NOT
+        // here: that frame is the one carrying the finished server, so the card can never flip to a
+        // completed install the backend hasn't described yet. A failure keeps the phantom — there is
+        // no finished server to hand over to — and holds the tile until it is dismissed.
         serversStore.patch(serverId, m.data.error
           ? { status: "install-failed", job: null }
           : { job: null });

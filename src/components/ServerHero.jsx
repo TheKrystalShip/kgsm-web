@@ -10,7 +10,7 @@ import { heroArtBg } from "../lib/art.js";
 // Nice labels for statuses whose raw backend word wouldn't read well verbatim.
 // Everything else (online/offline/unknown/crashed) falls back to the raw
 // lowercase status, matching how this pill already renders those.
-const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…", restarting: "Restarting…" };
+const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…", restarting: "Restarting…", installing: "Installing…" };
 
 function StatusPill({ status, uptime, watchdogDown }) {
   // --glass swaps the pill's fill for the frosted dark backing so it stays legible
@@ -37,6 +37,10 @@ function StatusPill({ status, uptime, watchdogDown }) {
     // Launched, not yet joinable — the backend flips this to "running" once the
     // game finishes booting (server.patch, same SSE frame as every other status).
     starting: "hero__status hero__status--starting",
+    // Being installed. The instance joins the roster as soon as the engine writes its config, so this
+    // page is reachable while several minutes of download remain — the run-state underneath says
+    // "stopped" and would read as an ordinary offline server.
+    installing: "hero__status hero__status--updating",
   }[status] || "hero__status";
   return (
     <span className={cls + " hero__status--glass"}>
