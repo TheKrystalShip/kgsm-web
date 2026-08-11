@@ -3,43 +3,10 @@
    Split out of the monolithic kit.css; imported by it in cascade order.
    ============================================================================ */
 /* ============= Dashboard ============= */
-.dash-head {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dash-head h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--fg-1);
-  letter-spacing: -0.01em;
-  margin: 0;
-  line-height: 1.1;
-}
-
-.dash-head__sub {
-  color: var(--fg-3);
-  font-size: 14px;
-}
+/* The page heading (.dash-head) and the sub-tab strip are furniture every screen
+   shares — they live in kit/page.css. */
 
 /* --- Dashboard layout customization (drag-to-reorder bands) --------------- */
-/* Header becomes a row so the Customize controls sit opposite the greeting. */
-.dash-head--actions {
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.dash-head__titles {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
 .dash-customize {
   display: inline-flex;
   align-items: center;
@@ -103,17 +70,6 @@
 .dash-customize__btn--done:hover {
   background: var(--krystal-teal-hover);
   color: var(--fg-inverse);
-}
-
-/* Server-detail overview reuses the same Customize controls; this row keeps
-   them on the sub-tabs line, pushed to the right edge (the dashboard hangs them
-   off its header). Wraps below the tabs on very narrow viewports. */
-.subtabs-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 /* The reorderable stack. Re-supplies .content's 16px column gap, since the
@@ -1585,36 +1541,6 @@
 .ctx-strip__list .ctx-alert+.ctx-alert {
   border-top: 1px solid var(--border-subtle);
 }
-
-/* Sub-tab alert count badge. */
-.subtab__badge {
-  margin-left: 6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 5px;
-  border-radius: var(--r-pill);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10.5px;
-  font-weight: 700;
-}
-
-.subtab__badge--danger {
-  background: var(--danger-bg);
-  color: var(--danger-fg);
-}
-
-.subtab__badge--warn {
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-}
-
-.subtab__badge--info {
-  background: var(--veil-3);
-  color: var(--fg-2);
-}
-
 
 .activity-feed {
   display: flex;

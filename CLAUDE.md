@@ -306,7 +306,7 @@ properties — **a component must never hardcode a color; add or extend a token.
     Canvas-fade gradients use `color-mix(in srgb, var(--canvas) X%, transparent)`
     so they track the theme with no extra token.
 - **`kit.css` is a BARREL, not a file to edit.** The old ~6,300-line monolith is
-  split into **focused partials under `src/styles/kit/`** (`base`, `shell`,
+  split into **focused partials under `src/styles/kit/`** (`base`, `shell`, `page`,
   `server`, `catalog`, `modal`, `onboarding`, `dashboard`, `observability`,
   `controls`, `responsive`, `chat`, `rail`, `toast`, `settings`, `dock`, `hosts`,
   `states`, `extras`). `kit.css` only `@import`s them. **Add a rule to the partial that owns
@@ -321,10 +321,11 @@ krystal:theme` = `auto` or a concrete palette id from `THEME_OPTS`, default
 `dark`) that NEVER round-trips to a
 host — same model as favorites. `auto` resolves via `matchMedia` and live-updates
 on OS change. Switching is **LIVE — no page reload** (swaps `<html data-theme>`,
-which re-cascades instantly). Each surface offers it where it has room for it: the
-panel in Settings → Account, the standalone assistant at the foot of the
-conversation rail (and of the history popover at phone width, where that popover
-replaces the rail). Landmines:
+which re-cascades instantly). **Both surfaces offer the same `<ThemePicker>` on a
+Settings page** — the panel's under Profile, the standalone assistant's under
+Appearance (`src/assistant/SettingsPage.jsx`, reached from the foot of the
+conversation rail, or the header cog at phone width where that rail is hidden).
+Landmines:
 - **No-flash:** an inline boot script in `index.html` **and `assistant.html`** sets
   `data-theme` *before* the stylesheet applies. Both mirror `theme.js` — keep the
   three in sync.

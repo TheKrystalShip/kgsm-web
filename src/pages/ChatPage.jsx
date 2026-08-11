@@ -56,9 +56,8 @@ function ChatPage(props) {
       BriefingPanel={NeedsAttention}
       HostPicker={AssistantHostPicker}
       nodes={nodes}
-      // The theme lives in Settings → Account here, next to the rest of the account preferences.
-      // One preference wants one control.
-      showThemePicker={false}
+      // No `onOpenSettings`: the panel's own Settings page is a sidebar click away, and a cog inside
+      // the dock would offer the chat's settings on a surface where they are the shell's.
     />
   );
 }

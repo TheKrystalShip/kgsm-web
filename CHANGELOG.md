@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A Settings page for the standalone assistant, at `#/settings`.** The surface that is only a chat
+  now has somewhere to put a preference: two tabs — **Appearance**, carrying the theme picker, and
+  **Notifications**, which is where the answer will go and for now says plainly that the assistant
+  sends none and which surface does (`src/assistant/SettingsPage.jsx`). Reached from the foot of the
+  conversation rail, or the header cog at phone width where that rail is hidden.
+  Built from the Control Panel's own settings furniture — `SubTabs`, `SettingsSection`,
+  `SettingsRow`, `ThemePicker` — so the two sites read as one, and the tab lives in the URL
+  (`#/settings/notifications`) so Back, refresh and a shared link all land on it. Routing is the
+  assistant's own two-screen hash bridge (`src/assistant/route.js`): the panel's router is a cluster
+  vocabulary resolved through a per-node policy, and this surface has neither.
+- **`kit/page.css`** — the page heading (`.dash-head`) and the sub-tab strip (`.subtabs`), the
+  furniture every screen is built from, in a partial both barrels import. It is what lets the
+  standalone assistant carry a settings page without also carrying the partials that style servers
+  and dashboards.
+
+### Changed
+
+- **The assistant's theme control is the settings page.** The disclosure at the foot of the
+  conversation rail, and its copy in the phone-width history popover, are replaced by one entry
+  point to a page that shows the picker full size. `ChatPage`'s `showThemePicker` prop is now
+  `onOpenSettings`; the panel passes none, since its shell already leads to its own Settings.
+
+### Added
+
 - **A Notifications tab in Settings, with a switch per event.** Every event the host's catalog
   offers — online, offline, crash, updated, update available, installed, backed up — is a toggle
   you own, saved to your account and applied to every device you subscribe

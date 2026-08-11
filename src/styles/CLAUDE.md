@@ -125,9 +125,15 @@ The old ~6,300-line monolith was split into focused partials under `kit/`.
 `kit.css` **only `@import`s them** — adding rules to `kit.css` itself defeats the
 split. Add a rule to the partial that owns the domain:
 
-`base` · `shell` · `server` · `catalog` · `modal` · `onboarding` · `dashboard`
+`base` · `shell` · `page` · `server` · `catalog` · `modal` · `onboarding` · `dashboard`
 · `observability` · `controls` · `responsive` · `chat` · `rail` · `toast` · `settings`
 · `dock` · `hosts` · `states` · `extras`
+
+`page` is the odd one and is deliberate: the page **heading** (`.dash-head`) and the
+in-page **tab strip** (`.subtabs`) are furniture every screen is built from rather
+than anything a screen is about, so they sit in their own partial. That is what lets
+the standalone assistant carry a settings page — it imports `page` + `settings`
+without also importing the partials that style servers and dashboards.
 
 - **Import order is load-bearing** (later wins on equal specificity) — keep the
   `@import` sequence. A new domain gets a **new partial appended to the barrel**,

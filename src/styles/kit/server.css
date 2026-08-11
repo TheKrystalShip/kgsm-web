@@ -1047,43 +1047,5 @@
   max-height: none;
 }
 
-/* ============= Sub-tabs (inside server detail) ============= */
-.subtabs {
-  display: flex;
-  gap: 4px;
-  background: var(--surface-1);
-  border: var(--edge);
-  border-radius: var(--r-sm);
-  padding: 5px;
-  width: fit-content;
-}
-
-.subtab {
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: 13.5px;
-  color: var(--fg-3);
-  background: transparent;
-  border: none;
-  padding: 7px 14px;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.subtab:hover {
-  color: var(--fg-1);
-}
-
-.subtab--active {
-  background: var(--surface-3);
-  color: var(--fg-1);
-  font-weight: 600;
-}
-
-/* Mobile-only dropdown variant — hidden on desktop, swapped in at ≤768px. */
-.subtabs-mobile {
-  display: none;
-}
+/* The sub-tab strip this page's tabs render through is page furniture, not a server
+   surface — it lives in kit/page.css with the page heading. */

@@ -19,10 +19,12 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 //
 // Switching is live and instant (`themeStore.set` re-cascades `<html data-theme>`), so there is no
 // apply step and nothing to confirm — clicking a swatch IS the preview.
-// `compact` shrinks the tiles for the standalone assistant's 240px conversation rail. It changes
-// nothing about what a tile contains — the same miniature, smaller — because a rail that offered a
-// reduced set of themes, or told you less about each one, would be the surface where the picker
-// matters MOST answering with less: the standalone assistant has no Settings page behind it.
+//
+// One picker, on both surfaces: the Control Panel's Settings → Profile and the standalone
+// assistant's Settings → Appearance render this same component over the same store and the same
+// list, so the preference is one value on the device, a theme added to tokens.css appears in both
+// with no edit, and neither surface can end up showing the palettes better than the other.
+//
 // Two packs get their OWN section rather than being folded into Dark and Light, because somebody
 // arrives at this picker on one of three errands: wanting a look, wanting a particular screen
 // quoted back at them, or needing a palette they can read. Mixed into one grid of thirty-odd, the
@@ -40,7 +42,7 @@ import { themeStore, useThemePref, THEME_OPTS } from "../lib/theme.js";
 // tile's tooltip carries the `shape` sentence under the `tribute` one. The miniature shows it
 // too, without any help: it is built from the same tokens, so an LCARS tile is visibly rounder
 // and a Windows 95 tile visibly squarer than the palette alone would make it.
-function ThemePicker({ compact = false }) {
+function ThemePicker() {
   const pref = useThemePref();
   const groups = [
     { mode: "dark", label: "Dark" },
@@ -50,7 +52,7 @@ function ThemePicker({ compact = false }) {
   const cvd = THEME_OPTS.filter((o) => o.cvd);
 
   return (
-    <div className={"theme-picker" + (compact ? " theme-picker--compact" : "")}>
+    <div className="theme-picker">
       {/* Auto first and on its own: it is not a palette, it is a rule about which of the two to
           follow, so it neither belongs in a group nor sorts among them. Its tile shows both halves
           because both are what it means. */}

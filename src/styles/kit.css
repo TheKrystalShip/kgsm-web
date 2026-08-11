@@ -10,6 +10,7 @@
 
 @import "./kit/base.css";
 @import "./kit/shell.css";
+@import "./kit/page.css";
 @import "./kit/server.css";
 @import "./kit/catalog.css";
 @import "./kit/modal.css";

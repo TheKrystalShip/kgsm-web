@@ -5,13 +5,17 @@ import { assistant } from "../lib/assistantClient.js";
 import { assistantSession } from "../lib/assistantSession.js";
 import { useStore } from "../lib/store.js";
 import { Toasts } from "../components/Toasts.jsx";
+import { SettingsPage } from "./SettingsPage.jsx";
+import { useRoute } from "./route.js";
 
-// The standalone assistant: a chat with one leaf, and nothing else.
+// The standalone assistant: a chat with one leaf, its settings, and nothing else.
 //
-// This surface has no cluster, so it has no host picker, no server roster, no capability model and
-// no routing — it talks to the leaf that served it, on its own origin. That is why almost every
-// prop `ChatPage` takes is left at its default here: the defaults describe this surface, and the
-// Control Panel is the one that has to explain itself (src/pages/ChatPage.jsx).
+// This surface has no cluster, so it has no host picker, no server roster and no capability model —
+// it talks to the leaf that served it, on its own origin. That is why almost every prop `ChatPage`
+// takes is left at its default here: the defaults describe this surface, and the Control Panel is
+// the one that has to explain itself (src/pages/ChatPage.jsx). Its routing is two screens wide and
+// is its own (`route.js`), because the panel's router is a cluster vocabulary resolved through a
+// per-node policy.
 
 // The leaf is addressed by a host id like any other, because the session layer and the client are
 // both keyed by one. There is only ever this one, and it is not a node — it is "the assistant that
@@ -28,6 +32,7 @@ function App() {
   const leaf = useStore(assistantSession, (s) => s.byHost[SELF] || null);
   const status = leaf ? leaf.status : "none";
   const signedIn = status === "live";
+  const [route, go] = useRoute();
 
   // Who the leaf says we are. Fetched once a session exists — the tokens carry a tier, but the
   // display name is the leaf's to tell us, and asking is one request against a surface we are
@@ -67,14 +72,23 @@ function App() {
 
   return (
     <>
-      <ChatPage
-        user={user}
-        assistantHost={{ id: SELF, name: "Assistant" }}
-        connection={{ tone: "online", label: "Connected", usable: true, message: null }}
-        canSeeActions={rankOf(tier) >= TIER_RANK.operator}
-        canUseActions={rankOf(tier) >= TIER_RANK.admin}
-        pageClass="chat-page--solo"
-      />
+      {route.kind === "settings" ? (
+        <SettingsPage
+          tab={route.tab}
+          onTabChange={(t) => go({ kind: "settings", tab: t })}
+          onBack={() => go({ kind: "chat" })}
+        />
+      ) : (
+        <ChatPage
+          user={user}
+          assistantHost={{ id: SELF, name: "Assistant" }}
+          connection={{ tone: "online", label: "Connected", usable: true, message: null }}
+          canSeeActions={rankOf(tier) >= TIER_RANK.operator}
+          canUseActions={rankOf(tier) >= TIER_RANK.admin}
+          pageClass="chat-page--solo"
+          onOpenSettings={() => go({ kind: "settings" })}
+        />
+      )}
       {/* The host is mounted here too so a shared chat/ component can report an
           outcome on either surface. This surface has no sidebar, so it gets the
           live cards but no history browser. */}

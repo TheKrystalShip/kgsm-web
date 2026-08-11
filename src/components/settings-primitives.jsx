@@ -3,7 +3,9 @@ import { Icon } from "./Icon.jsx";
 
 // settings-primitives.jsx — reusable settings UI components extracted from
 // ServerSettings.jsx. Consumed by ServerSettings, DiscordPage, SettingsPage,
-// and InstallModal.
+// InstallModal, and the standalone assistant's own settings page — which is why
+// they depend on nothing but BriefCard and Icon: that surface may not reach the
+// Control Panel's data layer (see ../CLAUDE.md).
 
 // `tone` (success | warn | danger | info) tints the left rule + icon chip via the
 // shared brief-item modifiers — for a row that carries a verdict, not just a value.

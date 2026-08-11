@@ -19,6 +19,14 @@ everything that differs between the surfaces is a PROP, with defaults describing
 server roster, per-host roles, review mode, node attribution); `src/assistant/` is the standalone
 shell and passes almost nothing.
 
+**`src/assistant/` is a two-screen app**, not just a chat mount: `App.jsx` (auth gate + shell),
+`SettingsPage.jsx` (Appearance / Notifications, built from the panel's own settings furniture) and
+`route.js` — its own hash bridge, because the panel's `lib/router.js` is a cluster vocabulary
+resolved through a per-node policy and importing it would drag both in. Routes are **hash**-shaped
+(`#/settings`): the leaf serves this bundle with no SPA fallback, so a path-shaped `/settings` would
+404 on a refresh. Its chat gets the settings entry points through one prop (`onOpenSettings`); the
+panel passes none, since its shell already leads there.
+
 Static assets divide the same way: `public/` is the shared floor (fonts, brand mark) and each
 surface's own half — the manifest, service worker and icons that make it an **installable app in
 its own right** — is laid over the top from `public-panel/` / `public-assistant/` by

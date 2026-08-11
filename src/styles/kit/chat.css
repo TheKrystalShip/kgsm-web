@@ -140,28 +140,17 @@
   padding: 10px 12px;
 }
 
-/* ---- theme control (only on a surface where the chat is the whole app) ---- */
-.chat-theme {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border-subtle);
-  flex-shrink: 0;
-  min-height: 0;
-}
-
-.chat-theme__icon {
-  color: var(--fg-4);
-  flex-shrink: 0;
-}
-
-/* Shut, the control is one row naming the theme in force. */
-.chat-theme__toggle {
+/* ---- the way to settings (only on a surface where the chat is the whole app) ----
+   Foot of the rail, divided off the conversation list above it: it is the one row here that is not
+   a chat. At phone width the rail is hidden and the same route is a cog in the header. */
+.chat-rail__settings {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
   background: none;
   border: none;
+  border-top: 1px solid var(--border-subtle);
   color: var(--fg-2);
   font-family: var(--font-ui);
   font-size: 12.5px;
@@ -171,28 +160,11 @@
   flex-shrink: 0;
 }
 
-.chat-theme__toggle:hover { color: var(--fg-1); background: var(--veil-1); }
+.chat-rail__settings:hover { color: var(--fg-1); background: var(--veil-1); }
 
-.chat-theme__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Open, the grid scrolls within the rail rather than growing it — the conversation list above must
-   never be pushed off the screen by the theme control below it. */
-.chat-theme__panel {
-  max-height: 46vh;
-  overflow-y: auto;
-  border-top: 1px solid var(--border-subtle);
-}
-
-/* The popover copy exists for phone width, where the popover REPLACES the rail that normally
-   carries this. Shown by the same breakpoint that hides the rail (see responsive rules below). */
-.chat-theme--popover {
-  display: none;
+.chat-rail__settings-icon {
+  color: var(--fg-4);
+  flex-shrink: 0;
 }
 
 .chat-conn {
@@ -3621,11 +3593,6 @@ a.ev-search__src:hover {
     display: none;
   }
 
-  /* …so the theme control travels with it, into the popover's foot. */
-  .chat-theme--popover {
-    display: flex;
-  }
-
   .chat-head__nav {
     display: flex;
   }
@@ -4195,4 +4162,75 @@ a.ev-search__src:hover {
   width: 100%;
   max-width: 280px;
   margin: 4px 0;
+}
+
+/* ── The standalone assistant's settings page ────────────────────────────────
+   The page owns the viewport, because on this surface it IS the app for as long as it is open —
+   there is no shell around it to sit inside. So it draws the one piece of chrome the panel's
+   sidebar would otherwise provide (the way back) and scrolls its own body, `body` being
+   overflow:hidden site-wide.
+
+   Everything below the bar is the Control Panel's own settings furniture — the page heading, the
+   sub-tab strip, the card and row family — so only the frame is spelled out here. */
+.assistant-settings {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+
+.assistant-settings__bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 10px 16px;
+  /* The status bar's height on an installed iOS app, where this surface reaches the top of the
+     screen — the same inset the chat's own header clears. */
+  padding-top: calc(10px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+
+.assistant-settings__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.assistant-settings__back:hover {
+  color: var(--fg-1);
+  background: var(--surface-2);
+}
+
+.assistant-settings__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* A reading measure rather than the full window: the rows are text, and a settings row stretched
+     across a desktop leaves its control a screen away from its label. */
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  /* There is no global border-box reset in this stylesheet, so the padding would otherwise be added
+     OUTSIDE the max-width. */
+  box-sizing: border-box;
+  padding: 24px 20px calc(32px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .assistant-settings__body {
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom));
+  }
 }

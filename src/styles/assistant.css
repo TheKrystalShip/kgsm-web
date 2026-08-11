@@ -1,10 +1,10 @@
 /* The standalone assistant's style barrel.
    ----------------------------------------------------------------------------
    Same partials as the Control Panel's kit.css, same order, minus the ones that
-   style pages this surface does not have (shell, server, catalog, onboarding,
-   dashboard, settings, dock, hosts, cluster, leaf, leafconfig). The PARTIAL FILES
-   ARE SHARED AND UNEDITED — only the list differs — so the two surfaces cannot
-   drift apart aesthetically: a change to chat.css or a token lands in both.
+   style pages this surface does not have (shell, server, dashboard, dock, hosts,
+   cluster, leaf, leafconfig). The PARTIAL FILES ARE SHARED AND UNEDITED — only
+   the list differs — so the two surfaces cannot drift apart aesthetically: a
+   change to chat.css or a token lands in both.
 
    Order is load-bearing here exactly as it is in kit.css (later wins on equal
    specificity); keep these in the same sequence as the entries they mirror.
@@ -12,12 +12,16 @@
 @import "./tokens.css";
 
 @import "./kit/base.css";
+/* page: the heading and the sub-tab strip the settings page is built from. */
+@import "./kit/page.css";
 /* observability: the metric charts an evidence card renders. */
 @import "./kit/observability.css";
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
 @import "./kit/chat.css";
 @import "./kit/toast.css";
+/* settings: the card, row and control family the settings page renders. */
+@import "./kit/settings.css";
 /* modal: the evidence cards' expanded chart uses <Modal>. */
 @import "./kit/modal.css";
 /* Two chat widgets have their rules filed under other domains: the sign-in spinner

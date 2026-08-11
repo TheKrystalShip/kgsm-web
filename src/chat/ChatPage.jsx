@@ -20,7 +20,6 @@ import { ChatCommandMenu } from "./ChatCommandMenu.jsx";
 import { resolveCommand, suggestFor } from "./chatCommands.js";
 import { ChatContextMeter } from "./ChatContextMeter.jsx";
 import { ChatHistory } from "./ChatHistory.jsx";
-import { ChatThemePicker } from "./ChatThemePicker.jsx";
 import { ChatThread } from "./ChatThread.jsx";
 import { useConversationStream } from "./useConversationStream.js";
 
@@ -63,10 +62,10 @@ function ChatPage({
   // An extra class on the page root, for a surface that lays the chat out differently — the
   // standalone assistant owns the whole viewport, the panel gets a content area inside a shell.
   pageClass = "",
-  // Whether the chat carries the theme control. A surface where the chat IS the app has nowhere
-  // else to put it; the panel has a Settings page and a second copy there would be two controls
-  // over one preference.
-  showThemePicker = true,
+  // The way to this surface's own settings, when the chat IS the app and so carries the only route
+  // to it. Absent on the panel, where the shell's sidebar already leads there and a second entry
+  // point inside the dock would open the wrong page's settings.
+  onOpenSettings = null,
 }) {
   const conn = connection || { tone: "muted", label: "No assistant", usable: false, message: null };
   const assistantUsable = !!conn.usable;
@@ -1117,7 +1116,15 @@ function ChatPage({
             <span className={"chat-conn chat-conn--" + conn.tone}><span className="dot"></span>{conn.label}</span>
           </div>
         )}
-        {showThemePicker && <ChatThemePicker />}
+        {/* Foot of the rail, under the conversations — the settings page is about this surface
+            rather than about any one chat, so it sits below the list rather than in it. At phone
+            width the rail is display:none and the same route is the header's cog. */}
+        {onOpenSettings && (
+          <button type="button" className="chat-rail__settings" onClick={onOpenSettings}>
+            <Icon name="settings" size={15} className="chat-rail__settings-icon" />
+            <span>Settings</span>
+          </button>
+        )}
       </aside>
 
       <div className="chat-main">
@@ -1134,7 +1141,14 @@ function ChatPage({
               <button className="chat-headbtn" onClick={newChat} title="New chat" aria-label="New chat">
                 <Icon name="square-pen" size={16} />
               </button>
-              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} onOpen={loadServerHistory} loading={histLoading} showThemePicker={showThemePicker} />
+              <ChatHistory convos={convos} activeId={activeId} onPick={pickChat} onDelete={deleteChat} onOpen={loadServerHistory} loading={histLoading} />
+              {/* This nav strip is the phone-width replacement for the rail (CSS decides, at the
+                  breakpoint that hides it), so the rail's foot travels here with it. */}
+              {onOpenSettings && (
+                <button className="chat-headbtn" onClick={onOpenSettings} title="Settings" aria-label="Settings">
+                  <Icon name="settings" size={16} />
+                </button>
+              )}
             </div>
             {docked && (
               <div className="chat-head__win">

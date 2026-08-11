@@ -1,0 +1,132 @@
+/* ============================================================================
+   kit/page.css — in-page furniture every screen shares: the page heading and the
+   section tab strip.
+   ----------------------------------------------------------------------------
+   Its own partial because it is the furniture a PAGE is built from rather than
+   anything either surface's pages are about: the dashboard, server detail, the
+   host deep-dive, the library and the standalone assistant's settings all render
+   the same heading and the same tab strip. Both barrels import it, which is what
+   lets the assistant carry a settings page without also carrying the partials
+   that style the panel's servers and dashboards.
+
+   Its phone-width half lives in kit/responsive.css with the rest of them — the
+   tab strip swaps to a <select> there, and the heading drops a size.
+   ============================================================================ */
+
+/* ============= Page heading ============= */
+.dash-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dash-head h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--fg-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.dash-head__sub {
+  color: var(--fg-3);
+  font-size: 14px;
+}
+
+/* Header becomes a row so page-level controls sit opposite the title. */
+.dash-head--actions {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dash-head__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ============= Sub-tabs ============= */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-1);
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  padding: 5px;
+  width: fit-content;
+}
+
+.subtab {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 13.5px;
+  color: var(--fg-3);
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.subtab:hover {
+  color: var(--fg-1);
+}
+
+.subtab--active {
+  background: var(--surface-3);
+  color: var(--fg-1);
+  font-weight: 600;
+}
+
+/* Mobile-only dropdown variant — hidden on desktop, swapped in at ≤768px. */
+.subtabs-mobile {
+  display: none;
+}
+
+/* Sub-tab alert count badge. */
+.subtab__badge {
+  margin-left: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.subtab__badge--danger {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.subtab__badge--warn {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.subtab__badge--info {
+  background: var(--veil-3);
+  color: var(--fg-2);
+}
+
+/* The dashboard hangs its Customize controls off the page header; the server-detail
+   overview keeps them on the sub-tabs line instead, pushed to the right edge. Wraps
+   below the tabs on very narrow viewports. */
+.subtabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
