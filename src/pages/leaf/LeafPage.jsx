@@ -28,6 +28,7 @@ import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
 import { ApiOverview } from "./ApiOverview.jsx";
 import { ApiUsers } from "./ApiUsers.jsx";
+import { MonitorThresholds } from "./MonitorThresholds.jsx";
 import { BotOverview } from "./BotOverview.jsx";
 import { FirewallOverview } from "./FirewallOverview.jsx";
 import { MonitorOverview } from "./MonitorOverview.jsx";
@@ -50,6 +51,11 @@ const LEAF_TABS = {
   // where the service is, next to its logs and its configuration.
   api: [
     { id: "users", label: "Users", icon: "users", render: (p) => <ApiUsers {...p} /> },
+  ],
+  // Thresholds belong to the Monitor leaf for the same reason: the monitor is what evaluates them,
+  // sample by sample, and the API only mirrors its verdicts into the alert feed.
+  monitor: [
+    { id: "thresholds", label: "Thresholds", icon: "gauge", render: (p) => <MonitorThresholds {...p} /> },
   ],
 };
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Monitor › Thresholds
+
+The Monitor leaf gains a Thresholds tab: the lines this host's numbers are watched against, and what it
+raises alerts on when they are crossed. It lives on that leaf because kgsm-monitor is what evaluates
+them — sample by sample, at its own cadence — and the API only mirrors the verdicts into the alert feed.
+
+Each rule shows its six numbers together, because they only mean anything together: a value crosses
+`warn`, holds for the fire dwell, then has to fall a margin below and stay there. "Clears below" is
+derived and shown read-only, so somebody setting a margin can see the number they are actually setting.
+Every rule also states itself in a sentence, so a policy can be checked without reading six boxes.
+
+Saving sends the whole set, because that is the contract underneath — the monitor validates and applies a
+policy as one thing, so a half-applied one is not a state that can exist. What comes back from a refusal
+is the monitor's own reason, naming the rule at fault. Reading needs operator on the node, changing needs
+admin; the tab says which when you have one and not the other.
+
 ### Added
 
 - **A Settings page for the standalone assistant, at `#/settings`.** The surface that is only a chat

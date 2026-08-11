@@ -241,3 +241,80 @@
   border-style: dashed;
   color: var(--fg-4);
 }
+
+/* --- Monitor › Thresholds -------------------------------------------------------------------- */
+/* The rule editor. Each rule shows its six numbers together because they only mean anything
+   together: a value crosses `warn`, holds for the fire dwell, then has to fall a margin below and
+   stay there. Laid out as a wrapping grid so a narrow viewport stacks them rather than scrolling
+   the page sideways. */
+
+.thr-tab { display: flex; flex-direction: column; gap: 14px; }
+
+.thr-notice {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: 13px;
+}
+.thr-notice--ok { border-color: color-mix(in srgb, var(--krystal-teal) 45%, transparent); color: var(--fg-1); }
+
+.thr-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--fg-3);
+  font-size: 11px;
+}
+
+/* A rule that is switched off keeps its row — a hidden one reads as "no such rule" when the truth
+   is "not being watched" — but recedes, and its numbers are not rendered at all. */
+.thr-rule--off { opacity: 0.62; }
+
+/* Six columns of a fixed, narrow width rather than a flex row that stretches: these are small
+   numbers, and a field sized to the container puts three characters in a 300px box and wraps the
+   set 4-then-2. auto-fit over a capped track keeps them compact, left-aligned, and wrapping evenly
+   as the viewport narrows. */
+.thr-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 148px));
+  justify-content: start;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
+.thr-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.thr-field__label { font-size: 11px; color: var(--fg-3); }
+
+.thr-field__input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+.thr-field__input:focus-within { border-color: var(--krystal-teal); }
+
+.thr-field__input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-1);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.thr-field__input input:focus { outline: none; }
+.thr-field__input input:disabled { color: var(--fg-3); }
+
+.thr-field__unit { color: var(--fg-3); font-size: 11px; white-space: nowrap; }
+
+.thr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 620px) {
+  .thr-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
