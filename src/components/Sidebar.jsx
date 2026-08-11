@@ -211,10 +211,7 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
       <div className="sidebar__foot">
         {/* Above the account, and deliberately out of Monitoring: this is what YOU
             did in this browser, not what the AlertEngine says about the fleet. */}
-        <NotificationsPanel
-          onOpenServer={(id) => onNavigate && onNavigate({ kind: "server", id })}
-          onAudit={go("audit")}
-        />
+        <NotificationsPanel onOpenServer={(id) => onNavigate && onNavigate({ kind: "server", id })} />
         {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
         <div className={"nav-item" + (isActive("settings") ? " nav-item--active" : "")} onClick={go("settings")} data-tip="Settings" aria-label="Settings">
           <Icon name="settings" size={16} />

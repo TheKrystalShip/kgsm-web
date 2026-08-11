@@ -18,13 +18,15 @@ import { toast, toastStore, unreadCount, unreadTone } from "../lib/toasts.js";
 //
 // It is also the only record of a command kgsm-api refused up front — those never
 // reach the engine, so no audit row is ever written for them (see lib/toasts.js).
-// The footer link hands off to the audit log for the other axis.
+// Deliberately no link to the audit log: that log holds what happened to the
+// FLEET and none of these rows, so offering it as a "see more" would promise a
+// continuation of this list that does not exist there.
 
 const TONE_ICON = { error: "circle-alert", success: "circle-check", info: "info" };
 
 // The collapsed rail hides `.nav-item__label` and re-places `.nav-item__badge`
 // itself (kit/extras.css), so this needs no rail-specific markup.
-function NotificationsPanel({ onOpenServer, onAudit }) {
+function NotificationsPanel({ onOpenServer }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const { pos, menuRef } = usePortalPopover(open, setOpen, ref);
@@ -104,12 +106,6 @@ function NotificationsPanel({ onOpenServer, onAudit }) {
               </div>
             ))}
           </div>
-
-          {onAudit && (
-            <button type="button" className="notif__foot" onClick={() => { setOpen(false); onAudit(); }}>
-              Fleet history <Icon name="arrow-right" size={11} strokeWidth={2.2} />
-            </button>
-          )}
         </div>,
         document.body,
       )}

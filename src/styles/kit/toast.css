@@ -244,24 +244,6 @@
   color: var(--fg-4);
 }
 
-.notif__foot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 9px 12px;
-  background: none;
-  border: none;
-  border-top: 1px solid var(--border-subtle);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--krystal-teal);
-  cursor: pointer;
-}
-
-.notif__foot:hover { color: var(--krystal-teal-hover); background: var(--surface-2); }
-
 /* ---- phones -------------------------------------------------------------- */
 
 @media (max-width: 768px) {

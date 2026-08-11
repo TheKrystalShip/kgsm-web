@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   badge, and a click through to the server it concerned. Held per-browser (newest 50, 7 days), and
   deliberately not server-side — kgsm-api writes its audit row from the engine echo, so a command
   it refuses up front never produces one, and these refusals exist nowhere else. The audit log
-  stays the authority for what happened to the fleet; the panel links out to it.
+  stays the authority for what happened to the fleet, and this list does not link to it, because
+  none of these rows are in there.
 
 - **"Ready to play" is its own row in the activity feed.** kgsm-api emits `server.ready` for the
   moment a game finishes loading and will accept a connection, which is not what `server.start`

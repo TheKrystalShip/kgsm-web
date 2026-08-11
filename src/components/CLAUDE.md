@@ -75,8 +75,9 @@ row from the *engine echo*, so every command it refuses up front — unknown ver
 unknown server, an inadmissible no-op, a command already in flight — is answered
 before the engine is touched and **never produces an audit row**. Those refusals
 exist nowhere else. The audit log stays the authority for what happened to the
-fleet; this records what was asked for and how it went, which is why the panel
-links to the audit log rather than trying to be it.
+fleet; this records what was asked for and how it went. The panel deliberately
+offers **no link** to the audit log: none of these rows are in it, so a "see more"
+would promise a continuation of this list that isn't there.
 
 ⚠ Keep **Notifications** distinct from **Alerts**: Alerts are AlertEngine
 conditions about the fleet, server-side and the same for everyone; Notifications
