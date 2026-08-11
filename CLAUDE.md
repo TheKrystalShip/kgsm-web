@@ -265,6 +265,17 @@ place would trip React's Rules of Hooks. Keep that pattern. Every server sub-tab
 backend can't supply renders as "—" or its own honest not-measurable state, never
 as a fabricated number.
 
+**Notifications are two separate things here, and conflating them is the mistake
+to avoid.** `<Toasts>` + the sidebar tray (`lib/toasts.js`) report the outcome of
+something the **user just did**, in an open browser — they exist for the
+shell-level handlers that own no control to render an error into, and a write path
+with its own component keeps its inline error instead. **Web Push**
+(`lib/push.js`, `pages/SettingsNotifications.jsx`, `public-panel/sw.js`) reports
+what happened to the **fleet** while nothing was open, per device, opt-in, and
+gated by both the host's rule and the person's own preference. Detail:
+`components/CLAUDE.md`; the ecosystem-wide map, including how both relate to
+kgsm-bot's Discord announcements, is in the workspace `CLAUDE.md`.
+
 ## Styling & themes (`src/styles/`)
 
 Plain CSS, no Tailwind/CSS-modules. Three files load in order (`main.jsx`):
