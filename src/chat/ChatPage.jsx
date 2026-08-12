@@ -145,6 +145,11 @@ function ChatPage({
 
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
+  // Whether the in-flight turn's POST was let go because this surface came back from being frozen,
+  // as opposed to the person pressing Stop. The two look identical to the fetch (both are an
+  // AbortError) and mean opposite things in the transcript: one is "you stopped it", the other is
+  // "I lost sight of it and am about to re-read what actually happened".
+  const resumedRef = React.useRef(false);
   // The OPEN blueprint draft's live content, so a chat turn can carry it to the assistant (which lets it
   // revise the draft via revise_blueprint). draftEditsRef maps a draft's cmdId → its current editor text
   // (manual edits included); activeDraftRef is the cmdId of the draft currently being reviewed.
@@ -192,6 +197,21 @@ function ChatPage({
       if (document.visibilityState !== "visible" || Date.now() - last < 1000) return;
       last = Date.now();
       loadServerHistory();
+
+      // ⚠ And let go of a turn POST that was open when this surface was backgrounded. A frozen page's
+      // fetch is dead whether or not its promise ever settles, and while this code believes it is open
+      // three things stay wrong at once: `busy` never clears, the transcript refetch is gated off
+      // behind it, and the event stream's frames keep being skipped as this surface's own. The result
+      // is a permanent "the assistant is typing" over a turn that finished minutes ago — which is
+      // exactly the state somebody returns to after acting on a push notification.
+      //
+      // Letting go costs nothing: a turn is a SESSION at the leaf, not this request, so one genuinely
+      // still running is restated by the stream's next attach, and one that finished is restated by
+      // the re-read.
+      if (abortRef.current) {
+        resumedRef.current = true;
+        abortRef.current.abort();
+      }
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -585,6 +605,14 @@ function ChatPage({
         { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
+      // Came back to the foreground and dropped a connection we could not have kept. Nothing is
+      // written into the transcript — this surface does not know what the turn did, and the leaf's
+      // own record is about to say. Marking it stale is what asks for that re-read.
+      if (aborted && resumedRef.current) {
+        resumedRef.current = false;
+        setConvos(prev => prev.map(c => c.id !== convId ? c : { ...c, stale: true }));
+        return;
+      }
       const reason = e && e.code === 503 ? assistantHost.name + "\u2019s assistant is currently unavailable."
         : e && e.code === 502 ? "Couldn\u2019t reach " + assistantHost.name + "\u2019s assistant \u2014 try again, or check the host."
         : e && e.code === 404 ? assistantHost.name + " isn\u2019t serving an assistant right now."
@@ -606,6 +634,7 @@ function ChatPage({
       }));
     } finally {
       setBusy(false);
+      resumedRef.current = false;
       abortRef.current = null;
       // Stop skipping the event stream's copy: from here the stream is this surface's only source, and
       // the next attach on this conversation is what re-establishes it.

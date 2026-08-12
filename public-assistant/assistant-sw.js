@@ -135,14 +135,20 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "The assistant is waiting on you";
   const body = payload.body || "An action needs your approval.";
 
+  // Two kinds arrive here: a question, which carries the handles its buttons spend, and the VERDICT
+  // on one already answered, which carries none. Buttons are drawn only when there is something they
+  // could do — an "Confirm" on a finished backup is an offer to run it twice.
+  const decidable = !!(payload.confirm || payload.cancel);
+
   // ⚠ `userVisibleOnly` is not advisory: Chrome revokes a subscription that receives pushes without
   // showing anything. There is always a notification here, even for a payload we could not parse.
   event.waitUntil(self.registration.showNotification(title, {
     body,
     // Tagging by the action means a second notification about it REPLACES the first rather than
-    // stacking a second set of buttons for one decision under it.
+    // stacking. It is also how the verdict lands ON the question it answers, so the shade never
+    // holds a live-looking set of buttons for something already done.
     tag: payload.tag || "kgsm-confirmation",
-    renotify: false,
+    renotify: !decidable,
     requireInteraction: false,
     // The same icon the manifest names — a path that 404s renders no icon at all rather than a
     // fallback, so this is the one place a guessed filename is silently wrong.
@@ -151,10 +157,9 @@ self.addEventListener("push", (event) => {
     // colour icon renders a grey square on Android.
     // ⚠ Some platforms render no buttons at all (iOS today). The tap-through must therefore be a
     // complete answer on its own, and it is: it opens the chat, where the same action is waiting.
-    actions: [
-      { action: "confirm", title: "Confirm" },
-      { action: "cancel", title: "Cancel" },
-    ],
+    actions: decidable
+      ? [{ action: "confirm", title: "Confirm" }, { action: "cancel", title: "Cancel" }]
+      : [],
     data: {
       confirm: payload.confirm || null,
       cancel: payload.cancel || null,
@@ -184,9 +189,14 @@ self.addEventListener("notificationclick", (event) => {
 /**
  * Spend a handle and say what happened.
  *
- * The follow-up notification is required rather than polite: this worker was woken by a push, so it
- * owes a visible outcome — and it is also the only place the answer can appear, because the person
- * is by definition not looking at the chat.
+ * ⚠ What comes back is "approved and started", NOT the result. A confirmed action runs to completion
+ * — a backup is minutes — and this worker has a short, unstated budget before the browser terminates
+ * it, so a route that waited for the result would return to nothing at all: the tap would appear to
+ * do nothing while the work ran. The leaf sends the real verdict as its own push when it settles.
+ *
+ * The acknowledgement is still required rather than polite: this worker was woken by a push, so it
+ * owes a visible answer — and it is the only place one can appear, because the person is by
+ * definition not looking at the chat.
  */
 async function redeem(handle, action) {
   let message;
@@ -209,7 +219,9 @@ async function redeem(handle, action) {
   await self.registration.showNotification(
     action === "cancel" ? "Cancelled" : "The assistant", {
       body: message,
-      tag: "kgsm-confirmation-result",
+      // Its own tag, so this acknowledgement does not overwrite the question and is not overwritten
+      // by the verdict that follows it — they are three different statements about one action.
+      tag: "kgsm-confirmation-ack",
       icon: "/icons/assistant-icon-192.png",
     });
 }

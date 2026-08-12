@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chat left in the background no longer comes back stuck on "the assistant is typing".** A turn's
+  POST that was open when the surface was frozen is dead whether or not its promise ever settles —
+  and while the code believed it was open, three things stayed wrong at once: `busy` never cleared,
+  the transcript refetch was gated off *behind* `busy`, and the event stream's frames kept being
+  skipped as this surface's own. The result was a permanent typing indicator over a turn that had
+  finished minutes earlier, which is exactly the state somebody returns to after acting on a push
+  notification. Returning to the foreground now lets that POST go and re-reads: a turn is a session
+  at the leaf, so one genuinely still running is restated by the stream's next attach.
+  - A lifecycle drop is told apart from the Stop button, which is the same `AbortError` and means the
+    opposite thing. Stop writes "Stopped" into the transcript; this writes nothing at all, because the
+    surface does not know what the turn did and the leaf's record is about to say.
+- **The service worker draws an outcome notification without buttons.** The leaf reports a confirmed
+  action's verdict as its own push, carrying no handles — offering Confirm on a finished backup would
+  be offering to run it twice.
+
+### Fixed
+
 - **A conversation load renders the proposals still awaiting you**, so arriving from the assistant's
   push notification — or just reloading — offers the button rather than a message saying something
   was staged. The leaf reports them on `GET /conversations/{id}`; `scaffoldConversation` appends them
