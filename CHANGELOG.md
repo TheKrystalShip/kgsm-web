@@ -23,6 +23,24 @@ policy as one thing, so a half-applied one is not a state that can exist. What c
 is the monitor's own reason, naming the rule at fault. Reading needs operator on the node, changing needs
 admin; the tab says which when you have one and not the other.
 
+### Added — notification buttons
+
+The service worker draws the buttons a push declares and redeems the one that is tapped. Each button
+carries an opaque handle and nothing else, so a notification sitting on a lock screen describes no
+operation anyone could read or rewrite — what it would do stays on the host. The handle goes back with
+this device's own push endpoint, which is what the worker has instead of a session: it can read neither
+the access token nor the refresh one.
+
+**A tap always ends in a notification.** `userVisibleOnly` requires one, and a tap answered by silence
+is indistinguishable from a tap that did nothing. The sentence shown is the host's own — success and
+refusal alike — so the worker never claims an outcome the API did not report. "Asked kgsm to update
+factorio-01" is not "factorio-01 is updated", and only the first has happened when the button returns.
+
+The browser reports `Notification.maxActions` when it subscribes, and the host stages buttons only for a
+device that says it draws them. Safari renders none on any device, so an iPhone gets the notification
+without buttons and taps through to the panel as before. A browser subscribed before this shipped
+reports its count the next time this page is opened on it.
+
 ### Added — threshold pushes land on the alerts page
 
 The panel's service worker reads two more fields off a push payload. A `tag` names the **subject** the

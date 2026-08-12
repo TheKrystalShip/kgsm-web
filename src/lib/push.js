@@ -122,10 +122,40 @@ async function subscribe(hostId) {
     });
   }
 
-  // toJSON() is exactly the shape the endpoint takes, so it forwards unchanged.
+  await register(hostId, sub);
+  return sub.endpoint;
+}
+
+/**
+ * Tell the host what this browser is, for a subscription it already holds.
+ *
+ * Only ever refreshes an EXISTING row — it is called where the device list has
+ * already said this browser is registered here. Re-posting blind would subscribe
+ * somebody to a host they never opted into, which is the opposite of what a
+ * refresh is for.
+ *
+ * It exists because a device's row carries facts that arrive with a POST and
+ * nowhere else: which account it belongs to, and how many notification buttons
+ * it draws. A browser subscribed before those were asked for has neither until it
+ * says so once.
+ */
+async function reassert(hostId) {
+  const sub = await currentSubscription();
+  if (!sub) return;
+  try { await register(hostId, sub); } catch { /* best effort — it heals on the next visit */ }
+}
+
+// toJSON() is exactly the shape the endpoint takes, so it forwards unchanged.
+// `maxActions` is reported rather than left for the backend to infer: the one
+// platform that renders no buttons is also the one whose user-agent is most
+// often imitated, and a device that says nothing is treated as rendering none.
+async function register(hostId, sub) {
   const json = sub.toJSON();
-  await push(hostId).post("/push/subscriptions", { endpoint: json.endpoint, keys: json.keys });
-  return json.endpoint;
+  await push(hostId).post("/push/subscriptions", {
+    endpoint: json.endpoint,
+    keys: json.keys,
+    maxActions: (typeof Notification !== "undefined" && Notification.maxActions) || 0,
+  });
 }
 
 /** Unsubscribe this browser, both here and on the host. */
@@ -181,4 +211,4 @@ function urlBase64ToUint8Array(base64Url) {
   return out;
 }
 
-export { currentEndpoint, devices, preferences, setPreference, subscribe, support, unsubscribe };
+export { currentEndpoint, devices, preferences, reassert, setPreference, subscribe, support, unsubscribe };

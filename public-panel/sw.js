@@ -123,7 +123,10 @@ self.addEventListener("push", (event) => {
   // A push with no body still has to show something — see userVisibleOnly. A
   // generic line is the honest fallback; inventing a specific event would be
   // worse than saying little.
-  let payload = { title: "Krystal Ship", body: "Something happened on your fleet.", serverId: null, event: null, tag: null };
+  let payload = {
+    title: "Krystal Ship", body: "Something happened on your fleet.",
+    serverId: null, event: null, tag: null, api: null, actions: null,
+  };
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {
@@ -131,8 +134,20 @@ self.addEventListener("push", (event) => {
     try { payload.body = event.data.text() || payload.body; } catch {}
   }
 
+  // Each button carries the opaque handle that redeems it and nothing else — what
+  // it would do stays on the host, so a notification sitting on a lock screen
+  // describes no operation anyone could replay or rewrite. `action` IS the handle,
+  // which is what comes back in `event.action` below.
+  const buttons = Array.isArray(payload.actions)
+    ? payload.actions
+        .filter((a) => a && a.handle && a.title)
+        .slice(0, Notification.maxActions || 0)
+        .map((a) => ({ action: a.handle, title: a.title }))
+    : [];
+
   event.waitUntil(
     self.registration.showNotification(payload.title, {
+      actions: buttons,
       body: payload.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
@@ -149,7 +164,15 @@ self.addEventListener("push", (event) => {
           ? `kgsm-server-${payload.serverId}`
           : "kgsm",
       renotify: true,
-      data: { serverId: payload.serverId || null, event: payload.event || null },
+      data: {
+        serverId: payload.serverId || null,
+        event: payload.event || null,
+        // Which API staged those handles. A browser drives several nodes but runs
+        // one worker, on whichever node serves the panel — answering a push from
+        // one host by calling another would present a handle to a service that
+        // never minted it.
+        api: payload.api || null,
+      },
     })
   );
 });
@@ -157,6 +180,13 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};
+
+  // A button, rather than the notification itself: redeem it and report back.
+  if (event.action) {
+    event.waitUntil(redeem(event.action, data));
+    return;
+  }
+
   const target = routeFor(data);
 
   // Focus an open panel rather than opening a second one, and take it to the
@@ -183,4 +213,53 @@ function routeFor(data) {
   if (isThreshold)
     return serverId ? `/#/alerts?serverId=${encodeURIComponent(serverId)}` : "/#/alerts";
   return serverId ? `/#/servers/${encodeURIComponent(serverId)}` : "/#/";
+}
+
+// Redeem one notification button.
+//
+// The worker has no session — it can read neither the access token nor the
+// refresh one — so it sends the handle and this device's own push endpoint, and
+// the host resolves who that is and what they may do from its own records. The
+// handle is all the authority travelling here, which is why it is single-use,
+// short-lived, and bound to the endpoint below.
+//
+// It ALWAYS ends in a notification. `userVisibleOnly` requires one, and a tap
+// answered by silence is indistinguishable from a tap that did nothing. The
+// sentence shown is the host's own, so this never claims an outcome the API did
+// not report — "asked kgsm to update X" is not "X is updated".
+async function redeem(handle, data) {
+  const base = data.api || self.location.origin;
+  let message = "Couldn't reach this host, so nothing was done.";
+
+  try {
+    const sub = await self.registration.pushManager.getSubscription();
+    if (!sub) {
+      message = "This device is no longer subscribed to notifications.";
+    } else {
+      const res = await fetch(`${base}/api/v1/notifications/actions/${encodeURIComponent(handle)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      const out = await res.json().catch(() => null);
+      // Every outcome the host has an opinion about carries its own sentence,
+      // success or refusal alike. Only a response we cannot read falls back.
+      if (out && out.message) message = out.message;
+      else if (res.ok) message = "Done.";
+      else message = "That didn't go through.";
+    }
+  } catch {
+    // Offline, or the host is down. The fallback above already says so.
+  }
+
+  await self.registration.showNotification("Krystal Ship", {
+    body: message,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    // Its own tag, so the outcome replaces itself on a second tap rather than
+    // burying the notification it answers.
+    tag: "kgsm-action-result",
+    renotify: true,
+    data: { serverId: data.serverId || null, event: data.event || null, api: data.api || null },
+  });
 }

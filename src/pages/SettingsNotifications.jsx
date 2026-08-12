@@ -7,7 +7,7 @@ import { useStore } from "../lib/store.js";
 import { toast } from "../lib/toasts.js";
 import {
   devices as fetchDevices, preferences as fetchPreferences,
-  setPreference, subscribe, support, unsubscribe,
+  reassert, setPreference, subscribe, support, unsubscribe,
 } from "../lib/push.js";
 
 // SettingsNotifications.jsx — "Notifications": how this account gets told things.
@@ -83,7 +83,16 @@ function HostNotifications({ host }) {
   const load = React.useCallback(() => {
     setError(null);
     Promise.all([fetchDevices(host.id), fetchPreferences(host.id)]).then(
-      ([d, p]) => { setDevices(d.devices || []); setChannelOn(!!p.enabled); setPrefs(p.events || []); },
+      ([d, p]) => {
+        setDevices(d.devices || []);
+        setChannelOn(!!p.enabled);
+        setPrefs(p.events || []);
+        // A device registered before the host asked what it can render carries neither
+        // its account handle nor a button count, and gets no action buttons until it
+        // says so once. Only for a browser already registered here — re-posting blind
+        // would subscribe somebody to a host they never chose.
+        if ((d.devices || []).some(x => x.current)) reassert(host.id);
+      },
       // A node that can't answer says so in place; it never blanks the tab.
       (err) => setError((err && (err.userMessage || err.message)) || "This host didn't answer."),
     );
