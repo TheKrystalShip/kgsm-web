@@ -196,12 +196,15 @@ const EVENT_ICON = {
   online: "circle-play",
   offline: "circle-stop",
   crash: "server-crash",
+  crash_loop: "server-off",
   update: "circle-arrow-up",
   update_available: "download",
   installed: "package-plus",
   backup: "database-backup",
   threshold_breach: "gauge",
   threshold_clear: "circle-check",
+  player_join: "user-plus",
+  server_empty: "moon",
 };
 
 // A readable name from the user-agent — enough to tell a phone from a laptop, and nothing guessed

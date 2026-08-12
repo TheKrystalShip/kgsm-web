@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — icons for the three new notification events
+
+Settings › Notifications draws its rows from the host's catalog, so `crash_loop`, `player_join` and
+`server_empty` already appeared there — they just fell back to the generic bell. They now carry their own
+icons, which is the whole of this change: the list itself, the toggles, and which events a host offers
+all come from the API.
+
+The two new opt-in events arrive switched off host-wide, so they render with the muted "switched off for
+this host by an admin" subtitle until somebody enables them on the integration. That is the existing
+behaviour for a disabled event, not a new state.
+
 ### Added — Monitor › Thresholds
 
 The Monitor leaf gains a Thresholds tab: the lines this host's numbers are watched against, and what it
