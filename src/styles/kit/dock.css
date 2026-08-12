@@ -50,7 +50,7 @@
   transition: transform var(--d-base) var(--ease-out);
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: 0px;
   box-sizing: border-box;
 }
 
@@ -544,6 +544,7 @@
   background: var(--krystal-teal);
 }
 
+/*
 @supports (padding: max(0px)) {
   .assistant-dock {
     padding-top: max(12px, env(safe-area-inset-top));
@@ -551,6 +552,7 @@
     padding-right: max(12px, env(safe-area-inset-right));
   }
 }
+*/
 
 /* ---------- navigation suggestion chips ---------- */
 .chat-navsugg {
