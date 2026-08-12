@@ -657,39 +657,7 @@ function reduceTurnFrame(messages, ev) {
             msgs[k] = { ...msgs[k], bpState: "superseded" };
         }
       }
-      msgs.splice(lastIdx, 0, {
-        role: "command",
-        // Mint a CONVERSATION-unique correlation handle locally rather than trusting ev.id: the
-        // assistant's command.proposed id (`cmd_<n>`) is a PER-TURN monotonic counter that resets
-        // to cmd_0 each turn, so a create_blueprint draft and a later revise_blueprint draft collide
-        // on the same id. Since ev.id is only ever used client-side to correlate proposed→verified
-        // (the finalize Save authorizes with msg.token, never the id — nothing server-bound reads it
-        // back), a fresh uid() keeps every draft's patches (verifying/verified/failed) scoped to its
-        // own card — otherwise a Save would revive every same-id superseded editor alongside it.
-        cmdId: uid(),
-        verb: ev.verb,
-        subjectId: ev.subject ? ev.subject.id : null,
-        subjectResource: (ev.subject && ev.subject.resource) || "server",
-        // Install targets a blueprint (subject.id is the blueprint); the optional custom instance
-        // name the user asked for rides its own field so a named install lands the name.
-        instanceName: ev.instanceName || null,
-        confirm: ev.confirm || (commandMeta(ev.verb).label + "?"),
-        reason: ev.reason || null,
-        // write_file carries a { path, proposedContent } preview so the card can show the exact
-        // change before the user accepts it; null for every other verb.
-        file: ev.file || null,
-        // The host-minted confirmation token + the staged body. Only the blueprint-review card
-        // (verb "blueprint") uses them: `token` authorizes the finalize Save, `draftYaml` is the
-        // editor's starting content (the frame's `configValue`). Null/harmless for other verbs —
-        // the M3 command path routes those through kgsm-api endpoints, not the assistant token.
-        token: ev.token || null,
-        draftYaml: ev.configValue ?? null,
-        // The blueprint-review card is a small state machine (proposed → verifying → verified|
-        // failed, looping back to proposed on repair exhaustion); ChatPage patches bpState onto
-        // this message as the Save round-trip resolves. It starts at the review checkpoint.
-        bpState: ev.verb === "blueprint" ? "proposed" : undefined,
-        state: "proposed",
-      });
+      msgs.splice(lastIdx, 0, proposalMessage(ev));
       break;
     case "done": {
       let done = bubble;
@@ -722,6 +690,48 @@ function reduceTurnFrame(messages, ev) {
 }
 
 // ---------- conversation history rebuild ----------
+// One proposal card, built the same way whether the frame arrived live on the turn that staged it or
+// was restated by a conversation load while it was still waiting.
+//
+// ⚠ Built in ONE place on purpose. A restated proposal that rendered even slightly differently from a
+// live one would be a second answer to "what is this action", and the surface most likely to see the
+// restated form is the one arriving via the notification — the surface with the least context.
+function proposalMessage(ev) {
+  return {
+    role: "command",
+    // Mint a CONVERSATION-unique correlation handle locally rather than trusting ev.id: the
+    // assistant's command.proposed id (`cmd_<n>`) is a PER-TURN monotonic counter that resets
+    // to cmd_0 each turn, so a create_blueprint draft and a later revise_blueprint draft collide
+    // on the same id. Since ev.id is only ever used client-side to correlate proposed→verified
+    // (the finalize Save authorizes with msg.token, never the id — nothing server-bound reads it
+    // back), a fresh uid() keeps every draft's patches (verifying/verified/failed) scoped to its
+    // own card — otherwise a Save would revive every same-id superseded editor alongside it.
+    cmdId: uid(),
+    verb: ev.verb,
+    subjectId: ev.subject ? ev.subject.id : null,
+    subjectResource: (ev.subject && ev.subject.resource) || "server",
+    // Install targets a blueprint (subject.id is the blueprint); the optional custom instance
+    // name the user asked for rides its own field so a named install lands the name.
+    instanceName: ev.instanceName || null,
+    confirm: ev.confirm || (commandMeta(ev.verb).label + "?"),
+    reason: ev.reason || null,
+    // write_file carries a { path, proposedContent } preview so the card can show the exact
+    // change before the user accepts it; null for every other verb.
+    file: ev.file || null,
+    // The host-minted confirmation token + the staged body. Only the blueprint-review card
+    // (verb "blueprint") uses them: `token` authorizes the finalize Save, `draftYaml` is the
+    // editor's starting content (the frame's `configValue`). Null/harmless for other verbs —
+    // the M3 command path routes those through kgsm-api endpoints, not the assistant token.
+    token: ev.token || null,
+    draftYaml: ev.configValue ?? null,
+    // The blueprint-review card is a small state machine (proposed → verifying → verified|
+    // failed, looping back to proposed on repair exhaustion); ChatPage patches bpState onto
+    // this message as the Save round-trip resolves. It starts at the review checkpoint.
+    bpState: ev.verb === "blueprint" ? "proposed" : undefined,
+    state: "proposed",
+  };
+}
+
 function scaffoldHistory(entries) {
   const out = [];
   if (!Array.isArray(entries)) return out;
@@ -756,6 +766,19 @@ function scaffoldHistory(entries) {
     if (!t.final && t.outcome && t.outcome !== "ok") { bubble.content = "\u26a0\ufe0f This turn didn\u2019t complete."; bubble.error = true; }
     out.push(bubble);
   });
+  return out;
+}
+
+// The transcript, plus whatever is still awaiting approval in it.
+//
+// The proposals go at the END rather than beside the turn that staged them: the leaf reports them as
+// the conversation's outstanding set, not as part of any turn's record, and a conversation runs one
+// turn at a time — so the last thing said is the thing they belong to. Placing them anywhere else
+// would mean inventing an association the host never stated.
+function scaffoldConversation(data) {
+  const out = scaffoldHistory(data && data.entries);
+  const pending = (data && data.pending) || [];
+  for (const ev of pending) out.push(proposalMessage(ev));
   return out;
 }
 
@@ -891,6 +914,6 @@ export {
   CHAT_LS_KEY, CHAT_ACTIONS_LS, CHAT_THINK_LS, TOGGLE_COPY,
   loadConversations, saveConversations, loadSetting, saveSetting,
   uid, toolLabel, composeVerified, adaptResultCard, adaptBlueprintConfirm,
-  reduceTurnFrame, promotePendingCards, scaffoldHistory, scaffoldLiveTurn, latestUsage, mergeServerConversations,
+  reduceTurnFrame, promotePendingCards, scaffoldHistory, scaffoldConversation, scaffoldLiveTurn, latestUsage, mergeServerConversations,
   renderMarkdown,
 };

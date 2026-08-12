@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A conversation load renders the proposals still awaiting you**, so arriving from the assistant's
+  push notification — or just reloading — offers the button rather than a message saying something
+  was staged. The leaf reports them on `GET /conversations/{id}`; `scaffoldConversation` appends them
+  after the transcript. The card is built by one function (`proposalMessage`) shared with the live
+  `command.proposed` reducer, because a restated proposal that looked even slightly different from a
+  live one would be a second answer to "what is this action" — shown to the surface with the least
+  context around it. The review surface keeps `scaffoldHistory`: somebody else's conversation, read
+  only, must never render a live button.
+
+### Fixed
+
 - **The standalone assistant's notification toggle was permanently disabled**, under a notice saying
   the assistant couldn't be reached. `assistant/push.js` addressed the leaf by `window.location.origin`
   where every other call on that surface uses `SELF`. The id is a key into the session store — the

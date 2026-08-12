@@ -9,7 +9,8 @@ import { assistantSession } from "../lib/assistantSession.js";
 import {
   TOGGLE_COPY,
   loadConversations, saveConversations,
-  uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards, scaffoldHistory,
+  uid, adaptResultCard, adaptBlueprintConfirm, composeVerified, reduceTurnFrame, promotePendingCards,
+  scaffoldHistory, scaffoldConversation,
   scaffoldLiveTurn, latestUsage, mergeServerConversations,
 } from "./chatUtils.jsx";
 import { LEAF_COMMAND_VERBS, CHAT_PRIVACY_NOTICE, commandMeta, pickGreeting } from "./chatConstants.js";
@@ -380,7 +381,7 @@ function ChatPage({
           if (x.id !== c.id) return x;
           const next = { ...x, think: !!(data && data.think), autorun: !!(data && data.autorun) };
           return wantsHistory
-            ? { ...next, messages: scaffoldHistory(data && data.entries), loaded: true, stale: false }
+            ? { ...next, messages: scaffoldConversation(data), loaded: true, stale: false }
             : next;
         }));
       },
