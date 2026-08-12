@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The standalone assistant can notify this device about an action waiting on you.** Settings →
+  Notifications is a real switch now: it registers this browser with the leaf, which pushes a staged
+  action — with Confirm and Cancel on the notification — once you have closed the chat. Per device,
+  because that is what a push subscription is. `public-assistant/assistant-sw.js` gains the `push`
+  and `notificationclick` handlers, including the follow-up notification `userVisibleOnly` requires
+  and an honest answer when a button is tapped after the action has expired.
+- **`lib/pushBrowser.js`** — the browser half of Web Push (support detection including the iOS
+  "install first" case, the permission prompt, acquiring a subscription bound to the right key, and
+  giving it up), parameterised by its transport and importing nothing. The panel's `lib/push.js` and
+  the assistant's `assistant/push.js` both sit on it; the parameterisation is structural rather than
+  stylistic, since a shared module reaching `apiClient` would fail `npm run check:assistant`.
+
 ### Added — Quiet hours, on the Notifications card
 
 When not to be woken, and what is worth waking for. Three rows below the event list, because that is

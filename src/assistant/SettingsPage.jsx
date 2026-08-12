@@ -1,7 +1,10 @@
+import React from "react";
+
 import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { ThemePicker } from "../components/ThemePicker.jsx";
-import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import * as push from "./push.js";
 import { SETTINGS_TABS } from "./route.js";
 
 // The standalone assistant's settings — the preferences that belong to this surface and this
@@ -60,18 +63,99 @@ function SettingsPage({ tab, onTabChange, onBack }) {
   );
 }
 
-// Nothing to configure, said plainly rather than dressed as a set of switches that persist nowhere.
+// One switch, for one thing: being told about an action the assistant staged and is waiting on you
+// for, once you have stopped looking at the chat.
 //
-// The assistant sends no notifications: what reaches a phone with nothing open is Web Push, and a
-// push subscription is signed by the key of the origin that issued it — the Control Panel's. This
-// surface is a different origin, so it would need a key pair and a device store of its own before
-// there is anything here to turn on. Saying which surface does carry it is the useful half of the
-// answer; a row promising "coming soon" is not.
+// It is per DEVICE rather than per account, because that is what a push subscription is — this
+// browser, on this origin, with keys it minted itself. Signing in on a second phone notifies neither
+// until that one is registered too.
+//
+// ⚠ What this deliberately does NOT offer is a list of events. The assistant announces the one thing
+// that is its own; a crash or a finished update is the Control Panel's, on its own origin with its
+// own key, and offering them here would be one person notified twice from two apps.
 function Notifications() {
+  const [state, setState] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const refresh = React.useCallback(() => {
+    push.status().then(setState).catch(() => setState({ state: "unsupported", registered: false }));
+  }, []);
+
+  React.useEffect(refresh, [refresh]);
+
+  async function toggle(next) {
+    setBusy(true);
+    setError("");
+    try {
+      // ⚠ Called straight off the click. The permission prompt has to come from a real gesture, and
+      // an `await` before it is what turns a prompt into a silent denial on some browsers.
+      if (next) await push.subscribe();
+      else await push.unsubscribe();
+      refresh();
+    } catch (e) {
+      setError(e && e.message ? e.message : "That didn’t work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!state) {
+    return (
+      <SettingsSection icon="bell" title="Notifications">
+        <SettingsRow icon="loader" title="Checking this device…" />
+      </SettingsSection>
+    );
+  }
+
+  // The three states where there is nothing to toggle each get their own sentence, because the thing
+  // to do about them is different — and "unsupported" would be false for two of them.
+  const blocked = {
+    "needs-install": {
+      icon: "smartphone",
+      title: "Add the assistant to your Home Screen first",
+      sub: "On iPhone and iPad, notifications only work once this is installed as an app. Share → Add to Home Screen, then open it from there.",
+    },
+    unsupported: {
+      icon: "bell-off",
+      title: "This browser can’t receive notifications",
+      sub: "It doesn’t support the Push API. A recent Chrome, Firefox, Edge or Safari does.",
+    },
+    denied: {
+      icon: "bell-off",
+      title: "Notifications are blocked for this site",
+      sub: "The browser won’t ask again — you’ll have to re-allow them in its site settings.",
+    },
+  }[state.state];
+
   return (
-    <SettingsSection icon="bell" title="Notifications">
-      <SettingsRow icon="bell-off" title="The assistant doesn’t notify you"
-        sub="It answers while you’re here and sends nothing when you’re not. When that changes, this is where you’ll choose what it tells you about." />
+    <SettingsSection icon="bell" title="Notifications"
+      meta="This device only. A push subscription belongs to one browser.">
+      {blocked
+        ? <SettingsRow icon={blocked.icon} title={blocked.title} sub={blocked.sub} tone="warn" />
+        : (
+          <SettingsRow icon="bell" title="Tell me about actions waiting on me"
+            sub={state.enabled
+              ? "When the assistant proposes something and you’ve closed the chat, it’ll send it here with Confirm and Cancel. A proposal expires a few minutes after it’s made, so this is a nudge, not an inbox."
+              : "Switched off for this host by whoever runs it, so nothing would be sent."}>
+            <Toggle on={state.registered} disabled={busy || !state.enabled}
+              onChange={toggle} label="Notify this device about waiting actions" />
+          </SettingsRow>
+        )}
+
+      {state.unreachable && (
+        <div className="settings-notice">
+          <Icon name="alert-triangle" size={13} /> Couldn’t reach the assistant to check this
+          device — what’s shown may be out of date.
+        </div>
+      )}
+
+      {error && (
+        <div className="settings-notice">
+          <Icon name="alert-triangle" size={13} /> {error}
+        </div>
+      )}
+
       <div className="settings-notice">
         <Icon name="info" size={13} /> Notifications about your servers — a crash, a finished
         update — are the Control Panel’s, per device, under Settings → Notifications.

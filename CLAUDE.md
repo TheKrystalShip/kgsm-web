@@ -276,6 +276,17 @@ gated by both the host's rule and the person's own preference. Detail:
 `components/CLAUDE.md`; the ecosystem-wide map, including how both relate to
 kgsm-bot's Discord announcements, is in the workspace `CLAUDE.md`.
 
+**There are TWO push surfaces, on two origins, and they are not interchangeable.**
+The panel's is above. The standalone assistant's (`assistant/push.js`,
+`assistant/SettingsPage.jsx`, `public-assistant/assistant-sw.js`) announces one
+thing — an action the leaf staged and is waiting on you to approve — and it comes
+from the **leaf**, with the leaf's own VAPID key. A subscription carries exactly
+one application server key and belongs to one origin, so these can never share
+one: the panel's worker is kgsm-api's and the assistant's is the leaf's, whatever
+the browser. The browser mechanics they share live in `lib/pushBrowser.js`, which
+takes its transport as a parameter and **imports nothing** — a shared module
+reaching `apiClient` would fail `npm run check:assistant`.
+
 ## Styling & themes (`src/styles/`)
 
 Plain CSS, no Tailwind/CSS-modules. Three files load in order (`main.jsx`):

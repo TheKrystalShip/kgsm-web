@@ -350,6 +350,14 @@ function host(hostId) {
       json(hostId, "GET", "/admin/conversations?user=" + encodeURIComponent(user), null, opts),
     reviewConversation: (handle, opts) =>
       json(hostId, "GET", "/admin/conversations/" + encodeURIComponent(handle), null, opts),
+    // Web Push, which the leaf owns end to end — its own key, its own devices, its own staged
+    // buttons. It announces exactly one thing: an action it staged and is waiting on you for. Fleet
+    // events are the Control Panel's, on its own origin, and duplicating them here would notify one
+    // person twice about one thing from two apps.
+    pushKey: (opts) => json(hostId, "GET", "/push/key", null, opts),
+    pushDevices: (opts) => json(hostId, "GET", "/push/devices", null, opts),
+    pushSubscribe: (body) => json(hostId, "POST", "/push/subscribe", body),
+    pushUnsubscribe: (body) => json(hostId, "DELETE", "/push/subscribe", body),
     turn: (body, opts) => turn(hostId, body, opts),
     confirm: (body, opts) => confirm(hostId, body, opts),
     // This caller's own conversation changes, pushed. Resolves when the stream ends.
