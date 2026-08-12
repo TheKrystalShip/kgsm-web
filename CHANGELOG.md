@@ -23,6 +23,19 @@ policy as one thing, so a half-applied one is not a state that can exist. What c
 is the monitor's own reason, naming the rule at fault. Reading needs operator on the node, changing needs
 admin; the tab says which when you have one and not the other.
 
+### Added — threshold pushes land on the alerts page
+
+The panel's service worker reads two more fields off a push payload. A `tag` names the **subject** the
+notification is about, so two conditions on one host no longer overwrite each other on a lock screen — the
+worker falls back to its per-server key when a payload does not carry one. An `event` names the catalog
+event, which is what the click routes on: a threshold breach or recovery opens `#/alerts` (scoped to the
+server when it names one), because that is where the live view of the condition is, while everything else
+still opens the server it concerns. The routes stay here rather than in the payload — the panel owns its
+own URLs, and a device running an older worker would otherwise follow one that no longer exists.
+
+Notification settings pick up glyphs for the two new catalog events. The list itself is server-driven, so
+they appeared there on their own.
+
 ### Added
 
 - **A Settings page for the standalone assistant, at `#/settings`.** The surface that is only a chat

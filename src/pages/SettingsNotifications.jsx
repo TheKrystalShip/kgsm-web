@@ -191,6 +191,8 @@ const EVENT_ICON = {
   update_available: "download",
   installed: "package-plus",
   backup: "database-backup",
+  threshold_breach: "gauge",
+  threshold_clear: "circle-check",
 };
 
 // A readable name from the user-agent — enough to tell a phone from a laptop, and nothing guessed

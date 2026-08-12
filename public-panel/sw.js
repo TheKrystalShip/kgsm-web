@@ -123,7 +123,7 @@ self.addEventListener("push", (event) => {
   // A push with no body still has to show something — see userVisibleOnly. A
   // generic line is the honest fallback; inventing a specific event would be
   // worse than saying little.
-  let payload = { title: "Krystal Ship", body: "Something happened on your fleet.", serverId: null };
+  let payload = { title: "Krystal Ship", body: "Something happened on your fleet.", serverId: null, event: null, tag: null };
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {
@@ -136,21 +136,28 @@ self.addEventListener("push", (event) => {
       body: payload.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      // Collapse repeats about the same server: a crash loop should replace its
+      // Collapse repeats about the same SUBJECT: a crash loop should replace its
       // own notification rather than stack a column of them on the lock screen.
-      // The API already coalesces per (provider, server, event); this is the
-      // second line of defence, on the device.
-      tag: payload.serverId ? `kgsm-server-${payload.serverId}` : "kgsm",
+      // The API already coalesces per (provider, subject, event); this is the
+      // second line of defence, on the device. It sends the subject when the
+      // event is about something other than a server — a host watches several
+      // conditions at once, and keying those on the host alone would let a disk
+      // warning silently overwrite a temperature one.
+      tag: payload.tag
+        ? `kgsm-${payload.tag}`
+        : payload.serverId
+          ? `kgsm-server-${payload.serverId}`
+          : "kgsm",
       renotify: true,
-      data: { serverId: payload.serverId || null },
+      data: { serverId: payload.serverId || null, event: payload.event || null },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const serverId = event.notification.data && event.notification.data.serverId;
-  const target = serverId ? `/#/servers/${encodeURIComponent(serverId)}` : "/#/";
+  const data = event.notification.data || {};
+  const target = routeFor(data);
 
   // Focus an open panel rather than opening a second one, and take it to the
   // server the notification was about — the thing a Discord message cannot do.
@@ -164,3 +171,16 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
+// Where a tap lands. The routes live here rather than in the payload because the
+// panel owns its own URLs — an API building one would be guessing at them, and a
+// device running an older worker would follow a route that no longer exists.
+// A threshold event goes to the alerts page: that is where the live, mutable view
+// of the condition is, and a host-scope one names no server to open.
+function routeFor(data) {
+  const serverId = data.serverId;
+  const isThreshold = data.event === "threshold_breach" || data.event === "threshold_clear";
+  if (isThreshold)
+    return serverId ? `/#/alerts?serverId=${encodeURIComponent(serverId)}` : "/#/alerts";
+  return serverId ? `/#/servers/${encodeURIComponent(serverId)}` : "/#/";
+}
