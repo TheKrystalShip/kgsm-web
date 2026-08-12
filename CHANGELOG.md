@@ -22,10 +22,10 @@ host cannot have is the failure worth avoiding here.
 
 Per account rather than per device: a person with a phone and a laptop is asleep for both.
 
-### Added — icons for the five new notification events
+### Added — icons for the six new notification events
 
 Settings › Notifications draws its rows from the host's catalog, so `crash_loop`, `player_join`,
-`server_empty`, `leaf_down`, `leaf_up` and `awaiting_approval` already appeared there — they just fell
+`server_empty`, `leaf_down`, `leaf_up`, `restart_soon` and `awaiting_approval` already appeared there — they just fell
 back to the generic bell. They now carry their own icons, which is the whole of this change: the list
 itself, the toggles, and which events a host offers all come from the API.
 
