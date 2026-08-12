@@ -7,6 +7,7 @@ import { useStore } from "../lib/store.js";
 import { Toasts } from "../components/Toasts.jsx";
 import { SettingsPage } from "./SettingsPage.jsx";
 import { useRoute } from "./route.js";
+import { SELF } from "./self.js";
 
 // The standalone assistant: a chat with one leaf, its settings, and nothing else.
 //
@@ -16,11 +17,6 @@ import { useRoute } from "./route.js";
 // the one that has to explain itself (src/pages/ChatPage.jsx). Its routing is two screens wide and
 // is its own (`route.js`), because the panel's router is a cluster vocabulary resolved through a
 // per-node policy.
-
-// The leaf is addressed by a host id like any other, because the session layer and the client are
-// both keyed by one. There is only ever this one, and it is not a node — it is "the assistant that
-// served this page".
-const SELF = "self";
 
 // Authority comes from the leaf's own answer about this bearer, re-derived from Discord per
 // request. Proposing an action needs operator; auto-run needs admin — the same ladder every other

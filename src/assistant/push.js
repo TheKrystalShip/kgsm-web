@@ -1,5 +1,6 @@
 import { assistant } from "../lib/assistantClient.js";
 import { acquire, currentEndpoint, release, support } from "../lib/pushBrowser.js";
+import { SELF } from "./self.js";
 
 // The standalone assistant's Web Push: registering THIS browser with the leaf it is served by.
 //
@@ -12,10 +13,11 @@ import { acquire, currentEndpoint, release, support } from "../lib/pushBrowser.j
 // carries it — the panel's dock talks to the leaf cross-origin, and its own worker is already
 // subscribed to kgsm-api's key, which a subscription cannot be shared with.
 
-// `location.origin` is the leaf, and `assistantSession` resolves the address the same way. The id is
-// only a key into that resolver, so the standalone surface passes its own origin as both.
+// ⚠ SELF, not the origin. The id is a key into the session store — `setOriginResolver` is what turns
+// it into an address — so any other value resolves to the right URL carrying no bearer, and the 401
+// that follows is indistinguishable from the leaf being down.
 function leaf() {
-  return assistant.host(window.location.origin);
+  return assistant.host(SELF);
 }
 
 /**
@@ -44,10 +46,24 @@ async function status() {
       const devices = await leaf().pushDevices();
       registered = (devices.endpoints || []).includes(endpoint);
     }
-  } catch {
-    // A leaf that will not answer is not a browser that cannot subscribe. Report what was actually
-    // established and let the screen say the host could not be reached.
-    return { ...browser, enabled: false, registered: false, unreachable: true };
+  } catch (e) {
+    // A leaf that will not answer is not a browser that cannot subscribe, so what the browser can do
+    // is still reported. ⚠ The REASON travels with it rather than collapsing to "couldn't reach":
+    // a lapsed session and a host that is actually down produce the same silence here, and telling
+    // somebody to check the network when they need to sign in again is a wrong answer, not a vague
+    // one. The leaf answers 401 on an expired bearer, which is a fact worth passing on.
+    const status = e && e.status;
+    return {
+      ...browser,
+      enabled: false,
+      registered: false,
+      unreachable: true,
+      // The client already writes a sentence for a person on every error it raises; preferring it
+      // keeps one voice across the surface rather than a second phrasing of the same failure here.
+      reason: status === 401 || status === 403
+        ? "Your session with the assistant has expired — reload the app to sign back in."
+        : (e && (e.userMessage || e.message)) || "The assistant didn't answer.",
+    };
   }
 
   return { ...browser, enabled, registered };

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The standalone assistant's notification toggle was permanently disabled**, under a notice saying
+  the assistant couldn't be reached. `assistant/push.js` addressed the leaf by `window.location.origin`
+  where every other call on that surface uses `SELF`. The id is a key into the session store — the
+  origin resolver is what turns it into an address — so it resolved to the right URL carrying no
+  bearer, and the client's `authError()` (401) read as the host being down.
+  - `SELF` moves to `assistant/self.js`. Keeping it in `App.jsx` would have closed a cycle
+    `App → SettingsPage → push → App`.
+  - The failure notice now reports what actually happened rather than collapsing every error into
+    "couldn't reach". A lapsed session and a host that is genuinely down produce the same silence,
+    and telling somebody to check the network when they need to sign in again is a wrong answer, not
+    a vague one.
+
 ### Added
 
 - **The standalone assistant can notify this device about an action waiting on you.** Settings →

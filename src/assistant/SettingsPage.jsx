@@ -145,8 +145,7 @@ function Notifications() {
 
       {state.unreachable && (
         <div className="settings-notice">
-          <Icon name="alert-triangle" size={13} /> Couldn’t reach the assistant to check this
-          device — what’s shown may be out of date.
+          <Icon name="alert-triangle" size={13} /> {state.reason || "The assistant didn’t answer."}
         </div>
       )}
 
