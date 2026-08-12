@@ -7,16 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — icons for the three new notification events
+### Added — Quiet hours, on the Notifications card
 
-Settings › Notifications draws its rows from the host's catalog, so `crash_loop`, `player_join` and
-`server_empty` already appeared there — they just fell back to the generic bell. They now carry their own
-icons, which is the whole of this change: the list itself, the toggles, and which events a host offers
-all come from the API.
+When not to be woken, and what is worth waking for. Three rows below the event list, because that is
+what they narrow: these are the hours in which a "yes" above still means no. Off by default, and the
+copy says what will happen rather than naming a severity band — "only urgent" is what somebody picks
+between at 11pm, not `danger`.
 
-The two new opt-in events arrive switched off host-wide, so they render with the muted "switched off for
-this host by an admin" subtitle until somebody enables them on the integration. That is the existing
-behaviour for a disabled event, not a new state.
+**The timezone is this browser's and is never shown as a field.** `Intl.DateTimeFormat().resolvedOptions()`
+is the one thing the browser knows for certain about where the person is, and a picker would only be a
+chance to get it wrong; it rides along on every save. A host that cannot resolve the zone applies
+nothing, and the row says so in place of the window rather than reading "on" — claiming an effect the
+host cannot have is the failure worth avoiding here.
+
+Per account rather than per device: a person with a phone and a laptop is asleep for both.
+
+### Added — icons for the five new notification events
+
+Settings › Notifications draws its rows from the host's catalog, so `crash_loop`, `player_join`,
+`server_empty`, `leaf_down`, `leaf_up` and `awaiting_approval` already appeared there — they just fell
+back to the generic bell. They now carry their own icons, which is the whole of this change: the list
+itself, the toggles, and which events a host offers all come from the API.
+
+The two opt-in events (`player_join`, `server_empty`) arrive switched off host-wide, so they render with
+the muted "switched off for this host by an admin" subtitle until somebody enables them on the
+integration. That is the existing behaviour for a disabled event, not a new state.
 
 ### Added — Monitor › Thresholds
 

@@ -37,6 +37,26 @@
   font-size: 13px;
 }
 
+/* A time field sizes itself to its own content, so the 180px floor the text inputs need would leave
+   two clocks floating in a row of whitespace. */
+.settings-input--time {
+  min-width: 0;
+  width: auto;
+  padding: 0 8px;
+}
+
+/* Two controls reading as one answer ("between X and Y"), kept on one baseline. */
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-inline__sep {
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
 .settings-input:focus {
   border-color: var(--border-accent);
   box-shadow: var(--ring-input);

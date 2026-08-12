@@ -183,6 +183,29 @@ async function setPreference(hostId, id, enabled) {
   return push(hostId).patch("/push/preferences", { events: [{ id, enabled }] });
 }
 
+/**
+ * Replace the caller's quiet window on this host.
+ *
+ * The timezone comes from this browser rather than from a picker: it is the one
+ * thing the browser knows for certain about where the person is, and asking them
+ * to choose it again is asking them to get it wrong. The host stores the IANA id
+ * and reports back whether it could resolve it — a host whose tzdata does not
+ * carry the zone applies nothing, and says so rather than silencing the wrong
+ * nine hours.
+ */
+async function setQuietHours(hostId, window) {
+  return push(hostId).put("/push/quiet-hours", {
+    ...window,
+    timeZone: window.timeZone || localZone(),
+  });
+}
+
+/** This browser's IANA zone, or "" when it will not say — never a guessed offset. */
+function localZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; }
+  catch { return ""; }
+}
+
 /** The caller's registered devices on this host. */
 async function devices(hostId) {
   const endpoint = await currentEndpoint();
@@ -211,4 +234,7 @@ function urlBase64ToUint8Array(base64Url) {
   return out;
 }
 
-export { currentEndpoint, devices, preferences, reassert, setPreference, subscribe, support, unsubscribe };
+export {
+  currentEndpoint, devices, preferences, reassert, setPreference, setQuietHours,
+  subscribe, support, unsubscribe,
+};
