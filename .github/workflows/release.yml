@@ -41,6 +41,7 @@ jobs:
         with:
           node-version: '22'
 
+
       - name: Build the SPA
         run: |
           npm ci
