@@ -4,15 +4,11 @@ import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
 import { heroArtBg } from "../lib/art.js";
+import { serverStatusLabel } from "../lib/servers.js";
 
 // Server hero card — top status, name, action chips, IP.
 
-// Nice labels for statuses whose raw backend word wouldn't read well verbatim.
-// Everything else (online/offline/unknown/crashed) falls back to the raw
-// lowercase status, matching how this pill already renders those.
-const HERO_STATUS_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…", restarting: "Restarting…", installing: "Installing…" };
-
-function StatusPill({ status, uptime, watchdogDown }) {
+function StatusPill({ server, status, uptime, watchdogDown }) {
   // --glass swaps the pill's fill for the frosted dark backing so it stays legible
   // over the full-bleed key-art (the tone colour stays in the text + dot).
   // The watchdog reports a server's liveness; with it down we can't confirm the
@@ -41,11 +37,16 @@ function StatusPill({ status, uptime, watchdogDown }) {
     // page is reachable while several minutes of download remain — the run-state underneath says
     // "stopped" and would read as an ordinary offline server.
     installing: "hero__status hero__status--updating",
+    // Busy with its own data. The server may be up throughout — this says the
+    // instance is occupied, which is why it borrows the updating tone rather than
+    // any run-state one.
+    "backing-up": "hero__status hero__status--updating",
+    restoring: "hero__status hero__status--updating",
   }[status] || "hero__status";
   return (
     <span className={cls + " hero__status--glass"}>
       <span className="dot"></span>
-      {HERO_STATUS_LABEL[status] || status}
+      {serverStatusLabel(server)}
       {uptime && uptime !== "—" && <span className="timer">{uptime}</span>}
     </span>
   );
@@ -95,7 +96,7 @@ function ServerHero({ server, onAction }) {
       <div className="hero__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
       <div className="hero__scrim"></div>
       <div className="hero__statuspos">
-        <StatusPill status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />
+        <StatusPill server={server} status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />
       </div>
       <div className="hero__body">
         <div className="hero__heading">

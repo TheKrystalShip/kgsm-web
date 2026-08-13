@@ -35,4 +35,45 @@ function hostAvailabilityLabel(game, allHosts) {
   return off.length + " of " + all.length + " hosts";
 }
 
-export { hostAvailabilityLabel, instancesOfBlueprint, offeringHosts };
+// ---------- What a busy server's pill says ----------
+
+// The word for a run-state, including the derived busy ones the store folds a job
+// into (stores/servers.js owns that derivation; this only names the result).
+const STATUS_LABEL = {
+  starting:    "Starting",
+  updating:    "Updating…",
+  stopping:    "Stopping…",
+  restarting:  "Restarting…",
+  installing:  "Installing…",
+  "backing-up": "Backing up…",
+  restoring:   "Restoring…",
+  uninstalling: "Uninstalling…",
+};
+
+// The step a long run is on, when the engine reports one. An install and an update
+// do the same work — download the game, lay it down — and the engine emits the same
+// phases for both, so the same three words serve either. It is the difference
+// between a card that says "Updating…" for twenty minutes and one that says what it
+// is actually doing.
+const PHASE_LABEL = {
+  preparing:   "Preparing…",
+  downloading: "Downloading…",
+  deploying:   "Deploying…",
+};
+
+// What the pill reads for a server: the phase when the engine has reported one for
+// the run that owns it, else the status's own word, else the raw status (an unknown
+// state is shown as-is rather than hidden — the backend is allowed to grow one).
+//
+// The phase only speaks for a LIVE job: a settled one leaves its last phase on the
+// row, and "Downloading…" under an idle server would be a sentence about something
+// that finished.
+function serverStatusLabel(server) {
+  if (!server) return "";
+  const job = server.job;
+  const live = !!job && !!job.state && job.state !== "done";
+  if (live && PHASE_LABEL[job.phase]) return PHASE_LABEL[job.phase];
+  return STATUS_LABEL[server.status] || server.status;
+}
+
+export { hostAvailabilityLabel, instancesOfBlueprint, offeringHosts, PHASE_LABEL, serverStatusLabel, STATUS_LABEL };

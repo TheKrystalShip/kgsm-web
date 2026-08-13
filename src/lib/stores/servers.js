@@ -23,7 +23,14 @@ import { libraryStore } from "./library.js";
 // remain, and its run-state says "offline" about a server that has never existed. `start` is the one
 // lifecycle verb absent, because the backend already has an honest run-state for it: "starting", the
 // watchdog's own boot window, which says more than a job would.
-const JOB_STATUS = { install: "installing", update: "updating", stop: "stopping", restart: "restarting" };
+const JOB_STATUS = {
+  install: "installing", update: "updating", stop: "stopping", restart: "restarting",
+  // The two backup verbs. Archiving or replacing a world is minutes on a large one, and the engine
+  // now brackets both, so a run driven from the CLI or the scheduler arrives here as a job like any
+  // other — and a row that reads plain "Online" through it invites somebody to restart the server
+  // out from under an archive being written.
+  backup_create: "backing-up", backup_restore: "restoring",
+};
 
 // How long a job we know about locally survives a server frame that carries none. The backend carries the
 // active job on every server read, so an in-flight job normally re-arrives with each frame; this window

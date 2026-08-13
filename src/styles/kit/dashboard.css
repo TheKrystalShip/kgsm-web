@@ -608,6 +608,21 @@
   animation: kr-pulse 1.2s ease-in-out infinite;
 }
 
+/* Busy with its own data — an archive being written, or one being laid back down.
+   The server may well be up throughout, so this is the in-transition amber that
+   says "occupied", not a run-state. */
+.server-tile__pill--backing-up,
+.server-tile__pill--restoring {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.server-tile__pill--backing-up .dot,
+.server-tile__pill--restoring .dot {
+  background: var(--warning);
+  animation: kr-pulse 1.8s ease-in-out infinite;
+}
+
 /* On its way down — still up, so the in-transition amber rather than the offline
    grey underneath it. Mirrors .hero__status--stopping. */
 .server-tile__pill--stopping {

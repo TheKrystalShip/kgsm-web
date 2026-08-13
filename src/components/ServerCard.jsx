@@ -6,6 +6,7 @@ import { serverCapUsable } from "../lib/capabilities.js";
 import { serverOperable } from "../lib/persona.js";
 import { favoritesStore, hostsStore, serversStore, useIsFavorite } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
+import { PHASE_LABEL, serverStatusLabel } from "../lib/servers.js";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 
 // ServerCard — the reusable game-server tile (art header, live metrics,
@@ -13,16 +14,9 @@ import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 // servers only) and the dedicated Servers page (all servers, filterable), so
 // a card looks and behaves identically wherever it appears.
 
-const INSTALL_PHASE_LABEL = {
-  preparing:   "Preparing…",
-  downloading: "Downloading…",
-  deploying:   "Deploying…",
-};
-
-// Nice label for the run-state pill's raw status word. The rest —
-// online/offline/unknown/crashed — read fine lowercase, and this pill renders
-// server.status verbatim.
-const PILL_LABEL = { starting: "Starting", updating: "Updating…", stopping: "Stopping…", restarting: "Restarting…" };
+// The phase words a run reports, shared with every other surface that shows one
+// (lib/servers.js). A phantom tile has no run-state to fall back on, so it names
+// its own default; an ordinary tile goes through serverStatusLabel.
 
 function ServerPhantomTile({ server }) {
   const art = artBg(server.hero, server.cover);
@@ -30,7 +24,7 @@ function ServerPhantomTile({ server }) {
   const isFailed = server.status === "install-failed";
   const phaseText = isFailed ? "Failed"
     : isUninstall ? "Uninstalling…"
-    : (INSTALL_PHASE_LABEL[server.job?.phase]
+    : (PHASE_LABEL[server.job?.phase]
         || (server.job?.state === "queued" ? "Queued…" : "Installing…"));
   const pillClass = isFailed ? "install-failed" : isUninstall ? "uninstalling" : "installing";
 
@@ -131,7 +125,7 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
           <span className={"server-tile__pill " + (watchdogDown ? "server-tile__pill--unknown" : "server-tile__pill--" + server.status)}
             title={watchdogDown ? "Watchdog down — server state can't be confirmed" : undefined}>
             <span className="dot"></span>
-            {watchdogDown ? "unknown" : (PILL_LABEL[server.status] || server.status)}
+            {watchdogDown ? "unknown" : serverStatusLabel(server)}
           </span>
         </div>
         {server.notice

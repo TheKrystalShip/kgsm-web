@@ -31,6 +31,8 @@ const PILL_LABEL = {
   stopping: "Stopping",
   restarting: "Restarting",
   installing: "Installing",
+  "backing-up": "Backing up",
+  restoring: "Restoring",
   error: "Error",
   unknown: "Unknown",
 };

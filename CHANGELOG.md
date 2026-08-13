@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a long run says what step it is on, and the backup verbs read as busy
+
+An updating server said "Updating…" and nothing else for the whole of a download that can run twenty
+minutes; an installing one has always shown its phase. The engine emits the same phases for both
+(kgsm 3.15.0-rc1), so the pill now names the step — Downloading…, Deploying… — wherever a run reports
+one. `serverStatusLabel` (`lib/servers.js`) is the single place that decides, so the tile, the hero
+and the console pill cannot word it differently, and a phase is only ever shown for a LIVE job.
+
+`backup_create` and `backup_restore` join the verb→state map: the engine brackets both now, so an
+archive being written by the scheduler or the CLI shows as **Backing up…** / **Restoring…** instead of
+a plain "Online" that invites somebody to restart the server out from under it.
+
 ### Fixed
 
 - **A chat left in the background no longer comes back stuck on "the assistant is typing".** A turn's

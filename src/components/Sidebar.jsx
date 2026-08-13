@@ -60,7 +60,10 @@ function ClusterChip({ hosts, onOpen, collapsed }) {
 }
 
 // The dot pulses while something is happening to (or on) the server — live, or mid-transition.
-const BUSY_STATUS = { online: true, updating: true, stopping: true, starting: true, restarting: true };
+const BUSY_STATUS = {
+  online: true, updating: true, stopping: true, starting: true, restarting: true,
+  "backing-up": true, restoring: true,
+};
 
 function ServerListItem({ server, active, onClick }) {
   const dotColor = {
@@ -70,6 +73,10 @@ function ServerListItem({ server, active, onClick }) {
     stopping: "var(--warning)",
     restarting: "var(--warning)",
     starting: "var(--warning)",
+    // Occupied with its own data — the same in-transition tone; the run-state
+    // underneath may be either.
+    "backing-up": "var(--warning)",
+    restoring: "var(--warning)",
     offline: "var(--fg-4)",
     crashed: "var(--danger)",
   }[server.status] || "var(--fg-4)";
