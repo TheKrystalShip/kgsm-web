@@ -1,0 +1,23 @@
+{
+  "project": "kgsm-web",
+  "leafId": null,
+  "role": "spa",
+  "runtime": {
+    "kind": "static",
+    "note": "A built bundle of HTML, JS and CSS. Nothing executes on the host — it is served by whatever fronts it."
+  },
+  "commands": [],
+  "services": [
+    { "name": "kgsm-api.service", "required": true, "why": "the SPA is served same-origin by the API and every call it makes goes there", "without": "the bundle loads and shows its connect-a-host screen, and can do nothing else" }
+  ],
+  "system": [],
+  "units": { "system": [], "user": [], "note": "Static files only — this project installs no unit." },
+  "paths": {
+    "webRoot": "/usr/share/kgsm-web",
+    "note": "kgsm-api serves this directory. Its web root has to be pointable here, otherwise the two would contend for the same files and a package manager would call it a conflict."
+  },
+  "build": [
+    { "name": "node",  "package": "nodejs", "required": true, "probe": "node --version", "why": "Vite build" },
+    { "name": "npm",   "package": "npm",    "required": true, "probe": "npm --version",  "why": "dependency install" }
+  ]
+}

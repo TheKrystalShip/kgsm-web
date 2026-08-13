@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the host requirements are declared
+
+`deploy/kgsm-web.requires.json` records that this project installs nothing that executes, that
+`kgsm-api` serves the bundle, and that its web root must be pointable at `/usr/share/kgsm-web` so
+the two never contend for the same files.
+
 ### Added — a long run says what step it is on, and the backup verbs read as busy
 
 An updating server said "Updating…" and nothing else for the whole of a download that can run twenty
