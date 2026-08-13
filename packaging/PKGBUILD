@@ -13,12 +13,12 @@
 # API's own prefix instead would mean two packages owning one path, which pacman refuses.
 
 pkgname=kgsm-web
-pkgver=1.109.1
+pkgver=1.110.0
 pkgrel=1
 pkgdesc="KGSM Control Panel — the web UI served by kgsm-api"
 arch=('any')
 url="https://github.com/TheKrystalShip/kgsm-web"
-license=('LicenseRef-Unspecified')  # this repo ships no LICENSE file; set a real identifier once it does
+license=('GPL-3.0-or-later')
 groups=('kgsm-node')
 # No separate debug package: these are shipped to a private fleet, not a distro archive.
 options=('!debug')
@@ -51,4 +51,6 @@ package() {
     cp -a "${stage}/." "${root}/"
     find "$root" -type f -exec chmod 0644 {} +
     find "$root" -type d -exec chmod 0755 {} +
+    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
 }

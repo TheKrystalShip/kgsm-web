@@ -194,3 +194,7 @@ does, `scripts/visual-harness/pwa-check.mjs` reads the parsed manifest and the w
 of a real headless Chromium, and `sw-cache-check.mjs` beside it asserts the assistant's worker
 leaves the leaf's API uncached. Locally: `npm run build && npm run preview`, then DevTools →
 Application → Manifest / Service Workers.
+
+## License
+
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
