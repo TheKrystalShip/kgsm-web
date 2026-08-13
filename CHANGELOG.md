@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a server card reads CPU, memory, network and disk, live
+
+Each tile carries four measurements instead of two. CPU, memory and network in/out are readings of a
+running process, so a stopped server shows an em-dash for each rather than a zero nobody measured;
+**disk is shown for every server**, running or not, because the space an instance occupies is a
+property of its files and the backend measures it either way (`Server.diskBytes`, kgsm-api 0.97.0).
+The row wraps rather than compressing, so the narrowest card keeps every figure legible.
+
+The numbers stay live off a new `servers/metrics` subscription — one frame for the whole roster,
+shared and ref-counted across every mounted card (`lib/hooks/useRosterMetrics.js`). The `servers`
+topic carries status and roster only, by design, so a card reading its CPU from there showed whatever
+figure the last *status* change happened to carry. One subscription and not one per card because a
+resource-scoped topic opens its own SSE connection: a grid of twelve would have opened twelve.
+
 ### Added — an Arch package
 
 `packaging/PKGBUILD` installs the built bundle to `/usr/share/kgsm-web`, its own package rather than

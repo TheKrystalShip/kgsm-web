@@ -1384,6 +1384,67 @@ try {
   assert(unrunHtml.includes("Not available from the panel yet") && /disabled/.test(unrunHtml),
     "ChatCommand: a verb outside the runnable set renders disabled with an honest reason (no dead button)");
 
+  // ---- card metrics: cpu/mem/net are a running server's, disk is every server's ----------
+  // The split this proves is the whole reason `diskBytes` sits outside the metrics block: the
+  // monitor walks its watch-list, so a STOPPED instance reports what it occupies while having no
+  // sample to report. A card that showed "—" for disk on an offline server would be hiding a
+  // measurement, and one that showed 0% cpu would be inventing one.
+  {
+    const rows = st.serversStore.getState().list.filter((s) => !s._phantom);
+    const measured = rows.filter((s) => s.diskBytes != null);
+    assert(measured.length > 0,
+      `card metrics: the /servers list carries a measured disk footprint (${measured.length}/${rows.length} rows)`);
+
+    const offline = measured.find((s) => s.status === "offline");
+    if (offline) {
+      assert(offline.metrics == null && offline.cpu == null && offline.rxBps == null,
+        `card metrics: a stopped server (${offline.id}) reports NO sample — cpu/mem/net are honest-null, never 0`);
+      assert(offline.diskBytes > 0,
+        `card metrics: that same stopped server still reports its footprint (${offline.diskBytes} bytes)`);
+
+      // The tile itself, not just the store: disk renders, the run-dependent chips render "—".
+      const { ServerTile } = await vite.ssrLoadModule("/src/components/ServerCard.jsx");
+      const node = w.document.createElement("div");
+      const root = createRoot(node);
+      root.render(React.createElement(ServerTile,
+        { server: offline, onOpen: () => {}, onAction: () => {}, showHost: false }));
+      await sleep(40);
+      const html = node.innerHTML;
+      root.unmount();
+      const gib = (offline.diskBytes / 1073741824).toFixed(2);
+      assert(html.includes(gib + " GiB"),
+        `ServerTile: an offline server's card shows the disk it occupies (${gib} GiB)`);
+      assert((html.match(/—/g) || []).length >= 3,
+        "ServerTile: cpu, memory and network render em-dashes on an offline card — nothing measured, nothing shown");
+    } else {
+      console.log("• card metrics: every server on this host is running — skipped the stopped-server "
+        + "proofs (stop one to cover them; this smoke will not).");
+    }
+
+    // The roster frame the cards stay live from: rows merge onto the store's metric fields and
+    // touch nothing else. Applied directly (no engine, no writes) — the transport is kgsm-api's.
+    const target = rows[0];
+    if (target) {
+      const before = { status: target.status, job: target.job, notice: target.notice };
+      st.serversStore.mergeRosterMetrics(
+        [{ id: target.id, metrics: { cpu: 12.5, memBytes: 1073741824, ioReadBps: null, ioWriteBps: null,
+                                     pids: 7, diskBytes: null, rxBps: 2048, txBps: 512 }, diskBytes: 4096 }],
+        target.hostId);
+      const after = st.serversStore.find(target.id);
+      assert(after.cpu === 13 && after.rxBps === 2048 && after.diskBytes === 4096,
+        "roster metrics: a metrics.roster row merges cpu/net/disk onto the card's row");
+      assert(after.status === before.status && after.job === before.job && after.notice === before.notice,
+        "roster metrics: the merge touches metrics ONLY — a metric feed never says what a server IS");
+
+      st.serversStore.mergeRosterMetrics([{ id: target.id, metrics: null, diskBytes: 4096 }], target.hostId);
+      const stopped = st.serversStore.find(target.id);
+      assert(stopped.cpu === null && stopped.rxBps === null && stopped.diskBytes === 4096,
+        "roster metrics: a row with no sample blanks cpu/net to null (never 0) and keeps the footprint");
+
+      await st.serversStore.refresh();  // put the real readings back
+    }
+  }
+
   // ---- server note (MOTD) -------------------------------------------------
   // The note is ENGINE-owned (it lives in the kgsm instance's own config), so writing one
   // is a journal event on the operator's real host — see THE ONE RULE. Split accordingly:
