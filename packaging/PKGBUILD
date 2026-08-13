@@ -1,0 +1,54 @@
+# Maintainer: Cristian Moraru <info@thekrystalship.com>
+#
+# Build from this directory:  cd packaging && makepkg
+#
+# The Control Panel SPA — a built bundle of static files. Nothing here executes on the host; it is
+# served by kgsm-api, same-origin, so the panel and the API it talks to are one address.
+#
+# It is its own package rather than part of kgsm-api so the panel upgrades without rebuilding the
+# API, each repo's version means what it says, and a node can run the API headless by simply not
+# installing this.
+#
+# Requires the API's web root to point here (/usr/share/kgsm-web). Installing these files into the
+# API's own prefix instead would mean two packages owning one path, which pacman refuses.
+
+pkgname=kgsm-web
+pkgver=1.109.1
+pkgrel=1
+pkgdesc="KGSM Control Panel — the web UI served by kgsm-api"
+arch=('any')
+url="https://github.com/TheKrystalShip/kgsm-web"
+license=('LicenseRef-Unspecified')  # this repo ships no LICENSE file; set a real identifier once it does
+groups=('kgsm-node')
+# No separate debug package: these are shipped to a private fleet, not a distro archive.
+options=('!debug')
+depends=()
+optdepends=('kgsm-api: serves this bundle and answers every call it makes')
+
+_stage() { printf '%s' "${KGSM_STAGE:-${startdir}/../dist}"; }
+
+pkgver() {
+    "${startdir}/../deploy/version.sh" --pkgver
+}
+
+build() {
+    local stage; stage="$(_stage)"
+    [[ -f "${stage}/index.html" ]] || {
+        printf '\n  no built bundle at %s\n' "$stage" >&2
+        printf '  build it first:  VITE_API_BASE=self npm run build\n' >&2
+        printf '  or point KGSM_STAGE at an existing dist/.\n\n' >&2
+        return 1
+    }
+}
+
+package() {
+    local stage; stage="$(_stage)"
+    local root="${pkgdir}/usr/share/${pkgname}"
+
+    # VITE_API_BASE=self is what makes the bundle talk to whatever origin served it, so one build
+    # works on every host and no domain is baked in.
+    install -dm755 "$root"
+    cp -a "${stage}/." "${root}/"
+    find "$root" -type f -exec chmod 0644 {} +
+    find "$root" -type d -exec chmod 0755 {} +
+}

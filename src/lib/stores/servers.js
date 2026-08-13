@@ -89,6 +89,38 @@ serversStore.find = (id) =>
 serversStore.remove = (id) =>
   serversStore.setState(s => ({ ...s, list: s.list.filter(x => x.id !== id) }));
 
+// Apply one roster metric frame (the `servers/metrics` topic — see adapters.adaptServerMetricsRoster).
+// The whole roster lands in ONE setState so a frame costs one render pass, not one per server.
+//
+// It touches the metric fields and nothing else. Run-state, jobs and every derived display value stay
+// exactly as the `servers` topic left them: a metric feed never gets to say what a server IS, and a
+// server the frame omits keeps what it already holds rather than being blanked — the monitor having
+// nothing to say about an instance is not a reading of zero.
+//
+// Scoped to the node whose stream delivered the frame, since ids are only unique per host.
+serversStore.mergeRosterMetrics = (rows, hostId) => {
+  if (!Array.isArray(rows) || !rows.length) return;
+  const byId = new Map(rows.map(r => [r.id, r]));
+  serversStore.setState(s => ({
+    ...s,
+    list: s.list.map(x => {
+      if (hostId && x.hostId && x.hostId !== hostId) return x;
+      const row = byId.get(x.id);
+      if (!row) return x;
+      const m = row.metrics;
+      return {
+        ...x,
+        metrics: m,
+        cpu: m ? Math.round(m.cpu) : null,
+        ram: m ? { used: Math.round(m.memBytes / 1e7) / 100, max: null } : null,
+        rxBps: m ? m.rxBps : null,
+        txBps: m ? m.txBps : null,
+        diskBytes: row.diskBytes,
+      };
+    }),
+  }));
+};
+
 serversStore.addPhantom = (id, { blueprint, cover, hero, displayName, hostId } = {}) => {
   if (serversStore.find(id)) return;
   serversStore.add(adaptPhantom({ id, blueprint, cover, hero, displayName, hostId }));

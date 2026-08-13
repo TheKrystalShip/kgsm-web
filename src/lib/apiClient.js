@@ -391,6 +391,7 @@ import("./stores.js").then((m) => {
     if (type === "host.metrics" && /^hosts\/[^/]+\/metrics$/.test(topic || "")) return at(adapt.adaptHostMetrics(data));
     if (type === "capabilities.patch" && /^hosts\/[^/]+\/capabilities$/.test(topic || "")) return at(adapt.adaptCapabilities(data));
     if (type === "metrics.tick" && /^servers\/[^/]+\/metrics$/.test(topic || "")) return at(adapt.adaptServerMetrics(data));
+    if (type === "metrics.roster" && topic === "servers/metrics") return at(adapt.adaptServerMetricsRoster(data));
     if (type === "log.line" && /^hosts\/[^/]+\/logs$/.test(topic || "")) return at(adapt.adaptLogLine(data));
     if (type === "service.patch" && /^hosts\/[^/]+\/services$/.test(topic || "")) return at(adapt.adaptService(data));
     return { ...msg, hostId };

@@ -193,6 +193,17 @@ function formatBps(n) {
   return Math.round(n) + " B/s";
 }
 
+// The same rate, short enough for a card's metric chip: a unit letter and no "/s", since the two
+// arrows beside it already say it is throughput. Deliberately coarse — a card answers "is this server
+// moving traffic", and the exact figure belongs on the Performance tab, so the full formatBps string
+// goes in the chip's tooltip. Null-in / em-dash out, like every other readout here.
+function fmtBpsShort(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n >= MIB) return (n / MIB).toFixed(n >= 10 * MIB ? 0 : 1) + "M";
+  if (n >= KIB) return Math.round(n / KIB) + "K";
+  return Math.round(n) + "B";
+}
+
 // ---------- Footprint ----------
 
 function fmtFootprintMb(mb) {
@@ -210,6 +221,7 @@ export {
   actionCategory,
   formatBytes,
   formatBps,
+  fmtBpsShort,
   fmtBytes,
   fmtFootprintMb,
   fmtRelative,

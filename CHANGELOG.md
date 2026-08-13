@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — an Arch package
+
+`packaging/PKGBUILD` installs the built bundle to `/usr/share/kgsm-web`, its own package rather than
+part of `kgsm-api`. The panel now upgrades without rebuilding the API, this repo's version means what
+it says, and a node runs the API headless by simply not installing this. `pkgver()` reads
+`deploy/version.sh`.
+
 ### Added — one machine-readable version, read rather than restated
 
 `deploy/version.sh` prints this project's version from the single file that declares it, and

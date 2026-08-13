@@ -729,12 +729,25 @@
   white-space: nowrap;
 }
 
+/* Five readouts (players, cpu, memory, network, disk) on a card as narrow as 280px: the row WRAPS
+   rather than compressing, so a wide card keeps them on one line and a narrow one takes two. Each chip
+   is its own flex line-up, which is what keeps an icon centred against the digits instead of sitting on
+   their baseline. */
 .server-tile__meta {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
   color: var(--fg-3);
   font-size: 11.5px;
   font-family: var(--font-mono);
+}
+
+.server-tile__metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .server-tile__update {

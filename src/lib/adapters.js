@@ -73,6 +73,15 @@ export function adaptServer(be) {
     // per-instance metrics (null when the monitor is absent/down):
     cpu: m ? round(m.cpuPctCore, 0) : null,           // % of one core (can exceed 100)
     ram: m ? { used: round(m.memBytes / 1e9, 2), max: null } : null,  // GiB; no per-instance max
+    // Network throughput, bytes/sec. Null when the meter doesn't cover this instance (see
+    // adaptServerMetrics) as well as when nothing is running — two different unknowns, one honest null.
+    rxBps: m ? (m.rxBps ?? null) : null,
+    txBps: m ? (m.txBps ?? null) : null,
+    // On-disk footprint in bytes, or null when the monitor hasn't measured it. NOT read off `metrics`:
+    // the backend carries it beside that block precisely because it survives the server being stopped
+    // (an instance occupies its disk whether or not anything is running), which is what lets a card show
+    // disk for every server and cpu/mem/net only for the running ones.
+    diskBytes: be.diskBytes ?? null,
     // keep the raw backend objects for surfaces that want honest detail:
     metrics: m,
     network: be.network || null,
@@ -135,6 +144,31 @@ export function adaptServerMetrics(be) {
     rxBps: be.rxBps ?? null,                 // network receive, bytes/sec; null when unmetered (container / un-metered host) — never 0
     txBps: be.txBps ?? null,                 // network transmit, bytes/sec; null when unmetered — never 0
   };
+}
+
+// adaptServerMetricsRoster(be) — the `metrics.roster` frame on the `servers/metrics` topic: every
+// instance's readout at one instant, which is what a GRID of cards reads. (The per-server
+// `servers/{id}/metrics` tick above is one chart's feed — subscribing a whole page of cards to N of
+// those opens N streams, since a resource-scoped topic gets its own SSE connection.)
+//
+// Each row is the live half of what adaptServer hydrates, in the same two parts and with the same
+// meaning, so a merge is field-for-field:
+//   • `metrics` — null when the monitor produced no sample, which is the ordinary case for a STOPPED
+//     server. Null is "not measured", never zero, and never a claim about run-state (status comes from
+//     the run-state authority on the `servers` topic — the tile joins the two).
+//   • `diskBytes` — present independently, because the monitor walks its whole watch-list. A row is
+//     half-null exactly when half of it was measured.
+// A row the frame omits is one the monitor knows nothing about; the store leaves such a server alone
+// rather than blanking what it already holds.
+export function adaptServerMetricsRoster(be) {
+  const rows = be && Array.isArray(be.servers) ? be.servers : [];
+  return rows
+    .filter((r) => r && r.id)
+    .map((r) => ({
+      id: r.id,
+      metrics: adaptServerMetrics(r.metrics),
+      diskBytes: r.diskBytes ?? null,
+    }));
 }
 
 // ---- Hosts --------------------------------------------------------------

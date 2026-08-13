@@ -7,7 +7,9 @@ import { serverOperable } from "../lib/persona.js";
 import { favoritesStore, hostsStore, serversStore, useIsFavorite } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 import { PHASE_LABEL, serverStatusLabel } from "../lib/servers.js";
+import { formatBps, formatBytes, fmtBpsShort } from "../lib/formatting.js";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
+import { useRosterMetrics } from "../lib/hooks/useRosterMetrics.js";
 
 // ServerCard — the reusable game-server tile (art header, live metrics,
 // quick start/restart/stop). Shared by the Dashboard (online
@@ -61,6 +63,10 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // Servers page without moving it out of its host group. Read before any early
   // return so the hook order is stable (Rules of Hooks).
   const isFav = useIsFavorite(server.id);
+  // Live CPU / memory / network / disk for every card on screen, off ONE shared roster stream — the
+  // `servers` topic carries status only, so without this the numbers below are as old as the last
+  // status change. Shared and ref-counted, so a grid of cards costs one subscription.
+  useRosterMetrics();
   // Player roster — hydrate then follow live. Derive online count for the meta
   // row. Read before the phantom early return so hook order is stable.
   const roster = usePlayerRoster(server);
@@ -98,6 +104,20 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   // right next to those regions; making the whole tile clickable used to swallow
   // their clicks, so nothing above the buttons carries an open handler anymore.
   const open = () => onOpen(server.id);
+  // The three run-dependent chips share one class and one way of explaining an em-dash: the host's feed
+  // is down, or there is simply no running process to measure. Disk carries neither, since it is
+  // measured either way.
+  const liveMetricClass = "server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "");
+  const runningMetricTitle = (what) =>
+    metricsOff ? "Live metrics unavailable" + (mFresh.label ? " · " + mFresh.label : "")
+      : isOnline || isStarting ? what
+      : what + " — only while the server is running";
+  // Network is the one live figure that can be missing on a RUNNING server: the meter reads the
+  // instance's own cgroup/netns, and an instance outside it isn't covered. Say so rather than letting
+  // the em-dash read as "no traffic".
+  const netTitle = server.rxBps == null && server.txBps == null
+    ? runningMetricTitle("Network in / out") + (isOnline && !metricsOff ? " — not metered for this instance" : "")
+    : "Network in " + formatBps(server.rxBps) + " · out " + formatBps(server.txBps);
   return (
     <div className="server-tile">
       <div className="server-tile__art" onClick={open} style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
@@ -132,9 +152,24 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
           ? <div className="server-tile__notice" onClick={open}>{server.notice}</div>
           : <div className="server-tile__notice server-tile__notice--empty" onClick={open}>No server note</div>}
         <div className="server-tile__meta">
-          <span><Icon name="users" size={11} /> {playerCurrent != null ? playerCurrent : (server.players ? server.players.current : "—")}</span>
-          <span className={"server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "")}><Icon name="cpu" size={11} /> {server.cpu == null ? "—" : server.cpu + "%"}</span>
-          <span className={"server-tile__metric" + (metricsOff ? " server-tile__metric--off" : "")}><Icon name="hard-drive" size={11} /> {server.ram ? (server.ram.used + (server.ram.max != null ? "/" + server.ram.max : "") + " GB") : "—"}</span>
+          <span className="server-tile__metric"><Icon name="users" size={11} /> {playerCurrent != null ? playerCurrent : (server.players ? server.players.current : "—")}</span>
+          {/* CPU / memory / network are readings of a RUNNING process — a stopped server has none to
+              take, so they render "—" rather than a zero nobody measured. Disk is the exception and
+              always shows: the space an instance occupies is a property of its files, so the backend
+              measures it whether or not anything is running. */}
+          <span className={liveMetricClass} title={runningMetricTitle("CPU, as a percentage of one core")}>
+            <Icon name="cpu" size={11} /> {server.cpu == null ? "—" : server.cpu + "%"}
+          </span>
+          <span className={liveMetricClass} title={runningMetricTitle("Memory in use")}>
+            <Icon name="memory-stick" size={11} /> {formatBytes(server.metrics?.memBytes)}
+          </span>
+          <span className={liveMetricClass} title={netTitle}>
+            <Icon name="arrow-down" size={11} /> {fmtBpsShort(server.rxBps)}
+            <Icon name="arrow-up" size={11} /> {fmtBpsShort(server.txBps)}
+          </span>
+          <span className="server-tile__metric" title="Disk used by this server's files — install, saves, backups and logs">
+            <Icon name="hard-drive" size={11} /> {formatBytes(server.diskBytes)}
+          </span>
           {metricsOff && (
             <span className="server-tile__metric-led" title={"Live metrics unavailable" + (mFresh.label ? " · " + mFresh.label : "")}>
               <span className="status-led status-led--down"></span>
