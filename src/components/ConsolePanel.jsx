@@ -37,10 +37,17 @@ const PILL_LABEL = {
   unknown: "Unknown",
 };
 
+// The scrollback is a WINDOW, not a transcript: the feed follows for as long as the panel is open,
+// so an uncapped buffer grows without limit and every arriving line re-renders all of it. The
+// newest MAX_LINES are kept and the oldest fall off — the console is a tail, and the durable
+// record of what a server printed is the server's own log on disk, not this card.
+const MAX_LINES = 1000;
+
 // Live scrollback hook: REST tail then WS follow. Subscribes FIRST and buffers live lines, so a
 // frame that arrives during the REST round-trip can't land before the tail (ordering: tail, then
 // buffered live, then ongoing). Dedups WS frames by seq. Each live line is stamped with its arrival
-// time ({ at, text }); scrollback stays a raw string (no honest time). Returns null until hydrated.
+// time ({ at, seq, text }); scrollback stays a raw string (no honest time). Returns null until
+// hydrated.
 function useLiveConsole(server) {
   const [lines, setLines] = React.useState(null);
   React.useEffect(() => {
@@ -51,17 +58,27 @@ function useLiveConsole(server) {
     const follow = [];        // live WS lines, in arrival order, stamped with observed-at
     const seen = new Set();
     const flush = () => { if (alive) setLines([...tail, ...follow]); };
+    // Drop the oldest lines down to the cap, scrollback first (it is the older half by
+    // construction). A dropped line's seq leaves `seen` with it, so the dedup set stays the size of
+    // what's retained instead of becoming the unbounded thing the buffer no longer is.
+    const trim = () => {
+      let over = tail.length + follow.length - MAX_LINES;
+      if (over <= 0) return;
+      if (tail.length) { const n = Math.min(over, tail.length); tail.splice(0, n); over -= n; }
+      if (over > 0) for (const dropped of follow.splice(0, over)) if (dropped.seq != null) seen.delete(dropped.seq);
+    };
     // Subscribe first so nothing emitted during hydrate is lost; buffer until tail lands.
     const dispose = api.stream.subscribe(["servers/" + server.id + "/console"], (m) => {
       if (!alive || !m || m.type !== "console.line" || !m.data) return;
       const { seq, line } = m.data;
       if (seq != null) { if (seen.has(seq)) return; seen.add(seq); }
-      follow.push({ at: Date.now(), text: line });   // observed-at timestamp for the live line
+      follow.push({ at: Date.now(), seq, text: line });   // observed-at timestamp for the live line
+      trim();
       if (hydrated) flush();
     });
     api.host(server.hostId).get("/servers/" + server.id + "/console?tail=200").then(
-      (res) => { (res && res.lines || []).forEach((l) => tail.push(l)); hydrated = true; flush(); },
-      () => { hydrated = true; flush(); }   // no scrollback (watchdog down / non-native) — live follow still works
+      (res) => { (res && res.lines || []).forEach((l) => tail.push(l)); hydrated = true; trim(); flush(); },
+      () => { hydrated = true; trim(); flush(); }   // no scrollback (watchdog down / non-native) — live follow still works
     );
     return () => { alive = false; dispose(); };   // unsubscribe re-idles the backend's console bridge
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the object churns each render, so depping it would resubscribe constantly

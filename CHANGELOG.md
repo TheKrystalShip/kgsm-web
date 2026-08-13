@@ -21,6 +21,20 @@ a plain "Online" that invites somebody to restart the server out from under it.
 
 ### Fixed
 
+- **The live console keeps the newest 1000 lines and drops the rest.** The feed follows for as long
+  as the panel is open, so a chatty server built a scrollback with no ceiling — every arriving line
+  re-rendered the whole of it, and a tab left open on a busy instance ended up rendering tens of
+  thousands of rows. The buffer is a window now: oldest out as newest come in, scrollback first, and
+  a dropped line's sequence number leaves the dedup set with it so that stays bounded too.
+  - Rows are keyed on the line's own identity — the console bridge's `seq`, or journald's cursor for
+    host logs — instead of the array index. A capped window shifts every index by one when it drops a
+    line, and keyed on the index a single arriving line rewrote the text of all thousand rows.
+  - The auto-tail follows the newest line's identity, not the row count. A full window is exactly
+    1000 rows forever, so a tail watching the count alone stops scrolling the moment the cap is
+    reached and the view drifts behind the feed as wrapped lines rotate through it.
+  - The shell's per-server console accumulator is gone. It subscribed to a topic the API does not
+    publish and fed a merge the console panel never reads, so it rendered nothing while holding every
+    line it was handed and re-rendering the whole app for each one.
 - **A chat left in the background no longer comes back stuck on "the assistant is typing".** A turn's
   POST that was open when the surface was frozen is dead whether or not its promise ever settles —
   and while the code believed it was open, three things stayed wrong at once: `busy` never cleared,

@@ -675,6 +675,23 @@ try {
     assert(followHtml.includes("console-card__body--ts") && /<span class="ts">\d{1,2}:\d{2}:\d{2}<\/span>/.test(followHtml),
       "console: the live line shows a HH:MM:SS timestamp gutter (the shared ConsoleView)");
 
+    // The scrollback is a capped WINDOW, not a transcript: the feed follows for as long as the panel
+    // is open, so an uncapped buffer is an unbounded DOM. Push past the cap and prove the oldest
+    // lines fall off — the REST tail first, then the earliest live ones. Dispatch is the client-side
+    // hook; this reaches no backend.
+    const CAP = 1000, OVER = 200;
+    for (let i = 0; i < CAP + OVER; i++)
+      api.__dispatch({ topic: "servers/" + cSv.id + "/console", type: "console.line",
+        data: { id: cSv.id, seq: 1000000 + i, line: "SMOKE_CAP_" + i } });
+    await sleep(200);
+    const capHtml = w.document.getElementById("root").innerHTML;
+    const rendered = (capHtml.match(/<div class="ln"/g) || []).length;
+    assert(rendered === CAP, `console: the scrollback holds the newest ${CAP} lines (rendered ${rendered})`);
+    assert(capHtml.includes("SMOKE_CAP_" + (CAP + OVER - 1) + "</span>") && !capHtml.includes("SMOKE_CAP_0</span>"),
+      "console: the newest line is present and the oldest was trimmed (window slides, doesn't grow)");
+    assert(!capHtml.includes(SENT),
+      "console: lines older than the window are gone, scrollback dropped first");
+
     // (h2) Players is wired to player-presence-contract.md §5. Whatever the backend
     // answers, the tab must render a state that came FROM it — the live roster, the
     // honest "detection unknown" state, or a load error — and never the old fixture

@@ -105,7 +105,6 @@ function AppInner({ user, setUser, route, setRoute }) {
   const authzReady = hostsLoaded && authzSettled;
 
   const [tab] = React.useState(null);
-  const [extraLog, setExtraLog] = React.useState({});
   const [installing, setInstalling] = React.useState(null);
   const [chatFullscreen, setChatFullscreen] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -179,16 +178,6 @@ function AppInner({ user, setUser, route, setRoute }) {
     ? (libraryList.find(g => g.id === route.id) || null)
     : null;
 
-  const append = (id, line) => {
-    setExtraLog(prev => ({ ...prev, [id]: [...(prev[id] || []), line] }));
-  };
-
-  React.useEffect(() => {
-    return api.stream.subscribe(["console"], (m) => {
-      if (m.type === "console.line" && m.data) append(m.data.serverId, m.data.line);
-    });
-  }, []);
-
   const handleAction = (action, targetId) => {
     const s = targetId ? servers.find(x => x.id === targetId) || activeServer : activeServer;
     if (!s) return;
@@ -250,10 +239,10 @@ function AppInner({ user, setUser, route, setRoute }) {
     });
   };
 
-  const serverForRender = activeServer ? {
-    ...activeServer,
-    log: [...activeServer.log, ...(extraLog[activeServer.id] || [])],
-  } : null;
+  // The server the detail page renders is the store's row as-is. The console is its own feed —
+  // ConsolePanel hydrates a REST tail and follows the per-server topic itself — so the shell holds
+  // no console state and a line arriving does not re-render the whole app.
+  const serverForRender = activeServer;
 
   // --- Render ---
   useAlerts();

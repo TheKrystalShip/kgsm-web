@@ -15,21 +15,30 @@ function fmtClock(at) {
 }
 
 // renderLine — one console row. Accepts a raw stdout STRING (game scrollback) or a structured
-// line { at?, ts?, tag?, level?, text }. With `tsMode` the left gutter is reserved (so timestamped
-// and un-timestamped lines align); §…§ wraps a teal highlight (player/world names); `level`/`tag`
-// tint the row.
+// line { id?, seq?, at?, ts?, tag?, level?, text }. With `tsMode` the left gutter is reserved (so
+// timestamped and un-timestamped lines align); §…§ wraps a teal highlight (player/world names);
+// `level`/`tag` tint the row.
+//
+// The key is the line's OWN identity where it has one — the journald cursor (`id`) or the console
+// bridge's sequence (`seq`) — falling back to the index only for a bare scrollback string. These
+// feeds are capped windows that drop their oldest lines, which shifts every index by one: keyed on
+// the index, a single arriving line rewrites the text of all thousand rows instead of appending one.
 function renderLine(line, idx, tsMode) {
   const obj = typeof line === "object" && line !== null;
   const text = obj ? (line.text || "") : String(line);
   const ts = obj ? (line.ts != null ? line.ts : fmtClock(line.at)) : "";
   const tag = obj ? line.tag : null;
   const level = obj ? line.level : null;
+  const key = !obj ? idx
+    : line.id != null ? "i" + line.id
+    : line.seq != null ? "s" + line.seq
+    : idx;
   const parts = text.split(/§([^§]+)§/g).map((p, i) =>
     i % 2 === 1 ? <span key={i} className="tag-player">{p}</span> : p
   );
   const tagEl = tag ? <span className={"tag-" + tag}>[{tag}]</span> : null;
   return (
-    <div className={"ln" + (level ? " ln--" + level : "")} key={idx}>
+    <div className={"ln" + (level ? " ln--" + level : "")} key={key}>
       {tsMode ? <span className="ts">{ts}</span> : null}
       <span className="ln__text">{tagEl}{tagEl && " "}{parts}</span>
     </div>
@@ -79,10 +88,16 @@ function ConsoleView({
   // tail (no times yet) isn't indented under an empty column, but a live/host-log feed aligns.
   const tsMode = shown.some(l => typeof l === "object" && l !== null && (l.at != null || l.ts != null));
 
-  // Tail: keep the newest (bottom) line in view as lines arrive / the source changes.
+  // Tail: keep the newest (bottom) line in view as lines arrive / the source changes. The feeds are
+  // capped windows, so a full one stays exactly `length` lines long forever — the newest line's own
+  // identity is what says a line arrived, and without it the console stops following at the cap.
+  const last = shown.length ? shown[shown.length - 1] : null;
+  const tailKey = last == null ? ""
+    : typeof last === "object" ? (last.id != null ? last.id : last.seq != null ? last.seq : last.at)
+      : last;
   React.useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [shown.length, sourceId]);
+  }, [shown.length, tailKey, sourceId]);
 
   const body = (
     <section className="console-card">
