@@ -31,37 +31,112 @@ function lineKey(line, idx) {
   return idx;
 }
 
-// Split a string around every case-insensitive occurrence of `q` → [{ s, hit }].
-function splitQuery(s, q) {
-  const out = [];
-  const low = s.toLowerCase();
-  let i = 0;
-  for (;;) {
-    const at = low.indexOf(q, i);
-    if (at < 0) { if (i < s.length) out.push({ s: s.slice(i), hit: false }); break; }
-    if (at > i) out.push({ s: s.slice(i, at), hit: false });
-    out.push({ s: s.slice(at, at + q.length), hit: true });
-    i = at + q.length;
-  }
-  return out;
+// A word character for the whole-word test — the same class a `\b` is defined against.
+const WORD = /[A-Za-z0-9_]/;
+
+// buildMatcher — compile the query plus its three modifiers into one thing that finds ranges.
+// Everything downstream (the count, the "only matches" filter, the highlight, the stepper) goes
+// through this single object, so what is counted and what is marked can never disagree.
+//
+// A pattern that won't compile is a NORMAL state of typing one — `(err` is what `(error|warn)` looks
+// like halfway through. It comes back as `{ error }` and the bar says the pattern is bad, because
+// reporting zero matches instead would read as "this is not in the log", which is a different and
+// much more damaging claim.
+function buildMatcher(query, caseSensitive, wholeWord, useRegex) {
+  if (!query) return null;
+  // Literal mode escapes everything the regex engine would otherwise read as syntax, so a search for
+  // `[Server]` or `1.2.3` finds exactly that.
+  const source = useRegex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let re;
+  try { re = new RegExp(source, caseSensitive ? "g" : "gi"); }
+  catch (e) { return { error: (e && e.message) || "invalid pattern" }; }
+
+  // Whole-word is checked on the RESULT rather than by wrapping the pattern in `\b`, because a `\b`
+  // is an assertion about the character next to it: on a query that starts or ends with punctuation
+  // — `[warn]`, `--verbose`, `x=1` — it asserts against the bracket and matches nothing. An edge is
+  // a boundary unless word characters sit on both sides of it.
+  const atBoundary = (s, start, end) => (
+    !(start > 0 && WORD.test(s[start - 1]) && WORD.test(s[start]))
+    && !(end < s.length && WORD.test(s[end - 1]) && WORD.test(s[end]))
+  );
+
+  const find = (s, from) => {
+    if (from > s.length) return null;
+    re.lastIndex = from;
+    for (;;) {
+      const m = re.exec(s);
+      if (!m) return null;
+      const start = m.index;
+      const end = start + m[0].length;
+      // A pattern that can match nothing (`a*`, `^`, `\b`) leaves lastIndex where it was, so exec
+      // returns the same position forever unless it is stepped past by hand.
+      if (end === start) {
+        if (start >= s.length) return null;
+        re.lastIndex = start + 1;
+        continue;
+      }
+      if (!wholeWord || atBoundary(s, start, end)) return [start, end];
+      re.lastIndex = start + 1;   // not `end` — a later overlapping match may still be whole-word
+    }
+  };
+  return { find };
 }
 
+// Every range the matcher finds in `s`, ascending and non-overlapping.
+function allMatches(s, matcher) {
+  const out = [];
+  let i = 0;
+  for (;;) {
+    const r = matcher.find(s, i);
+    if (!r) return out;
+    out.push(r);
+    i = r[1];
+  }
+}
+
+// The line as the reader SEES it: the `§…§` markers around an engine-highlighted name are not
+// characters on screen, so they take no part in a search. Matching the raw string instead would let
+// an invisible marker split a name away from the word after it, and in regex mode would put `^`,
+// `$` and `.` against characters nobody can see.
+const visibleText = (line) => lineText(line).split(/§([^§]+)§/g).join("");
+
 // decorate — the line's text as nodes: §…§ wraps a teal highlight (player/world names the engine
-// marked), and the find query marks its own hits inside whatever those segments are.
-function decorate(text, q) {
-  return text.split(/§([^§]+)§/g).map((seg, i) => {
-    const inner = q
-      ? splitQuery(seg, q).map((p, j) => (p.hit ? <mark key={j} className="ln__hit">{p.s}</mark> : p.s))
-      : seg;
-    return i % 2 === 1
-      ? <span key={i} className="tag-player">{inner}</span>
-      : <React.Fragment key={i}>{inner}</React.Fragment>;
+// marked), and the find's hits are marked inside whatever those segments are. The search runs over
+// the joined visible text and its ranges are mapped back onto the segments, so a hit that straddles
+// a name is counted and marked as the one match it is.
+function decorate(text, matcher) {
+  const parts = text.split(/§([^§]+)§/g);
+  const wrap = (nodes, i) => (i % 2 === 1
+    ? <span key={i} className="tag-player">{nodes}</span>
+    : <React.Fragment key={i}>{nodes}</React.Fragment>);
+  if (!matcher || matcher.error) return parts.map((seg, i) => wrap(seg, i));
+
+  const plain = parts.join("");
+  const ranges = allMatches(plain, matcher);
+  if (!ranges.length) return parts.map((seg, i) => wrap(seg, i));
+
+  let at = 0;
+  return parts.map((seg, i) => {
+    const s0 = at, s1 = at + seg.length;
+    at = s1;
+    const nodes = [];
+    let cur = s0;
+    for (const [ms, me] of ranges) {
+      if (me <= s0) continue;
+      if (ms >= s1) break;
+      const a = Math.max(ms, s0), b = Math.min(me, s1);
+      if (a > cur) nodes.push(plain.slice(cur, a));
+      nodes.push(<mark key={a} className="ln__hit">{plain.slice(a, b)}</mark>);
+      cur = b;
+    }
+    if (cur < s1) nodes.push(plain.slice(cur, s1));
+    return wrap(nodes, i);
   });
 }
 
 // renderLine — one console row. With `tsMode` the left gutter is reserved (so timestamped and
 // un-timestamped lines align); `level`/`tag` tint the row. `currentKey` marks the find's active hit.
-function renderLine(line, idx, tsMode, q, currentKey) {
+function renderLine(line, idx, tsMode, matcher, currentKey) {
   const obj = typeof line === "object" && line !== null;
   const ts = obj ? (line.ts != null ? line.ts : fmtClock(line.at)) : "";
   const tag = obj ? line.tag : null;
@@ -73,7 +148,7 @@ function renderLine(line, idx, tsMode, q, currentKey) {
   return (
     <div className={cls} key={key} data-k={key}>
       {tsMode ? <span className="ts">{ts}</span> : null}
-      <span className="ln__text">{tagEl}{tagEl && " "}{decorate(lineText(line), q)}</span>
+      <span className="ln__text">{tagEl}{tagEl && " "}{decorate(lineText(line), matcher)}</span>
     </div>
   );
 }
@@ -131,6 +206,12 @@ function ConsoleView({
   const [query, setQuery] = React.useState("");
   const [onlyMatching, setOnlyMatching] = React.useState(false);
   const [matchAt, setMatchAt] = React.useState(0);
+  // The three search modifiers, in the shape every editor spells them. They survive closing and
+  // reopening the bar — someone reading a log in regex is still in regex on the next search — and
+  // reset only with the card's context, alongside the query itself.
+  const [caseSensitive, setCaseSensitive] = React.useState(false);
+  const [wholeWord, setWholeWord] = React.useState(false);
+  const [useRegex, setUseRegex] = React.useState(false);
 
   // View options. `wrap` off puts long lines on one row each and scrolls the body sideways, which is
   // how a stack trace or a table stays readable; `showTs` hides the gutter for the same reason.
@@ -166,6 +247,7 @@ function ConsoleView({
   }, [sources, sourceId, initialSourceId]);
   React.useEffect(() => {
     setExpanded(false); setFinding(false); setQuery(""); setOnlyMatching(false); setMatchAt(0);
+    setCaseSensitive(false); setWholeWord(false); setUseRegex(false);
     setUnread(0); anchorRef.current = null; seenRef.current = null;
     setClearedAt(null); setMenuOpen(false);
     pinnedRef.current = true; setPinned(true);
@@ -182,15 +264,24 @@ function ConsoleView({
       if (String(lineKey(held[i], i)) === String(clearedAt)) return held.slice(i + 1);
     return held;
   }, [held, clearedAt]);
-  const q = query.trim().toLowerCase();
+  // The compiled search. Nothing typed → null; a pattern that won't compile → `{ error }`. The query
+  // is NOT trimmed: leading and trailing spaces are part of what someone searching a log means, and
+  // in regex mode they are part of the pattern.
+  const matcher = React.useMemo(
+    () => buildMatcher(query, caseSensitive, wholeWord, useRegex),
+    [query, caseSensitive, wholeWord, useRegex]
+  );
+  const badPattern = !!(matcher && matcher.error);
+  const searching = !!(matcher && !matcher.error);
 
-  // Which lines carry the query, as indices into `all`. null when nothing is being searched for.
+  // Which lines carry the query, as indices into `all`. null when nothing is being searched for —
+  // and equally when the pattern is broken, since a half-typed regex knows nothing about the log.
   const matches = React.useMemo(() => {
-    if (!q) return null;
+    if (!searching) return null;
     const out = [];
-    for (let i = 0; i < all.length; i++) if (lineText(all[i]).toLowerCase().includes(q)) out.push(i);
+    for (let i = 0; i < all.length; i++) if (matcher.find(visibleText(all[i]), 0)) out.push(i);
     return out;
-  }, [all, q]);
+  }, [all, matcher, searching]);
   const hits = matches ? matches.length : 0;
   const mAt = hits ? Math.min(matchAt, hits - 1) : 0;
 
@@ -259,7 +350,7 @@ function ConsoleView({
     }
     setUnread(countAfter(shown, seenRef.current));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the CONTENT changes: the identity of the newest line, never the count, which a capped window pins forever. `pinned` is read through its ref on purpose, so merely scrolling to the bottom doesn't re-fire this.
-  }, [shown.length, tailKey, sourceId, expanded, onlyMatching, q]);
+  }, [shown.length, tailKey, sourceId, expanded, onlyMatching, matcher]);
 
   const onScroll = () => {
     const el = bodyRef.current;
@@ -290,9 +381,19 @@ function ConsoleView({
     moveTo(el, row.offsetTop - (el.clientHeight - row.offsetHeight) / 2);
     readPosition(el);   // a hit up in the scrollback is a deliberate move away from the feed
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the SEARCH moving is what scrolls, never the feed: `shown`/`all`/`matches` are read for the current hit's position and would re-fire this on every arriving line if depped
-  }, [q, mAt, onlyMatching, hits]);
+  }, [matcher, mAt, onlyMatching, hits]);
 
   const step = (d) => { if (hits) setMatchAt((mAt + d + hits) % hits); };
+
+  // Flipping a modifier searches for something else, so the cursor goes back to the first hit —
+  // holding position at "12 of 40" through a change that produces a different 40 would put the
+  // reader somewhere neither they nor the count chose. Focus returns to the field, since narrowing
+  // the search is part of typing it.
+  const toggleMode = (set) => {
+    set(v => !v);
+    setMatchAt(0);
+    if (findRef.current) findRef.current.focus();
+  };
 
   const closeFind = () => { setFinding(false); setQuery(""); setOnlyMatching(false); setMatchAt(0); };
 
@@ -305,11 +406,11 @@ function ConsoleView({
   };
 
   // Copy what is ON SCREEN — the find's result if one is running, the window otherwise. Timestamps
-  // are included only when the gutter is showing them, so what lands on the clipboard is what was
-  // being looked at.
+  // are included only when the gutter is showing them, and the highlight markers are dropped, so
+  // what lands on the clipboard is the text that was being looked at.
   const copyVisible = () => {
     const text = shown.map(l => {
-      const t = lineText(l);
+      const t = visibleText(l);
       if (!tsMode) return t;
       const stamp = typeof l === "object" && l !== null ? (l.ts != null ? l.ts : fmtClock(l.at)) : "";
       return stamp ? stamp + " " + t : t;
@@ -406,7 +507,7 @@ function ConsoleView({
       )}
 
       {finding ? (
-        <div className="console-card__find">
+        <div className={"console-card__find" + (badPattern ? " console-card__find--bad" : "")}>
           <Icon name="search" size={13} />
           <input
             ref={findRef}
@@ -415,12 +516,43 @@ function ConsoleView({
             onKeyDown={e => {
               if (e.key === "Enter") { e.preventDefault(); step(e.shiftKey ? -1 : 1); }
               else if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+              // The editor accelerators, so a search can be narrowed without leaving the keyboard.
+              else if (e.altKey && !e.ctrlKey && !e.metaKey) {
+                const k = e.key.toLowerCase();
+                if (k === "c") { e.preventDefault(); toggleMode(setCaseSensitive); }
+                else if (k === "w") { e.preventDefault(); toggleMode(setWholeWord); }
+                else if (k === "r") { e.preventDefault(); toggleMode(setUseRegex); }
+              }
             }}
-            placeholder="Find in console…"
+            placeholder={useRegex ? "Find by pattern…" : "Find in console…"}
             spellCheck="false"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
             aria-label="Find in console"
+            aria-invalid={badPattern || undefined}
           />
-          <span className="console-card__find-count">{q ? (hits ? (mAt + 1) + "/" + hits : "no matches") : ""}</span>
+          {/* The three modifiers, in the order and with the glyphs every editor spells them in. */}
+          <span className="console-card__find-opts" role="group" aria-label="Search options">
+            <button type="button" className={"console-card__find-opt" + (caseSensitive ? " is-on" : "")}
+              onClick={() => toggleMode(setCaseSensitive)} aria-pressed={caseSensitive}
+              title="Match case (Alt+C)" aria-label="Match case">
+              <Icon name="case-sensitive" size={14} />
+            </button>
+            <button type="button" className={"console-card__find-opt" + (wholeWord ? " is-on" : "")}
+              onClick={() => toggleMode(setWholeWord)} aria-pressed={wholeWord}
+              title="Match whole word (Alt+W)" aria-label="Match whole word">
+              <Icon name="whole-word" size={14} />
+            </button>
+            <button type="button" className={"console-card__find-opt" + (useRegex ? " is-on" : "")}
+              onClick={() => toggleMode(setUseRegex)} aria-pressed={useRegex}
+              title="Use a regular expression (Alt+R)" aria-label="Use a regular expression">
+              <Icon name="regex" size={14} />
+            </button>
+          </span>
+          <span className={"console-card__find-count" + (badPattern ? " console-card__find-count--bad" : "")}>
+            {badPattern ? "bad pattern" : searching ? (hits ? (mAt + 1) + "/" + hits : "no matches") : ""}
+          </span>
           <button type="button" onClick={() => step(-1)} disabled={!hits}
             title="Previous match (Shift+Enter)" aria-label="Previous match">
             <Icon name="chevron-up" size={14} />
@@ -436,6 +568,10 @@ function ConsoleView({
           <button type="button" onClick={closeFind} title="Close find (Esc)" aria-label="Close find">
             <Icon name="x" size={14} />
           </button>
+          {/* The engine's own account of what is wrong with the pattern, on its own row rather than
+              in a tooltip — a phone has no hover, and "bad pattern" alone doesn't say where. The
+              wording comes from the JS engine, so it reads differently between browsers. */}
+          {badPattern ? <span className="console-card__find-msg" role="alert">{matcher.error}</span> : null}
         </div>
       ) : null}
 
@@ -460,12 +596,12 @@ function ConsoleView({
               // An emptied view is NOT an empty console, and must not be worded as one — the feed
               // still holds every line and the log on disk is untouched.
               <div className="ln" style={{ color: "var(--fg-3)" }}>
-                {q ? "— no matching lines —"
+                {searching ? "— no matching lines —"
                   : clearedAt != null ? "— view cleared · the feed still holds " + held.length + " lines —"
                     : emptyText}
               </div>
             )
-              : shown.map((l, i) => renderLine(l, i, tsMode, q, currentKey))}
+              : shown.map((l, i) => renderLine(l, i, tsMode, matcher, currentKey))}
         </div>
         {!pinned && !loading ? (
           <button type="button" className="console-card__jump" onClick={jumpToLatest}>
@@ -506,4 +642,4 @@ function ConsoleView({
   );
 }
 
-export { ConsoleView, renderLine };
+export { ConsoleView, renderLine, buildMatcher };

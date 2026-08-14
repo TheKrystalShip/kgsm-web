@@ -1145,6 +1145,14 @@
   box-shadow: var(--ring-input);
 }
 
+/* A pattern that won't compile is marked on the field itself — the reader is looking at what they
+   are typing, not at the count on the far side of the bar. */
+.console-card__find--bad input:not([type="checkbox"]),
+.console-card__find--bad input:not([type="checkbox"]):focus {
+  border-color: var(--danger);
+  box-shadow: none;
+}
+
 .console-card__find-count {
   font-size: 11.5px;
   color: var(--fg-3);
@@ -1152,6 +1160,36 @@
   white-space: nowrap;
   min-width: 54px;
   text-align: right;
+}
+
+.console-card__find-count--bad {
+  color: var(--danger);
+}
+
+/* The bar wraps, so the reason takes a row of its own under it. */
+.console-card__find-msg {
+  flex: 1 0 100%;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+/* Match case / whole word / regex — one group, tight, so they read as modifiers on the field they
+   sit beside rather than as three more buttons in the bar. */
+.console-card__find-opts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.console-card__find-opt.is-on,
+.console-card__find-opt.is-on:hover:not(:disabled) {
+  background: var(--krystal-teal-dim);
+  color: var(--krystal-teal);
+  border-color: var(--krystal-teal-ring);
 }
 
 .console-card__find button {

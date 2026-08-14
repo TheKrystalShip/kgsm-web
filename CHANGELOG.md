@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the console's find takes match case, whole word and regular expressions
+
+The find bar carries the three modifiers an editor spells `Aa`, `ab` and `.*`, with `Alt+C` / `Alt+W`
+/ `Alt+R` for each. They compile into one matcher that the count, the "only matches" filter, the
+highlight and the stepper all read, so what is counted is what is marked.
+
+Whole-word is checked on the match rather than by wrapping the pattern in `\b`, which lets `[warn]`,
+`--verbose` and `x=1` mean what they say — a `\b` is an assertion about the character beside it and
+finds nothing when the query begins with punctuation. A pattern that does not compile is answered
+with *bad pattern*, a marked field and the engine's own reason on a row of its own; reporting zero
+matches instead would say the text is not in the log, which is a different claim. Zero-length
+patterns (`a*`, `^`, `\b`) step rather than spin.
+
+The search runs over the line as the reader sees it. The `§…§` markers around an
+engine-highlighted name are not characters on screen, so they no longer split a match in half or
+stand between `^` and the start of a line, and the ranges found are mapped back onto the segments so
+a hit straddling a name is marked as the one match it is. *Copy what's shown* drops the markers for
+the same reason. The query is no longer trimmed: a leading or trailing space is part of what someone
+searching a log means.
+
+Proven in Chromium and Firefox by `scripts/visual-harness/console-search.mjs`, which recomputes every
+expected count from the text on screen with a second implementation.
+
 ### Fixed — the server hero's connect bar lines up
 
 Its three controls — the address pill, Copy and Play — measured 35.5, 34 and 36. Play carried the

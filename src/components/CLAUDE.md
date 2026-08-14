@@ -73,6 +73,16 @@ reads the same wherever it is opened. Three things about it are load-bearing:
   resulting position is stated outright by whoever called it. The compensation runs per arriving line,
   and letting it re-enter through its own event re-scans the rows above the viewport each time.
 
+- **The find compiles to one matcher, and everything reads it.** Match case, whole word and regular
+  expression (`Alt+C`/`Alt+W`/`Alt+R`) build a single object; the count, the *only matches* filter, the
+  highlight and the stepper all go through it, so what is counted cannot disagree with what is marked.
+  Whole-word is tested on the match — an edge is a boundary unless word characters sit on both sides —
+  because wrapping the pattern in `\b` asserts against the character beside it and finds nothing for a
+  query like `[warn]` or `--verbose`. **A pattern that won't compile is reported, never answered with
+  zero matches**: half a regex is what typing one looks like, and "no matches" would claim the text is
+  not in the log. The search runs over the line the reader SEES — the `§…§` markers are stripped and
+  the ranges mapped back onto the segments — so a name cannot split a match, and `^` anchors the line
+  rather than a segment.
 - **The window is not the log.** *Load earlier lines* reads back through the run in 500-line steps,
   each asking for the window ending at the byte offset the last one reported (`?before=`), so pages
   meet exactly while the server keeps printing — a line count from the end would overlap or skip.
@@ -81,9 +91,11 @@ reads the same wherever it is opened. Three things about it are load-bearing:
   because a top-level navigation carries no bearer. **Clear the view hides and never deletes** — the
   count in the head keeps reporting what the feed holds, and the emptied body says so.
 
-Behaviour here is proven in a real browser (`scripts/visual-harness/console-follow.mjs` and
-`console-tier2.mjs`, both engines) — jsdom lays out nothing, so the smoke can prove the window's SIZE
-but not that it holds still, and nothing in jsdom saves a file.
+Behaviour here is proven in a real browser (`scripts/visual-harness/console-follow.mjs`,
+`console-tier2.mjs` and `console-search.mjs`, both engines) — jsdom lays out nothing, so the smoke can
+prove the window's SIZE but not that it holds still, and nothing in jsdom saves a file. The search
+harness recomputes every expected count from the text on screen with a second implementation, so a
+matcher that agrees with itself still fails it.
 
 ## `<Toasts>` / `<NotificationsPanel>` — outcome reporting
 
