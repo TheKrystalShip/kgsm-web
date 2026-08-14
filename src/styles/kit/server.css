@@ -1113,7 +1113,12 @@
 }
 
 /* ---- Find bar: search within the lines already in the window ---- */
+/* The row says how tall a control is, once, and the field and every button in it read that — the
+   three search modifiers sit against the field and have to look like part of it. Left to themselves
+   they don't: a button is `border-box` from the UA stylesheet and sized to its icon, the field is
+   `content-box` and sized to its text, so one number written in two places renders as two heights. */
 .console-card__find {
+  --console-find-h: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1133,7 +1138,8 @@
   border: var(--edge);
   border-radius: var(--r-sm);
   padding: 0 10px;
-  height: 30px;
+  height: var(--console-find-h);
+  box-sizing: border-box;
   color: var(--fg-1);
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -1192,13 +1198,18 @@
   border-color: var(--krystal-teal-ring);
 }
 
+/* Every button in the bar is icon-only, so it is a square of the row's control height rather than a
+   box that fits its glyph — which is what put a 24px toggle against a 32px field. */
 .console-card__find button {
   background: transparent;
   border: 1px solid transparent;
   color: var(--fg-3);
   cursor: pointer;
   border-radius: var(--r-sm);
-  padding: 4px;
+  padding: 0;
+  width: var(--console-find-h);
+  height: var(--console-find-h);
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;

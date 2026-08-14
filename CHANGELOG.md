@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the find bar's controls are one height
+
+The field rendered 32px and every button 24px, so the three search modifiers sat against the field
+as small squares rather than reading as part of it. A `<button>` is `border-box` from the UA
+stylesheet and sized to its icon; a text input is `content-box`, so its declared 30px became 32
+once the border landed outside it. The row now states one control height that the field and all six
+buttons read, each icon-only button is a square of it, and `box-sizing` is stated so the number
+means the same thing everywhere. The modifier glyphs are 16px — they are text (`Aa`, `ab`, `.*`)
+rather than a symbol, and 14 left them under-scaled in the taller box.
+
+`console-search.mjs` asserts the single height in both engines, which round form-control metrics
+differently.
+
 ### Added — the console's find takes match case, whole word and regular expressions
 
 The find bar carries the three modifiers an editor spells `Aa`, `ab` and `.*`, with `Alt+C` / `Alt+W`

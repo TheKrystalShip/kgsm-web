@@ -537,17 +537,17 @@ function ConsoleView({
             <button type="button" className={"console-card__find-opt" + (caseSensitive ? " is-on" : "")}
               onClick={() => toggleMode(setCaseSensitive)} aria-pressed={caseSensitive}
               title="Match case (Alt+C)" aria-label="Match case">
-              <Icon name="case-sensitive" size={14} />
+              <Icon name="case-sensitive" size={16} />
             </button>
             <button type="button" className={"console-card__find-opt" + (wholeWord ? " is-on" : "")}
               onClick={() => toggleMode(setWholeWord)} aria-pressed={wholeWord}
               title="Match whole word (Alt+W)" aria-label="Match whole word">
-              <Icon name="whole-word" size={14} />
+              <Icon name="whole-word" size={16} />
             </button>
             <button type="button" className={"console-card__find-opt" + (useRegex ? " is-on" : "")}
               onClick={() => toggleMode(setUseRegex)} aria-pressed={useRegex}
               title="Use a regular expression (Alt+R)" aria-label="Use a regular expression">
-              <Icon name="regex" size={14} />
+              <Icon name="regex" size={16} />
             </button>
           </span>
           <span className={"console-card__find-count" + (badPattern ? " console-card__find-count--bad" : "")}>
