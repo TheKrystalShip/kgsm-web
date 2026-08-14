@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Play and Copy on a server card are the same height
+
+The two controls declared the same 32px and rendered 34 and 32. Play is an `<a>` (it navigates to a
+`steam://` URL) and Copy is a `<button>`, and a UA stylesheet gives form controls `border-box` while
+an anchor keeps the CSS initial `content-box` — so the 1px border landed inside one and on top of the
+other. The row states `box-sizing` rather than leaving the height to mean two different things
+depending on which element a control happens to be, and `align-items: stretch` so a future control
+that states no height still matches the row instead of sizing to its own text.
+
 ### Changed — a server card's metrics hold still
 
 The metric row spans the card and distributes with `space-between`, so the first reading is flush left,
