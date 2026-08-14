@@ -140,7 +140,7 @@ identical in mock + live. Drives `realtimeStore` only (REST reachability stays o
 | `servers` → `server.patch` | `servers` → `server.patch` | ✅ `adaptServer` on the frame; **upsert by id** (patch existing OR add a new roster member) |
 | `servers` → `server.removed {id}` | `servers` → `server.removed {id}` | ✅ tombstone drops the instance |
 | `jobs` → `job`/`job.patch` | `jobs` → `job.patch` | ✅ `adaptJob` collapses `succeeded\|failed`→`done`; one branch serves mock + live |
-| `console` → `console.line` | **(none)** | ❌ **true backend gap** — no console topic exists; `ConsolePanel` degrades to "unavailable" |
+| `console` → `console.line` | `servers/{id}/console` → `console.line` | ✅ per-server topic; `ConsolePanel` hydrates a REST window then follows it. The bare `console` topic in `GLOBAL_TOPICS` carries nothing — the feed is per-server |
 | `alerts` → `alert.raise`/`alert.resolve`/`alert.retract` | same three | ✅ `alert.raise` runs through `adaptAlert` (derived icon); resolve/retract passthrough |
 | `audit` → `audit.append` | `audit` → `audit.append` | ✅ live-prepend to `auditStore` (e2e-verified via a real kgsm emit) |
 | `hosts/{id}/metrics` → `host.metrics` | `hosts/{id}/metrics` → `host.metrics` | ✅ **DONE (slice 7 follow-on, 2026-06-21)** — deep-dive subscribes while open; `adaptHostMetrics` reshapes the tick; `hostsStore.mergeMetrics` merges clobber-safe (keeps capabilities + firewall open_ports) + stamps receipt-time freshness; disposer unsubscribes (idles the pump) + clears the stamp |
@@ -726,7 +726,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 |---|---|---|---|
 | `PerformanceTab` / `TimeSeriesChart` | metrics **history** | **C** (big) | BE emits point-in-time (`metrics.tick`, `Server.metrics`) only. Options: FE accumulates the live stream into a session-local ring (B-ish, no cold history), or BE/monitor add a history store (C). |
 | `PlayersTab` | player roster + per-player ping/playtime | **C** | presence mid-build (`player.join/leave` audit exist; no roster/count). |
-| `ConsolePanel`/`LogConsole` | console stream topic | **C** | no WS topic; degrade to "unavailable." |
+| `ConsolePanel`/`LogConsole` | `GET /servers/{id}/console?tail&before` + `/console/download` + the per-server topic | ✅ **DONE** | window hydrate + live follow; `before` takes the byte cursor the response reports, so reading back reaches the start of the run; download streams the whole run. Native-only — a container's console belongs to Docker. |
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
 | `ServerNotice` (server note) | `GET/PUT/DELETE /servers/{id}/note` + `note` on the `Server` DTO | ✅ **DONE** | operator-gated write, viewer read; note rides the list DTO + `server.patch` so the dashboard tile needs no detail fetch; byline from the backend's attribution, blank when it recorded none. |
 | `FileBrowser` | `GET/PUT /servers/{id}/files…` | ✅ **DONE** | Tier 3 #12: lazy working-dir tree + raw read + etag save, operator-gated. `put` seam added. binary/too-large/symlink/jail handled honestly. |

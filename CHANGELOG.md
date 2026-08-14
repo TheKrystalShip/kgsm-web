@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the console reaches the whole log, not just the window
+
+**Load earlier lines** sits at the top of the scrollback and reads back through the run — as far as
+it goes, in 500-line steps, not to some ceiling. Each step asks for the window ending where the
+loaded lines begin (kgsm-api reports that byte offset), so the pages meet exactly while the server
+keeps printing. Lines fetched this way are exempt from the 1000-line live cap: that cap exists to
+stop a feed growing on its own, and lines somebody asked for by name are not that. The control is
+absent once the beginning of the run is loaded, rather than sitting there claiming there is more.
+
+**Download the full log** saves the entire run — the file to attach to a bug report — streamed from
+the watchdog rather than assembled from what is on screen. It is fetched rather than linked because
+a top-level navigation carries no Authorization header and the browser would save an anonymous 401
+named like a log.
+
+**A view-options menu** in the card head: wrap long lines off puts each line on one row and scrolls
+the body sideways, which is how a stack trace stays readable; timestamps can be hidden; **Copy
+what's shown** takes the current view, find filter included; **Clear the view** hides what is on
+screen and says so — the feed still holds every line, the count in the head does not move, the log on
+disk is untouched and the download still carries all of it. What was hidden comes back from the same
+menu.
+
+**Recent commands** under the input names who has been sending them and through what — the same
+console is reachable from Discord, the assistant and every other operator, so a command appearing in
+the feed with no explanation is a real question. The rows come from kgsm-api's audit log, which is
+the authority and redacts what the caller may not read; they are styled unlike console lines on
+purpose, because they are records about the console rather than output from it.
+
 ### Added — the console can be read while it is running
 
 The console tailed by force: every arriving line scrolled the body to the bottom, so on a server that

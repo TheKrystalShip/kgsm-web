@@ -73,8 +73,17 @@ reads the same wherever it is opened. Three things about it are load-bearing:
   resulting position is stated outright by whoever called it. The compensation runs per arriving line,
   and letting it re-enter through its own event re-scans the rows above the viewport each time.
 
-Behaviour here is proven in a real browser (`scripts/visual-harness/console-follow.mjs`, both engines)
-— jsdom lays out nothing, so the smoke can prove the window's SIZE but not that it holds still.
+- **The window is not the log.** *Load earlier lines* reads back through the run in 500-line steps,
+  each asking for the window ending at the byte offset the last one reported (`?before=`), so pages
+  meet exactly while the server keeps printing — a line count from the end would overlap or skip.
+  Those lines are exempt from the live cap, which exists to stop a feed growing on its own. *Download
+  the full log* streams the entire run from the watchdog; it is a `blob()` fetch and not an `<a href>`
+  because a top-level navigation carries no bearer. **Clear the view hides and never deletes** — the
+  count in the head keeps reporting what the feed holds, and the emptied body says so.
+
+Behaviour here is proven in a real browser (`scripts/visual-harness/console-follow.mjs` and
+`console-tier2.mjs`, both engines) — jsdom lays out nothing, so the smoke can prove the window's SIZE
+but not that it holds still, and nothing in jsdom saves a file.
 
 ## `<Toasts>` / `<NotificationsPanel>` — outcome reporting
 

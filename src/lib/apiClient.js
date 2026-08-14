@@ -272,6 +272,29 @@ import("./stores.js").then((m) => {
     return json;
   }
   const liveGet = (path, hostId) => liveFetch("GET", path, null, hostId).then((j) => adaptResponse(path, j));
+
+  // A GET whose response is a FILE, not JSON — the console log download. It cannot be an <a href>:
+  // every gated read carries a bearer, and a top-level navigation sends no Authorization header, so
+  // the browser would fetch an anonymous 401 and save it. Streamed into a Blob here and handed to the
+  // caller to save. Same routing and the same reachability bookkeeping as any other call.
+  async function liveBlob(path, hostId) {
+    const base = apiV1Of(hostId);
+    if (!base) throw unroutedError(hostId);
+    const tok = await authorizedBearer(hostId);
+    const headers = {};
+    if (tok) headers.Authorization = "Bearer " + tok;
+    let res;
+    try {
+      res = await fetch(base + path, { method: "GET", headers });
+    } catch { markFailure(hostId); throw netError(); }
+    markSuccess(hostId);
+    if (!res.ok) {
+      let json = null;
+      try { json = await res.json(); } catch { json = null; }
+      throw apiError(res.status, json);
+    }
+    return res.blob();
+  }
   const livePost = (path, body, hostId) => liveFetch("POST", path, body, hostId);
   const livePatch = (path, body, hostId) => liveFetch("PATCH", path, body, hostId);
   const livePut = (path, body, hostId) => liveFetch("PUT", path, body, hostId);
@@ -619,6 +642,7 @@ import("./stores.js").then((m) => {
       patch: (p, b) => withRetry(() => patch(p, b, id)),
       put: (p, b) => withRetry(() => put(p, b, id)),
       del: (p) => withRetry(() => del(p, id)),
+      blob: (p) => withRetry(() => liveBlob(p, id)),
     };
   }
 

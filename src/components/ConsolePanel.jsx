@@ -3,7 +3,8 @@ import { Icon } from "./Icon.jsx";
 import { ConsoleView } from "./ConsoleView.jsx";
 import { api } from "../lib/apiClient.js";
 import { sendConsoleInput } from "../lib/stores.js";
-import { serverOperable } from "../lib/persona.js";
+import { canOn, serverOperable } from "../lib/persona.js";
+import { fmtRelative, parseTs } from "../lib/formatting.js";
 
 // ConsolePanel — the server's stdout feed + command input, rendered through the shared
 // ConsoleView (the same card the host-logs tab uses, so they look identical).
@@ -60,21 +61,76 @@ function saveHistory(server, list) {
   try { localStorage.setItem(historyKey(server), JSON.stringify(list)); } catch { /* full or blocked — recall is best-effort */ }
 }
 
+// How many lines one "load earlier" step fetches. Bigger than the opening tail because it is asked
+// for deliberately, and each step costs a round trip.
+const EARLIER_PAGE = 500;
+
+// How many recent commands the strip under the input shows. Short on purpose — it answers "did
+// somebody just run something?", and the whole record is the audit log.
+const RECENT_COMMANDS = 5;
+
+// Who has been sending commands to THIS server, from the audit log. The point is that a console is
+// not private: the bot, the assistant and every other operator reach the same one, so a command
+// appearing in the feed with no explanation is a real question this answers. The API is the
+// authority — it writes these rows from the engine's echo, which is why they include the commands
+// this browser never sent — and it redacts what the caller may not read, so this renders the
+// summary it is given rather than assembling its own.
+function useRecentCommands(server, enabled) {
+  const [rows, setRows] = React.useState([]);
+  const hostId = server && server.hostId;
+  const id = server && server.id;
+
+  React.useEffect(() => {
+    if (!enabled || !hostId || !id) { setRows([]); return undefined; }
+    let alive = true;
+    const qs = "?serverId=" + encodeURIComponent(id) + "&category=console&limit=" + RECENT_COMMANDS;
+    const load = () => api.host(hostId).get("/audit" + qs).then(
+      (page) => { if (alive) setRows(((page && page.rows) || []).filter(r => r && r.action === "console.input")); },
+      () => { if (alive) setRows([]); }   // no audit access / unreachable — show nothing, claim nothing
+    );
+    load();
+    // The row is written from the engine's echo, so it lands a moment after the command does; the
+    // live topic is what saves this from polling for it.
+    const dispose = api.stream.subscribe(["audit"], (m) => {
+      if (!alive || !m || m.type !== "audit.append" || !m.data) return;
+      if (m.data.action !== "console.input" || m.data.serverId !== id) return;
+      setRows(prev => [m.data, ...prev.filter(r => r.id !== m.data.id)].slice(0, RECENT_COMMANDS));
+    });
+    return () => { alive = false; dispose(); };
+  }, [enabled, hostId, id]);
+
+  return rows;
+}
+
 // Live scrollback hook: REST tail then WS follow. Subscribes FIRST and buffers live lines, so a
 // frame that arrives during the REST round-trip can't land before the tail (ordering: tail, then
 // buffered live, then ongoing). Dedups WS frames by seq. Each live line is stamped with its arrival
 // time ({ at, seq, text }); scrollback stays a raw string (no honest time). Returns null until
 // hydrated.
+//
+// Reading further back is a THIRD segment ahead of those two. The API reports the byte range each
+// window came from, and `earlier` is asked for by passing that cursor back, so pages meet exactly
+// while the game keeps printing. It is exempt from the live cap: the cap exists to stop a feed
+// growing on its own, and lines someone asked for by name are not that — they stay until the panel
+// is closed or the reader jumps back to the live tail.
 function useLiveConsole(server) {
-  const [lines, setLines] = React.useState(null);
+  const [state, setState] = React.useState({ lines: null, cursor: null, hasEarlier: false, loading: false });
+  const loadEarlierRef = React.useRef(null);
+
   React.useEffect(() => {
     if (!server) return;
     if (!server.hostId) return;
     let alive = true, hydrated = false;
+    const earlier = [];       // pages the reader asked for, oldest-first, never auto-trimmed
     const tail = [];          // REST scrollback (strings, no seq, no time)
     const follow = [];        // live WS lines, in arrival order, stamped with observed-at
     const seen = new Set();
-    const flush = () => { if (alive) setLines([...tail, ...follow]); };
+    let cursor = null;        // byte offset the oldest loaded line begins at
+    let hasEarlier = false;
+    let loading = false;
+    const flush = () => {
+      if (alive) setState({ lines: [...earlier, ...tail, ...follow], cursor, hasEarlier, loading });
+    };
     // Drop the oldest lines down to the cap, scrollback first (it is the older half by
     // construction). A dropped line's seq leaves `seen` with it, so the dedup set stays the size of
     // what's retained instead of becoming the unbounded thing the buffer no longer is.
@@ -93,19 +149,55 @@ function useLiveConsole(server) {
       trim();
       if (hydrated) flush();
     });
-    api.host(server.hostId).get("/servers/" + server.id + "/console?tail=200").then(
-      (res) => { (res && res.lines || []).forEach((l) => tail.push(l)); hydrated = true; trim(); flush(); },
+
+    const path = "/servers/" + server.id + "/console";
+    api.host(server.hostId).get(path + "?tail=200").then(
+      (res) => {
+        (res && res.lines || []).forEach((l) => tail.push(l));
+        // A watchdog too old to report the range answers hasEarlier false, so nothing offers a way
+        // back that would re-serve these same lines.
+        cursor = res && typeof res.start === "number" ? res.start : null;
+        hasEarlier = !!(res && res.hasEarlier);
+        hydrated = true; trim(); flush();
+      },
       () => { hydrated = true; trim(); flush(); }   // no scrollback (watchdog down / non-native) — live follow still works
     );
-    return () => { alive = false; dispose(); };   // unsubscribe re-idles the backend's console bridge
+
+    // Read the window ending where the oldest loaded line begins. Resolves to how many lines landed,
+    // so the caller can hold the reader's scroll position across the prepend.
+    loadEarlierRef.current = () => {
+      if (!alive || loading || !hasEarlier || cursor == null) return Promise.resolve(0);
+      loading = true; flush();
+      return api.host(server.hostId).get(path + "?tail=" + EARLIER_PAGE + "&before=" + cursor).then(
+        (res) => {
+          if (!alive) return 0;
+          const page = (res && res.lines) || [];
+          earlier.unshift(...page);
+          cursor = res && typeof res.start === "number" ? res.start : cursor;
+          hasEarlier = !!(res && res.hasEarlier);
+          loading = false; flush();
+          return page.length;
+        },
+        () => { if (alive) { loading = false; flush(); } return 0; }
+      );
+    };
+
+    return () => { alive = false; dispose(); loadEarlierRef.current = null; };   // unsubscribe re-idles the backend's console bridge
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only server.id/hostId are used (and in deps); the object churns each render, so depping it would resubscribe constantly
   }, [server && server.id, server && server.hostId]);
-  return lines;
+
+  const loadEarlier = React.useCallback(() => {
+    const fn = loadEarlierRef.current;
+    return fn ? fn() : Promise.resolve(0);
+  }, []);
+
+  return { ...state, loadEarlier };
 }
 
 function ConsolePanel({ server, extraLines = [], readOnly }) {
   const live = !!server;
-  const liveLines = useLiveConsole(live ? server : null);
+  const feed = useLiveConsole(live ? server : null);
+  const liveLines = feed.lines;
   const [draft, setDraft] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [err, setErr] = React.useState(null);
@@ -191,6 +283,30 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
         : "Console input is unavailable while the server is offline — start it to send commands." }
     : null;
 
+  // Gated on this host's audit reach, which is the same gate the audit page uses — the rows come
+  // from the same endpoint, so asking without it would just collect 403s.
+  const recent = useRecentCommands(live ? server : null, live && !readOnly && canOn("nav.audit", server && server.hostId));
+
+  // Who has been sending commands here. Shown under the input rather than in the feed: these are
+  // audit rows, not console output, and putting them in the stream would be writing lines the server
+  // never printed. The command may be redacted by the API for a caller not permitted it, so the
+  // row's own summary is what renders.
+  const commandStrip = recent.length ? (
+    <div className="console-card__recent">
+      <div className="console-card__recent-head">
+        <Icon name="history" size={11} /> Recent commands
+      </div>
+      {recent.map(r => (
+        <div className="console-card__recent-row" key={r.id}>
+          <span className="console-card__recent-when">{fmtRelative(parseTs(r.ts) || new Date())}</span>
+          <span className="console-card__recent-who">{(r.actor && r.actor.name) || "unknown"}</span>
+          {r.origin && r.origin !== "ui" ? <span className="console-card__recent-via">via {r.origin}</span> : null}
+          <span className="console-card__recent-what">{(r.meta && r.meta.command) || r.summary}</span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   // The footer (input or read-only note) renders inside the card, below the body — so the
   // full-screen pop-out (owned by ConsoleView) carries it too.
   const footer = canSend ? (
@@ -212,12 +328,35 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
           <Icon name="triangle-alert" size={12} /> {err}
         </div>
       ) : null}
+      {commandStrip}
     </>
   ) : note ? (
-    <div className="console-card__readonly">
-      <Icon name={note.icon} size={12} /> {note.text}
-    </div>
-  ) : null;
+    <>
+      <div className="console-card__readonly">
+        <Icon name={note.icon} size={12} /> {note.text}
+      </div>
+      {commandStrip}
+    </>
+  ) : commandStrip;
+
+  // The whole of the run's log, not the window on screen. It is fetched rather than linked because
+  // every gated read carries a bearer and a top-level navigation sends no Authorization header — the
+  // browser would save an anonymous 401 page named like a log.
+  const download = React.useCallback(() => {
+    if (!live) return Promise.reject(new Error("no server"));
+    return api.host(server.hostId).blob("/servers/" + server.id + "/console/download").then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = server.id + "-console.log";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Let the click start the save before the object URL stops resolving.
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the server's identity; the row object churns every render
+  }, [live, server && server.id, server && server.hostId]);
 
   return (
     <ConsoleView
@@ -226,6 +365,10 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
       pill={pill}
       loading={loading}
       footer={footer}
+      onLoadEarlier={live && feed.hasEarlier ? feed.loadEarlier : null}
+      loadingEarlier={feed.loading}
+      onDownload={live ? download : null}
+      downloadName={live ? server.id + "-console.log" : null}
       resetKey={(server && server.id) + "@" + (server && server.hostId)}
     />
   );

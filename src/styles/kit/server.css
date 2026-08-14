@@ -887,6 +887,50 @@
   word-break: break-word;
 }
 
+/* Wrapping off: one row per line, the body scrolls sideways. A stack trace or a table is written to
+   be read down a column, and re-flowing it into the card's width is what makes it unreadable. The
+   row grows to its content but never below the full width, so a highlighted row still spans. */
+.console-card__body--nowrap {
+  overflow-x: auto;
+}
+
+.console-card__body--nowrap .ln {
+  width: max-content;
+  min-width: 100%;
+}
+
+.console-card__body--nowrap .ln__text {
+  white-space: pre;
+  word-break: normal;
+}
+
+/* Reading further back. It sits at the top of the scrollback, where the lines it fetches land. */
+.console-card__earlier {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  background: var(--surface-1);
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.console-card__earlier:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--fg-1);
+  border-color: var(--border-strong);
+}
+
+.console-card__earlier:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .console-card__body .ln--warn .ln__text {
   color: var(--warning-fg);
 }
@@ -1007,6 +1051,67 @@
   border-color: var(--krystal-teal-ring);
 }
 
+/* The view-options menu is portalled to <body> (it would be clipped by the card's own
+   overflow:hidden), so it is anchored by this wrapper rather than positioned in the head. */
+.console-card__menu-anchor {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.console-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 232px;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 6px;
+  background: var(--surface-1);
+  border: var(--edge-strong);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.console-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.console-menu button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--fg-1);
+}
+
+.console-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.console-menu__sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border-subtle);
+}
+
+.console-menu__note {
+  padding: 6px 9px 4px;
+  color: var(--fg-4);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 /* ---- Find bar: search within the lines already in the window ---- */
 .console-card__find {
   display: flex;
@@ -1086,6 +1191,69 @@
 .console-card__find-only input {
   accent-color: var(--krystal-teal);
   cursor: pointer;
+}
+
+/* ---- Who has been sending commands here (audit rows, under the input) ---- */
+/* Deliberately unlike a console line: these are audit rows about the console, not output from it,
+   and a reader must never take one for something the server printed. */
+.console-card__recent {
+  padding: 8px 16px 10px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.console-card__recent-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-4);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.console-card__recent-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11.5px;
+  min-width: 0;
+}
+
+.console-card__recent-when {
+  color: var(--fg-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.console-card__recent-who {
+  color: var(--fg-2);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.console-card__recent-via {
+  color: var(--fg-4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.console-card__recent-what {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* ---- Jump back to the newest line ---- */

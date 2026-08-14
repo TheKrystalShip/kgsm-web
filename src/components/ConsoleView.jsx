@@ -1,7 +1,9 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
 import { Modal } from "./Modal.jsx";
 import { Select } from "./Select.jsx";
+import { usePortalPopover } from "../hooks/usePortalPopover.js";
 
 // fmtClock — a wall-clock HH:MM:SS from an ISO string or epoch ms; "" for absent/garbage
 // (never a fabricated time). Game stdout lines carry no time, so the live feed stamps each
@@ -107,10 +109,16 @@ const NEAR_BOTTOM = 24;
 //   initialSourceId — which source to open on, when the caller knows (the leaf config page opens a
 //              leaf's own journal). Ignored if it isn't in `sources`; only seeds the initial pick,
 //              so the user's later choice always wins.
+//   onLoadEarlier — () => Promise, when the feed can read further back than it currently holds. Its
+//              presence is what puts the control at the top of the scrollback; a feed that has
+//              reached the beginning passes null and the control goes away rather than sitting there
+//              claiming there is more.
+//   onDownload — () => Promise, when the whole log can be had in one piece. `downloadName` labels it.
 function ConsoleView({
   title = "Console", icon = "terminal-square",
   lines = [], sources, pill, count, loading = false,
   footer = null, emptyText = "— no output —", resetKey, initialSourceId,
+  onLoadEarlier = null, loadingEarlier = false, onDownload = null, downloadName = null,
 }) {
   const bodyRef = React.useRef(null);
   const findRef = React.useRef(null);
@@ -123,6 +131,20 @@ function ConsoleView({
   const [query, setQuery] = React.useState("");
   const [onlyMatching, setOnlyMatching] = React.useState(false);
   const [matchAt, setMatchAt] = React.useState(0);
+
+  // View options. `wrap` off puts long lines on one row each and scrolls the body sideways, which is
+  // how a stack trace or a table stays readable; `showTs` hides the gutter for the same reason.
+  // `clearedAt` is the newest line at the moment Clear was pressed — everything up to and including
+  // it is hidden HERE and nowhere else. Nothing is deleted: the log on disk is untouched and the
+  // count in the head keeps saying what the feed holds, because a console that quietly forgot what a
+  // server printed would be the one thing this card must never do.
+  const [wrap, setWrap] = React.useState(true);
+  const [showTs, setShowTs] = React.useState(true);
+  const [clearedAt, setClearedAt] = React.useState(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const menuBtnRef = React.useRef(null);
+  const { pos: menuPos, menuRef } = usePortalPopover(menuOpen, setMenuOpen, menuBtnRef);
 
   // Following is the reader's POSITION, not a mode they set: the feed tails while they are at the
   // bottom and holds still the moment they scroll away to read something. `pinnedRef` mirrors the
@@ -145,12 +167,21 @@ function ConsoleView({
   React.useEffect(() => {
     setExpanded(false); setFinding(false); setQuery(""); setOnlyMatching(false); setMatchAt(0);
     setUnread(0); anchorRef.current = null; seenRef.current = null;
+    setClearedAt(null); setMenuOpen(false);
     pinnedRef.current = true; setPinned(true);
   }, [resetKey]);
   React.useEffect(() => { if (finding && findRef.current) findRef.current.focus(); }, [finding]);
 
   const current = sources ? (sources.find(s => s.id === sourceId) || sources[0]) : null;
-  const all = React.useMemo(() => (current ? (current.lines || []) : lines), [current, lines]);
+  const held = React.useMemo(() => (current ? (current.lines || []) : lines), [current, lines]);
+  // What Clear hid. Its line having since been trimmed out of the window means everything left is
+  // newer than it, so there is nothing to hide and the whole feed shows.
+  const all = React.useMemo(() => {
+    if (clearedAt == null) return held;
+    for (let i = held.length - 1; i >= 0; i--)
+      if (String(lineKey(held[i], i)) === String(clearedAt)) return held.slice(i + 1);
+    return held;
+  }, [held, clearedAt]);
   const q = query.trim().toLowerCase();
 
   // Which lines carry the query, as indices into `all`. null when nothing is being searched for.
@@ -164,13 +195,15 @@ function ConsoleView({
   const mAt = hits ? Math.min(matchAt, hits - 1) : 0;
 
   const shown = matches && onlyMatching ? matches.map(i => all[i]) : all;
-  const shownCount = count != null ? count : all.length;
+  // The head counts what the FEED holds, not what the view is currently showing — a find or a Clear
+  // narrows the screen, and a count that followed it would report the console as having less in it.
+  const shownCount = count != null ? count : held.length;
   // The key of the find's active hit — its row is tinted, and is what the stepper scrolls to.
   const currentKey = !hits ? null
     : onlyMatching ? lineKey(shown[mAt], mAt) : lineKey(all[matches[mAt]], matches[mAt]);
   // Reserve the timestamp gutter only when something in view is timestamped — so a plain stdout
   // tail (no times yet) isn't indented under an empty column, but a live/host-log feed aligns.
-  const tsMode = shown.some(l => typeof l === "object" && l !== null && (l.at != null || l.ts != null));
+  const tsMode = showTs && shown.some(l => typeof l === "object" && l !== null && (l.at != null || l.ts != null));
   // A full window is exactly `length` lines long forever, so the count cannot say a line arrived —
   // the newest line's own identity is what does.
   const tailKey = shown.length ? lineKey(shown[shown.length - 1], shown.length - 1) : "";
@@ -263,6 +296,47 @@ function ConsoleView({
 
   const closeFind = () => { setFinding(false); setQuery(""); setOnlyMatching(false); setMatchAt(0); };
 
+  // Reading further back prepends, which moves everything down. The reader is by definition up at the
+  // top of the scrollback to have pressed it, so the anchor already holds their line still — this
+  // only has to leave the pin alone, which it does by never touching it.
+  const loadEarlier = () => {
+    if (!onLoadEarlier || loadingEarlier) return;
+    Promise.resolve(onLoadEarlier()).catch(() => {});
+  };
+
+  // Copy what is ON SCREEN — the find's result if one is running, the window otherwise. Timestamps
+  // are included only when the gutter is showing them, so what lands on the clipboard is what was
+  // being looked at.
+  const copyVisible = () => {
+    const text = shown.map(l => {
+      const t = lineText(l);
+      if (!tsMode) return t;
+      const stamp = typeof l === "object" && l !== null ? (l.ts != null ? l.ts : fmtClock(l.at)) : "";
+      return stamp ? stamp + " " + t : t;
+    }).join("\n");
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => {});
+    }
+    setMenuOpen(false);
+  };
+
+  const [downloadErr, setDownloadErr] = React.useState(null);
+  const [downloading, setDownloading] = React.useState(false);
+  const runDownload = () => {
+    if (!onDownload || downloading) return;
+    setDownloading(true); setDownloadErr(null); setMenuOpen(false);
+    Promise.resolve(onDownload()).then(
+      () => setDownloading(false),
+      (e) => { setDownloading(false); setDownloadErr((e && (e.userMessage || e.message)) || "Couldn't download the log."); }
+    );
+  };
+
+  const clearView = () => {
+    setClearedAt(shown.length ? tailKey : null);
+    setMenuOpen(false);
+  };
+
   const headCount = loading ? "connecting…"
     : matches ? hits + " of " + shownCount
       : shownCount + " lines";
@@ -283,12 +357,53 @@ function ConsoleView({
           title="Find in console" aria-label="Find in console" aria-pressed={finding}>
           <Icon name="search" size={14} />
         </button>
+        <span ref={menuBtnRef} className="console-card__menu-anchor">
+          <button type="button" className={"console-card__expand" + (menuOpen ? " console-card__expand--on" : "")}
+            onClick={() => setMenuOpen(o => !o)}
+            title="View options" aria-label="View options" aria-haspopup="menu" aria-expanded={menuOpen}>
+            <Icon name="sliders-horizontal" size={14} />
+          </button>
+        </span>
         <button type="button" className="console-card__expand" onClick={() => setExpanded(v => !v)}
           title={expanded ? "Exit full screen (Esc)" : "Expand to full screen"}
           aria-label={expanded ? "Exit full screen" : "Expand to full screen"}>
           <Icon name={expanded ? "minimize-2" : "maximize-2"} size={14} />
         </button>
       </div>
+
+      {menuOpen && menuPos && createPortal(
+        <div className="console-menu" role="menu" ref={menuRef} style={menuPos}>
+          <button type="button" role="menuitemcheckbox" aria-checked={wrap} onClick={() => setWrap(v => !v)}>
+            <Icon name={wrap ? "check" : "minus"} size={13} /> Wrap long lines
+          </button>
+          <button type="button" role="menuitemcheckbox" aria-checked={showTs} onClick={() => setShowTs(v => !v)}>
+            <Icon name={showTs ? "check" : "minus"} size={13} /> Timestamps
+          </button>
+          <div className="console-menu__sep" />
+          <button type="button" role="menuitem" onClick={copyVisible} disabled={!shown.length}>
+            <Icon name={copied ? "clipboard-check" : "clipboard"} size={13} /> {copied ? "Copied" : "Copy what's shown"}
+          </button>
+          {onDownload ? (
+            <button type="button" role="menuitem" onClick={runDownload} disabled={downloading}>
+              <Icon name="download" size={13} /> {downloading ? "Downloading…" : "Download the full log"}
+            </button>
+          ) : null}
+          <div className="console-menu__sep" />
+          <button type="button" role="menuitem" onClick={clearView} disabled={!shown.length}>
+            <Icon name="eraser" size={13} /> Clear the view
+          </button>
+          {clearedAt != null ? (
+            <button type="button" role="menuitem" onClick={() => { setClearedAt(null); setMenuOpen(false); }}>
+              <Icon name="rotate-ccw" size={13} /> Show the hidden lines
+            </button>
+          ) : null}
+          <div className="console-menu__note">
+            Clearing hides lines in this view only — the log on disk is untouched
+            {onDownload ? ", and the download still carries all of it" : ""}.
+          </div>
+        </div>,
+        document.body
+      )}
 
       {finding ? (
         <div className="console-card__find">
@@ -324,11 +439,32 @@ function ConsoleView({
         </div>
       ) : null}
 
+      {downloadErr ? (
+        <div className="console-card__error" role="alert">
+          <Icon name="triangle-alert" size={12} /> {downloadErr}
+        </div>
+      ) : null}
+
       <div className="console-card__view">
-        <div className={"console-card__body" + (tsMode ? " console-card__body--ts" : "")}
+        <div className={"console-card__body" + (tsMode ? " console-card__body--ts" : "") + (wrap ? "" : " console-card__body--nowrap")}
           ref={bodyRef} onScroll={onScroll}>
+          {/* At the TOP because that is where the lines it fetches land, and because reaching it is
+              the same gesture as looking for them. It is absent once the run's beginning is loaded. */}
+          {onLoadEarlier && !loading ? (
+            <button type="button" className="console-card__earlier" onClick={loadEarlier} disabled={loadingEarlier}>
+              {loadingEarlier ? "Loading…" : "Load earlier lines"}
+            </button>
+          ) : null}
           {loading ? <div className="ln" style={{ color: "var(--fg-3)" }}>Loading console…</div>
-            : shown.length === 0 ? <div className="ln" style={{ color: "var(--fg-3)" }}>{q ? "— no matching lines —" : emptyText}</div>
+            : shown.length === 0 ? (
+              // An emptied view is NOT an empty console, and must not be worded as one — the feed
+              // still holds every line and the log on disk is untouched.
+              <div className="ln" style={{ color: "var(--fg-3)" }}>
+                {q ? "— no matching lines —"
+                  : clearedAt != null ? "— view cleared · the feed still holds " + held.length + " lines —"
+                    : emptyText}
+              </div>
+            )
               : shown.map((l, i) => renderLine(l, i, tsMode, q, currentKey))}
         </div>
         {!pinned && !loading ? (
