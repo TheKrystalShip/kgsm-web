@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the server hero's connect bar lines up
+
+Its three controls — the address pill, Copy and Play — measured 35.5, 34 and 36. Play carried the
+anchor-vs-button `box-sizing` mismatch below, and the pill had no height at all, so it sized to its
+own line box. The bar now states one control height that all three read, and the pill centres its
+address inside it rather than setting the pill's size from its text. At phone width the pill still
+takes a full-width row of its own with Copy and Play sharing the next at tap-target height, which is
+unchanged — the controls sharing a row are what have to agree.
+
 ### Fixed — Play and Copy on a server card are the same height
 
 The two controls declared the same 32px and rendered 34 and 32. Play is an `<a>` (it navigates to a

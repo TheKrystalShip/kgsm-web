@@ -17,11 +17,16 @@
   flex-wrap: wrap;
 }
 
+/* box-sizing stated for the same reason as `.connect-tile` below: this is an <a> (it navigates to a
+   steam:// URL) sitting beside a <button>, and a UA stylesheet gives form controls `border-box` while
+   an anchor keeps the CSS initial `content-box` — so without this the border lands on top of one and
+   inside the other, and one declared height renders as two. */
 .connect__join {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 40px;
+  box-sizing: border-box;
   padding: 0 18px 0 16px;
   border-radius: var(--r-sm);
   border: 1px solid transparent;
@@ -58,6 +63,7 @@
   padding: 8px 12px;
   border-radius: var(--r-sm);
   border: var(--edge);
+  box-sizing: border-box;
 }
 
 .connect__copy {
@@ -114,7 +120,14 @@
    glass address pill + icon-only copy + the green Play CTA (Steam). */
 /* The whole cluster (HOST:IP label → Copy → Play) right-aligns and hugs the bar's right
    edge, in that order. With no Play (non-Steam) the label + copy still hug the right. */
+/* The bar's three controls are an address pill, a copy button and the Play link — a <code>, a <button>
+   and an <a>. They line up because the ROW says how tall a control is, once, and each of the three
+   reads it; left to themselves the pill sized to its own text and the three came out 35.5 / 34 / 36.
+   This is the height of the SINGLE-line bar. At phone width the pill takes a full-width row of its own
+   and the two buttons share the next at their own tap-target height (kit/server.css), which is why
+   that block states a height rather than re-valuing this. */
 .connect--bar {
+  --connect-bar-h: 34px;
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
@@ -123,24 +136,29 @@
 }
 
 .connect__join--sm {
-  height: 34px;
+  height: var(--connect-bar-h);
   padding: 0 14px 0 11px;
   font-size: 13px;
   box-shadow: 0 2px 12px color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 /* Inside the hero's control bar, which is a themed panel — so the address pill is
-   an ordinary inset surface rather than the dark glass the pills on the art use. */
+   an ordinary inset surface rather than the dark glass the pills on the art use.
+   The padding is horizontal only: the height is the row's, and the address centres inside it rather
+   than setting the pill's size from its own line box. */
 .connect__addr--glass {
+  display: inline-flex;
+  align-items: center;
+  height: var(--connect-bar-h);
   background: var(--surface-3);
   color: var(--fg-1);
   font-size: 13px;
-  padding: 7px 11px;
+  padding: 0 11px;
 }
 
 .connect__copy--icon {
-  width: 34px;
-  height: 34px;
+  width: var(--connect-bar-h);
+  height: var(--connect-bar-h);
   padding: 0;
   justify-content: center;
 }
