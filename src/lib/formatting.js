@@ -193,15 +193,38 @@ function formatBps(n) {
   return Math.round(n) + " B/s";
 }
 
-// The same rate, short enough for a card's metric chip: a unit letter and no "/s", since the two
-// arrows beside it already say it is throughput. Deliberately coarse — a card answers "is this server
-// moving traffic", and the exact figure belongs on the Performance tab, so the full formatBps string
-// goes in the chip's tooltip. Null-in / em-dash out, like every other readout here.
-function fmtBpsShort(n) {
+// ---------- The card ramp ----------
+
+// One scale for every figure on a server card — memory, disk and both network directions read
+// "4.2G", "985M", "12K", "355B". Two properties make it what a card needs:
+//
+//   • It RESCALES in both directions. A raw byte count is unreadable at a glance ("123245" tells you
+//     nothing until you have counted the digits), so the unit follows the value up and back down.
+//   • It is NEVER wider than four characters, which is what lets a chip reserve a fixed box and stop
+//     the row from shuffling every time a value gains a digit. Two rules keep that promise: only
+//     values under 10 carry a decimal, and a value that would round to four digits is promoted to the
+//     next unit instead (1023 B is "1.0K", never "1023B").
+//
+// Precision is deliberately traded for stillness — the exact figure goes in the chip's tooltip and on
+// the Performance tab. Null-in / em-dash out, so a caller can never turn "not measured" into "0B".
+// Runs to P because the four-character promise has to hold at the TOP of the ramp too: the largest
+// unit has nothing to be promoted into, so whatever it is prints five characters past 999.5 of it.
+// Ending at P puts that ceiling beyond the largest byte count a double represents exactly.
+const TIGHT_UNITS = [["P", KIB * KIB * GIB], ["T", KIB * GIB], ["G", GIB], ["M", MIB], ["K", KIB], ["B", 1]];
+
+function fmtBytesTight(n) {
   if (n == null || !Number.isFinite(n)) return "—";
-  if (n >= MIB) return (n / MIB).toFixed(n >= 10 * MIB ? 0 : 1) + "M";
-  if (n >= KIB) return Math.round(n / KIB) + "K";
-  return Math.round(n) + "B";
+  let i = TIGHT_UNITS.findIndex(([, div]) => n >= div);
+  if (i < 0) i = TIGHT_UNITS.length - 1;   // below one byte (0 included) is still bytes
+  let [unit, div] = TIGHT_UNITS[i];
+  let value = n / div;
+  if (value >= 999.5 && i > 0) {
+    [unit, div] = TIGHT_UNITS[i - 1];
+    value = n / div;
+  }
+  // 9.95 and not 9.995: toFixed(1) rounds to the nearest TENTH, so 9.9949 prints as "10.0" — five
+  // characters, one more than the box reserves. Above the cutoff the integer form takes over ("10K").
+  return (value < 9.95 && unit !== "B" ? value.toFixed(1) : String(Math.round(value))) + unit;
 }
 
 // ---------- Footprint ----------
@@ -221,7 +244,7 @@ export {
   actionCategory,
   formatBytes,
   formatBps,
-  fmtBpsShort,
+  fmtBytesTight,
   fmtBytes,
   fmtFootprintMb,
   fmtRelative,

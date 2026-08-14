@@ -1384,6 +1384,34 @@ try {
   assert(unrunHtml.includes("Not available from the panel yet") && /disabled/.test(unrunHtml),
     "ChatCommand: a verb outside the runnable set renders disabled with an honest reason (no dead button)");
 
+  // ---- the card ramp: rescales both ways, never wider than its box ------------------------
+  // The chips reserve a fixed box so a live row stops shuffling when a value gains a digit, and that
+  // only holds while the formatter keeps its side of the bargain: four characters, always. The two
+  // ways it can break are a value that rounds up into a fifth character (1023 B) and one that stops
+  // rescaling, so both are pinned here rather than left to a screenshot.
+  {
+    const { fmtBytesTight } = await vite.ssrLoadModule("/src/lib/formatting.js");
+    const cases = [[0, "0B"], [355, "355B"], [1023, "1.0K"], [2048, "2.0K"], [123245, "120K"],
+                   [4494725120, "4.2G"], [10572480878, "9.8G"], [14230456357, "13G"],
+                   [1024 ** 4, "1.0T"]];
+    for (const [bytes, want] of cases)
+      assert(fmtBytesTight(bytes) === want,
+        `card ramp: ${bytes} reads "${want}" (got "${fmtBytesTight(bytes)}")`);
+
+    // Sweep to the largest byte count a double holds exactly: no reading may ever be wider than the
+    // box that reserves room for it. This is not belt-and-braces — it is what caught 9.9949 printing
+    // as "10.0" (toFixed rounds to the nearest tenth) and the top unit having nothing to promote into.
+    let widest = "";
+    for (let n = 0; n < Number.MAX_SAFE_INTEGER; n = Math.max(n + 1, Math.floor(n * 1.0007))) {
+      const s = fmtBytesTight(n);
+      if (s.length > widest.length) widest = s;
+    }
+    assert(widest.length <= 4,
+      `card ramp: no value renders wider than 4 characters across the whole range (widest "${widest}")`);
+    assert(fmtBytesTight(null) === "—" && fmtBytesTight(undefined) === "—",
+      "card ramp: not-measured stays an em-dash — the ramp can never turn a null into 0B");
+  }
+
   // ---- card metrics: cpu/mem/net are a running server's, disk is every server's ----------
   // The split this proves is the whole reason `diskBytes` sits outside the metrics block: the
   // monitor walks its watch-list, so a STOPPED instance reports what it occupies while having no
@@ -1411,9 +1439,10 @@ try {
       await sleep(40);
       const html = node.innerHTML;
       root.unmount();
-      const gib = (offline.diskBytes / 1073741824).toFixed(2);
-      assert(html.includes(gib + " GiB"),
-        `ServerTile: an offline server's card shows the disk it occupies (${gib} GiB)`);
+      const { fmtBytesTight } = await vite.ssrLoadModule("/src/lib/formatting.js");
+      const tight = fmtBytesTight(offline.diskBytes);
+      assert(html.includes(">" + tight + "<"),
+        `ServerTile: an offline server's card shows the disk it occupies (${tight})`);
       assert((html.match(/—/g) || []).length >= 3,
         "ServerTile: cpu, memory and network render em-dashes on an offline card — nothing measured, nothing shown");
     } else {

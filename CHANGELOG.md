@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a server card's metrics hold still
+
+The metric row spans the card and distributes with `space-between`, so the first reading is flush left,
+the last flush right and the space falls between them. Each value sits in a box of fixed character
+width, which is what stops the row shuffling sideways every time a figure gains a digit — CPU crossing
+from 86% to 147% now repaints in place instead of shoving memory, network and disk along with it.
+
+Every figure reads on one ramp that rescales both ways — `4.2G`, `985M`, `12K`, `355B` — because a raw
+byte count says nothing until you have counted its digits. The ramp is capped at four characters, which
+is what makes the fixed boxes possible: only values under 10 carry a decimal, and one that would round
+to four digits promotes to the next unit instead (1023 B is `1.0K`). The exact figure moves to the
+chip's tooltip.
+
+Below 768px, and on any card too narrow for one line whatever the window is doing, the row becomes two
+— players/CPU/memory over network/disk — each distributed the same way. The narrow case is a container
+query on the card rather than a media query, because the roster grid packs to 280px columns on a wide
+desktop and it is the card's width that the row has to answer to.
+
 ### Added — the console reaches the whole log, not just the window
 
 **Load earlier lines** sits at the top of the scrollback and reads back through the run — as far as

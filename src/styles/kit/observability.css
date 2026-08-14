@@ -1600,10 +1600,11 @@
   opacity: 0.75;
 }
 
+/* No auto margin: the metric row distributes with `space-between`, and an auto margin would collect
+   every pixel of free space into one gap. */
 .server-tile__metric-led {
   display: inline-flex;
   align-items: center;
-  margin-left: auto;
 }
 
 .server-tile__meta .status-led {

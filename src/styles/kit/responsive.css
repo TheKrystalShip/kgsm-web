@@ -287,6 +287,15 @@
     height: 96px;
   }
 
+  /* A phone card is WIDER than a packed desktop column (one column across the whole screen), so the
+     container query above never fires here — and five dense readouts on one line is still too much to
+     take in on a phone. Same two rows, same edge-to-edge distribution, decided by the viewport
+     because that is what the reason is. */
+  .server-tile__meta {
+    --tile-meta-dir: column;
+    --tile-metarow-display: flex;
+  }
+
   .alert-card {
     flex-wrap: wrap;
   }

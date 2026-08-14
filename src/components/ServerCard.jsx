@@ -7,7 +7,7 @@ import { serverOperable } from "../lib/persona.js";
 import { favoritesStore, hostsStore, serversStore, useIsFavorite } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 import { PHASE_LABEL, serverStatusLabel } from "../lib/servers.js";
-import { formatBps, formatBytes, fmtBpsShort } from "../lib/formatting.js";
+import { formatBps, formatBytes, fmtBytesTight } from "../lib/formatting.js";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 import { useRosterMetrics } from "../lib/hooks/useRosterMetrics.js";
 
@@ -118,6 +118,9 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
   const netTitle = server.rxBps == null && server.txBps == null
     ? runningMetricTitle("Network in / out") + (isOnline && !metricsOff ? " — not metered for this instance" : "")
     : "Network in " + formatBps(server.rxBps) + " · out " + formatBps(server.txBps);
+  // The chips trade precision for a still row (see fmtBytesTight), so the tooltip carries the figure
+  // they rounded — and says nothing at all when there was nothing to round.
+  const exact = (bytes) => (bytes == null ? "" : " · " + formatBytes(bytes));
   return (
     <div className="server-tile">
       <div className="server-tile__art" onClick={open} style={{ backgroundImage: art, backgroundSize: "cover", backgroundPosition: "center" }}>
@@ -151,30 +154,50 @@ function ServerTile({ server, onOpen, onAction, showHost }) {
         {server.notice
           ? <div className="server-tile__notice" onClick={open}>{server.notice}</div>
           : <div className="server-tile__notice server-tile__notice--empty" onClick={open}>No server note</div>}
+        {/* CPU / memory / network are readings of a RUNNING process — a stopped server has none to
+            take, so they render "—" rather than a zero nobody measured. Disk is the exception and
+            always shows: the space an instance occupies is a property of its files, so the backend
+            measures it whether or not anything is running.
+            The two halves are one edge-to-edge line on a card wide enough for it, and stack into two
+            on a narrow one — see kit/dashboard.css. Splitting them in the MARKUP is what lets the
+            second form put network and disk together without reordering anything. */}
         <div className="server-tile__meta">
-          <span className="server-tile__metric"><Icon name="users" size={11} /> {playerCurrent != null ? playerCurrent : (server.players ? server.players.current : "—")}</span>
-          {/* CPU / memory / network are readings of a RUNNING process — a stopped server has none to
-              take, so they render "—" rather than a zero nobody measured. Disk is the exception and
-              always shows: the space an instance occupies is a property of its files, so the backend
-              measures it whether or not anything is running. */}
-          <span className={liveMetricClass} title={runningMetricTitle("CPU, as a percentage of one core")}>
-            <Icon name="cpu" size={11} /> {server.cpu == null ? "—" : server.cpu + "%"}
-          </span>
-          <span className={liveMetricClass} title={runningMetricTitle("Memory in use")}>
-            <Icon name="memory-stick" size={11} /> {formatBytes(server.metrics?.memBytes)}
-          </span>
-          <span className={liveMetricClass} title={netTitle}>
-            <Icon name="arrow-down" size={11} /> {fmtBpsShort(server.rxBps)}
-            <Icon name="arrow-up" size={11} /> {fmtBpsShort(server.txBps)}
-          </span>
-          <span className="server-tile__metric" title="Disk used by this server's files — install, saves, backups and logs">
-            <Icon name="hard-drive" size={11} /> {formatBytes(server.diskBytes)}
-          </span>
-          {metricsOff && (
-            <span className="server-tile__metric-led" title={"Live metrics unavailable" + (mFresh.label ? " · " + mFresh.label : "")}>
-              <span className="status-led status-led--down"></span>
+          <div className="server-tile__metarow">
+            <span className="server-tile__metric server-tile__metric--players" title="Players online">
+              <Icon name="users" size={11} />
+              <span className="server-tile__metric-val">{playerCurrent != null ? playerCurrent : (server.players ? server.players.current : "—")}</span>
             </span>
-          )}
+            <span className={liveMetricClass} title={runningMetricTitle("CPU, as a percentage of one core")}>
+              <Icon name="cpu" size={11} />
+              <span className="server-tile__metric-val">{server.cpu == null ? "—" : server.cpu + "%"}</span>
+            </span>
+            <span className={liveMetricClass} title={runningMetricTitle("Memory in use") + exact(server.metrics?.memBytes)}>
+              <Icon name="memory-stick" size={11} />
+              <span className="server-tile__metric-val">{fmtBytesTight(server.metrics?.memBytes)}</span>
+            </span>
+          </div>
+          <div className="server-tile__metarow">
+            <span className={liveMetricClass + " server-tile__metric--net"} title={netTitle}>
+              <span className="server-tile__metric-pair">
+                <Icon name="arrow-down" size={11} />
+                <span className="server-tile__metric-val">{fmtBytesTight(server.rxBps)}</span>
+              </span>
+              <span className="server-tile__metric-pair">
+                <Icon name="arrow-up" size={11} />
+                <span className="server-tile__metric-val">{fmtBytesTight(server.txBps)}</span>
+              </span>
+            </span>
+            <span className="server-tile__metric"
+              title={"Disk used by this server's files — install, saves, backups and logs" + exact(server.diskBytes)}>
+              <Icon name="hard-drive" size={11} />
+              <span className="server-tile__metric-val">{fmtBytesTight(server.diskBytes)}</span>
+            </span>
+            {metricsOff && (
+              <span className="server-tile__metric-led" title={"Live metrics unavailable" + (mFresh.label ? " · " + mFresh.label : "")}>
+                <span className="status-led status-led--down"></span>
+              </span>
+            )}
+          </div>
         </div>
         {canOps && (
           <div className="server-tile__quick">
