@@ -52,6 +52,30 @@ Two things a caller has to respect:
 - **Pass `disabled` while the dashboard is in Customize mode.** Sideways scrolling
   otherwise fights `DashLayout`'s band drag.
 
+## `<ConsoleView>` — the shared console card, and why it scrolls itself
+
+One card renders the game console (`ConsolePanel`), the host-logs tab and a leaf's journal, so a feed
+reads the same wherever it is opened. Three things about it are load-bearing:
+
+- **The feeds are capped windows, and every line carries its own identity.** `ConsolePanel` keeps the
+  newest 1000 lines; `logsStore`/`leafLogsStore` keep 2000. A window that drops its oldest line shifts
+  every array index, so rows key on the line's own identity — the console bridge's `seq`, journald's
+  cursor — and carry it as `data-k`. Keyed on the index instead, one arriving line rewrites the text
+  of every row on screen. The same identity is what the tail, the anchor and the unread count all read;
+  a feed whose lines have neither `id` nor `seq` falls back to the index and loses all three.
+- **Following is the reader's position, not a mode.** The body tails only while it is within
+  `NEAR_BOTTOM` of the bottom. Scrolled away, it anchors the topmost visible row and puts it back after
+  each change, so trimming the top doesn't slide what is being read; the pill counts what arrived and
+  goes back. `.console-card__body` sets `overflow-anchor: none` **on purpose** — the browser's own
+  anchoring would be a second mechanism compensating for the same shift, and it isn't available on
+  every engine this installs to.
+- **The view only ever moves itself through `moveTo`**, which drops the scroll event it raises; the
+  resulting position is stated outright by whoever called it. The compensation runs per arriving line,
+  and letting it re-enter through its own event re-scans the rows above the viewport each time.
+
+Behaviour here is proven in a real browser (`scripts/visual-harness/console-follow.mjs`, both engines)
+— jsdom lays out nothing, so the smoke can prove the window's SIZE but not that it holds still.
+
 ## `<Toasts>` / `<NotificationsPanel>` — outcome reporting
 
 `lib/toasts.js` holds one store; `Toasts.jsx` renders the live cards (portalled to

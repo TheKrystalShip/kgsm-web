@@ -5,7 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.110.1] - 2026-08-14
+## [Unreleased]
+
+### Added — the console can be read while it is running
+
+The console tailed by force: every arriving line scrolled the body to the bottom, so on a server that
+says anything at all the scrollback could not be read — you scrolled up, and the next line dragged
+you back down. Following is now the reader's POSITION rather than something the card does. It tails
+while you are at the bottom, and the moment you scroll away it holds the line you are on, anchoring
+it against the window trimming its own oldest lines underneath you. A pill over the foot of the feed
+says how many lines have arrived behind your back and takes you back to them.
+
+**Find in console.** The magnifier in the card head opens a bar that searches the lines already in
+the window: every occurrence is marked, the active hit is tinted and walked to (Enter / Shift+Enter,
+or the steppers), and **Only matches** collapses the feed to the lines that carry the query. Typing
+walks to the first hit rather than leaving you at the bottom of an unfiltered feed with a count.
+
+**↑ / ↓ recalls commands** sent to the console, per server, kept in this browser. Stepping back holds
+the half-typed command and ↓ returns to it. The authoritative record of who ran what stays kgsm-api's
+audit log, which sees the commands sent from Discord and the assistant too.
+
+All three land on the shared console card, so the host-logs tab and a leaf's journal get them as well.
+
+
 
 ### Added — GPL-3.0-or-later
 

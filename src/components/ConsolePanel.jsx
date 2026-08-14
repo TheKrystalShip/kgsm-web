@@ -43,6 +43,23 @@ const PILL_LABEL = {
 // record of what a server printed is the server's own log on disk, not this card.
 const MAX_LINES = 1000;
 
+// Sent-command recall, per server, in this browser. Capped because it is a convenience, not a record.
+const HISTORY_MAX = 50;
+const historyKey = (server) => "krystal:console:history:" + (server && server.hostId) + ":" + (server && server.id);
+
+function loadHistory(server) {
+  if (!server || !server.id) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(historyKey(server)) || "[]");
+    return Array.isArray(parsed) ? parsed.filter(h => typeof h === "string" && h) : [];
+  } catch { return []; }   // unreadable / disabled storage is no history, never a broken console
+}
+
+function saveHistory(server, list) {
+  if (!server || !server.id) return;
+  try { localStorage.setItem(historyKey(server), JSON.stringify(list)); } catch { /* full or blocked — recall is best-effort */ }
+}
+
 // Live scrollback hook: REST tail then WS follow. Subscribes FIRST and buffers live lines, so a
 // frame that arrives during the REST round-trip can't land before the tail (ordering: tail, then
 // buffered live, then ongoing). Dedups WS frames by seq. Each live line is stamped with its arrival
@@ -93,6 +110,36 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   const [sending, setSending] = React.useState(false);
   const [err, setErr] = React.useState(null);
 
+  // ↑/↓ recall what has been sent to THIS server. Kept per (host, server) because the commands a
+  // console takes are the game's, not the operator's — a Minecraft `/kick` recalled into a Factorio
+  // console is noise. This browser's own record: the authoritative one is kgsm-api's audit log,
+  // which records every command with its actor, including the ones sent from somewhere else.
+  const [history, setHistory] = React.useState(() => loadHistory(server));
+  const [histAt, setHistAt] = React.useState(-1);   // -1 = the live draft, 0 = the most recent command
+  const draftRef = React.useRef("");                // what was being typed before stepping back into history
+  React.useEffect(() => {
+    setHistory(loadHistory(server)); setHistAt(-1); draftRef.current = "";
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the identity of the server, not the row object, which churns every render
+  }, [server && server.id, server && server.hostId]);
+
+  const recall = (e) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    if (!history.length) return;
+    // Already back at the live draft — ↓ is an ordinary caret key again, and must not overwrite
+    // what is being typed with a draft held from before the last edit.
+    if (e.key === "ArrowDown" && histAt === -1) return;
+    e.preventDefault();
+    if (e.key === "ArrowUp") {
+      if (histAt === -1) draftRef.current = draft;   // hold the half-typed command to come back to
+      const at = Math.min(histAt + 1, history.length - 1);
+      setHistAt(at); setDraft(history[at]);
+      return;
+    }
+    const at = histAt - 1;
+    if (at < 0) { setHistAt(-1); setDraft(draftRef.current); }
+    else { setHistAt(at); setDraft(history[at]); }
+  };
+
   const lines = React.useMemo(
     () => (live ? (liveLines || []) : [...((server && server.log) || []), ...extraLines]),
     [live, liveLines, server, extraLines]
@@ -120,6 +167,14 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
     if (!text || sending) return;
     setSending(true);
     setErr(null);
+    // Recorded on SEND, not on the 202: a command the engine refused because the server had just
+    // stopped is exactly the one worth pressing ↑ for.
+    setHistory((prev) => {
+      const next = [text, ...prev.filter(h => h !== text)].slice(0, HISTORY_MAX);
+      saveHistory(server, next);
+      return next;
+    });
+    setHistAt(-1); draftRef.current = "";
     sendConsoleInput(server, text).then(
       () => { setDraft(""); setSending(false); },   // delivered — the response streams in live
       (e2) => { setSending(false); setErr((e2 && (e2.userMessage || e2.message)) || "Couldn't send the command."); }
@@ -143,8 +198,10 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
       <form className="console-card__input" onSubmit={submit}>
         <input
           value={draft}
-          onChange={e => { setDraft(e.target.value); if (err) setErr(null); }}
+          onChange={e => { setDraft(e.target.value); setHistAt(-1); if (err) setErr(null); }}
+          onKeyDown={recall}
           placeholder="Type a console command (e.g. say hello, kick player)…"
+          title={history.length ? "↑ / ↓ recalls the commands you've sent to this server" : undefined}
           spellCheck="false"
           disabled={sending}
         />
