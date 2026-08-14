@@ -47,6 +47,9 @@ const LEAF_ICON = {
   scheduler: "calendar-clock",
   bot: "message-circle",
   api: "server-cog",
+  // Sound itself rather than a microphone or a speaker: this leaf does both directions, and a
+  // mic would name only the half it hears with.
+  speech: "audio-lines",
 };
 const leafIcon = (id) => LEAF_ICON[id] || "box";
 
@@ -60,6 +63,9 @@ const LEAF_KIND = {
   scheduler: "jobs",
   bot: "chat surface",
   api: "control plane",
+  // Both directions, because the name says only one of them: a reader seeing "Speech" would
+  // assume it talks, and the same daemon is what listens.
+  speech: "hearing & voice",
 };
 const leafKind = (id) => LEAF_KIND[id] || null;
 

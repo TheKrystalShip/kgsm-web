@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.114.2] - 2026-08-15
+
+### Added — the Speech leaf reads as itself on the Services board
+
+`kgsm-speech` joined the ecosystem and the board rendered it with the fallback: the generic cube and
+no kind pill. It now carries `audio-lines` — sound itself rather than a microphone or a speaker,
+because the leaf does both directions and a mic would name only the half it hears with — and the kind
+**hearing & voice**, for the same reason: a reader seeing "Speech" would assume it only talks.
+
+Both maps in `lib/leaves.js` are still fallback-safe, so a leaf that arrives before the frontend knows
+about it renders correctly and nameless rather than not at all.
+
 ## [Unreleased]
 
 ### Fixed — the find bar's controls are one height
