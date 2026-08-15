@@ -1,6 +1,7 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
+import { createSpokenReply, armAudio } from "./spokenReply.js";
 import { useStore } from "../lib/store.js";
 import { assistant } from "../lib/assistantClient.js";
 import { assistantSession } from "../lib/assistantSession.js";
@@ -38,6 +39,9 @@ import { useConversationStream } from "./useConversationStream.js";
 const TURN_FRAMES = new Set([
   "text.delta", "thinking.delta", "tool.start", "tool.result", "progress",
   "command.proposed", "done", "error",
+  // One sentence of the reply, spoken. Handled as a side effect rather than through the message
+  // reducer: it is audio to play, not state to render, and nothing about the transcript changes.
+  "audio.delta",
 ]);
 
 function ChatPage({
@@ -145,6 +149,18 @@ function ChatPage({
 
   const scrollRef = React.useRef(null);
   const abortRef  = React.useRef(null);
+
+  // Reading answers aloud. Off until asked: a page that starts talking is a surprise in a room with
+  // other people in it, and a browser refuses audio before a gesture anyway. Remembered per
+  // conversation, because whether you want to listen belongs to the conversation you are in.
+  const [speak, setSpeak] = React.useState(false);
+  // The browser refused to play audio at all. Shown on the toggle, which is the control that asked.
+  const [speakBlocked, setSpeakBlocked] = React.useState(false);
+  // The player for the turn now running. One at a time — a new turn stops the last one's audio, which
+  // is what makes the stop button silence it as well.
+  const spokenRef = React.useRef(null);
+  const speakRef = React.useRef(false);
+  React.useEffect(() => { speakRef.current = speak; }, [speak]);
   // Whether the in-flight turn's POST was let go because this surface came back from being frozen,
   // as opposed to the person pressing Stop. The two look identical to the fetch (both are an
   // AbortError) and mean opposite things in the transcript: one is "you stopped it", the other is
@@ -564,6 +580,11 @@ function ChatPage({
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    // One answer is read aloud at a time: a new turn silences the last one rather than talking over
+    // it. The player is opened before the request so the first frame has somewhere to land.
+    if (spokenRef.current) spokenRef.current.stop();
+    spokenRef.current = speakRef.current ? createSpokenReply() : null;
+
     // This POST is the turn's first attach. Its frames are the same ones every other surface receives,
     // so they are applied here directly and the event stream's copy of them is skipped — otherwise the
     // surface that asked for the turn would render it twice.
@@ -581,6 +602,12 @@ function ChatPage({
         setLiveTurn({ conversationId: convId, turnId: ev.turnId, state: ev.state, queued: ev.queued || [] });
         setConvos(prev => prev.map(c =>
           c.id === convId ? { ...c, messages: scaffoldLiveTurn(c.messages, ev) } : c));
+        return;
+      }
+      // Audio is played, never rendered: it belongs to no message and changes no state, so it is
+      // handled here rather than in the reducer.
+      if (ev.type === "audio.delta") {
+        if (spokenRef.current) spokenRef.current.push(ev);
         return;
       }
       if (ev.type === "turn.queue") {
@@ -601,7 +628,7 @@ function ChatPage({
       // when the turn runs. Sending them would let this browser contradict what the conversation
       // carries — and two surfaces on one conversation would then disagree about what it is set to.
       await assistant.host(assistantHost.id).turn(
-        { prompt, conversationId: convId, draftYaml },
+        { prompt, conversationId: convId, draftYaml, speak: speakRef.current || undefined },
         { onEvent: applyFrame, signal: ctrl.signal });
     } catch (e) {
       const aborted = e && e.name === "AbortError";
@@ -636,6 +663,10 @@ function ChatPage({
       setBusy(false);
       resumedRef.current = false;
       abortRef.current = null;
+      // The queue outlives the request by design — the last sentences arrive with the terminal frame —
+      // so this releases the player rather than stopping it. Stopping is what `stop` and the next turn
+      // do, because those are the moments somebody decided not to listen.
+      spokenRef.current = null;
       // Stop skipping the event stream's copy: from here the stream is this surface's only source, and
       // the next attach on this conversation is what re-establishes it.
       ownTurnRef.current = null;
@@ -707,7 +738,26 @@ function ChatPage({
   // Stop the conversation's turn, whoever started it. A call rather than an abort, because a surface
   // that is only watching holds no connection to end — and ending it must end it for everyone, which a
   // local abort could never do. Aborting our own POST as well just detaches this surface early.
+  // ⚠ Turning it ON is the user gesture a browser needs before it will play anything, so the audio
+  // context is created and resumed HERE. Armed on the frame instead it would be created seconds later
+  // with no gesture behind it, and stay suspended — silence, with nothing to say why.
+  const toggleSpeak = async () => {
+    if (speak) {
+      if (spokenRef.current) spokenRef.current.stop();
+      setSpeak(false);
+      return;
+    }
+    const ready = await armAudio();
+    setSpeak(ready);
+    // Refused: the control says so itself rather than raising a toast. A toast is for a shell handler
+    // that owns no control to render into, and this button is right here.
+    setSpeakBlocked(!ready);
+  };
+
   const stop = () => {
+    // The sound stops with the turn. A stop that left the queued sentences playing would go on reading
+    // out an answer the person just asked it to abandon.
+    if (spokenRef.current) spokenRef.current.stop();
     const hostId = assistantHost && assistantHost.id;
     const turnId = liveTurn && liveTurn.conversationId === activeId ? liveTurn.turnId : null;
     if (hostId && turnId) assistant.host(hostId).stopTurn(turnId).catch(() => {});
@@ -1294,6 +1344,24 @@ function ChatPage({
                     <Icon name="brain" size={13} />
                     <span className="chat-act-toggle__label">Thinking</span>
                     <span className="chat-act-toggle__state">{thinkOn ? "On" : "Off"}</span>
+                  </button>
+                )}
+                {assistantHost && (
+                  <button
+                    type="button"
+                    className={"chat-act-toggle chat-speak-toggle" + (speak ? " chat-speak-toggle--on" : "")}
+                    onClick={toggleSpeak}
+                    title={speakBlocked
+                      ? "This browser will not play audio on this page."
+                      : speak
+                        ? "Reading answers aloud \u2014 each sentence is spoken as it is written, so it starts before the answer is finished. Click to stop."
+                        : "Answers are silent. Turn on to have them read aloud as they are written."}
+                    aria-pressed={speak}>
+                    <Icon name={speakBlocked ? "volume-x" : speak ? "volume-2" : "volume-off"} size={13} />
+                    <span className="chat-act-toggle__label">Read aloud</span>
+                    <span className="chat-act-toggle__state">
+                      {speakBlocked ? "Unavailable" : speak ? "On" : "Off"}
+                    </span>
                   </button>
                 )}
                 {canSeeActions && (

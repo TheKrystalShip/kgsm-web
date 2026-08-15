@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.115.0] - 2026-08-15
+
+### Added — the chat can read an answer aloud as it is written
+
+A **Read aloud** toggle beside Thinking and Auto-run. With it on, a turn asks the leaf to speak, and
+each sentence arrives as its own `audio.delta` frame **while the text is still streaming** — the first
+one plays before the answer is finished, which is the whole point of doing it on the token stream
+rather than at the end.
+
+- **Off until asked, and remembered per conversation.** A page that starts talking is a surprise in a
+  room with other people in it. It is also the only shape that works: a browser refuses audio until
+  the page has been interacted with, so **turning the toggle on IS the gesture** that arms the audio
+  context. Armed on the frame instead, the context would be created seconds later with nothing behind
+  it and stay suspended — silence, with nothing to say why.
+- **Sentences play back to back, never on top of each other**, and in the order they arrived. A
+  sentence that will not decode costs itself and nothing else; the words are on screen either way.
+- **Stop silences it.** Pressing Stop, or sending another message, abandons what is queued — an answer
+  somebody just abandoned should not go on being read out.
+- **A browser that refuses says so on the toggle** rather than in a toast: the control that asked is
+  right there, and a toast is for a shell handler that owns no control to render into.
+
+Both surfaces get it — the panel's dock and the standalone assistant share `src/chat/`.
+
+`scripts/visual-harness/spoken-reply.mjs` drives the queue in a real Chromium with real WAV bytes:
+decoded, played in arrival order, never two at once, stop empties the queue, a corrupt frame is
+skipped. ⚠ It counts concurrent sources rather than timing them — headless Chromium renders audio
+through a null sink faster than realtime, so a clip's wall-clock duration proves nothing.
+
 ## [1.114.2] - 2026-08-15
 
 ### Added — the Speech leaf reads as itself on the Services board

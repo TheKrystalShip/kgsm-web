@@ -2785,6 +2785,26 @@ a.ev-search__src:hover {
   opacity: .9;
 }
 
+/* Read-aloud toggle — the same shape as the other two, in the semantic green rather than a new hue.
+   A colour of its own would have to be re-valued in every theme, including the colour-vision packs
+   whose separations are measured; `--success` is already carried by all of them, is distinct from
+   Thinking's teal and Auto-run's amber, and reads as "this is on" rather than as a warning. */
+.chat-speak-toggle--on {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--success) 55%, transparent);
+  color: var(--success-fg);
+  font-weight: 600;
+}
+
+.chat-speak-toggle--on:hover {
+  background: color-mix(in srgb, var(--success) 22%, transparent);
+  color: var(--success-fg);
+}
+
+.chat-speak-toggle--on .chat-act-toggle__state {
+  opacity: .9;
+}
+
 /* ---------- follow-up chips ---------- */
 .chat-followups {
   display: flex;
