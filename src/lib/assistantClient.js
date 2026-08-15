@@ -165,6 +165,48 @@ async function json(hostId, method, path, body, opts) {
   return payload;
 }
 
+// POST /transcribe — a recorded voice note, as raw bytes rather than JSON. Healed reactively like
+// `json`: transcribing the same audio twice returns the same words and changes nothing, so a 401 may
+// rotate and replay. The replay costs the upload again, which is the cheaper of the two failures.
+async function bytes(hostId, path, body, opts) {
+  const base = baseOf(hostId);
+  const send = async (token) => {
+    try {
+      return await fetch(base + path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          Accept: "application/json",
+          Authorization: "Bearer " + token,
+          ...originHeaders(hostId),
+        },
+        body,
+        signal: opts && opts.signal,
+      });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      throw netError();
+    }
+  };
+
+  let token = assistantSession.tokenOf(hostId);
+  if (token && lapsed(token)) token = null;
+  if (!token && assistantSession.statusOf(hostId) !== "none") token = await assistantSession.rotate(hostId);
+  if (!token) throw authError();
+
+  let res = await send(token);
+  if (res.status === 401) {
+    const rotated = await assistantSession.rotate(hostId);
+    if (!rotated) throw authError();
+    res = await send(rotated);
+  }
+
+  let payload = null;
+  try { payload = await res.json(); } catch { payload = null; }
+  if (!res.ok) throw leafError(res.status, payload);
+  return payload;
+}
+
 // POST /turn — the conversation itself. Frames stream until the terminal `done`/`error`; a
 // transport drop just ends the pump, because the text already delivered is real and we never
 // invent a `done` that did not arrive. An abort rethrows so the caller can render "stopped".
@@ -325,6 +367,14 @@ function host(hostId) {
     // Who the leaf says this bearer is: { userId, displayName, tier, canPerformActions }. Authority
     // is the LEAF's answer, re-derived from Discord per request — never read off the token here.
     me: (opts) => json(hostId, "GET", "/auth/me", null, opts),
+    // What this host's speech engine can do: `{ hear, speak }`. Asked before a microphone is offered,
+    // because a recording made on a host that cannot listen is one nobody can read. Both are the same
+    // optional leaf, and a host without it answers false to both rather than failing.
+    speech: (opts) => json(hostId, "GET", "/speech", null, opts),
+    // One voice note — 16kHz mono signed 16-bit PCM — answered with the words in it. The transcript
+    // comes BACK; it does not become a turn. Recognition is wrong often enough that sending it
+    // straight on would ask the assistant things nobody said, so the person reads it first.
+    transcribe: (pcm, opts) => bytes(hostId, "/transcribe", pcm, opts),
     conversations: (opts) => json(hostId, "GET", "/conversations", null, opts),
     conversation: (id, opts) => json(hostId, "GET", "/conversations/" + encodeURIComponent(id), null, opts),
     deleteConversation: (id) => json(hostId, "DELETE", "/conversations/" + encodeURIComponent(id)),

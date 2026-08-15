@@ -3323,6 +3323,37 @@ a.ev-search__src:hover {
   color: var(--danger);
 }
 
+/* The host is reading the recording. Quiet rather than alarming: the audio is captured and this is
+   the ordinary short wait before the words appear. */
+.voice-bar--working {
+  border-color: var(--border-subtle);
+  box-shadow: none;
+  color: var(--fg-3);
+}
+
+/* Offered only when a recording is still held after a failed transcription, so it is a real second
+   attempt at the same audio rather than an invitation to say it all again. */
+.voice-bar__retry {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--fg-1);
+  background: var(--surface-2);
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+
+.voice-bar__retry:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
 .voice-bar__msg {
   flex: 1;
   font-size: 13px;

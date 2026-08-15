@@ -156,6 +156,23 @@ function ChatPage({
   const [speak, setSpeak] = React.useState(false);
   // The browser refused to play audio at all. Shown on the toggle, which is the control that asked.
   const [speakBlocked, setSpeakBlocked] = React.useState(false);
+  // What this host's speech engine can do — `{ hear, speak }`, or null until asked. `hear` is what
+  // decides who transcribes a voice note, so it is read before the microphone is offered rather than
+  // discovered by a recording nobody can read.
+  //
+  // A host that cannot be asked reads as neither. That is the honest answer and also the safe one:
+  // the microphone falls back to the browser's own recogniser, which is exactly what a host with no
+  // speech leaf gets, so an unreachable leaf degrades to the same place as an absent one.
+  const [hostSpeech, setHostSpeech] = React.useState(null);
+  React.useEffect(() => {
+    if (!assistantHost || !assistantUsable || !assistantAuthed) { setHostSpeech(null); return; }
+    let live = true;
+    assistant.host(assistantHost.id).speech()
+      .then((s) => { if (live) setHostSpeech(s && typeof s === "object" ? s : null); })
+      .catch(() => { if (live) setHostSpeech(null); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
+  }, [assistantHost && assistantHost.id, assistantUsable, assistantAuthed]);
   // The player for the turn now running. One at a time — a new turn stops the last one's audio, which
   // is what makes the stop button silence it as well.
   const spokenRef = React.useRef(null);
@@ -848,9 +865,27 @@ function ChatPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
   }, [assistantHost && assistantHost.id, activeId]);
 
-  const voice = useVoiceRecorder();
+  // The host reads voice notes whenever it can — the same engine, primed with the same server names,
+  // that hears a request spoken into a Discord channel. Passing no transcriber is what leaves the
+  // browser's own recogniser in charge, and that is only the case on a host without the speech leaf.
+  //
+  // Held in a ref-stable callback per host so the recorder is not rebuilt on every render.
+  const transcribeHere = React.useMemo(() => {
+    if (!hostSpeech || !hostSpeech.hear || !assistantHost) return undefined;
+    const hostId = assistantHost.id;
+    return async (pcm) => {
+      const answer = await assistant.host(hostId).transcribe(pcm);
+      return (answer && answer.text) || "";
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived each render
+  }, [hostSpeech && hostSpeech.hear, assistantHost && assistantHost.id]);
+
+  const voice = useVoiceRecorder({ transcribe: transcribeHere });
   const sendVoice = async () => {
     const payload = await voice.finish();
+    // Null is a cancelled recording or one whose transcription failed. The failure leaves the bar
+    // standing with its reason and the audio still held, so there is nothing to send and nothing to
+    // report here — the composer is already saying it.
     if (!payload) return;
     const { id, duration, peaks, transcript } = payload;
     send(transcript || "", { id, duration, peaks });

@@ -139,6 +139,15 @@ icons are what hold them apart.
   `Toolbar`.
 - **Metrics / charts:** `KPI`, `StatTiles`, `TimeSeriesChart`, `DashLayout`.
 - **Editor / logs:** `CodeEditor` (Monaco), `LogConsole`, `VoiceNote`.
+
+⚠ **`VoiceNote`: the host transcribes, whenever it can.** `useVoiceRecorder({ transcribe })` takes the
+host's recogniser, and given one it is the only transcriber used — the browser's own
+`SpeechRecognition` is the fallback for a host with no speech leaf. Two recognisers is two spellings
+of every server name, and Chrome's ships the audio to Google, which is a surprising thing for a
+self-hosted panel to do with somebody's voice. The transcript comes back to the composer rather than
+becoming a turn: recognition is wrong often enough that sending it onward unseen would ask the
+assistant things nobody said. A failed transcription **keeps the recording** and the send button
+retries it.
 - **Primitives / helpers:** `Modal`, `Select`, `Icon`, `settings-primitives.jsx`,
   `host-helpers.jsx`.
 

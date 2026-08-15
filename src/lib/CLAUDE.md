@@ -44,6 +44,10 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   Auth is reactive like the node seam, except the two non-replayable calls — a turn spends
   the user's prompt and a confirm burns a single-use token, so a lapsed access token is
   rotated **before** the call rather than healed from a 401.
+  **Speech is here too**: `speech()` asks what the host's engine can do (`{ hear, speak }`) and
+  `transcribe(pcm)` posts one voice note as raw bytes. Ask before offering a microphone — a recording
+  made on a host that cannot listen is one nobody can read — and note the transcript comes **back**
+  to the composer rather than becoming a turn.
   **No fallback:** a host whose capability names no public origin throws `ENOROUTE`. Routing
   the call through kgsm-api's relay instead would restore exactly the coupling this seam
   removes, and the relay is peer transport for another node's assistant.
@@ -144,6 +148,14 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   and treats `null`/`""`/an unparseable date as **missing**: pinned last in BOTH
   directions, never coerced to `0`. **A sort accessor returns the raw value —
   never `x || 0`, and never the formatted text the cell renders.**
+- `voicePcm.js` — a recorded voice note → the samples the speech leaf reads (16kHz mono signed
+  16-bit PCM), via the decoder the browser already has for what it just recorded. **Imports
+  nothing**, deliberately: both surfaces record notes and the standalone may not reach this layer's
+  networked half, so a shared module that pulled in `apiClient` would fail `npm run check:assistant`.
+  The rate is the leaf's contract and travels in no header — resampling to anything else transcribes
+  at the wrong speed rather than failing. Falls back to arithmetic here when a browser refuses an
+  `OfflineAudioContext` at 16kHz. Proven in Chromium against a live host by
+  `scripts/visual-harness/voice-note.mjs`; jsdom has no Web Audio, so the smoke cannot reach it.
 - `registerSW.js` — production-only PWA service-worker registration.
 - `push.js` — the browser half of Web Push: capability probe, subscribe/unsubscribe, device list.
   `support()` distinguishes **`needs-install`** from `unsupported`, because on iOS push works only

@@ -1,21 +1,35 @@
 import React from "react";
 import { Icon } from "./Icon.jsx";
+import { toPcm16k, MAX_SECONDS } from "../lib/voicePcm.js";
 
 // VoiceNote — voice-message capture + playback for the assistant composer.
 //
 // The Krystal assistant understands speech, so the composer lets you hold a
 // quick voice note instead of typing. Three pieces live here:
 //
-//   useVoiceRecorder()  — getUserMedia → MediaRecorder for the audio blob,
-//                         an AnalyserNode sampled on a timer for a *real*
-//                         waveform, and the Web Speech API (when present) for
-//                         live transcription so the text LLM actually "hears"
-//                         the note. Degrades gracefully when any piece is
-//                         missing (no mic permission, no SpeechRecognition).
+//   useVoiceRecorder()  — getUserMedia → MediaRecorder for the audio blob, an
+//                         AnalyserNode sampled on a timer for a *real*
+//                         waveform, and whatever can turn the recording into
+//                         words. Degrades gracefully when any piece is missing
+//                         (no mic permission, no recogniser at all).
 //   VoiceComposerBar    — the in-composer recording UI: pulsing dot, timer,
 //                         live waveform, rolling transcript, cancel / send.
 //   VoiceNoteBubble     — playback in the thread: play/scrub waveform + the
 //                         transcript the assistant replied to.
+//
+// ⚠ WHO TRANSCRIBES: the host, whenever it can. A `transcribe` function passed
+// to the hook means this host runs kgsm-speech, and the recording is sent there
+// — the same whisper, primed with the same server names, that hears a request
+// spoken into a Discord channel. That is what makes "restart factorio" land the
+// same way in a browser as it does in a voice channel, and it is why the
+// browser's own SpeechRecognition is used ONLY as the fallback for a host with
+// no speech leaf: two recognisers is two spellings of every server name, and
+// Chrome's sends the audio to Google, which is a surprising thing for a
+// self-hosted panel to do with somebody's voice.
+//
+// The host's transcript comes BACK to the composer rather than going straight
+// to the assistant. Recognition is wrong often enough that sending it onward
+// unseen would ask the assistant things nobody said.
 //
 // Audio blobs are session-only (object URLs in VOICE_AUDIO, keyed by id) — we
 // deliberately don't base64 them into localStorage, which would blow the quota.
@@ -44,8 +58,11 @@ function fmtClock(sec) {
 }
 
 // ---------- recorder hook ----------
-function useVoiceRecorder() {
-  const [phase, setPhase]       = React.useState("idle"); // idle | requesting | recording | error
+// `transcribe` is the host's recogniser: `(ArrayBuffer of 16kHz mono s16) → text`. Given one, it is
+// the only transcriber used. Given none, the browser's own is tried and the note may still be sent
+// with no words at all.
+function useVoiceRecorder({ transcribe } = {}) {
+  const [phase, setPhase]       = React.useState("idle"); // idle | requesting | recording | transcribing | error
   const [seconds, setSeconds]   = React.useState(0);
   const [levels, setLevels]     = React.useState([]);     // rolling RMS history
   const [transcript, setTranscript] = React.useState(""); // finalized words
@@ -53,6 +70,14 @@ function useVoiceRecorder() {
   const [error, setError]       = React.useState("");
   const [supported] = React.useState(() =>
     !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder));
+
+  // The recording that has stopped but not yet been transcribed. Held so a failed transcription can be
+  // retried from the same button — the audio is still good, and asking somebody to say it again
+  // because the network blinked is throwing away the part that was hard to produce.
+  const heldRef = React.useRef(null);
+  // Read inside callbacks that must not be rebuilt when the prop identity changes.
+  const transcribeRef = React.useRef(transcribe);
+  React.useEffect(() => { transcribeRef.current = transcribe; }, [transcribe]);
 
   const streamRef   = React.useRef(null);
   const recRef      = React.useRef(null);
@@ -134,8 +159,12 @@ function useVoiceRecorder() {
       rafRef.current = requestAnimationFrame(loop);
     } catch { /* waveform is non-essential */ }
 
-    // Web Speech API → live transcript (best-effort)
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // The browser's own recogniser, and ONLY when the host has none. On a host running kgsm-speech
+    // this stays off: the recording is going to that engine, and a second transcriber running beside
+    // it spells this host's server names its own way and ships the audio to a third party to do it.
+    const SR = transcribeRef.current
+      ? null
+      : (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (SR) {
       try {
         const recog = new SR();
@@ -165,11 +194,52 @@ function useVoiceRecorder() {
 
     startedRef.current = Date.now();
     setPhase("recording");
-    tickRef.current = setInterval(() => setSeconds((Date.now() - startedRef.current) / 1000), 200);
+    tickRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startedRef.current) / 1000;
+      setSeconds(elapsed);
+      // Stopped at the ceiling rather than refused after the fact. The leaf will not read more than
+      // this, and a note that runs past it is one somebody spoke in full and is then told to redo.
+      if (elapsed >= MAX_SECONDS && recRef.current && recRef.current.state === "recording") {
+        try { recRef.current.stop(); } catch { /* already stopping */ }
+      }
+    }, 200);
   }, [supported]);
 
-  // Finalize → resolves to a voice payload, or null if cancelled / empty.
+  // Turn a held recording into words, and clear the composer once it has them.
+  //
+  // A failure leaves the recording HELD and the bar showing why: the audio is still good, and the
+  // send button becomes a retry. Losing somebody's sentence because a request failed is the one
+  // outcome worth going to trouble to avoid.
+  const settle = React.useCallback(async (held, resolve) => {
+    const send = transcribeRef.current;
+    if (!send) {
+      heldRef.current = null;
+      setPhase("idle"); setLevels([]); setInterim(""); setTranscript("");
+      resolve(held);
+      return;
+    }
+
+    setPhase("transcribing");
+    setError("");
+    try {
+      const pcm = await toPcm16k(held.blob);
+      const text = await send(pcm);
+      heldRef.current = null;
+      setPhase("idle"); setLevels([]); setInterim(""); setTranscript("");
+      resolve({ ...held, transcript: (text || "").trim() });
+    } catch (e) {
+      heldRef.current = held;
+      setError((e && (e.userMessage || e.message)) || "That recording could not be transcribed.");
+      setPhase("error");
+      resolve(null);
+    }
+  }, []);
+
+  // Finalize → resolves to a voice payload, or null if cancelled, empty, or not transcribed.
+  // Called again after a failure, it retries the recording it is still holding.
   const finish = React.useCallback(() => new Promise((resolve) => {
+    if (heldRef.current) { settle(heldRef.current, resolve); return; }
+
     const rec = recRef.current;
     const dur = (Date.now() - startedRef.current) / 1000;
     const peaks = resamplePeaks(levelsRef.current, 40);
@@ -181,26 +251,34 @@ function useVoiceRecorder() {
       const id = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       let url = "";
       try { url = URL.createObjectURL(blob); VOICE_AUDIO.set(id, { url, mime }); } catch {}
+      // The stream and the analyser go now; the blob is already captured and the transcription that
+      // may follow needs neither. Holding a microphone open across a network call is what makes a
+      // browser keep showing the recording indicator after somebody has stopped talking.
       cleanup();
-      setPhase("idle"); setLevels([]); setInterim(""); setTranscript("");
-      resolve({ id, duration: Math.max(0.4, dur), peaks, transcript: txt });
+      settle({ id, duration: Math.max(0.4, dur), peaks, transcript: txt, blob }, resolve);
     };
     try { rec.stop(); } catch { cleanup(); setPhase("idle"); resolve(null); }
-  }), [cleanup]);
+  }), [cleanup, settle]);
 
   const cancel = React.useCallback(() => {
     const rec = recRef.current;
     if (rec && rec.state !== "inactive") { rec.onstop = null; try { rec.stop(); } catch {} }
+    heldRef.current = null;
     cleanup();
-    setPhase("idle"); setLevels([]); setInterim(""); setTranscript(""); setSeconds(0);
+    setPhase("idle"); setLevels([]); setInterim(""); setTranscript(""); setSeconds(0); setError("");
   }, [cleanup]);
 
-  return { phase, seconds, levels, transcript, interim, error, supported, start, finish, cancel };
+  return {
+    phase, seconds, levels, transcript, interim, error, supported, start, finish, cancel,
+    // A recording that failed to transcribe is still here, so the send button says "Try again"
+    // rather than pretending there is nothing to send.
+    held: !!heldRef.current,
+  };
 }
 
 // ---------- composer recording bar ----------
 function VoiceComposerBar({ rec, onSend, onCancel }) {
-  const { phase, seconds, levels, transcript, interim, error } = rec;
+  const { phase, seconds, levels, transcript, interim, error, held } = rec;
   const live = (transcript + " " + interim).trim();
 
   if (phase === "error") {
@@ -208,7 +286,27 @@ function VoiceComposerBar({ rec, onSend, onCancel }) {
       <div className="voice-bar voice-bar--error">
         <Icon name="mic-off" size={16} />
         <span className="voice-bar__msg">{error || "Couldn't start recording."}</span>
-        <button className="voice-bar__x" onClick={onCancel} title="Dismiss"><Icon name="x" size={15} /></button>
+        {/* A recording that failed to transcribe is still here, so the way out is to try again —
+            not to say the whole thing over because a request failed. */}
+        {held && (
+          <button className="voice-bar__retry" onClick={onSend} title="Try transcribing again">
+            <Icon name="rotate-ccw" size={14} /> Try again
+          </button>
+        )}
+        <button className="voice-bar__x" onClick={onCancel}
+          title={held ? "Discard this recording" : "Dismiss"}><Icon name="x" size={15} /></button>
+      </div>
+    );
+  }
+
+  // The recording has stopped and the host is reading it. Nothing here is cancellable by design: the
+  // audio is captured and the pass is short, so an escape hatch would only ever discard a transcript
+  // that was about to arrive.
+  if (phase === "transcribing") {
+    return (
+      <div className="voice-bar voice-bar--working">
+        <Icon name="audio-lines" size={16} />
+        <span className="voice-bar__msg">Transcribing your note…</span>
       </div>
     );
   }

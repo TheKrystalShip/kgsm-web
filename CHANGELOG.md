@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.116.0] - 2026-08-15
+
+### Added — the host reads your voice notes
+
+Both surfaces have recorded voice notes for a while; what turned one into words was the browser's own
+`SpeechRecognition`, which exists in Chrome, sends the audio to Google to do it, and has never heard
+of a server called `factorio`. Now the recording goes to the host: the same whisper, primed with the
+same server names, that hears a request spoken into a Discord channel — so "restart factorio" lands
+the same way in a browser as it does in a voice channel.
+
+- **`src/lib/voicePcm.js`** converts the recording to what the leaf reads (16kHz mono signed 16-bit
+  PCM) using the decoder the browser already has for what it just recorded. It imports nothing, so
+  both surfaces share it without the standalone reaching the panel's data layer.
+- **The browser's recogniser is now the fallback, not the default** — used only on a host with no
+  speech leaf, so nothing regresses there. Two recognisers is two spellings of every server name.
+- **A failed transcription keeps the recording** and turns the send button into *Try again*. Losing
+  somebody's sentence because a request failed is the one outcome worth going to trouble to avoid.
+- **Recording stops at three minutes**, the ceiling the leaf refuses above — stopped at the line
+  rather than refused after somebody has said the whole thing.
+- The transcript lands in the composer for the person to read. It does not become a turn on its own.
+
+Verified in Chromium against the live host (`scripts/visual-harness/voice-note.mjs`, 10/10): a phrase
+synthesised by the host, recorded through `MediaRecorder` as webm/opus, converted here and read back
+by the host as *"Restart the factorio server please."* — server name intact.
+
 ## [1.115.0] - 2026-08-15
 
 ### Added — the chat can read an answer aloud as it is written
