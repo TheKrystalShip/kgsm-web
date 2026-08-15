@@ -247,6 +247,14 @@ function fetchLeafBotStatus(hostId) {
   return fetchLeafOverview(hostId, "bot", "status");
 }
 
+// The speech engine's own account of itself. Relayed verbatim, and `resting` is the field the whole
+// payload turns on: the leaf idle-exits to give back the ~1.6GB its models cost, and the api will not
+// connect to a resting daemon because connecting is what starts one — so the live half is absent by
+// design there, and reducing that to "unavailable" would report a working leaf as broken.
+function fetchLeafSpeechStatus(hostId) {
+  return fetchLeafOverview(hostId, "speech", "status");
+}
+
 function applyLeafConfig(hostId, leaf, body) {
   if (!hostId || !leaf) return Promise.reject(new Error("applyLeafConfig: hostId required"));
   return api.host(hostId).put("/hosts/" + hostId + "/services/" + leaf + "/config", body || {}).then(adaptLeafConfigApply);
@@ -257,4 +265,5 @@ export {
   subscribeHostLogs, subscribeLeafLogs, subscribeHostServices, setLeafProvisioned,
   fetchLeafConfig, fetchLeafCommands, applyLeafConfig, fetchLeafMetricsHistory,
   fetchLeafSchedules, fetchLeafSupervision, fetchLeafMonitorStats, fetchLeafBotStatus,
+  fetchLeafSpeechStatus,
 };

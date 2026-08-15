@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.117.0] - 2026-08-15
+
+### Added — the speech leaf has an Overview
+
+`pages/leaf/SpeechOverview.jsx`, registered in `LeafPage`'s `LEAF_OVERVIEW`. Until now this leaf fell
+through to the generic body, which re-renders the config descriptor — everything it said was already
+on the Settings tab.
+
+It reads the engine's own measurements: whether the models are loaded, which runtime each half
+ACTUALLY opened on, the voice it is speaking in beside the one configured, when the models unload, what
+is attached to it, and per-half tallies of what it has heard and said — passes, seconds of audio, mean
+and p95 durations, and how many seconds of audio it handles per second of work.
+
+Three engine states are rendered as three states, not two, because they are three different answers to
+"why is nothing speaking": **resting** (no process — the leaf idle-exits to give back ~1.6GB, and the
+api deliberately does not connect, because connecting is what would start it), **idle** (running, models
+not loaded, so the next request pays a few seconds), and **loaded**. Resting still shows what can be
+known without asking: the model files measured on disk, the configured voice, and the idle window.
+
+Built from the existing kit — `KPI`, `BriefCard`, `CardTable`, `LeafFacts` and `useLeafResource` — so it
+carries no component of its own. It deliberately does not poll: `unloadsAt` is an absolute time that a
+local clock tick renders against, and polling this leaf is the one thing that would keep it resident.
+
 ## [1.116.0] - 2026-08-15
 
 ### Added — the host reads your voice notes

@@ -33,6 +33,7 @@ import { BotOverview } from "./BotOverview.jsx";
 import { FirewallOverview } from "./FirewallOverview.jsx";
 import { MonitorOverview } from "./MonitorOverview.jsx";
 import { SchedulerOverview } from "./SchedulerOverview.jsx";
+import { SpeechOverview } from "./SpeechOverview.jsx";
 import { WatchdogOverview } from "./WatchdogOverview.jsx";
 import { LeafActivity } from "./LeafActivity.jsx";
 import { LeafCommands } from "./LeafCommands.jsx";
@@ -68,6 +69,7 @@ const LEAF_OVERVIEW = {
   monitor: (p) => <MonitorOverview {...p} />,
   bot: (p) => <BotOverview {...p} />,
   scheduler: (p) => <SchedulerOverview {...p} />,
+  speech: (p) => <SpeechOverview {...p} />,
   watchdog: (p) => <WatchdogOverview {...p} />,
 };
 
