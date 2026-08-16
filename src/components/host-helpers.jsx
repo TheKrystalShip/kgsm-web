@@ -9,7 +9,7 @@ import { statusTone } from "../lib/formatting.js";
 // host-helpers.jsx — shared host-related UI components extracted from page files.
 //
 // These were previously co-located in DiagnosticsPage.jsx, HostAccess.jsx, and
-// LoginPage.jsx. They are reusable components consumed across pages and components.
+// the sign-in screen. They are reusable components consumed across pages and components.
 
 // ---------- Fan-out reach disclosure ----------
 
@@ -107,11 +107,11 @@ function NodeAccessNotice({ onReauth, onManage }) {
             <span className="node-access__text">
               {denied
                 ? <><b>{name}</b> doesn{"’"}t grant your Discord role access. Its servers aren{"’"}t shown.</>
-                : <><b>{name}</b> needs your sign-in re-confirmed. Its servers aren{"’"}t shown until it is.</>}
+                : <><b>{name}</b> ended your session. Its servers aren{"’"}t shown until you sign in again.</>}
             </span>
             {denied
               ? <button className="node-access__act" onClick={() => onManage && onManage({ id, name })}>Details</button>
-              : <button className="node-access__act" onClick={() => onReauth && onReauth({ id, name })}>Re-authorize</button>}
+              : <button className="node-access__act" onClick={() => onReauth && onReauth({ id, name })}>Sign in again</button>}
           </div>
         );
       })}

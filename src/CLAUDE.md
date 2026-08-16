@@ -58,10 +58,10 @@ an upward edge (a store importing a page, a component reaching into a page).
 
 ## The three boundaries the refactor drew — keep them
 
-1. **`App.jsx` is the shell, not a page host.** It owns the auth gate
-   (`!CONNECTIONS.length` → connect screen, `!user` → login), the layout frame
-   (sidebar / `<main>` / assistant dock / FAB), the global modals (reauth,
-   install, first-run), and cross-cutting handlers (`handleAction`,
+1. **`App.jsx` is the chooser and the shell, not a page host.** It picks between
+   `AuthGate` (no identity, or one holding nothing) and `AppInner`, and owns the layout frame
+   (sidebar / `<main>` / assistant dock / FAB), the global modals (install,
+   first-run), and cross-cutting handlers (`handleAction`,
    `confirmInstall`, logout). It does **not** contain page bodies — those were
    extracted. Resist re-inlining a page into `App.jsx`.
 

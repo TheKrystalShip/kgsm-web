@@ -120,16 +120,29 @@ import { hostsStore } from "./stores.js";
       ? { byHost: { ...s.byHost, [id]: { ...s.byHost[id], reauthDue: due } } }
       : s));
   }
-  // Called after every record write: start the countdown on entering `expired`,
-  // cancel it (and drop the flag) on leaving. Writes through store.setState
-  // directly — routing it back through setRec would recurse.
+  // Called after every record write: start the countdown on entering `expired`, and stop
+  // it only when the session actually comes back.
+  //
+  // ⚠ `bootstrapping` deliberately does NOT stop it. An attempt in flight is not a
+  // recovery — and every retry passes through that status on its way back to `expired`,
+  // so treating it as one restarts the countdown from zero each time. A revoked session
+  // is retried by the SSE stream's own reconnect backoff, which tops out at 12s and never
+  // gives up, so the 30s never elapsed and a session that was dead for good stayed
+  // silently "expired" forever while the panel showed stale data behind a connectivity
+  // banner. What is being measured is how long since this session last WORKED.
+  //
+  // Writes through store.setState directly — routing it back through setRec would recurse.
   function syncReauthSurfacing(id) {
-    if (statusOf(id) !== "expired") { clearSurfaceTimer(id); setReauthDue(id, false); return; }
+    const status = statusOf(id);
+    if (status === "bootstrapping") return;           // an attempt, not an outcome
+    if (status !== "expired") { clearSurfaceTimer(id); setReauthDue(id, false); return; }
     const rec = getRec(id);
     if (rec.reauthDue || surfaceTimers[id]) return;   // already surfaced, or already counting
     surfaceTimers[id] = setTimeout(() => {
       delete surfaceTimers[id];
-      if (statusOf(id) !== "expired") return;         // healed while we waited
+      // Only a session that came back cancels this. Still expired, or mid-retry having
+      // been expired, both mean it never healed.
+      if (statusOf(id) === "live" || statusOf(id) === "denied") return;
       setReauthDue(id, true);
     }, REAUTH_SURFACE_MS);
   }
@@ -141,8 +154,14 @@ import { hostsStore } from "./stores.js";
       if (!r || (r.status !== "live" && r.status !== "denied")) { sessionStorage.removeItem(TOKEN_PREFIX + id); return; }
       // Persist only what a tab-reload needs to resume without a re-bounce. No exp
       // field — the token carries its own; a shadow copy is the drift footgun.
+      //
+      // `account` rides along because a `none` tier is two facts and only this one
+      // separates them: waiting on an admin, or unknown on this host. Dropping it meant a
+      // reload resumed with it undefined, and the panel told somebody who was waiting
+      // that no account existed for them — opposite advice, from the same tier.
       sessionStorage.setItem(TOKEN_PREFIX + id, JSON.stringify({
         status: r.status, tier: r.tier || null, token: r.token || null,
+        account: r.account || null,
       }));
     } catch {}
   }
@@ -375,7 +394,7 @@ import { hostsStore } from "./stores.js";
     return authorize(id);   // not live yet → the ordinary bootstrap/rotate path
   }
 
-  // ---- reauthorize (interactive, gesture-bound — from HostReauthModal) ----
+  // ---- reauthorize (re-read /me for one host, on demand) ----
   // The user clicked "Re-authorize". Re-run identity resolution; an auth-enabled host
   // that still 401s drives the UI back to the Discord OAuth bounce.
   function reauthorize(id) { return bootstrap(id); }

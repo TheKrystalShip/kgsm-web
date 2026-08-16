@@ -11,19 +11,17 @@ import { toast } from "./lib/toasts.js";
 import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
-import { CONNECTIONS } from "./lib/config.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
 import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { commandServer, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
-import { HostReauthModal } from "./pages/HostReauth.jsx";
-import { LoginPage } from "./pages/LoginPage.jsx";
-import { AwaitingApprovalPage } from "./pages/AwaitingApprovalPage.jsx";
+import { AuthGate } from "./components/AuthGate.jsx";
+import { readPendingSession } from "./lib/authFlow.js";
 
 // Extracted modules
 import { readStoredUser, writeStoredUser } from "./lib/authStorage.js";
@@ -37,9 +35,16 @@ import { AppRouter } from "./components/AppRouter.jsx";
 // ChatPage is lazy-loaded for both the dock and the full-screen modal.
 const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 
-// App — top-level shell. Auth gate + routing.
-// Wraps the inner app in AssistantDockProvider so dock state is available
-// via useAssistantDock() throughout the tree.
+// App — the chooser: the way in, or the app.
+//
+// Wraps the inner app in AssistantDockProvider so dock state is available via
+// useAssistantDock() throughout the tree.
+
+// Somebody signed in and holding nothing. Read straight from storage rather than from a
+// store, because it is a fact about THIS TAB that has to be true on the first render —
+// before any hook, since deciding it later would mean mounting the shell for somebody
+// every one of its screens would refuse.
+const pendingApproval = () => !!readPendingSession();
 
 function App() {
   const [user, setUser] = React.useState(() => readStoredUser());
@@ -51,6 +56,20 @@ function App() {
   const setRoute = React.useCallback((r) => {
     setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
   }, []);
+
+  // Re-read the stored identity. The gate calls this after every transition it makes,
+  // instead of the full page reload the app used to do on each of them — which is only
+  // possible because the shell is no longer mounted behind the gate, so there are no
+  // hooks below a flipping condition to trip React's rules.
+  const refreshUser = React.useCallback(() => setUser(readStoredUser()), []);
+
+  // Everything in front of the app: which node, which door, and the wait for approval.
+  // AppInner is not mounted while this is on screen, so none of the shell's hooks —
+  // and none of the data layer they drive — runs for somebody who has not signed in.
+  if (!user || pendingApproval()) {
+    return <AuthGate user={user} onUser={refreshUser} />;
+  }
+
   return (
     <AssistantDockProvider hosts={hosts} setRoute={setRoute}>
       <AppInner user={user} setUser={setUser} route={route} setRoute={setRoute} />
@@ -113,15 +132,15 @@ function AppInner({ user, setUser, route, setRoute }) {
   });
   const [landingResolved, setLandingResolved] = React.useState(false);
 
-  // The data layer runs only for somebody who is signed in. It used to start at module
-  // load, which meant a browser sitting on the sign-in screen hydrating four stores and
-  // dialling one SSE stream per connection on behalf of nobody — every call 401ing, every
-  // stream backing off and retrying against a host that had not been chosen yet.
+  // The data layer runs exactly as long as the shell is mounted, which is exactly as long
+  // as there is somebody signed in to run it for. It used to start at module load, so a
+  // browser sitting on the sign-in screen hydrated four stores and dialled one SSE stream
+  // per connection on behalf of nobody — every call 401ing, every stream backing off
+  // against a host that had not been chosen yet.
   React.useEffect(() => {
-    if (!user) return undefined;
     startDataLayer();
-    return undefined;
-  }, [user]);
+    return () => stopDataLayer();
+  }, []);
 
   useRouteSync(route, setRoute, landingResolved);
 
@@ -144,11 +163,23 @@ function AppInner({ user, setUser, route, setRoute }) {
     connectionStore.setState(s => ({ ...s, retrying: true, status: s.everLoaded ? s.status : "connecting" }));
     return api.fanOut("/servers").catch(() => {});
   }, []);
-  // Only once there is somebody to probe on behalf of. This drives the cold-start banner,
-  // which is a shell concern — before sign-in it would just be a 401 teaching
-  // connectionStore that the host is down.
-  React.useEffect(() => { if (user) retryConnection(); }, [user, retryConnection]);
-  const [reauthHostId, setReauthHostId] = React.useState(null);
+  React.useEffect(() => { retryConnection(); }, [retryConnection]);
+  // An action that came back 401 after the seam already replayed it means that host's
+  // session is genuinely gone rather than merely lapsed. Marking it expired is all this
+  // does: the seam's 30-second grace then decides whether it healed, and if it did not,
+  // the effect below drops the identity and AuthGate takes over. Reacting harder here
+  // would log somebody out over one unlucky request.
+  const noteAuthFailure = React.useCallback((hostId) => {
+    if (hostId) sessionStore.expire(hostId);
+  }, []);
+
+  // "Sign in again" on the per-node notice, and the end of a session that could not be
+  // renewed: both land on the node's sign-in, because that is the only thing that fixes
+  // either of them.
+  const signInAgain = React.useCallback(() => {
+    writeStoredUser(null);
+    setUser(null);
+  }, [setUser]);
 
   React.useEffect(() => {
     if (landingResolved) return;
@@ -159,30 +190,24 @@ function AppInner({ user, setUser, route, setRoute }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the async gate
   }, [authzReady, landingResolved]);
 
-  // Auto-logout: when hosts finished loading (or auth-blocked) and every known
-  // session is unrecoverable, the user can't proceed — clear the stale credential
-  // so the auth gate (!user) renders LoginPage. A lapsed session counts only once
-  // it's `reauthDue` (the seam's silent rotation didn't heal it) — logging someone
-  // out over the 15-minute token renewal would be the same flicker, with teeth.
+  // A session that ran out and could not be renewed sends somebody back to that node's
+  // sign-in. `reauthDue` rather than raw `expired` is what makes this survivable: the
+  // access token lapses every ~15 minutes by design and the seam rotates it silently, so
+  // reacting to the lapse itself would throw everybody out four times an hour. The seam
+  // only surfaces one it failed to heal, 30 seconds later.
+  //
+  // Dropping the stored identity is the whole mechanism — App re-renders, sees no user,
+  // and shows AuthGate, which lands on the node this browser last used. There is no
+  // re-authorize modal any more: the one that existed could not re-authenticate (it
+  // waited 650ms and re-read /me with the token that had already failed), and the honest
+  // answer to a dead session is the door.
   React.useEffect(() => {
-    if (!hostsLoaded || hosts.length > 0) return;
     const sessions = Object.values(sessionsByHost);
     if (!sessions.length) return;
     if (!sessions.every(s => s && (s.reauthDue || s.status === "denied"))) return;
     writeStoredUser(null);
     setUser(null);
-  }, [hostsLoaded, hosts, sessionsByHost, setUser]);
-
-  // Approval happens elsewhere — on another admin's screen, minutes or days from now. This is
-  // how somebody finds out it happened without being told to reload: re-run each host's /me,
-  // which is the same read that decided they hold nothing.
-  const [recheckingAccess, setRecheckingAccess] = React.useState(false);
-  const recheckAccess = React.useCallback(() => {
-    setRecheckingAccess(true);
-    const ids = CONNECTIONS.map(c => c && c.id).filter(Boolean);
-    Promise.all(ids.map(id => sessionStore.bootstrap(id).catch(() => {})))
-      .then(() => setRecheckingAccess(false), () => setRecheckingAccess(false));
-  }, []);
+  }, [sessionsByHost, setUser]);
 
   const activeServer = route.kind === "server"
     ? servers.find(s => s.id === route.id) || null
@@ -198,7 +223,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       const prevStatus = s.status;
       serversStore.patch(s.id, { status: "starting" });
       commandServer(s, action).catch(err => {
-        if (err && err.code === 401) setReauthHostId(s.hostId);
+        if (err && err.code === 401) noteAuthFailure(s.hostId);
         // A 401 is already answered by the reauth modal; anything else has a
         // reason the caller can act on (a port clash, a command already in
         // flight) and used to die here silently.
@@ -215,14 +240,14 @@ function AppInner({ user, setUser, route, setRoute }) {
       // and drop it again if the command is refused, since then nothing is running.
       serversStore.patch(s.id, { job: { verb: action, state: "running" } });
       commandServer(s, action).catch(err => {
-        if (err && err.code === 401) setReauthHostId(s.hostId);
+        if (err && err.code === 401) noteAuthFailure(s.hostId);
         else toast.fromError(err, "Couldn't " + action + " " + (s.name || s.id));
         serversStore.patch(s.id, { job: null });
       });
       return;
     }
     commandServer(s, action).catch(err => {
-      if (err && err.code === 401) setReauthHostId(s.hostId);
+      if (err && err.code === 401) noteAuthFailure(s.hostId);
       else toast.fromError(err, "Couldn't " + action + " " + (s.name || s.id));
     });
   };
@@ -245,7 +270,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       setInstalling(null);
       setRoute({ kind: "servers" });
     }, err => {
-      if (err && err.code === 401) setReauthHostId(cfg.hostId);
+      if (err && err.code === 401) noteAuthFailure(cfg.hostId);
       // The modal is left open on purpose — the config is still on screen and
       // the failure is usually something to change and retry.
       else toast.fromError(err, "Couldn't install " + ((cfg.game && cfg.game.name) || "the server"));
@@ -260,30 +285,8 @@ function AppInner({ user, setUser, route, setRoute }) {
   // --- Render ---
   useAlerts();
 
-  if (!CONNECTIONS.length) {
-    return <AddHostPage firstRun />;
-  }
-  if (!user) {
-    return <LoginPage />;
-  }
-
-  // Signed in and holding nothing, anywhere. Every screen past here would be an empty roster
-  // and a wall of 403s, so the panel says the one true thing instead — and says WHICH true
-  // thing, since "waiting for an admin" and "this host has no account for you" are the same
-  // `none` tier and opposite advice. Read off the sessions rather than the host list, because
-  // GET /hosts is itself gated: a tierless caller's host list is empty, and treating that as
-  // "no hosts configured" would send them to the add-a-host screen.
-  const liveSessions = CONNECTIONS
-    .map(c => (c && c.id ? sessionsByHost[c.id] : null))
-    .filter(s => s && s.status === "live");
-  if (liveSessions.length > 0 && liveSessions.every(s => (s.tier || "none") === "none")) {
-    return <AwaitingApprovalPage
-      account={liveSessions[0].account}
-      user={user}
-      checking={recheckingAccess}
-      onRetry={recheckAccess}
-      onLogout={handleLogout} />;
-  }
+  // Which node, which door, and the wait for approval are all AuthGate's — this component
+  // is not mounted until there is a session with a tier behind it.
 
   // The sidebar badge counts the CLUSTER's firing alerts — an alert on any node
   // needs a human, so hiding it behind a scope would hide the work.
@@ -361,7 +364,7 @@ function AppInner({ user, setUser, route, setRoute }) {
               session takes its own rows off the aggregated surfaces, not the
               panel. Sessions are per node, so the rest of the cluster works. */}
           <NodeAccessNotice
-            onReauth={(h) => setReauthHostId(h.id)}
+            onReauth={signInAgain}
             onManage={(h) => setRoute({ kind: "cluster", hostId: h.id })} />
           <Breadcrumb
             route={route}
@@ -376,7 +379,6 @@ function AppInner({ user, setUser, route, setRoute }) {
             handleAction={handleAction}
             openGame={openGame}
             handleInstall={handleInstall}
-            setReauthHostId={setReauthHostId}
             handleLogout={handleLogout}
             setInstalling={setInstalling}
           />
@@ -445,14 +447,6 @@ function AppInner({ user, setUser, route, setRoute }) {
       )}
 
       <Toasts />
-
-      {reauthHostId && (
-        <HostReauthModal
-          host={hosts.find(h => h.id === reauthHostId) || { id: reauthHostId }}
-          onClose={() => setReauthHostId(null)}
-          onDone={() => window.location.reload()}
-        />
-      )}
 
       {installing && (
         <InstallModal

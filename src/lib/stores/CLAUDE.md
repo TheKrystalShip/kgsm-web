@@ -11,10 +11,14 @@ module in this folder, wired into the barrel.**
 "../stores.js"` API is unchanged; `../stores.js` is a one-line pass-through to
 it. Import from either — both resolve here.
 
-`index.js` also ends with `import "./boot.js"` — a **side-effecting** import that
-kicks off the initial hydrate (servers/library/hosts/audit refresh + ping loop +
-cluster discovery) exactly once at module load. Keep boot as its own module; don't
-scatter hydrate calls into the domain stores.
+`index.js` re-exports `startDataLayer` / `stopDataLayer` from `boot.js`. **Importing
+this barrel hydrates nothing and opens no socket** — the shell calls `startDataLayer()`
+once it is mounted, which is once there is somebody signed in to fetch on behalf of, and
+`stopDataLayer()` when it unmounts. Keep the hydrate as its own module; don't scatter
+hydrate calls into the domain stores.
+
+⚠ `boot.js` reaches `sessionStore` through a **lazy `import()`**. A static one closes the
+cycle `sessionStore` → `stores.js` → `stores/index.js` → `boot.js` and breaks boot.
 
 ## The modules (each owns one domain)
 
@@ -28,7 +32,7 @@ scatter hydrate calls into the domain stores.
 | `library.js` | the installable game catalog (mostly static; hydrate from `/library`) |
 | `ui.js` | client-local prefs: favorites (persisted) + link-latency ping KPI |
 | `cluster.js` | the converged cluster roster **and** node discovery — `discover()` asks any addressable connection for the roster and registers the peers it names, `startDiscovery()` runs it at boot and on a slow cadence. It is the roster's ONE owner: pages read `clusterStore`, they don't refresh it on mount (per-node peer *actions* still re-read the node they mutated) |
-| `boot.js` | one-shot hydrate side effect (imported by `index.js`) |
+| `boot.js` | `startDataLayer()` / `stopDataLayer()` — the hydrate, the ping loop, discovery and the SSE streams, started by the shell rather than at import |
 | `index.js` | the re-export barrel + boot import |
 
 ## Conventions

@@ -6,7 +6,7 @@
 // We capture it at boot BEFORE the hash router reads location.hash: parse, stash
 // the tokens for the session layer, strip the fragment, and (on success)
 // establish the app-shell identity from /me so the app mounts authed with no
-// LoginPage flash. A normal load (a #/route or no hash) is a no-op.
+// sign-in flash. A normal load (a #/route or no hash) is a no-op.
 
 import { CONNECTIONS, soleConnectionOrigin, reconcileConnectionId } from "./config.js";
 // The fragment parser is its own module (both surfaces boot with it, and the standalone assistant
@@ -28,7 +28,7 @@ export function takePendingTokens() {
   } catch { return null; }
 }
 
-// The node the sign-in bounce goes through, recorded by LoginPage before it hands
+// The node the sign-in bounce goes through, recorded by the sign-in before it hands
 // the browser to Discord. The tokens that come back were minted by THAT node, so
 // the return leg (/me, /hosts, the registry entry) must address it and no other —
 // with several nodes connected, asking the first one would present another node's

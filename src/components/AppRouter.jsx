@@ -24,7 +24,7 @@ const ServersPage = React.lazy(() => import("../pages/ServersPage.jsx"));
 const SettingsPage = React.lazy(() => import("../pages/SettingsPage.jsx"));
 
 function AppRouter({ route, setRoute, user, activeGame, serverForRender,
-  handleAction, openGame, handleInstall, setReauthHostId,
+  handleAction, openGame, handleInstall,
   handleLogout, setInstalling }) {
 
   // Assistant/dock state is provided by AssistantDockProvider (an ancestor of this

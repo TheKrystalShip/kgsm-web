@@ -217,9 +217,16 @@ break boot. Read the comments before "tidying" an import.
   `establishNodeSession` is the shared adoption path both doors end in.
   The per-host record carries `account` (`active｜pending｜unknown`) beside the
   tier, because a `none` tier is two facts: waiting on an admin, and unknown here.
-  `App.jsx` renders `AwaitingApprovalPage` when every live session holds `none` —
-  read off the SESSIONS, not the host list, since `GET /hosts` is itself gated and
-  a tierless caller's empty roster would otherwise read as "no hosts configured".
+  **`components/AuthGate.jsx` is everything in front of the app** — the node screen, the
+  one sign-in/register card, and the wait for approval — and `App.jsx` renders it *instead
+  of* the shell, so none of the shell's hooks and none of the data layer run for somebody
+  who has not signed in. ⚠ A **pending** account cannot be carried by `sessionStore`: that
+  store is keyed by backend host id, and the only way to learn one is `GET /hosts`, which
+  is viewer-gated. The gate holds their session itself (`lib/authFlow.js`, sessionStorage,
+  keyed by origin) and polls `GET /me` — bare-authorized precisely so a tierless caller can
+  ask — until an admin approves them, at which point the ordinary per-host session takes
+  over. There is no push here to replace the poll: `/api/v1/stream` is viewer-gated and the
+  hub has no per-user delivery.
 - **`SettingsIdentities.jsx` — connected accounts, per host.** Which provider accounts are attached
   to the caller's own KGSM account, and attaching or detaching one. Both writes confirm the password
   first (`POST /auth/reauth`), asked BEFORE starting rather than after being refused; a fresh sign-in

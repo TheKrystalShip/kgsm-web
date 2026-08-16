@@ -20,7 +20,7 @@ import "./lib/theme.js";
 // If we just landed from the OAuth callback (kgsm-api 302'd back with the session
 // in the URL fragment), capture + strip it BEFORE the hash router reads
 // location.hash, then resolve the app-shell identity from /me so the app mounts
-// already signed in (no LoginPage flash). A normal load is a synchronous no-op.
+// already signed in (no sign-in flash). A normal load is a synchronous no-op.
 async function boot() {
   const captured = captureOAuthFragment();
   // An assistant-leaf landing carries the same fragment keys as a node one and is told apart
@@ -54,7 +54,7 @@ async function boot() {
   }
   // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
   // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
-  // into the app instead of stalling on the Discord LoginPage (which can't complete
+  // into the app instead of stalling on the sign-in screen (which can't complete
   // against an auth-disabled host). Gated to dev builds → DCE'd in production; a
   // no-op against an auth-ENABLED seed. See connect.js devSeedAutoConnect.
   else if (import.meta.env.DEV) {

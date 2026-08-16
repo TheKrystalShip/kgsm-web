@@ -30,7 +30,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   //   ok         → auth-disabled / already-authed: identity from /me, into the app.
   //   needs_auth → auth-ENABLED: register the host (URL only, id resolved after
   //                login) and reload → a connected host + no identity → the Discord
-  //                LoginPage, which bounces against THIS host's /auth/discord/start.
+  //                AuthGate's sign-in, which bounces against THIS host's /auth/{provider}/start.
   const connectReal = async () => {
     if (!valid || busy) return;
     setPhase("probing");
@@ -43,7 +43,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
     }
     if (res.status === "needs_auth") {
       // id is null here — /hosts is 401 pre-login; completeOAuthLogin reconciles it
-      // with the bearer after Discord. Register so a reload boots connected → LoginPage.
+      // with the bearer after Discord. Register so a reload boots connected → the sign-in.
       addConnection(registryEntry(res.origin, res.name, null));
       window.location.reload();
       return;
@@ -54,7 +54,7 @@ function AddHostPage({ user, firstRun, onAdded, onCancel, onLogout }) {
   const connect = connectReal;
 
   // Honest copy per failure phase (real connect). needs_auth is NOT a failure
-  // any more — it registers + reloads into the Discord LoginPage (connectReal).
+  // any more — it registers + reloads into AuthGate's sign-in (connectReal).
   const FAIL = {
     not_kgsm: { title: "That doesn’t look like a kgsm-api", body: "We reached the address but it didn’t answer with a kgsm-api handshake. Double-check the host and port." },
     unreachable: { title: "Couldn’t reach that host", body: "No kgsm-api answered at that address. Check it’s running and reachable from here (host, port, https vs http)." },

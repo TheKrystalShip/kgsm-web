@@ -208,7 +208,7 @@ export function reconcileConnectionId(url, id) {
 // Discord identity is a GLOBAL SSO anchor: a session minted by any node vouches
 // the user onto the rest of the cluster. So signing in picks a DOORWAY, not a
 // node to read from — the OAuth bounce, the /me that follows it and the registry
-// entry it writes all belong to the node the user came through. LoginPage offers
+// entry it writes all belong to the node the user came through. The sign-in offers
 // the connected nodes and remembers which one it used; this is the sole-candidate
 // answer for the N=1 case and the honest empty when there is nothing to sign in
 // against.

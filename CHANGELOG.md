@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — one way in: node → sign in / register → the app
+
+`components/AuthGate.jsx` and `pages/auth/` replace the old chain of early returns inside the shell.
+`App.jsx` now renders the gate **instead of** `AppInner`, so none of the shell's ~15 hooks — and none
+of the data layer they drive — runs for somebody who has not signed in.
+
+- **`NodePage`** — which host you are signing in to. A node is a row: status dot, the name it calls
+  itself, region, address, build. Everything on it comes from one anonymous `GET /api/v1`, which is
+  also the reachability probe, so nothing is green because an address was typed in. An unreachable
+  node stays listed with its reason and a Retry rather than vanishing. With an empty registry the
+  address form *is* the screen. A returning visitor skips this: the last node used is probed and, if
+  it answers, they land on its sign-in.
+- **`SignInPage`** — one card, two tabs, same order down the card on both so nothing moves when you
+  toggle: **segment → providers → divider → form**. Providers and whether sign-up is open both come
+  from that node's `/auth/providers`; this SPA holds no list of either. One provider is a branded
+  full-width button, several are a neutral 2-up grid.
+- **`PendingPage`** — signed in, holding nothing. It **polls `GET /me`** every 5s while the tab is
+  visible and lets the person in the moment an admin approves them. Not a push: a pending account is
+  tier `none`, `/api/v1/stream` is viewer-gated, and the hub has no per-user delivery — there is
+  nothing to subscribe to.
+- **`lib/authFlow.js`** — the domain half: probing, the two credential calls, the field checks
+  mirroring `kgsm-auth`'s real rules, and the pending session.
+
+**Transitions no longer reload the page.** Sign-in, registration and approval all swap the gate for
+the shell in place. The reload was never about routing — it was that the shell's hooks sat above a
+flipping condition, which the split removes.
+
+⚠ **A pending account cannot live in `sessionStore`.** That store is keyed by backend host id, and
+the only way to learn one is `GET /hosts`, which is viewer-gated — so a tierless caller has no id to
+be filed under on any node. The gate carries their session itself, in `sessionStorage`, keyed by
+origin, until approval lets the ordinary per-host session take over.
+
+### Changed — a session that ends sends you to that node's sign-in
+
+`pages/HostReauth.jsx` is **removed**. It could not re-authenticate: it waited 650ms behind
+"Opening Discord…" without opening anything, then re-read `/me` with the token that had already
+failed. The honest answer to a dead session is the door, so the shell drops the stored identity and
+`AuthGate` lands on the node last used. The per-node notice's button says "Sign in again".
+
+### Fixed — a revoked session could stay silently expired forever
+
+`sessionStore`'s `reauthDue` countdown was restarted by every retry. A retry passes through
+`bootstrapping` on its way back to `expired`, `syncReauthSurfacing` treated any non-`expired` status
+as a recovery and cleared the timer, and the SSE stream's own reconnect backoff tops out at 12s and
+never gives up — so the 30s never elapsed. A revoked session left the panel showing stale data
+behind a connectivity banner indefinitely. `bootstrapping` is now ignored, and only a session that
+comes back cancels the countdown. **Measured against the live host: a revoked tab returns to sign-in
+in ~50s** (the server's 20s session re-check on the open stream, plus the 30s grace) with no
+interaction.
+
+### Fixed — the login screen's form furniture followed its own scheme
+
+It had drifted from the rest of the app. Inputs filled with `--surface-2` where every other input
+uses `--surface-3` (which `tokens.css` names "input fill"), focused to full-strength
+`--krystal-teal` where the rest focus to `--border-accent`, and `.oauth-btn` hovered *down* a
+surface where every other ghost lifts. Labels are now the onboarding family's uppercase micro-label
+(`.add-host__label`), the segmented control matches `.subtabs`, the status dot is `.svc-dot`, and
+callouts take `.add-host__denied` / `.add-host__note`'s treatment. Each rule names the site-wide
+class it matches.
+
+Also fixed while there: **the inputs overflowed their card by 26px** (56px for a password field).
+This app has no global reset — it declares `box-sizing` per rule — and a `width: 100%` padded
+control is `content-box` by default.
+
+Corners on these three screens are `--r-sm` throughout; `--r-pill` stays on the dots, the doorway
+chip and the strength meter, which are shapes rather than corners.
+
 ### Changed — the data layer runs for somebody, not for nobody
 
 `startDataLayer()` / `stopDataLayer()` (`lib/stores/boot.js`), called by the shell once there is an

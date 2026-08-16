@@ -36,6 +36,21 @@ AppRouter: route.kind ──▶ the matching lazy <Page/>
 3. If it's gated, wire the capability in `../lib/persona.js` so `resolveRoute`
    protects it.
 
+## `auth/` — the screens in front of the app
+
+`auth/` is not on the router. `components/AuthGate.jsx` renders these instead of the shell,
+so they answer to no `route.kind` and no persona: `NodePage` (which host), `SignInPage`
+(one card, two tabs, against that host) and `PendingPage` (signed in, holding nothing).
+`AuthChrome.jsx` holds what all three share. The domain logic — probing a node, the two
+credential calls, the pending session and the field checks — is `lib/authFlow.js`, so these
+files are the rendering and nothing else.
+
+Two rules they encode. **A refusal sits with what it is about**: a wrong password renders
+above the username inside the form, while a host that cannot be reached renders above the
+tabs, because it invalidates every door on the card rather than one of them. And **every
+check here is also the node's** — the client validates shape so somebody is told while
+typing, and the node decides.
+
 ## The split-page folders — keep the entry thin
 
 Four screens were too big and were broken into folders (root-`CLAUDE.md` refactor
