@@ -51,4 +51,10 @@ function startPingLoop() {
   _pingTimer = setInterval(pingTick, PING_INTERVAL_MS);
 }
 
-export { favoritesStore, useIsFavorite, pingStore, startPingLoop };
+function stopPingLoop() {
+  if (!_pingTimer) return;
+  clearInterval(_pingTimer);
+  _pingTimer = null;
+}
+
+export { favoritesStore, useIsFavorite, pingStore, startPingLoop, stopPingLoop };

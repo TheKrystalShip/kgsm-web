@@ -449,18 +449,34 @@ import { hostsStore } from "./stores.js";
   // Human-readable tier labels, shared by the badge + settings.
   const TIER_LABEL = { admin: "Admin", operator: "Operator", viewer: "Viewer", none: "No role" };
 
+  // Restoring persisted sessions is a pure storage read that asks nothing of any host, so
+  // it stays at import: the gate needs to know on its first render whether this browser
+  // already holds a session, without a round trip.
   seed();
 
   // Authorize each host's tier from GET /me as the host list hydrates. hostsStore loads
   // async, so seed() runs before the host exists — without this the gated surfaces would
   // stay at tier `none` and redirect to the viewer home. Idempotent: only hosts with no
   // session are authorized (authorize flips status off `none` synchronously).
+  //
+  // Unlike seed(), this TALKS to hosts, so it does not run at import — a browser on the
+  // sign-in screen would spend it bootstrapping sessions for a node nobody has chosen.
+  // The shell starts it with the rest of the data layer.
   const bootstrapNewHosts = () => {
     (hostsStore.getState().list || []).forEach(h => {
       if (statusOf(h.id) === "none") { register(h); authorize(h.id); }
     });
   };
-  hostsStore.subscribe(bootstrapNewHosts);
-  bootstrapNewHosts();
+  let unsubscribeBootstrap = null;
+  store.startBootstrap = () => {
+    if (unsubscribeBootstrap) return;
+    unsubscribeBootstrap = hostsStore.subscribe(bootstrapNewHosts);
+    bootstrapNewHosts();
+  };
+  store.stopBootstrap = () => {
+    if (!unsubscribeBootstrap) return;
+    unsubscribeBootstrap();
+    unsubscribeBootstrap = null;
+  };
 
 export { TIER_LABEL, sessionStore };

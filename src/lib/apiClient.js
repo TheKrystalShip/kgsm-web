@@ -463,8 +463,11 @@ import("./stores.js").then((m) => {
   }
 
   // Open a dynamic SSE stream for a resource-scoped topic on all connected hosts.
+  // Before the streams are started the topic is recorded with no sockets, so a
+  // subscription taken early is honoured by startStreams rather than silently lost.
   function openDynamic(topic) {
     const hosts = [];
+    if (!streamsStarted) { dynamicStreams.set(topic, { hosts, refCount: 1 }); return; }
     for (const conn of CONNECTIONS) {
       const url = streamUrlForConn(conn, [topic]);
       if (!url) continue;
@@ -515,9 +518,36 @@ import("./stores.js").then((m) => {
     },
   };
 
-  // One primary stream per connection, each feeding the SAME dispatchMessage seam.
-  if (CONNECTIONS.length) {
+  // Whether the streams are running. They are NOT opened at import: a browser sitting
+  // on the sign-in screen holds no session, so every dial would 401 into a backoff loop
+  // that never succeeds and never stops — traffic on behalf of nobody, against a host
+  // that has not been chosen yet. The shell starts them once there is an identity, and
+  // stops them when there is not.
+  let streamsStarted = false;
+
+  function startStreams() {
+    if (streamsStarted) return;
+    streamsStarted = true;
+    // One primary stream per connection, each feeding the SAME dispatchMessage seam.
     primaryStreams = CONNECTIONS.map((conn) => openPrimary(conn));
+    // Any topic subscribed before the start dialled no sockets; give it them now,
+    // keeping the ref count the subscribers already established.
+    for (const [topic, entry] of [...dynamicStreams]) {
+      if (entry.hosts.length) continue;
+      const refCount = entry.refCount;
+      dynamicStreams.delete(topic);
+      openDynamic(topic);
+      const opened = dynamicStreams.get(topic);
+      if (opened) opened.refCount = refCount;
+    }
+  }
+
+  function stopStreams() {
+    if (!streamsStarted) return;
+    streamsStarted = false;
+    for (const s of primaryStreams) { try { if (s) s.close(); } catch {} }
+    primaryStreams = [];
+    for (const topic of [...dynamicStreams.keys()]) closeDynamic(topic);
   }
 
   // Cluster discovery grows the connection set in place. Give each new node the
@@ -526,7 +556,12 @@ import("./stores.js").then((m) => {
   // every dynamic topic a view is currently subscribed to, so a late-joining node
   // is not silently missing from an open subscription. Then re-hydrate: the
   // stores fan out over CONNECTIONS, so their current contents predate this node.
+  //
+  // The listener registers at import and no-ops until the streams are running, so a
+  // node discovered before sign-in is simply picked up by startStreams' own sweep
+  // over CONNECTIONS rather than needing a second path.
   subscribeConnections((added) => {
+    if (!streamsStarted) return;
     for (const conn of added) {
       primaryStreams.push(openPrimary(conn));
       for (const [topic, entry] of dynamicStreams) {
@@ -812,6 +847,7 @@ import("./stores.js").then((m) => {
     identities: identitiesScoped,
     peers: peersScoped,
     reconnectHost, reconnectAll,
+    startStreams, stopStreams,
     __hostAuth: hostAuthStatus,
     // Test/dev affordance: inject a RAW server→client frame through the full live
     // path (adapt → dispatch), exactly as the WebSocket would. Lets the smoke

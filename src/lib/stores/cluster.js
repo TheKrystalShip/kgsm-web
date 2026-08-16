@@ -136,4 +136,10 @@ function startDiscovery() {
   _discoverTimer = setInterval(run, DISCOVER_MS);
 }
 
-export { clusterStore, startDiscovery };
+function stopDiscovery() {
+  if (!_discoverTimer) return;
+  clearInterval(_discoverTimer);
+  _discoverTimer = null;
+}
+
+export { clusterStore, startDiscovery, stopDiscovery };

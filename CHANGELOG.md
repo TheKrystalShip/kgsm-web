@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed — the data layer runs for somebody, not for nobody
+
+`startDataLayer()` / `stopDataLayer()` (`lib/stores/boot.js`), called by the shell once there is an
+identity. Importing the store barrel now hydrates nothing and opens no socket.
+
+Until now the four store refreshes, the ping loop, cluster discovery and **one SSE stream per
+connection** all fired at module evaluation — before React rendered, for every visitor. A browser
+sitting on the sign-in screen was therefore fetching and streaming on behalf of nobody: every call
+401'd, and every stream entered a 2.5s→12s backoff loop that could not succeed until somebody signed
+in and would not stop until the tab closed. Measured on a real Chromium load with no stored identity:
+**3 stream dials and 18 domain fetches before, 0 and 0 after**; with an identity, unchanged.
+
+Three mechanical parts: `api.startStreams()`/`stopStreams()` replaces the stream registry's
+module-load dial (a topic subscribed while stopped is recorded and opened on start, so an early
+subscriber is not silently dropped); `sessionStore.startBootstrap()`/`stopBootstrap()` gates the
+`hostsStore` subscription that authorizes each host, while `seed()` stays at import because restoring
+a persisted session is a pure storage read the gate needs on its first render; and `stopPingLoop()` /
+`stopDiscovery()` join their existing starters.
+
+⚠ **`boot.js` reaches `sessionStore` through a lazy `import()`.** A static one closes a cycle —
+`sessionStore` → `stores.js` → `stores/index.js` → `boot.js` — and breaks boot. Same landmine as
+`apiClient`'s deferred imports.
+
+⚠ **One request still precedes sign-in**: `useAlerts()` is a hook above `App.jsx`'s gate, so it
+subscribes before the gate decides what to render. It goes when the gate and the shell become
+separate components.
+
 ## [1.117.0] - 2026-08-15
 
 ### Added — the speech leaf has an Overview

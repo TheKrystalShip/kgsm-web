@@ -17,7 +17,7 @@ import { canOn, homeKind, resolveRoute } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { commandServer, hostsStore, installServer, libraryStore, serversStore, servicesStore } from "./lib/stores.js";
+import { commandServer, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
@@ -113,6 +113,16 @@ function AppInner({ user, setUser, route, setRoute }) {
   });
   const [landingResolved, setLandingResolved] = React.useState(false);
 
+  // The data layer runs only for somebody who is signed in. It used to start at module
+  // load, which meant a browser sitting on the sign-in screen hydrating four stores and
+  // dialling one SSE stream per connection on behalf of nobody — every call 401ing, every
+  // stream backing off and retrying against a host that had not been chosen yet.
+  React.useEffect(() => {
+    if (!user) return undefined;
+    startDataLayer();
+    return undefined;
+  }, [user]);
+
   useRouteSync(route, setRoute, landingResolved);
 
   React.useEffect(() => {
@@ -134,7 +144,10 @@ function AppInner({ user, setUser, route, setRoute }) {
     connectionStore.setState(s => ({ ...s, retrying: true, status: s.everLoaded ? s.status : "connecting" }));
     return api.fanOut("/servers").catch(() => {});
   }, []);
-  React.useEffect(() => { retryConnection(); }, [retryConnection]);
+  // Only once there is somebody to probe on behalf of. This drives the cold-start banner,
+  // which is a shell concern — before sign-in it would just be a 401 teaching
+  // connectionStore that the host is down.
+  React.useEffect(() => { if (user) retryConnection(); }, [user, retryConnection]);
   const [reauthHostId, setReauthHostId] = React.useState(null);
 
   React.useEffect(() => {
