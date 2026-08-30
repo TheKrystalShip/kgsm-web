@@ -181,10 +181,10 @@ import("./stores.js").then((m) => {
   // GET /hosts names it) or the aggregate scope ⇒ no bearer. Null is also the
   // honest answer under KGSM_API_AUTH_DISABLED, where no token is minted at all
   // and the call goes out unauthenticated.
-  function liveBearer(hostId) {
+  function liveBearer() {
     try {
-      if (sessionStore && sessionStore.tokenOf && hostId && hostId !== "all") return sessionStore.tokenOf(hostId);
-    } catch {}
+      if (sessionStore && sessionStore.tokenOf) return sessionStore.tokenOf();
+    } catch { /* the session layer is still loading */ }
     return null;
   }
   // ---- the egress AUTH FUNNEL (the single chokepoint every request resolves its bearer through) ----
@@ -193,24 +193,24 @@ import("./stores.js").then((m) => {
   // rotates (via the refresh token) + replays — one round-trip, no client-side prediction. We only
   // (silently) authorize a session that isn't live yet, and THROW authError (tagged `preflight`, so the
   // host gate doesn't pointlessly re-retry) when it can't be made live. Returns null when the host needs
-  // no bearer (auth-disabled). The auth layer's OWN calls (refreshSession, the bootstrap /me probe via
-  // meWith) pass an explicit bearer and so SKIP this — that keeps the funnel from re-entering itself.
+  // no bearer (auth-disabled). The auth layer's OWN call — the /me probe via meWith — passes an
+  // explicit bearer and so SKIPS this, which keeps the funnel from re-entering itself. Renewal never
+  // reaches here at all: it is the anchor's, and no call in this file asks a node for a credential.
   async function authorizedBearer(hostId) {
-    const id = hostId;
     // The FIRST WS/REST call can fire during apiClient's synchronous module eval — BEFORE the lazy
     // import("./sessionStore.js") above resolves — so without this await `sessionStore` is still null and
     // we'd fall through to a tokenless bearer → a guaranteed 401 on every fresh load, healed only by the
     // reconnect backoff. Awaiting the module-ready promise lets seed() restore the persisted session
     // first, so the first call already carries the token. Bounded: the module is in-bundle.
-    if (!sessionStore) { try { await sessionReady; } catch {} }
-    // No session layer (auth-disabled / still unavailable), no host scope, or the aggregate scope → fall
-    // back to the sync best-effort bearer (null when none).
-    if (!sessionStore || !sessionStore.authorize || !id || id === "all") return liveBearer(hostId);
-    let st = sessionStore.statusOf(id);
-    if (st !== "live") st = await sessionStore.authorize(id);   // rotate/bootstrap only when NOT already live
-    if (st === "denied") { const e = authError(403, id); e.preflight = true; throw e; }
-    if (st !== "live")   { const e = authError(401, id); e.preflight = true; throw e; }
-    return sessionStore.tokenOf(id);   // may be a lapsed JWT — REST heals it reactively on the 401
+    if (!sessionStore) { try { await sessionReady; } catch { /* fall through tokenless */ } }
+    if (!sessionStore || !sessionStore.authorize) return liveBearer();
+    // ONE session, presented to every member. The host id does not choose a token — it only says
+    // which member is being called, which matters for what a refusal means, never for what is sent.
+    let st = sessionStore.statusOf();
+    if (st !== "live") st = await sessionStore.authorize();   // renew only when NOT already live
+    if (st === "denied") { const e = authError(403, hostId); e.preflight = true; throw e; }
+    if (st !== "live")   { const e = authError(401, hostId); e.preflight = true; throw e; }
+    return sessionStore.tokenOf();   // may be a lapsed JWT — a refusal heals it reactively
   }
   // A call that couldn't be routed to a node. In prod apiV1Of/apiOriginOf answer
   // "" for a node we don't hold, and a relative fetch would quietly hit whatever
@@ -316,14 +316,12 @@ import("./stores.js").then((m) => {
   // the refresh token's absolute cap the backend 401s → the caller treats it as
   // genuinely expired. The endpoint is ROOT-routed (/auth/session/refresh), NOT
   // under /api/v1 — so pass the bare origin as the base override.
-  function refreshSession(hostId, refreshToken) {
-    return liveFetch("POST", "/auth/session/refresh", null, hostId, refreshToken || null, apiOriginOf(hostId));
-  }
+
 
   // Privileged, UN-FUNNELED identity probe for the session layer's bootstrap (sessionStore): pass the
   // bearer we hold explicitly (the access token, or null) so liveFetch SKIPS authorizedBearer. Routing
-  // /me through the funnel would re-enter authorize()→bootstrap and recurse — so this is the
-  // bootstrap's escape hatch, exactly as refreshSession is the refresh path's. Not for general call sites.
+  // /me through the funnel would re-enter authorize() and recurse — so this is that path's escape
+  // hatch. Not for general call sites.
   function meWith(bearer, hostId) {
     return liveFetch("GET", "/me", null, hostId, bearer ?? null).then((j) => adaptResponse("/me", j));
   }
@@ -370,8 +368,8 @@ import("./stores.js").then((m) => {
 
   // Root-routed counterparts to get/post: the session endpoints
   // (/auth/sessions, /auth/session/revoke, …) live at the bare origin, NOT
-  // under /api/v1 (like refreshSession), but — unlike refreshSession/meWith —
-  // callers here DO want the funnel: a live per-host bearer + the 401-heal in
+  // under /api/v1 — but unlike meWith, callers here DO want the funnel: the
+  // cluster bearer + the 401-heal in
   // sessionsScoped's withRetry below. Leaving bearerOverride undefined routes
   // liveFetch through authorizedBearer exactly like get/post do; only baseOverride
   // changes.
@@ -479,7 +477,7 @@ import("./stores.js").then((m) => {
       onOpen: () => rehydrateAll(),
       onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
       onMode: (m) => setLiveRealtime(conn.id, m),
-      onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+      onUnauthorized: () => { if (sessionStore) sessionStore.expire(); },
     });
   }
 
@@ -498,7 +496,7 @@ import("./stores.js").then((m) => {
         onOpen: () => {},  // dynamic streams self-hydrate via REST
         onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
         onMode: () => {},  // dynamic streams don't touch realtimeStore
-        onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+        onUnauthorized: () => { if (sessionStore) sessionStore.expire(); },
       });
       hosts.push({ connId: conn.id, stream: s });
     }
@@ -596,7 +594,7 @@ import("./stores.js").then((m) => {
             onOpen: () => {},
             onMessage: (raw) => dispatchMessage(adaptStreamMessage(raw, conn.id)),
             onMode: () => {},
-            onUnauthorized: () => { if (sessionStore) sessionStore.expire(conn.id); },
+            onUnauthorized: () => { if (sessionStore) sessionStore.expire(); },
           }),
         });
       }
@@ -633,7 +631,7 @@ import("./stores.js").then((m) => {
           delete hosts[conn.id];
           return { ...s, hosts };
         });
-        if (sessionStore && sessionStore.forgetHost) sessionStore.forgetHost(conn.id);
+        if (sessionStore && sessionStore.forgetNode) sessionStore.forgetNode(conn.id);
       }
       reachStore.setState((s) => {
         if (!(conn.url in s.byHost)) return s;
@@ -693,8 +691,8 @@ import("./stores.js").then((m) => {
   // api.host(id) is the host-scoped client: it injects that host's bearer and
   // enforces the 401/403/login_required state machine before any call. denied
   // → 403 (terminal); none/expired → lazily (re)bootstrap, then re-check.
-  function hostAuthStatus(id) {
-    try { return sessionStore ? sessionStore.statusOf(id) : "live"; } catch { return "live"; }
+  function sessionStatus() {
+    try { return sessionStore ? sessionStore.statusOf() : "live"; } catch { return "live"; }
   }
   function authError(code, id) {
     const e = new Error(code === 403 ? "Forbidden on host " + id : "Unauthorized on host " + id);
@@ -713,24 +711,39 @@ import("./stores.js").then((m) => {
     // Replay-on-401 is safe because every gated verb below is idempotent in effect at the kgsm layer for a
     // retry that only fires when the FIRST attempt was rejected unauthenticated; the SSE turn (not
     // idempotent) deliberately skips the replay.
-    const withRetry = (call) => call().catch(async err => {
-      if (!err || err.code !== 401 || !sessionStore) throw err;
-      // Lazy cluster vouch (SPA-C1): this node has no session of its own, but the SPA
-      // IS logged into a sibling in the same cluster — ask the sibling to vouch the user
-      // onto this node, adopt the minted session, then retry ONCE. sessionStore.vouch
-      // returns false fast when it can't (no live sibling / already live), so this is a
-      // pure no-op at N=1 and can't loop (it only mints on a fresh, non-live target).
-      if (sessionStore.vouch) {
-        let vouched = false;
-        try { vouched = await sessionStore.vouch(id); } catch { vouched = false; }
-        if (vouched) return call();
-      }
-      // A funnel PRE-FLIGHT 401 (rotate already failed → session dead) isn't replayed —
-      // re-running it just fails again; it propagates to the UI's re-auth.
-      if (err.preflight) throw err;
-      sessionStore.expire(id);
-      return call();
-    });
+    const withRetry = (call) => call().then(
+      (ok) => { if (sessionStore && sessionStore.markNode) sessionStore.markNode(id, "ok"); return ok; },
+      async err => {
+        if (!err || !sessionStore) throw err;
+        // 403 is NEVER ambiguous. The member validated the token perfectly well and then resolved
+        // the person to a tier too low — which, for an account its replica does not carry, is
+        // `none`. So a 403 is always a statement about that member's view of this person and never
+        // about the session, and a member that has just joined answers it as a matter of course
+        // while its replica catches up.
+        if (err.code === 403) { if (sessionStore.markNode) sessionStore.markNode(id, "refusing", "unknown_here"); throw err; }
+        if (err.code !== 401) throw err;
+        // A funnel PRE-FLIGHT 401 (the renewal already failed → the session is dead) is not replayed;
+        // re-running it fails identically and it belongs to the sign-in screen.
+        if (err.preflight) throw err;
+        sessionStore.expire();
+        return call().then(
+          (ok) => { if (sessionStore.markNode) sessionStore.markNode(id, "ok"); return ok; },
+          (err2) => {
+            // 401 is the ambiguous one, and this is where the ambiguity is resolved. A member
+            // answers it when the token itself did not validate — signature, audience, issuer,
+            // expiry, or a session it has been told is revoked — so it can mean a session that has
+            // genuinely ended OR a member that has not yet heard which key and issuer to check
+            // against. The renewal above separates them: a FRESH session still refused here is not
+            // the session's problem, and recording it against the member is what stops one member's
+            // lag from reading as everybody being signed out.
+            if (err2 && err2.code === 401 && sessionStore.isLive && sessionStore.isLive()) {
+              if (sessionStore.markNode) sessionStore.markNode(id, "refusing", "unverified_here");
+            }
+            throw err2;
+          },
+        );
+      },
+    );
     return {
       // Every call carries THIS host's id → liveFetch routes to its base URL + the funnel-resolved
       // bearer (multi-host). Sole-connection fallback keeps N=1 identical.
@@ -746,8 +759,8 @@ import("./stores.js").then((m) => {
   // api.sessions(id) — the root-routed session-management surface (list/revoke
   // active sessions against kgsm-api's session endpoints). Root-routed
   // because these auth endpoints live at the bare origin, not under /api/v1
-  // (rootGet/rootPost above); funneled (not the refreshSession/meWith bypass)
-  // because every other call site here wants the live per-host bearer plus the
+  // (rootGet/rootPost above); funneled (not the meWith bypass)
+  // because every other call site here wants the live cluster bearer plus the
   // same 401→expire→replay heal hostScoped gives REST calls. Mirrors hostScoped's
   // withRetry verbatim rather than sharing it, since hostScoped's closure is
   // itself scoped to the get/post/patch/put/del set.
@@ -755,7 +768,7 @@ import("./stores.js").then((m) => {
     if (!id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch(err => {
       if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
-      sessionStore.expire(id);
+      sessionStore.expire();
       return call();
     });
     return {
@@ -781,7 +794,7 @@ import("./stores.js").then((m) => {
   function usersScoped(id) {
     const withRetry = (call) => call().catch((e) => {
       if (!(e && e.status === 401)) throw e;
-      sessionStore.expire(id);
+      sessionStore.expire();
       return call();
     });
     const at = (userId) => "/auth/users/" + encodeURIComponent(userId);
@@ -811,7 +824,7 @@ import("./stores.js").then((m) => {
     if (!id) throw new Error("api.identities() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch((e) => {
       if (!(e && e.status === 401)) throw e;
-      sessionStore.expire(id);
+      sessionStore.expire();
       return call();
     });
     return {
@@ -838,7 +851,7 @@ import("./stores.js").then((m) => {
     if (!id) throw new Error("api.members() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch(err => {
       if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
-      sessionStore.expire(id);
+      sessionStore.expire();
       return call();
     });
     return {
@@ -895,22 +908,8 @@ import("./stores.js").then((m) => {
     return rootPost("/auth/logout", {}, id).catch(() => {});
   }
 
-  // Cluster SSO vouch initiator (SPA-C1): ask a node the SPA IS logged into (sourceId)
-  // to vouch the user onto another cluster node (targetNodeId). The source relays to the
-  // target's node-to-node receiver and returns the target's freshly-minted session tokens
-  // ({ accessToken, refreshToken, sid, expiresAt } — no tier; the caller resolves it via
-  // /me on the target). Root-routed (/auth/cluster-session/request), funneled with the
-  // source's live bearer; a lapsed source token heals with a single expire+replay.
-  function vouch(sourceId, targetNodeId) {
-    const call = () => rootPost("/auth/cluster-session/request", { nodeId: targetNodeId }, sourceId);
-    return call().catch(err => {
-      if (err && err.code === 401 && !err.preflight && sessionStore) { sessionStore.expire(sourceId); return call(); }
-      throw err;
-    });
-  }
-
   const api = {
-    get, post, patch, put, del, stream, fanOut, refreshSession, meWith, pingHost, logout, vouch,
+    get, post, patch, put, del, stream, fanOut, meWith, pingHost, logout,
     host: hostScoped,
     sessions: sessionsScoped,
     users: usersScoped,
@@ -918,7 +917,7 @@ import("./stores.js").then((m) => {
     members: membersScoped,
     reconnectHost, reconnectAll,
     startStreams, stopStreams,
-    __hostAuth: hostAuthStatus,
+    __sessionStatus: sessionStatus,
     // Test/dev affordance: inject a RAW server→client frame through the full live
     // path (adapt → dispatch), exactly as the WebSocket would. Lets the smoke
     // verify the server.patch/server.removed/job.patch remaps deterministically.

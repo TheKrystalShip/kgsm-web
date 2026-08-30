@@ -19,7 +19,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { hostCapability } from "../../lib/capabilities.js";
-import { canOn, isAdmin } from "../../lib/persona.js";
+import { can, isAdmin } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
 
@@ -38,7 +38,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
   // here, an operator hands off to that host's assistant. Either way the file
   // lands on the host chosen here.
   const hosts = React.useMemo(
-    () => (allHosts || []).filter(h => canOn("server.operate", h.id)),
+    () => (allHosts || []).filter(h => can("server.operate")),
     [allHosts],
   );
   // A sole qualifying node is taken because it is the only one. With several,

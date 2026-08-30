@@ -1,47 +1,42 @@
 // authFlow.js — the way in, before there is anything to show.
 //
-// Three screens sit in front of the app, and this module owns the two questions they
-// turn on: WHICH node is being signed in to, and WHAT that node offers as a way in.
-// It talks to a host directly rather than through `apiClient`, because every call here
-// is anonymous by definition and the seam's whole job is attaching a bearer to a node
-// the caller has already been authorized against.
+// Two questions sit in front of the app: WHERE this cluster signs people in, and WHAT it offers as a
+// way in. Neither is a question about a node. Identity belongs to the cluster, so the answer comes
+// from the anchor — and the only thing a member is asked is where the anchor is, which it will tell
+// anybody, because a browser asking has no session yet.
+//
+// Everything here talks to a host directly rather than through `apiClient`: every call is anonymous
+// by definition, and the seam's whole job is attaching a session to a call for a member.
 
-import { CONNECTIONS, addConnections, originOfHost } from "./config.js";
+import { anchorDoors, discoverAnchor, rememberAnchor } from "./anchor.js";
+import { CONNECTIONS, originOfHost } from "./config.js";
 import { addConnection, normalizeHostUrl, registryEntry } from "./connect.js";
 
-// The node this browser last signed in through. A returning visitor goes straight to its
-// sign-in rather than being asked to pick from a list of one, so this is what makes the
-// node screen an exception rather than a toll gate.
-const LAST_NODE_KEY = "krystal:node:last";
+// The member this browser last reached the cluster through. A route and nothing more — the cluster
+// is the same whichever member answers — so it saves a question rather than settling one.
+const LAST_MEMBER_KEY = "krystal:member:last";
 
-function lastNodeOrigin() {
-  try { return localStorage.getItem(LAST_NODE_KEY) || ""; } catch { return ""; }
+function lastMemberOrigin() {
+  try { return localStorage.getItem(LAST_MEMBER_KEY) || ""; } catch { return ""; }
+}
+function rememberMember(origin) {
+  try { if (origin) localStorage.setItem(LAST_MEMBER_KEY, origin); } catch { /* private mode */ }
+}
+function forgetMember() {
+  try { localStorage.removeItem(LAST_MEMBER_KEY); } catch { /* private mode */ }
 }
 
-function rememberNode(origin) {
-  try { if (origin) localStorage.setItem(LAST_NODE_KEY, origin); } catch {}
-}
-
-function forgetNode() {
-  try { localStorage.removeItem(LAST_NODE_KEY); } catch {}
-}
-
-// The nodes this browser knows, as the node screen lists them. Read off the live
-// connection set so a peer cluster discovery registered is offered too.
-function knownNodes() {
+// The members this browser knows, as the member screen lists them.
+function knownMembers() {
   return CONNECTIONS
     .map(c => ({ id: c.id || null, origin: originOfHost(c.id) || c.url, name: c.name || null }))
     .filter(n => n.origin);
 }
 
-// What a node says about itself, and how to get in — one anonymous round trip each,
-// run together because a row that cannot say whether it is reachable is not worth drawing.
-//
-// GET /api/v1 is also the reachability probe. That is deliberate: a row is green because
-// something answered as a kgsm-api, never because an address was typed in. Everything on
-// the row — the label, the region, the build — is that answer, so a node is named the way
-// it names itself rather than by the address this browser happens to hold.
-async function probeNode(origin, { fetchImpl = fetch, signal } = {}) {
+// What a member says about itself. `GET /api/v1` is also the reachability probe, deliberately: a row
+// is green because something answered as a kgsm-api, never because an address was typed. Everything
+// on the row is that answer, so a member is named the way it names itself.
+async function probeMember(origin, { fetchImpl = fetch, signal } = {}) {
   const base = normalizeHostUrl(origin);
   if (!base) return { origin, reachable: false, reason: "That is not a usable address." };
 
@@ -54,24 +49,10 @@ async function probeNode(origin, { fetchImpl = fetch, signal } = {}) {
     return { origin: base, reachable: false, reason: "Didn’t answer." };
   }
 
-  // Reached something, but not one of ours. A different sentence, because "check it is
-  // running" is useless advice to somebody pointed at the wrong thing entirely.
+  // Reached something, but not one of ours — a different sentence, because "check it is running" is
+  // useless advice to somebody pointed at the wrong thing entirely.
   if (!meta || (meta.name !== "kgsm-api" && !(meta.name && meta.version)))
     return { origin: base, reachable: false, reason: "Not a kgsm-api." };
-
-  // Which doors are open. A failure here is not a failure of the node — it is reachable
-  // and it is ours; we simply do not know what it offers, and an empty set draws no
-  // buttons rather than wrong ones.
-  let providers = [];
-  let registration = false;
-  try {
-    const res = await fetchImpl(base + "/auth/providers", { headers: { Accept: "application/json" }, signal });
-    if (res.ok) {
-      const body = await res.json();
-      providers = (body && body.providers) || [];
-      registration = !!(body && body.registration);
-    }
-  } catch {}
 
   return {
     origin: base,
@@ -79,97 +60,72 @@ async function probeNode(origin, { fetchImpl = fetch, signal } = {}) {
     label: meta.label || null,
     region: meta.region || null,
     build: meta.build ? String(meta.build).split("+")[0] : null,
-    providers,
-    registration,
   };
 }
 
-// Register a node this browser has just been pointed at, so the rest of the app can
-// address it. Idempotent by origin — `addConnection` replaces a matching entry rather
-// than growing a second one for the same host under a different spelling.
-function adoptNode(probe) {
-  if (!probe || !probe.reachable) return;
-  const entry = registryEntry(probe.origin, probe.label, null);
-  const known = CONNECTIONS.some(c => normalizeHostUrl(c.url) === probe.origin);
-  if (known) addConnections([]);   // nothing to add; keeps the call shape uniform
-  else addConnection(entry);
-  rememberNode(probe.origin);
-}
-
-// How a refusal from a node should read.
+// Where this cluster signs people in, and through which doors — asked of one member, then of the
+// anchor it names.
 //
-// The backend answers a wrong username and a wrong password identically and this must not
-// re-open that by guessing at one. The rest are real, different facts somebody needs:
-// being locked out, being switched off, and the host's own account store being unreadable
-// — which is the host's problem rather than theirs, and saying "wrong password" there
-// sends them hunting for something they cannot fix.
-function refusalText(body, res) {
-  const code = body && body.error && body.error.code;
-  if (code === "too_many_attempts") {
-    const wait = Number(res && res.headers && res.headers.get("Retry-After"));
-    return wait > 0
-      ? `Too many attempts. Try again in ${wait} second${wait === 1 ? "" : "s"}.`
-      : "Too many attempts. Try again shortly.";
-  }
-  if (code === "account_disabled") return "That account is disabled on this host.";
-  if (code === "users_unavailable") return "This host can’t reach its accounts right now.";
-  if (code === "invalid_credentials") return "That username and password don’t match an account here.";
-  if (code === "username_taken") return "That username is already taken here.";
-  if (code === "registration_closed") return "This host isn’t taking new accounts.";
-  if (code === "not_accepting_accounts")
-    return "This host is holding as many accounts awaiting approval as it will. Ask an administrator.";
-  if (body && body.error && body.error.message) return body.error.message;
-  return "That didn’t work — please try again.";
+// The answers are kept apart because somebody acts on each differently, and collapsing any of them
+// into "sign-in is unavailable" turns a fixable configuration into a mystery:
+//
+//   ready        an anchor with an address; `reachable` says whether it is answering
+//   orphaned     the capability names a member that has left. Nothing serves it, and every other
+//                surface reads healthy, so this is the only place it can be said
+//   unrouted     the holder is known and states no address a browser can reach
+//   none         this member knows of no anchor at all
+//   unreachable  the member could not be asked
+async function discoverCluster(memberOrigin, opts = {}) {
+  const found = await discoverAnchor(memberOrigin, opts);
+  if (!found.ok) return { state: "unreachable" };
+  if (!found.held) return { state: "none" };
+  if (found.orphaned) return { state: "orphaned", memberId: found.memberId };
+  if (!found.url) return { state: "unrouted", memberId: found.memberId };
+
+  const doors = await anchorDoors(found.url, opts);
+  rememberAnchor(found.url);
+  return {
+    state: "ready",
+    memberId: found.memberId,
+    url: found.url,
+    providers: doors.providers,
+    redirects: doors.redirects,
+    registration: doors.registration,
+    // The anchor is named and does not answer. Not the same as having none, and not the same as
+    // there being nowhere to go — this is the one a person can wait out.
+    reachable: doors.reachable,
+  };
 }
 
-// Sign in, or sign up, against one node. Both answer with the same session shape, so the
-// caller adopts one identically whichever door it came through — which is the API's own
-// arrangement, not a convenience invented here.
-async function submitCredentials(origin, path, payload) {
-  let res;
-  try {
-    res = await fetch(origin + path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    return { ok: false, error: "Couldn’t reach this host. Check it’s running and try again.", unreachable: true };
-  }
-  const body = await res.json().catch(() => null);
-  if (!res.ok) return { ok: false, error: refusalText(body, res), code: body && body.error && body.error.code };
-  return { ok: true, session: body };
+// Register a member this browser has just been pointed at, so the rest of the app can address it.
+// Idempotent by origin.
+function adoptMember(probe) {
+  if (!probe || !probe.reachable) return;
+  const known = CONNECTIONS.some(c => normalizeHostUrl(c.url) === probe.origin);
+  if (!known) addConnection(registryEntry(probe.origin, probe.label, null));
+  rememberMember(probe.origin);
 }
-
-const signIn = (origin, username, password) =>
-  submitCredentials(origin, "/auth/login", { username, password });
-
-const signUp = (origin, username, displayName, password) =>
-  submitCredentials(origin, "/auth/register", { username, displayName: displayName || null, password });
 
 // ---- The session of somebody who holds nothing ------------------------------------
 //
-// A pending account cannot be carried by `sessionStore`, and the reason is structural
-// rather than an oversight: that store is keyed by BACKEND HOST ID, and the only way to
-// learn a host's id is `GET /hosts`, which is viewer-gated. A pending caller is tier
-// `none`, so they are refused it — there is no id to file them under, on any node.
+// An account awaiting approval authenticates and is granted nothing. That session is real and worth
+// keeping — it is what lets the panel say "waiting on an administrator" rather than showing a bare
+// denial to somebody who did everything right — but it must not become the app's session, because
+// everything behind the gate would then render for somebody entitled to none of it.
 //
-// So the gate holds their session itself, keyed by origin, for exactly as long as they
-// are waiting. `sessionStorage` because it is this tab's, like the access token it
-// carries; the moment approval lands, `establishNodeSession` succeeds in full and the
-// ordinary per-host session takes over and this is dropped.
+// A provider arrival and a fresh registration land in exactly this state, so there is one screen for
+// both and registering needs no flow of its own.
 
 const PENDING_KEY = "krystal:pending:session";
 
-function stashPendingSession(origin, session) {
+function stashPendingSession(session) {
   try {
     sessionStorage.setItem(PENDING_KEY, JSON.stringify({
-      origin,
       token: session.token,
       refresh: session.refresh,
       status: session.status || "unknown",
     }));
-  } catch {}
+  } catch { /* private mode */ }
 }
 
 function readPendingSession() {
@@ -177,17 +133,16 @@ function readPendingSession() {
     const raw = sessionStorage.getItem(PENDING_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw);
-    return p && p.origin && p.token ? p : null;
+    return p && p.token ? p : null;
   } catch { return null; }
 }
 
 function clearPendingSession() {
-  try { sessionStorage.removeItem(PENDING_KEY); } catch {}
+  try { sessionStorage.removeItem(PENDING_KEY); } catch { /* private mode */ }
 }
 
-// What this node says about the caller right now. Bare-authorized on the API precisely so
-// a tierless caller can ask what they are waiting for, which makes it the one thing a
-// pending browser can poll.
+// What a member says about the caller right now. Bare-authorized precisely so a tierless caller can
+// ask what they are waiting for, which makes it the one thing a pending browser can poll.
 async function fetchMe(origin, token) {
   try {
     const res = await fetch(origin + "/api/v1/me", {
@@ -203,16 +158,17 @@ async function fetchMe(origin, token) {
 
 // ---- What a client may check before spending a round trip -------------------------
 //
-// Every one of these is also enforced by the node, which is the only place the answer is
-// decided. They exist so somebody is told what is wrong while typing rather than after
-// submitting, and a disagreement between them and the node is resolved by the node.
+// Every one of these is also enforced by the anchor, which is the only place the answer is decided.
+// They exist so somebody is told what is wrong while typing rather than after submitting. The
+// anchor's own refusal names the rule it applied, so THAT is what a refusal renders — these never
+// become a second copy of the rules that drifts from the anchor's.
 
 const USERNAME_MIN = 3;
 const USERNAME_MAX = 32;
 const PASSWORD_MIN = 12;
 
-// Mirrors kgsm-auth's `Usernames.IsValid`: ASCII letters, digits, '.', '_' or '-',
-// beginning with a letter or a digit.
+// Mirrors kgsm-auth's `Usernames.IsValid`: ASCII letters, digits, '.', '_' or '-', beginning with a
+// letter or a digit.
 function usernameProblem(username) {
   const v = (username || "").trim();
   if (!v) return null;                       // nothing typed yet is not a complaint
@@ -228,9 +184,9 @@ function usernameOk(username) {
   return !!v && !usernameProblem(v);
 }
 
-// Four bands, because a five-point scale invites a number nothing measures. Length is
-// what the node enforces; the extra bands describe a password that is comfortably past
-// the floor rather than sitting on it.
+// Four bands, because a five-point scale invites a number nothing measures. Length is what the
+// anchor enforces; the extra bands describe a password comfortably past the floor rather than
+// sitting on it.
 function passwordStrength(password) {
   const v = password || "";
   if (!v) return { level: 0, label: "" };
@@ -244,8 +200,8 @@ function passwordStrength(password) {
 const passwordOk = (password) => (password || "").length >= PASSWORD_MIN;
 
 export {
-  LAST_NODE_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
-  adoptNode, clearPendingSession, fetchMe, forgetNode, knownNodes, lastNodeOrigin,
-  passwordOk, passwordStrength, probeNode, readPendingSession, refusalText, rememberNode,
-  signIn, signUp, stashPendingSession, usernameOk, usernameProblem,
+  LAST_MEMBER_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
+  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember, knownMembers,
+  lastMemberOrigin, passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
+  stashPendingSession, usernameOk, usernameProblem,
 };

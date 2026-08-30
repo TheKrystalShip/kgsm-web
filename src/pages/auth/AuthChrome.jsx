@@ -71,14 +71,16 @@ function ProviderButtons({ providers, verb, busy, disabled, onPick }) {
 // this browser happened to be typed at, which is a fact about this browser rather than
 // about the host. The verb changes with the screen because "signing in through" and
 // "creating your account on" are different facts about the same node.
-function DoorwayChip({ node, verb, down, onOpen }) {
-  if (!node) return null;
-  const name = node.label || (node.origin || "").replace(/^https?:\/\//, "");
+// Where the session comes from. A cluster signs people in at one place, so this names the anchor —
+// and the button behind it changes which MEMBER the panel discovered it through, which is a route
+// and not a second sign-in.
+function DoorwayChip({ anchor, verb, down, onOpen }) {
+  if (!anchor) return null;
+  const name = (anchor || "").replace(/^https?:\/\//, "");
   return (
-    <button type="button" className="doorway" onClick={onOpen} title="Choose a different node">
+    <button type="button" className="doorway" onClick={onOpen} title="Reach the cluster another way">
       <span className={"svc-dot " + (down ? "svc-dot--down" : "svc-dot--up")} />
-      <span>{verb === "register" ? "Creating your account on" : "Signing in through"} <b>{name}</b></span>
-      {node.region ? <span className="doorway__meta">{node.region}</span> : null}
+      <span>{verb === "register" ? "Creating your account at" : "Signing in at"} <b>{name}</b></span>
       <Icon name="chevron-down" size={13} />
     </button>
   );

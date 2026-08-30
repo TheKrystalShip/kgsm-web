@@ -66,8 +66,8 @@ const POSTPONE_SPANS = [
 function SchedulerWindows({ hostId, leafId }) {
   // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
   // whether these windows can be moved is the one held on THIS node. Reading the board is operator.
-  const live = !!hostId && sessionStore.isLive(hostId);
-  const tier = live ? sessionStore.tierOf(hostId) : null;
+  const live = !!hostId && sessionStore.isLive();
+  const tier = live ? sessionStore.tierOf() : null;
   const canEdit = tier === "admin";
 
   const { state, data, error, reload } = useLeafResource(hostId, leafId, (h) => fetchLeafSchedules(h));

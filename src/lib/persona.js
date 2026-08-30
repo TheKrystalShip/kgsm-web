@@ -1,6 +1,5 @@
 import { hostAddressOf } from "./config.js";
 import { sessionStore } from "./sessionStore.js";
-import { hostsStore } from "./stores.js";
 
 // persona.js — the authorization POLICY layer (the single source of truth for
 // "what may you reach" and "what may you do"), plus the Steam connect helper.
@@ -11,24 +10,25 @@ import { hostsStore } from "./stores.js";
 // §3·f·1. The whole panel reads its rules from here; nothing re-derives a gate
 // inline, and an unlisted (role, surface) pair is denied by default.
 //
-// PERSONA IS NOT STORED STATE. A user's role is emergent from the per-host
-// Discord grants the session layer resolves (sessionStore.tierOf → admin |
-// operator | viewer | none). Authorization is genuinely PER-HOST: you can be
-// admin on one box, operator on a second, viewer on a third.
+// PERSONA IS NOT STORED STATE. A role is emergent from the one tier the session layer holds
+// (sessionStore.tierOf → admin | operator | viewer | none), which the anchor resolved and every
+// member reads from its own replica of the same account. One account, one tier, cluster-wide.
 //
-// The one override: a logged-in user may carry persona:"admin|operator|viewer"
-// (the login "Preview as" lens). It forces ONE role across every host so an
-// operator can verify how the panel looks to each tier, then sign back in to
-// return to their real, per-host roles.
+// The one override: a signed-in user may carry persona:"admin|operator|viewer" (the "Preview as"
+// lens). It forces a role so an operator can verify how the panel looks to each tier, then sign
+// back in to return to their real one.
 //
 // ── The model ──────────────────────────────────────────────────────────────
 //   CAP        named capabilities (nav surfaces + the two action gates)
 //   ROLE_CAPS  role → its capability set (explicit, not additive-by-code)
 //   ROUTE_CAP  route.kind → required capability (absent ⇒ public to any role)
-//   can(cap)         AGGREGATE — held on ANY host (global nav + route guard)
-//   canOn(cap,host)  SCOPED   — held on THAT host (per-host actions)
+//   can(cap)         does this person hold `cap` — the one question there is
 //   resolveRoute(r)  the routing chokepoint: forbidden route → persona's home
-// "Aggregate for reach, scoped for action" — the two never substitute (§3·f·1).
+//
+// There is ONE question because there is one tier. A scoped variant would let a surface ask "may
+// they do this HERE" and receive a cluster answer that only looks scoped, which is worse than not
+// offering the question. Where a surface needs to know whether a MEMBER will honour the answer,
+// that is a different fact and `sessionStore.nodeRefusal(id)` is where it lives.
 
   var AUTH_LS_KEY = "krystal:auth";
   var AUTH_SS_KEY = "krystal:auth:session";
@@ -94,34 +94,21 @@ import { hostsStore } from "./stores.js";
     var o = u && u.persona;
     return (o && ROLE_SET[o]) ? o : null; // "admin" | "operator" | "viewer" | null(auto)
   }
-  function tierOf(hostId) {
-    try { return sessionStore.tierOf(hostId); }
+  function tierOf() {
+    try { return sessionStore.tierOf(); }
     catch { return null; }
   }
-  function getHosts() {
-    return hostsStore.getState().list || [];
-  }
 
-  // ── roleOn — the effective role on one host (override-aware) ────────────────
-  // A persona override (the "Preview as" lens) forces ONE role across every host
-  // for testing; otherwise it's the real Discord tier resolved for that host.
-  function roleOn(hostId) {
+  // ── role — the effective role, override-aware ──────────────────────────────
+  function role() {
     var o = personaOverride();
     if (o) return o;
-    return tierOf(hostId) || "none";
+    return tierOf() || "none";
   }
-  function capsOn(hostId) { return ROLE_SET[roleOn(hostId)] || ROLE_SET.none; }
+  function caps() { return ROLE_SET[role()] || ROLE_SET.none; }
 
-  // ── The two evaluation modes (the per-host vs aggregate composition rule) ───
-  // canOn — SCOPED: does the user hold `cap` on THIS host? Every per-host action.
-  function canOn(cap, hostId) { return capsOn(hostId).has(cap); }
-  // can — AGGREGATE (union): does the user hold `cap` on ANY host? Global nav +
-  // the route guard. With an override active, it's just that one role's set.
-  function can(cap) {
-    var o = personaOverride();
-    if (o) return ROLE_SET[o].has(cap);
-    return getHosts().some(function (h) { return canOn(cap, h.id); });
-  }
+  // ── The one evaluation ─────────────────────────────────────────────────────
+  function can(cap) { return caps().has(cap); }
 
   // ── Route gating + resolution (the chokepoint) ──────────────────────────────
   // homeKind — where a persona lands by default: the ops dashboard if they can
@@ -142,11 +129,9 @@ import { hostsStore } from "./stores.js";
   }
 
   // ── Back-compat aliases (now thin reads of the one policy) ──────────────────
-  function canOperate(hostId) { return canOn(CAP.SERVER_OPERATE, hostId); }
-  function serverOperable(server) { return server ? canOperate(server.hostId) : false; }
-  function isAdmin(hostId) { return roleOn(hostId) === "admin"; }
-  function isOperatorAnywhere() { return can(CAP.NAV_DASHBOARD); }
-  function isAdminAnywhere() { return can(CAP.NAV_CLUSTER); }
+  function canOperate() { return can(CAP.SERVER_OPERATE); }
+  function serverOperable(server) { return server ? can(CAP.SERVER_OPERATE) : false; }
+  function isAdmin() { return role() === "admin"; }
 
   // ---- Steam launch + connect address --------------------------------------
   // Identity comes from the backend, NOT a hardcoded table: each server carries
@@ -209,7 +194,7 @@ import { hostsStore } from "./stores.js";
   // The policy layer — the single source of truth every surface reads.
   const krystalPolicy = {
     CAP: CAP, ROLE_CAPS: ROLE_CAPS, ROUTE_CAP: ROUTE_CAP,
-    roleOn: roleOn, can: can, canOn: canOn,
+    role: role, can: can,
     canReach: canReach, resolveRoute: resolveRoute, homeKind: homeKind,
   };
   // Flat conveniences (used directly by components + the router chokepoint).
@@ -218,4 +203,4 @@ import { hostsStore } from "./stores.js";
   // the one policy above rather than re-deriving a rule.
   const krystalPersona = personaOverride;
 
-export { can, canOn, canOperate, canReach, homeKind, isAdmin, isAdminAnywhere, isOperatorAnywhere, krystalPersona, krystalPolicy, resolveRoute, roleOn, serverJoin, serverOperable };
+export { can, canOperate, canReach, homeKind, isAdmin, krystalPersona, krystalPolicy, resolveRoute, role, serverJoin, serverOperable };

@@ -19,7 +19,7 @@ const _types = new Map();
 ///   icon      lucide name for the catalog and the widget's own header.
 ///   group     catalog section ("Fleet", "Servers", "Nodes", "Activity").
 ///   cap       persona capability required to render it. Omit for anything any role may see.
-///   scope     which param dimension gates the capability: "host" checks canOn(cap, hostId),
+///   scope     which param dimension gates the capability: "host" checks can(cap),
 ///             "server" resolves the server's host first, absent checks can(cap) fleet-wide.
 ///   params    the param names this type must be bound to. A descriptor missing one is stale and
 ///             renders as such rather than mounting a component with an undefined target.

@@ -43,12 +43,16 @@ assert(!nodeLabel("_cold-boot", hosts).includes("_"),
 assert(isNamedNode("hotrod") && !isNamedNode("_cold-boot") && !isNamedNode(null),
   "a placeholder is not a node this browser drives");
 
-// The source of "null ended your session": a session recorded against a connection with no id.
-sessionStore.expire(null);
-sessionStore.expire(undefined);
-const keys = Object.keys(sessionStore.getState().byHost);
-assert(!keys.includes("null") && !keys.includes("undefined"),
-  "a session is never filed under a missing node id", keys.length ? keys.join(",") : "(none)");
+// The source of "null grants your account nothing": a fact recorded against a connection with no
+// id, then rendered by a banner that names the node. The session is no longer keyed by node, so it
+// cannot carry this — but which members are honouring it IS keyed, so the same sentence is one
+// unguarded write away and this is where that write is caught.
+sessionStore.markNode(null, "refusing", "unknown_here");
+sessionStore.markNode(undefined, "refusing", "unknown_here");
+sessionStore.markNode("", "refusing", "unknown_here");
+const keys = Object.keys(sessionStore.getState().nodes);
+assert(!keys.includes("null") && !keys.includes("undefined") && !keys.includes(""),
+  "a member's refusal is never filed under a missing node id", keys.length ? keys.join(",") : "(none)");
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

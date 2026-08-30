@@ -13,7 +13,7 @@ import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
-import { canOn, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
+import { can, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { runServerAction } from "./lib/serverActions.js";
 import { sessionStore, TIER_LABEL } from "./lib/sessionStore.js";
@@ -126,15 +126,15 @@ function AppInner({ user, setUser, route, setRoute }) {
   const servers = useStore(serversStore, s => s.list);
   const libraryList = useStore(libraryStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
-  const sessionsByHost = useStore(sessionStore, s => s.byHost);
+  const session = useStore(sessionStore, s => s.session);
+  const refusingNodes = useStore(sessionStore, s => s.nodes);
   // Read for the breadcrumb's leaf crumb only — the leaf page is what hydrates this board, so this
   // reads whichever node's board is currently held and shows nothing when none is.
   const servicesByHost = useStore(servicesStore, s => s.byHost);
 
-  const authzSettled = hosts.every(h => {
-    const s = sessionsByHost[h.id];
-    return s && s.status !== "none" && s.status !== "bootstrapping";
-  });
+  // One session, so authorization settles once. A member still catching up does not hold the
+  // panel back — its own rows are what wait, and NodeAccessNotice is what says so.
+  const authzSettled = !!session && session.status !== "none" && session.status !== "bootstrapping";
 
   const authzReady = hostsLoaded && authzSettled;
 
@@ -193,17 +193,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   // does: the seam's 30-second grace then decides whether it healed, and if it did not,
   // the effect below drops the identity and AuthGate takes over. Reacting harder here
   // would log somebody out over one unlucky request.
-  const noteAuthFailure = React.useCallback((hostId) => {
-    if (hostId) sessionStore.expire(hostId);
-  }, []);
-
-  // "Sign in again" on the per-node notice, and the end of a session that could not be
-  // renewed: both land on the node's sign-in, because that is the only thing that fixes
-  // either of them.
-  const signInAgain = React.useCallback(() => {
-    writeStoredUser(null);
-    setUser(null);
-  }, [setUser]);
+  const noteAuthFailure = React.useCallback(() => { sessionStore.expire(); }, []);
 
   React.useEffect(() => {
     if (landingResolved) return;
@@ -214,24 +204,20 @@ function AppInner({ user, setUser, route, setRoute }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the async gate
   }, [authzReady, landingResolved]);
 
-  // A session that ran out and could not be renewed sends somebody back to that node's
-  // sign-in. `reauthDue` rather than raw `expired` is what makes this survivable: the
-  // access token lapses every ~15 minutes by design and the seam rotates it silently, so
-  // reacting to the lapse itself would throw everybody out four times an hour. The seam
-  // only surfaces one it failed to heal, 30 seconds later.
+  // A session that ran out and could not be renewed sends somebody back to the sign-in. `reauthDue`
+  // rather than raw `expired` is what makes this survivable: the access token lapses every ~15
+  // minutes by design and the seam renews it silently, so reacting to the lapse itself would throw
+  // everybody out four times an hour. The seam only surfaces one it failed to heal, 30 seconds later.
   //
-  // Dropping the stored identity is the whole mechanism — App re-renders, sees no user,
-  // and shows AuthGate, which lands on the node this browser last used. There is no
-  // re-authorize modal any more: the one that existed could not re-authenticate (it
-  // waited 650ms and re-read /me with the token that had already failed), and the honest
-  // answer to a dead session is the door.
+  // Dropping the stored identity is the whole mechanism — App re-renders, sees no user, and shows
+  // AuthGate, which asks a member where the cluster signs people in. The honest answer to a dead
+  // session is the door.
   React.useEffect(() => {
-    const sessions = Object.values(sessionsByHost);
-    if (!sessions.length) return;
-    if (!sessions.every(s => s && (s.reauthDue || s.status === "denied"))) return;
+    if (!session) return;
+    if (!(session.reauthDue || session.status === "denied")) return;
     writeStoredUser(null);
     setUser(null);
-  }, [sessionsByHost, setUser]);
+  }, [session, setUser]);
 
   // A role can change under somebody who is already standing on a page. `resolveRoute` is the
   // chokepoint every navigation passes through, so re-running it against the route currently held is
@@ -243,22 +229,21 @@ function AppInner({ user, setUser, route, setRoute }) {
     if (!landingResolved) return;
     const allowed = resolveRoute(route);
     if (allowed !== route) setRoute(allowed);
-  }, [sessionsByHost, hosts, route, setRoute, landingResolved]);
+  }, [session, hosts, route, setRoute, landingResolved]);
 
   // What a role change costs is visible immediately — controls and tabs go, and the page may change
-  // under them — and nothing else on the panel says why. So the shell says it: the one fact, named
-  // per node, because a tier is per node and half the cluster may be unaffected.
-  React.useEffect(() => sessionStore.onTierChange(({ hostId, to }) => {
-    const host = hostsStore.find(hostId);
-    toast.info("Your access on " + ((host && host.name) || hostId) + " is now " + (TIER_LABEL[to] || to));
+  // under them — and nothing else on the panel says why. So the shell says it, once: a tier belongs
+  // to the account and every member reads the same one, so there is no node to name.
+  React.useEffect(() => sessionStore.onTierChange(({ to }) => {
+    toast.info("Your access is now " + (TIER_LABEL[to] || to));
   }), []);
 
-  // The nodes an install could land on: online, this role may create there, and the session isn't
-  // refused. `server.create` is the capability that gates installing (persona.js) — every other
-  // create surface gates on the same one.
+  // The nodes an install could land on: online, this role may create at all, and the member is not
+  // refusing this session. The capability is the cluster's; the refusal is the member's, and both
+  // have to hold for a target to be offerable.
   const installTargets = hosts.filter(h => {
-    const s = sessionsByHost[h.id];
-    return h.online && canOn("server.create", h.id) && (!s || !s.denied);
+    const refusal = refusingNodes[h.id];
+    return h.online && can("server.create") && !(refusal && refusal.accepts === "refusing");
   });
   // An install nobody may make does not stay on screen with its fields. A role can be regraded while
   // the form is open, and a form with no node left to install on is one whose button can only be
@@ -401,12 +386,10 @@ function AppInner({ user, setUser, route, setRoute }) {
       <main className="app__main">
         <div className="content">
           <ConnectivityBanner conn={conn} onRetry={retryConnection} />
-          {/* Per-node access, reported rather than gated: a node refusing this
-              session takes its own rows off the aggregated surfaces, not the
-              panel. Sessions are per node, so the rest of the cluster works. */}
-          <NodeAccessNotice
-            onReauth={signInAgain}
-            onManage={(h) => setRoute({ kind: "cluster", hostId: h.id })} />
+          {/* A member refusing the cluster's session, reported rather than gated: it takes its own
+              rows off the aggregated surfaces and nothing else, because the session is fine and
+              every other member is honouring it. */}
+          <NodeAccessNotice onManage={(h) => setRoute({ kind: "cluster", hostId: h.id })} />
           <Breadcrumb
             route={route}
             onNavigate={setRoute}

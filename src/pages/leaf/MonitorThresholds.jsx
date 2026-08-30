@@ -43,8 +43,8 @@ function MonitorThresholds({ hostId }) {
   // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
   // whether these are editable is the one held on THIS node. Reading is operator; changing what the
   // fleet alerts on is admin.
-  const live = !!hostId && sessionStore.isLive(hostId);
-  const tier = live ? sessionStore.tierOf(hostId) : null;
+  const live = !!hostId && sessionStore.isLive();
+  const tier = live ? sessionStore.tierOf() : null;
   const canEdit = tier === "admin";
 
   const [doc, setDoc] = React.useState(null);      // null = not loaded yet

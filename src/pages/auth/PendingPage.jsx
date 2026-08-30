@@ -5,13 +5,13 @@ import { AuthShell } from "./AuthChrome.jsx";
 // PendingPage — signed in, and allowed to do nothing yet.
 //
 // Proving who you are and being let in are two different things, and this is the gap
-// between them. Someone here holds a real session on a real host: the backend knows
+// between them. Someone here holds a real cluster session: the anchor knows
 // exactly who they are, it simply has no authority on their account. Every screen behind
 // this one would be an empty roster and a wall of 403s.
 //
 // Two states wear the same `none` tier and they are not the same sentence:
-//   • pending — this host has an account for them, awaiting an administrator.
-//   • unknown — this host has no account for them at all. Nothing is coming.
+//   • pending — the cluster has an account for them, awaiting an administrator.
+//   • unknown — the cluster has no account for them at all. Nothing is coming.
 // Guessing between them would tell half of these people to wait for something that will
 // never happen, which is why the backend reports the account state beside the tier.
 //
@@ -29,7 +29,7 @@ import { AuthShell } from "./AuthChrome.jsx";
 
 const POLL_MS = 5000;
 
-function PendingPage({ account, user, hostName, onCheck, onLogout }) {
+function PendingPage({ account, user, onCheck, onLogout }) {
   const waiting = account === "pending";
   const handle = (user && (user.display || user.name)) || null;
   const id = (user && user.id) || null;
@@ -80,13 +80,13 @@ function PendingPage({ account, user, hostName, onCheck, onLogout }) {
         <div className={"pending__icon" + (waiting ? "" : " pending__icon--stranger")}>
           <Icon name={waiting ? "hourglass" : "user-x"} size={26} strokeWidth={1.7} />
         </div>
-        <h1 className="pending__title">{waiting ? "Waiting for approval" : "No access on this host"}</h1>
+        <h1 className="pending__title">{waiting ? "Waiting for approval" : "No access on this cluster"}</h1>
         <p className="pending__body">
           {waiting
-            ? <>You’re signed in to <b>{hostName}</b>. An administrator has to approve your account before
+            ? <>You’re signed in. An administrator has to approve your account before
               you can see anything — they’ll find you on their accounts screen. This page will let you
               in the moment they do.</>
-            : <>You’re signed in, but <b>{hostName}</b> has no account for you. An administrator has to
+            : <>You’re signed in, but this cluster has no account for you. An administrator has to
               create one — signing in again won’t change it.</>}
         </p>
         {(handle || id) ? (

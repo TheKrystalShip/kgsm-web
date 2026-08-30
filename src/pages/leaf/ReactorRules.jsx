@@ -73,8 +73,8 @@ function ReactorRules({ hostId, leafId }) {
   // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
   // whether these are editable is the one held on THIS node. Reading is operator; changing what a
   // daemon is permitted to do to your servers is admin.
-  const live = !!hostId && sessionStore.isLive(hostId);
-  const canEdit = live && sessionStore.tierOf(hostId) === "admin";
+  const live = !!hostId && sessionStore.isLive();
+  const canEdit = live && sessionStore.tierOf() === "admin";
 
   const { state, data, error, reload } =
     useLeafResource(hostId, leafId, (h) => fetchLeafReactorStatus(h));

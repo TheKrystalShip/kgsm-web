@@ -66,7 +66,7 @@ function SettingsSessions({ onLogout }) {
   // `hostId` is the ENTRY POINT for cluster-wide mutations only (revoke-all
   // propagates over the backend's own bus, so any live node performs it for the
   // whole cluster). It is not a scope, and nothing is read through it alone.
-  const liveNodes = sessionStore.readRegistry().filter(h => h && h.id && sessionStore.isLive(h.id));
+  const liveNodes = sessionStore.readRegistry().filter(h => h && h.id && sessionStore.isLive());
   const hostId = (liveNodes[0] && liveNodes[0].id) || null;
   const nodeKey = liveNodes.map(h => h.id).join(",");
 

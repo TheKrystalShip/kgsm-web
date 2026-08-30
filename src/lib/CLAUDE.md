@@ -137,7 +137,7 @@ re-exports `stores/` — import from either.
 - `authStorage.js` — the app-shell user read/write (extracted from `App.jsx`).
 - `persona.js` — the authorization **policy, single source of truth**. Roles
   `admin｜operator｜viewer｜none`, resolved **per host**. `can(cap)` = aggregate
-  (any host) for nav/reach; `canOn(cap, host)` = scoped for actions — **never
+  (any host) for nav/reach; `can(cap)` = scoped for actions — **never
   substitute one for the other**. `resolveRoute()` is the routing chokepoint.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
   `provisioned` × `status`. The assistant is per-host with no central fallback.

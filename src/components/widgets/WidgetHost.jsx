@@ -2,7 +2,7 @@ import React from "react";
 
 import { Icon } from "../Icon.jsx";
 import { ErrorBoundary } from "../ErrorBoundary.jsx";
-import { can, canOn } from "../../lib/persona.js";
+import { can } from "../../lib/persona.js";
 import { getWidget, paramsComplete, widgetTitle } from "../../lib/widgets/registry.js";
 import { hostsStore, serversStore } from "../../lib/stores.js";
 import { useStore } from "../../lib/store.js";
@@ -48,12 +48,12 @@ function useIsWidget() { return React.useContext(WidgetContext) != null; }
 function widgetPermitted(entry, params) {
   if (!entry || !entry.cap) return true;
   const p = params || {};
-  if (entry.scope === "host") return p.hostId ? canOn(entry.cap, p.hostId) : can(entry.cap);
+  if (entry.scope === "host") return p.hostId ? can(entry.cap) : can(entry.cap);
   if (entry.scope === "server") {
     const srv = p.serverId ? serversStore.find(p.serverId) : null;
     // A server we have not loaded yet is not a denial — the roster arrives a moment later, and
     // hiding the widget in the meantime would flash it out and back in on every cold load.
-    return srv && srv.hostId ? canOn(entry.cap, srv.hostId) : can(entry.cap);
+    return srv && srv.hostId ? can(entry.cap) : can(entry.cap);
   }
   return can(entry.cap);
 }

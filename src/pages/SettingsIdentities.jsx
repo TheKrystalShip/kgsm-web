@@ -34,7 +34,7 @@ function SettingsIdentities({ sessionProvider }) {
   // admin-only: it is the caller's own account on each of them.
   const hosts = React.useMemo(
     () => sessionStore.readRegistry()
-      .filter((h) => h && h.id && sessionStore.isLive(h.id))
+      .filter((h) => h && h.id && sessionStore.isLive())
       .map((h) => ({ id: h.id, name: h.name || h.id })),
     []);
 

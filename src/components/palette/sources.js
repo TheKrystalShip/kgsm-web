@@ -4,7 +4,7 @@ import { joinRefusal } from "../ServerConnect.jsx";
 import { widgetPermitted } from "../widgets/WidgetHost.jsx";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { leafIcon } from "../../lib/leaves.js";
-import { can, canOn, serverJoin, serverOperable } from "../../lib/persona.js";
+import { can, serverJoin, serverOperable } from "../../lib/persona.js";
 import { copyText } from "../../lib/clipboard.js";
 import { toast } from "../../lib/toasts.js";
 import { backupServer, runServerAction } from "../../lib/serverActions.js";
@@ -466,7 +466,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
   // Only what a node has actually reported. A leaf list is per host and arrives when that host's
   // services are read, so before then this contributes nothing rather than guessing at a roster.
   for (const [hostId, entry] of Object.entries(services || {})) {
-    if (!entry || !entry.everLoaded || !canOn("host.manage", hostId)) continue;
+    if (!entry || !entry.everLoaded || !can("host.manage")) continue;
     for (const svc of entry.list || []) {
       push({
         id: "leaf." + hostId + "." + svc.id,

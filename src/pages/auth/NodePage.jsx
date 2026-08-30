@@ -1,19 +1,19 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
-import { adoptNode, knownNodes, probeNode } from "../../lib/authFlow.js";
+import { adoptMember, knownMembers, probeMember } from "../../lib/authFlow.js";
 import { normalizeHostUrl } from "../../lib/connect.js";
 import { AuthError, AuthShell } from "./AuthChrome.jsx";
 
-// NodePage — which host you are signing in to.
+// NodePage — which member this browser reaches the cluster through.
 //
-// A node is a row: a status dot, the name it calls itself, its region, its address and
+// A member is a row: a status dot, the name it calls itself, its region, its address and
 // its build. Everything on it comes from ONE anonymous GET /api/v1, which is also the
 // reachability probe — so nothing is green because an address was typed in, only because
-// something answered as a kgsm-api. A node that does not answer stays on the list with
+// something answered as a kgsm-api. A member that does not answer stays on the list with
 // its reason and its own Retry; dropping it would read as "I deleted it", which is a
 // different and much worse thought than "that one is off right now".
 //
-// The last row is the way out of the list, shaped like a node so the whole set reads as
+// The last row is the way out of the list, shaped like a member so the whole set reads as
 // one choice. With an empty registry there is no list and that form IS the screen.
 
 function NodeRow({ node, selected, onPick, onRetry }) {
@@ -81,10 +81,10 @@ function ConnectForm({ firstRun, onConnected, onCancel }) {
     if (!looksUsable || busy) return;
     setBusy(true);
     setError(null);
-    const probe = await probeNode(typed);
+    const probe = await probeMember(typed);
     setBusy(false);
     if (!probe.reachable) { setError(probe.reason); return; }
-    adoptNode(probe);
+    adoptMember(probe);
     onConnected(probe);
   };
 
@@ -100,7 +100,7 @@ function ConnectForm({ firstRun, onConnected, onCancel }) {
         <AuthError>{error}</AuthError>
 
         <form className="login-form" onSubmit={connect}>
-          <label className="login-form__label" htmlFor="node-address">Host address</label>
+          <label className="login-form__label" htmlFor="node-address">Member address</label>
           <div className={"addr" + (typed && !looksUsable ? " addr--bad" : "")}>
             <span className="addr__scheme">https://</span>
             <input
@@ -136,7 +136,7 @@ function ConnectForm({ firstRun, onConnected, onCancel }) {
 }
 
 function NodePage({ onPick, lastOrigin }) {
-  const known = React.useMemo(() => knownNodes(), []);
+  const known = React.useMemo(() => knownMembers(), []);
   const [adding, setAdding] = React.useState(known.length === 0);
   const [probes, setProbes] = React.useState(() =>
     known.map(n => ({ origin: n.origin, name: n.name, probing: true })));
@@ -149,7 +149,7 @@ function NodePage({ onPick, lastOrigin }) {
     if (!targets.length) return;
     setProbes(prev => prev.map(p => (targets.includes(p.origin) ? { ...p, probing: true } : p)));
     targets.forEach(async (origin) => {
-      const result = await probeNode(origin);
+      const result = await probeMember(origin);
       setProbes(prev => prev.map(p => (p.origin === origin ? { ...p, ...result, probing: false } : p)));
     });
     // `known` is captured once from the module-load connection set and never changes
@@ -174,13 +174,13 @@ function NodePage({ onPick, lastOrigin }) {
   }
 
   return (
-    <AuthShell tagline="Pick the host you’re signing in to.">
+    <AuthShell tagline="Point the panel at your cluster.">
       <div className="login-card">
-        <div className="login-card__heading">{noneAnswered ? "No host answered" : "Choose a node"}</div>
+        <div className="login-card__heading">{noneAnswered ? "No member answered" : "Reach the cluster through"}</div>
         <div className="login-card__sub">
           {noneAnswered
-            ? "The hosts remembered on this device are all unreachable right now."
-            : "Your session is minted by the node you sign in through, and vouches onto the rest of the cluster."}
+            ? "The members remembered on this device are all unreachable right now."
+            : null}
         </div>
 
         <div className="nodepick">

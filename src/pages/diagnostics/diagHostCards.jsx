@@ -9,7 +9,7 @@ import { HostMeters, hostHealth } from "../../components/HostCardBody.jsx";
 import { HostAuthBadge } from "../../components/host-helpers.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
-import { canOn } from "../../lib/persona.js";
+import { can } from "../../lib/persona.js";
 import { uptimeShort } from "../../lib/formatting.js";
 
 function HostMenu({ host, onEdit, onToggle, onRemove }) {
@@ -22,7 +22,7 @@ function HostMenu({ host, onEdit, onToggle, onRemove }) {
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
   const act = (fn) => (e) => { e.stopPropagation(); setOpen(false); fn(); };
-  const canManage = canOn("host.manage", host.id);
+  const canManage = can("host.manage");
   return (
     <div className="host-menu" ref={ref} onClick={e => e.stopPropagation()}>
       <button className={"icon-btn" + (open ? " icon-btn--on" : "")} onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} title="Manage host" aria-label="Manage host">

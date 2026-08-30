@@ -8,6 +8,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.190.0]
+
+### Changed — one sign-in, one session, for the whole cluster
+
+An account belongs to the cluster and so does the session it opens. The anchor — the member holding
+the `auth` capability — mints it and is the only thing that renews it; every other member accepts it
+by verifying the anchor's signature against the published key and resolves what the person may do
+from its own replica of the account store.
+
+So the panel signs in once, at the anchor, and asks no member for a credential. A browser holding
+nothing asks any member where the cluster signs people in (`GET /api/v1/cluster/auth`,
+unauthenticated, because it is asking precisely because it has no session) and goes there. Which
+member the panel happens to be talking to is a route and decides nothing else.
+
+`persona` has one question. `can(cap)` is it — a scoped variant would let a surface ask "may they do
+this here" and receive a cluster answer that only looks scoped, which is worse than not offering the
+question.
+
+### Added — a member's refusal is a fact about that member
+
+A member verifies the anchor's signature offline, but it can only say what somebody may do once its
+replica carries their account. So a member that has just joined refuses a perfectly good cluster
+session, and ending the session over it would take the whole panel down for one member's lag.
+
+The two refusals are different claims and are not conflated. A **403** means the token validated and
+the person resolved to a tier too low, which for an account the replica does not carry is `none` —
+always a statement about that member's view of this person, never about the session, so it is
+recorded immediately with no renewal attempted. A **401** means the token itself did not validate,
+which could be either — renewing separates them, because a member still refusing a *fresh* session
+is not describing the session.
+
+Which refusal it was travels with it, because "this node grants your account nothing" and "this node
+can't verify your session yet" resolve differently and only one of them waits on an administrator.
+
+### Added — the cluster answering that it cannot sign anybody in
+
+Four states, kept apart, because a person acts on each differently and each is a configuration
+somebody can fix: a capability whose holder has left, a holder that states no browser-reachable
+address, a member that knows of no anchor, and an anchor that is not answering. Only the last offers
+Try again, because it is the only one that resolves by waiting.
+
+### Removed — the node-to-node vouch
+
+The panel asked a node to mint it a session on another node. It was the SPA talking auth to a member,
+which the cluster model does not have, and it is replaced by a session every member already accepts.
+
+
 ## [1.189.1]
 
 ### Fixed — a lapsed session is renewed, not vouched over

@@ -82,32 +82,36 @@ function ClusterReach({ className = "" }) {
 // display name, with the connection's own label behind it.
 //
 // Silent when every node accepts us.
-function NodeAccessNotice({ onReauth, onManage }) {
+// Which members are not honouring the one session, and which of the two refusals they gave.
+//
+// The session itself is the cluster's and is either live or it is not — when it is not, the whole
+// panel says so once and there is nothing per-member to report. What this reports is narrower and
+// is a fact about a MEMBER: it accepted the anchor's signature and still would not serve, which
+// happens while a member's replica catches up with an account it has never seen.
+//
+// The two are different sentences because they resolve differently. A member that knows the token
+// and not the person needs an administrator, or time. A member that could not check the token at
+// all is not describing this person, and there is nothing for them to do about it.
+function NodeAccessNotice({ onManage }) {
   const hosts = useStore(hostsStore, s => s.list);
-  const sessions = useStore(sessionStore, s => s.byHost);
+  const nodes = useStore(sessionStore, s => s.nodes);
   const nameOf = (id) => nodeLabel(id, hosts);
-  const refused = Object.keys(sessions).filter(id => {
-    const rec = sessions[id];
-    if (rec.status === "denied") return true;
-    return !!rec.reauthDue && rec.error !== "unreachable";
-  });
+  const refused = Object.keys(nodes).filter(id => nodes[id].accepts === "refusing");
   if (!refused.length) return null;
   return (
     <div className="node-access" role="status">
       {refused.map(id => {
-        const denied = sessions[id].status === "denied";
+        const unknown = nodes[id].reason === "unknown_here";
         const name = nameOf(id);
         return (
-          <div key={id} className={"node-access__row node-access__row--" + (denied ? "denied" : "expired")}>
-            <Icon name={denied ? "lock" : "rotate-cw"} size={14} />
+          <div key={id} className={"node-access__row node-access__row--" + (unknown ? "denied" : "expired")}>
+            <Icon name={unknown ? "lock" : "rotate-cw"} size={14} />
             <span className="node-access__text">
-              {denied
-                ? <><b>{name}</b> doesn{"’"}t grant your Discord role access. Its servers aren{"’"}t shown.</>
-                : <><b>{name}</b> ended your session. Its servers aren{"’"}t shown until you sign in again.</>}
+              {unknown
+                ? <><b>{name}</b> grants your account nothing. Its servers aren{"’"}t shown.</>
+                : <><b>{name}</b> can{"’"}t verify your session yet. Its servers aren{"’"}t shown.</>}
             </span>
-            {denied
-              ? <button className="node-access__act" onClick={() => onManage && onManage({ id, name })}>Details</button>
-              : <button className="node-access__act" onClick={() => onReauth && onReauth({ id, name })}>Sign in again</button>}
+            <button className="node-access__act" onClick={() => onManage && onManage({ id, name })}>Details</button>
           </div>
         );
       })}
@@ -226,7 +230,11 @@ function HostCapacityStrip({ host, title, hostLabel, onOpenDiagnostics, hideAler
 // ---------- Host auth badge (from HostAccess.jsx) ----------
 
 function HostAuthBadge({ hostId, size }) {
-  const rec = useStore(sessionStore, s => s.byHost[hostId]) || { status: "none" };
+  const session = useStore(sessionStore, s => s.session) || { status: "none" };
+  const refusal = useStore(sessionStore, s => s.nodes[hostId]);
+  const rec = refusal && refusal.accepts === "refusing"
+    ? { status: "denied", tier: session.tier }
+    : session;
   const TIER = TIER_LABEL;
   const map = {
     live:          { tone: "ok",   icon: "shield-check", label: TIER[rec.tier] || "Connected" },

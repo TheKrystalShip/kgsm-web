@@ -10,7 +10,7 @@ import { SubTabs } from "../components/SubTabs.jsx";
 import { api } from "../lib/apiClient.js";
 import { homeHostId } from "../lib/config.js";
 import { nodeLabel } from "../lib/nodeLabel.js";
-import { canOn } from "../lib/persona.js";
+import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { clusterStore, hostsStore, serversStore, subscribeHostMetrics } from "../lib/stores.js";
@@ -69,7 +69,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // `local` chip marks the node serving the panel wherever you have navigated to.
   const homeId = homeHostId();
   const actingHostId = (focusHostId && hosts.some(h => h.id === focusHostId)) ? focusHostId : homeId;
-  const manageable = hosts.filter(h => canOn("host.manage", h.id));
+  const manageable = hosts.filter(h => can("host.manage"));
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
@@ -79,7 +79,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // node is it, otherwise it asks — so the flow never guesses where to federate.
   const canFederate = manageable.length > 0 && !!clusterAdmin;
   const actingLabel = actingHostId ? nodeLabel(actingHostId, hosts) : null;
-  const canManageMembers = !!actingHostId && canOn("host.manage", actingHostId);
+  const canManageMembers = !!actingHostId && can("host.manage");
   const pingByHost = useStore(pingStore, s => s.byHost);
   React.useEffect(() => { startPingLoop(); }, []);
   // The roster has ONE owner: cluster discovery keeps clusterStore current for
@@ -210,7 +210,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
 
   const host = hosts.find(h => h.id === focusHostId);
 
-  if (sessionStore.isDenied(host.id)) {
+  if (sessionStore.nodeRefusal(host.id)) {
     return (
       <>
         <div className="diag-head">

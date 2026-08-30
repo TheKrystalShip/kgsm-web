@@ -130,16 +130,16 @@ function Palette({ onClose, onInstall }) {
   const wantRoster = !!scopeServer && scopeServer.status === "online";
   const players = usePlayerRoster(wantRoster ? scopeServer : null);
 
-  // Neither `layout` nor `sessions` is read here, and both have to re-build the list. Pinning changes
+  // Neither `layout` nor `session` is read here, and both have to re-build the list. Pinning changes
   // the layout and the pin/unpin entries flip with it; a role changes what `sources.js` is allowed to
   // build at all, and permission is applied there rather than at render — so a palette left open
   // across a regrade would keep offering verbs the node has stopped accepting.
   const layout = useStore(dashboardStore, (s) => s.layout);
-  const sessions = useStore(sessionStore, (s) => s.byHost);
+  const session = useStore(sessionStore, (s) => s.session);
   const entries = React.useMemo(
     () => buildEntries({ servers, hosts, library, services, players, themePref, scope, nav, openAssistant, onInstall }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `layout` and `sessions` are rebuild triggers, not inputs
-    [servers, hosts, library, services, players, themePref, scope, nav, openAssistant, onInstall, layout, sessions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `layout` and `session` are rebuild triggers, not inputs
+    [servers, hosts, library, services, players, themePref, scope, nav, openAssistant, onInstall, layout, session]);
 
   // With nothing typed the palette shows where you have just been and then where you can go — it
   // never opens onto an empty box. Recents are resolved against the CURRENT entry set, so a server

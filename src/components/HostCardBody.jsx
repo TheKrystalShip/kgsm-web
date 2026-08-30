@@ -20,7 +20,7 @@ import { hostCapacityMeters } from "./host-helpers.jsx";
 // panel uses: denied (no Discord role) → danger, offline → off, live-metrics
 // capability down → warn, otherwise the worst of the live meters.
 function hostHealth(host) {
-  const denied = !!sessionStore.isDenied(host.id);
+  const denied = !!sessionStore.nodeRefusal(host.id);
   // The host's live-metrics capability can fail independently of the host
   // being online — degrade gracefully when it's not usable.
   const metricsUsable = capUsable(host, "metrics");

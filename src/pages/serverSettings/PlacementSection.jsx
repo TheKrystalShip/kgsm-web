@@ -13,14 +13,14 @@ import { SettingsRow, SettingsSection } from "../../components/settings-primitiv
 import { hostsStore, moveServer } from "../../lib/stores.js";
 import { useStore } from "../../lib/store.js";
 import { fmtBytes } from "../../lib/formatting.js";
-import { canOn } from "../../lib/persona.js";
+import { can } from "../../lib/persona.js";
 
 const errText = (e, fallback) => (e && (e.userMessage || e.message)) || fallback;
 
 function PlacementSection({ server }) {
   const hostId = server && server.hostId;
   const host = useStore(hostsStore, s => s.list.find(h => h.id === hostId) || null);
-  const canManage = canOn("host.manage", hostId);
+  const canManage = can("host.manage");
 
   const [target, setTarget] = React.useState("");
   const [phase, setPhase] = React.useState("idle"); // "idle" | "confirm" | "sending"

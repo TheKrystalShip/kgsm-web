@@ -61,7 +61,7 @@ import { hostsStore, serverHostId } from "./stores.js";
   }
 
   function isDenied(host) {
-    try { return !!(host && sessionStore.isDenied(host.id)); }
+    try { return !!(host && sessionStore.nodeRefusal(host.id)); }
     catch { return false; }
   }
 

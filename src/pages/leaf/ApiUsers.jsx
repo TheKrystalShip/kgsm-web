@@ -36,7 +36,7 @@ function ApiUsers({ hostId }) {
   // The leaf page's own gate is the aggregate one — admin on ANY node reaches it — so the tier that
   // matters here is the one held on THIS node. Checked before asking, because a table that 403s
   // tells the reader less than a sentence naming what they'd need.
-  const admin = !!hostId && sessionStore.isLive(hostId) && sessionStore.tierOf(hostId) === "admin";
+  const admin = !!hostId && sessionStore.isLive() && sessionStore.tierOf() === "admin";
 
   const [rows, setRows] = React.useState(null);          // null = not loaded yet
   const [error, setError] = React.useState(null);

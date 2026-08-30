@@ -20,8 +20,10 @@ const CATALOG_LABEL = KRYSTAL_LABELS.catalog || "Catalog";
 // needing a re-auth. `reauthDue`, not `expired`: the routine token renewal writes
 // `expired` for one round-trip, and neither the chip nor the node list must tick a
 // node into "degraded" for it. Both read this, so they can never disagree.
-function isDegraded(host, session) {
-  return !host.online || !!(session && (session.status === "denied" || session.reauthDue));
+// Offline, or honouring nothing. The session is the cluster's and its health is reported once,
+// app-wide; what varies per node is whether that node is serving it.
+function isDegraded(host, refusal) {
+  return !host.online || !!(refusal && refusal.accepts === "refusing");
 }
 
 // ClusterChip — the ambient reachability signal, and the only node-shaped thing
@@ -34,9 +36,9 @@ function isDegraded(host, session) {
 // being acted on (which node an install lands on, whose blueprint file to open),
 // never as a mode the rest of the app inherits.
 function ClusterChip({ hosts, onOpen, collapsed }) {
-  const sessions = useStore(sessionStore, s => s.byHost);
+  const refusals = useStore(sessionStore, s => s.nodes);
   const online = hosts.filter(h => h.online).length;
-  const degraded = hosts.filter(h => isDegraded(h, sessions[h.id])).length;
+  const degraded = hosts.filter(h => isDegraded(h, refusals[h.id])).length;
   const tone = !hosts.length ? "muted" : degraded === hosts.length ? "down" : degraded ? "warn" : "ok";
   const summary = hosts.length === 1
     ? (online ? "1 node · online" : "1 node · offline")
@@ -201,12 +203,12 @@ function SidebarFavorites({ ids, hostById, servers, hosts, activeId, onOpen, onV
 /// The order is the roster's and nothing re-sorts it — a node that moves because it went offline
 /// has stopped being a shortcut, and the dot is what carries the state.
 function SidebarNodes({ hosts, activeHostId, onOpen }) {
-  const sessions = useStore(sessionStore, s => s.byHost);
+  const refusals = useStore(sessionStore, s => s.nodes);
   if (!hosts.length) return null;
   return (
     <div className="sidebar__nodes">
       {hosts.map((h) => {
-        const degraded = isDegraded(h, sessions[h.id]);
+        const degraded = isDegraded(h, refusals[h.id]);
         // Three readings, all measured: answering, answering but not fully drivable, silent.
         const state = !h.online ? "offline" : degraded ? "warn" : "ok";
         const why = !h.online ? "hasn't answered"

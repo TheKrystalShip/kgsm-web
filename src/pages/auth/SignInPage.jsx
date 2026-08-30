@@ -1,34 +1,37 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
+import { providerStartUrl, register, signIn } from "../../lib/anchor.js";
 import {
   PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
-  passwordOk, passwordStrength, signIn, signUp, usernameOk, usernameProblem,
+  passwordOk, passwordStrength, usernameOk, usernameProblem,
 } from "../../lib/authFlow.js";
-import { rememberAuthAnchor, takeOAuthError } from "../../lib/authRedirect.js";
+import { takeOAuthError } from "../../lib/authRedirect.js";
 import { AuthError, AuthShell, DoorwayChip, PasswordField, PasswordMeter, ProviderButtons } from "./AuthChrome.jsx";
 
-// SignInPage — one card, two tabs, against one node.
+// SignInPage — one card, two tabs, one cluster.
+//
+// A session belongs to the cluster, so this signs in at the ANCHOR and at nothing else. Which member
+// the panel happens to be talking to decided where to ask that question, and nothing after it.
 //
 // The order down the card is the same on both tabs, so nothing moves when you toggle:
 //
 //   segment → providers → divider → form
 //
-// Providers and whether sign-up is open both come from the node's own /auth/providers,
-// carried here on the probe the node screen already made. This SPA holds no list of
-// providers and no opinion about whether a host takes new accounts.
+// Which providers exist and whether sign-up is open both come from the anchor's own
+// /auth/providers, carried here on the discovery the gate already did. This SPA holds no list of
+// providers and no opinion about whether a cluster takes new accounts.
 //
-// Errors sit with what they are about. A wrong password renders above the username,
-// inside the form, where the eye already is on the way back to fixing it. A host that
-// cannot be reached invalidates the tabs, the providers and the form alike, so that one
-// sits at the very top of the card, above the segmented control.
+// Errors sit with what they are about. A wrong password renders above the username, inside the
+// form, where the eye already is on the way back to fixing it. An anchor that cannot be reached
+// invalidates the tabs, the providers and the form alike, so that one sits at the very top of the
+// card, above the segmented control.
 
 const USERNAME_RULE = (
   <>{USERNAME_MIN}–{USERNAME_MAX} characters · letters, digits, <code>.</code> <code>_</code> <code>-</code> · starts with a letter or digit</>
 );
 
-function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
-  const origin = node && node.origin;
-  const hostName = (node && node.label) || (origin || "").replace(/^https?:\/\//, "") || "this host";
+function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
+  const anchor = cluster && cluster.url;
   const registering = tab === "register";
 
   const [username, setUsername] = React.useState("");
@@ -37,9 +40,9 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
   const [confirm, setConfirm] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [formError, setFormError] = React.useState(null);
-  // A refusal about the HOST rather than about what was typed — it survives a tab switch
-  // and disables both doors, because neither of them can work.
-  const [hostError, setHostError] = React.useState(null);
+  // A refusal about the ANCHOR rather than about what was typed — it survives a tab switch and
+  // disables both doors, because neither of them can work.
+  const [anchorError, setAnchorError] = React.useState(null);
   // A provider bounce that came back refused. One-shot, read at mount.
   const [bounceError] = React.useState(() => takeOAuthError());
 
@@ -51,7 +54,7 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
   const strength = passwordStrength(password);
   const confirmMismatch = registering && confirm.length > 0 && confirm !== password;
 
-  const canSubmit = !busy && !!origin && (registering
+  const canSubmit = !busy && !!anchor && (registering
     ? usernameOk(username) && passwordOk(password) && confirm === password
     : !!username && !!password);
 
@@ -60,41 +63,40 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
     if (!canSubmit) return;
     setBusy(true);
     setFormError(null);
-    setHostError(null);
+    setAnchorError(null);
 
     const result = registering
-      ? await signUp(origin, username.trim(), displayName.trim(), password)
-      : await signIn(origin, username, password);
+      ? await register(anchor, username.trim(), password, displayName.trim())
+      : await signIn(anchor, username, password);
 
     if (!result.ok) {
       setBusy(false);
-      if (result.unreachable) setHostError(result.error);
+      if (result.unreachable) setAnchorError(result.error);
       else setFormError(result.error);
       return;
     }
 
-    // The node minted a session. Adopting it is the same path an OAuth return leg takes,
-    // so a session behaves identically whichever door it came through.
-    rememberAuthAnchor(origin);
-    await onSession(origin, result.session);
+    // The anchor minted a session. Adopting it is the same path a provider's return leg takes, so a
+    // session behaves identically whichever door it came through — and a registration lands holding
+    // nothing, which is the same state a first provider arrival lands in.
+    await onSession(result.session);
   };
 
   const bounce = (provider) => {
-    if (busy || !origin) return;
+    if (busy || !anchor) return;
     setBusy(provider);
-    rememberAuthAnchor(origin);   // the return leg calls /me on THIS node
-    window.location.href = origin + "/auth/" + encodeURIComponent(provider) + "/start?prompt=consent";
+    window.location.href = providerStartUrl(anchor, provider);
   };
 
-  const providers = (node && node.providers) || [];
-  const registrationOpen = !!(node && node.registration);
-  const unreachable = !!hostError;
+  const providers = (cluster && cluster.providers) || [];
+  const registrationOpen = !!(cluster && cluster.registration);
+  const unreachable = !!anchorError;
 
   return (
-    <AuthShell tagline={registering ? "Create an account on this host." : "Sign in to your control panel."}>
+    <AuthShell tagline={registering ? "Create an account on this cluster." : "Sign in to your control panel."}>
       <div className="login-card">
         {/* Above the tabs: this is not about either of them. */}
-        <AuthError>{hostError}</AuthError>
+        <AuthError>{anchorError}</AuthError>
 
         <div className="authseg" role="tablist">
           <button
@@ -110,7 +112,7 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
         {bounceError && !registering ? (
           <AuthError>
             {bounceError === "denied"
-              ? "That account doesn’t have a role on this host yet."
+              ? "That account holds nothing on this cluster yet."
               : "Sign-in didn’t complete — please try again."}
           </AuthError>
         ) : null}
@@ -127,13 +129,13 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
             <div className="login-note login-note--warn">
               <Icon name="ban" size={15} />
               <div>
-                <b>{hostName} isn’t taking new accounts.</b> An administrator has to create one for
+                <b>This cluster isn’t taking new accounts.</b> An administrator has to create one for
                 you, or sign in with an account you already have.
               </div>
             </div>
             {providers.length ? (
               <div className="field-hint" style={{ textAlign: "center", margin: 0 }}>
-                Signing up with a provider is still open here.
+                Signing up with a provider is still open.
               </div>
             ) : null}
           </>
@@ -199,7 +201,7 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
                     className="btn-link"
                     style={{ fontSize: 11, letterSpacing: 0, textTransform: "none" }}
                     onClick={() => setFormError(
-                      "Ask an administrator of " + hostName + " to reset it — this host has no self-service reset.")}>
+                      "Ask an administrator to reset it — this cluster has no self-service reset.")}>
                     Forgot?
                   </button>
                 ) : null}>
@@ -239,17 +241,17 @@ function SignInPage({ node, tab, onTab, onSession, onChangeNode }) {
         )}
 
         {unreachable ? (
-          <button type="button" className="btn-ghost" onClick={onChangeNode}>
-            <Icon name="arrow-left" size={15} /> Choose another node
+          <button type="button" className="btn-ghost" onClick={onChangeMember}>
+            <Icon name="arrow-left" size={15} /> Reach the cluster another way
           </button>
         ) : null}
       </div>
 
       <DoorwayChip
-        node={node}
+        anchor={anchor}
         verb={registering ? "register" : "login"}
         down={unreachable}
-        onOpen={onChangeNode} />
+        onOpen={onChangeMember} />
     </AuthShell>
   );
 }

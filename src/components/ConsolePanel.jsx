@@ -4,7 +4,7 @@ import { PinButton } from "./widgets/PinButton.jsx";
 import { ConsoleView } from "./ConsoleView.jsx";
 import { api } from "../lib/apiClient.js";
 import { sendConsoleInput } from "../lib/stores.js";
-import { canOn, serverOperable } from "../lib/persona.js";
+import { can, serverOperable } from "../lib/persona.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 
 // ConsolePanel — the server's stdout feed + command input, rendered through the shared
@@ -286,7 +286,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
 
   // Gated on this host's audit reach, which is the same gate the audit page uses — the rows come
   // from the same endpoint, so asking without it would just collect 403s.
-  const recent = useRecentCommands(live ? server : null, live && !readOnly && canOn("nav.audit", server && server.hostId));
+  const recent = useRecentCommands(live ? server : null, live && !readOnly && can("nav.audit"));
 
   // Who has been sending commands here. Shown under the input rather than in the feed: these are
   // audit rows, not console output, and putting them in the stream would be writing lines the server

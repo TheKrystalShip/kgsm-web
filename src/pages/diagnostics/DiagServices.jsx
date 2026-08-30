@@ -4,7 +4,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, useFilters } from "../../components/Toolbar.jsx";
 import { useStore } from "../../lib/store.js";
 import { leafStatus } from "../../lib/leaves.js";
-import { canOn } from "../../lib/persona.js";
+import { can } from "../../lib/persona.js";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { useKeyedResource } from "../../lib/keyedResource.js";
 import { servicesStore, subscribeHostServices } from "../../lib/stores.js";
@@ -27,7 +27,7 @@ function DiagServices({ host, onOpenLeaf }) {
   const hostId = host && host.id;
   const entry = useStore(servicesStore, s => (hostId ? s.byHost[hostId] : null));
   const status = entry ? entry.status : "loading";
-  const canManage = hostId ? canOn("host.manage", hostId) : false;
+  const canManage = hostId ? can("host.manage") : false;
   const f = useFilters({ search: "", state: "all", link: "all" });
 
   useKeyedResource(

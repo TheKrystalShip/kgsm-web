@@ -12,7 +12,7 @@ import { clusterStore } from "../../lib/stores.js";
 //      nodes join one gossip mesh/trust domain. That write edits a specific
 //      node's peer list, so the flow names it: a sole manageable node is it,
 //      and with several the modal asks rather than picking. Admin-only
-//      (`canFederate`, the caller's `canOn("host.manage", …)` plus the
+//      (`canFederate`, the caller's `can("host.manage")` plus the
 //      cluster's own admin standing).
 //   2. CONNECT this browser — register the node in the client-side connection
 //      registry and resolve a session on it, exactly like `AddHostPage`.
