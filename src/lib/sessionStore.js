@@ -270,17 +270,29 @@ import { hostsStore } from "./stores.js";
   }
 
   // ---- vouch (lazy cluster SSO — mint a session on a sibling node) -------
-  // SPA-C1: the SPA holds no session on `targetId`, but it IS logged into another node
-  // in the same cluster. Ask that live sibling to vouch the user onto the target
-  // (api.vouch → POST /auth/cluster-session/request); adopt the minted tokens, then
-  // resolve the tier from the target's /me (the vouch result carries no tier). Returns
-  // true ONLY when a fresh session was minted — so apiClient's withRetry replays exactly
-  // once and never loops (a target that is already live, or has no live sibling, gets a
-  // fast `false`, leaving the ordinary rotate/expired path untouched). Concurrent callers
-  // for the same target share one in-flight vouch, so a fan-out of 401s mints one session.
+  // The SPA holds no session on `targetId`, but it IS logged into another node in the same
+  // cluster. Ask that live sibling to vouch the user onto the target (api.vouch → POST
+  // /auth/cluster-session/request); adopt the minted tokens, then resolve the tier from the
+  // target's /me (the vouch result carries no tier). Returns true ONLY when a fresh session
+  // was minted — so apiClient's withRetry replays exactly once and never loops. Concurrent
+  // callers for the same target share one in-flight vouch.
+  //
+  // VOUCHING MINTS A SESSION, AND IS NEVER A RENEWAL. It is how somebody reaches a node they
+  // hold nothing for. A node that has already issued a session issued a refresh token with it,
+  // and rotating that keeps the one session there is instead of adding another that nothing will
+  // ever sign out.
+  //
+  // That is what the three guards below are for, and the middle one is load-bearing rather than
+  // defensive. A fan-out of calls carrying one lapsed access token all answer 401 together: the
+  // first flips the record to `expired` and starts a rotate, and every other one then arrives
+  // here to find a status that is no longer `live` and a sibling that is. Holding a refresh token
+  // is what says a renewal owns this — it is present throughout the rotate and is dropped only
+  // when the rotate fails, which is the one case where a sibling really is the way back in.
   const vouchInflight = {};
   function vouch(targetId) {
     if (!targetId || statusOf(targetId) === "live") return Promise.resolve(false);
+    if (readRefresh(targetId)) return Promise.resolve(false);   // renewable — rotate owns it
+    if (inflight[targetId]) return Promise.resolve(false);      // an attempt is already under way
     if (vouchInflight[targetId]) return vouchInflight[targetId];
     // The voucher is any OTHER node we already hold a live session on (same trust domain).
     const source = readRegistry().map(h => h && h.id).filter(Boolean)

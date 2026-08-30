@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.189.1]
+
+### Fixed — a lapsed session is renewed, not vouched over
+
+Vouching mints a session; it is how somebody reaches a node this browser holds nothing for. Every
+session a node issues comes with a refresh token, so a node whose access token has merely lapsed is
+renewable — and the two were being confused by a race rather than by a rule.
+
+A fan-out of calls carrying one lapsed token answers `401` together. The first flips the record to
+`expired` and starts the rotate that heals it; every other one then reaches the vouch and finds a
+status that is no longer `live` beside a sibling that is, so it mints. Once per access-token
+lifetime, for as long as the panel stays open, each one a session nothing ever signs out and an
+audit entry for a sign-in that did not happen.
+
+Holding a refresh token is what says a renewal owns a node: it is present for the whole rotate and
+dropped only when the rotate fails, which is the one case where a sibling really is the way back in.
+A node this browser holds nothing for is vouched onto exactly as before, and having been vouched
+onto it renews on its next lapse like any other.
+
+`npm run check:vouch` pins both halves.
+
+
 ## [1.189.0]
 
 ### Changed — the Cluster page says which member its controls write through
