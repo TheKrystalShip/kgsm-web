@@ -6,6 +6,7 @@ import {
   lastMemberOrigin, readPendingSession, rememberMember, stashPendingSession,
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
+import { KrystalRouter } from "../lib/router.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { ClusterPage } from "../pages/auth/ClusterPage.jsx";
 import { ClusterUnavailable } from "../pages/auth/ClusterUnavailable.jsx";
@@ -18,47 +19,89 @@ import { SignInPage } from "../pages/auth/SignInPage.jsx";
 // a separate component: the shell's hooks would otherwise run for a visitor who has not signed in,
 // fetching and subscribing on behalf of nobody. Here there is nothing to run.
 //
-//   cluster ──► sign in / register ──┬──► a session with a tier  → the shell
-//                                    └──► a session with none    → pending ──► the shell
+//   #/connect ──► #/signin ┄ #/register ──┬──► a session with a tier  → the shell
+//                                         └──► a session with none    → #/pending ──► the shell
+//
+// **The URL is the state.** These screens are addressable like every other page, so Back works
+// through them, a refresh stays put, and `#/register` is a link somebody can paste to a friend. The
+// gate reads the hash rather than holding a phase beside it — two of those would drift, and the one
+// that lost would be the address bar.
 //
 // An account is the cluster's, so the cluster is the only thing anybody chooses. The address they
 // give reaches one of its members; which member is a routing detail and never surfaces.
-//
-// A returning visitor skips the first screen: the address is remembered, so the sign-in draws
-// before anything has answered.
+
+const hashOf = (kind) => KrystalRouter.routeToHash({ kind });
+
+// Replace rather than push: the gate is a funnel, and every step of it is reached by finishing the
+// one before. A history entry per phase would make Back mean "undo the thing that just worked".
+function go(kind) {
+  const desired = hashOf(kind);
+  if (window.location.hash === desired) return;
+  try { window.history.replaceState(null, "", desired); } catch { window.location.hash = desired; }
+}
 
 function AuthGate({ user, onUser }) {
-  const [phase, setPhase] = React.useState(() => (CONNECTIONS.length ? "resolving" : "cluster"));
+  // Which screen, read from the address bar. Anything that is not one of these screens is somebody
+  // who was sent here from a page they could not have — they land on the sign-in, and where they
+  // were going is remembered by the shell.
+  const [kind, setKind] = React.useState(() => {
+    const r = KrystalRouter.parseHash();
+    if (KrystalRouter.isAuthRoute(r)) return r.kind;
+    return CONNECTIONS.length ? "signin" : "connect";
+  });
   const [cluster, setCluster] = React.useState(null);
   // The session of somebody who holds nothing. It cannot become the app's session — everything
-  // behind the gate would render for somebody entitled to none of it — so the gate carries it for
-  // as long as they are waiting.
+  // behind the gate would render for somebody entitled to none of it — so the gate carries it.
   const [pending, setPending] = React.useState(() => readPendingSession());
-  const [tab, setTab] = React.useState(() => {
-    // The register tab has no route of its own, but `#/register` is worth honouring: an invite is a
-    // URL somebody pastes to a friend.
-    try { return window.location.hash.replace(/^#\/?/, "") === "register" ? "register" : "login"; }
-    catch { return "login"; }
-  });
+  // In-flight and mounted are REFS, not state. As state, an "is discovering" flag would be in the
+  // effect's deps, so setting it re-runs the effect, whose cleanup cancels the very request that set
+  // it — a deadlock that renders as a blank screen and never resolves.
+  //
+  // `mounted` is re-armed in the effect BODY rather than only cleared in its cleanup. StrictMode
+  // mounts, unmounts and remounts in development: a ref initialised once and only ever set false
+  // stays false for the rest of the component's life, and every answer that arrives afterwards is
+  // thrown away by a guard that is supposed to be about unmounting.
+  const inFlight = React.useRef(false);
+  const mounted = React.useRef(true);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  // Back and Forward through the gate, and a pasted #/register.
+  React.useEffect(() => {
+    const onHash = () => {
+      const r = KrystalRouter.parseHash();
+      if (KrystalRouter.isAuthRoute(r)) setKind(r.kind);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  // Someone holding nothing is on one screen and it is not a choice, so the address says so.
+  React.useEffect(() => { if (pending) { setKind("pending"); go("pending"); } }, [pending]);
+
+  // Keep the address honest for the screen actually showing.
+  React.useEffect(() => { go(kind); }, [kind]);
 
   // Ask where this cluster signs people in. Any member will do, since the answer is the cluster's.
+  // Only the sign-in screens need it, so `#/connect` costs no round trip.
   React.useEffect(() => {
-    if (phase !== "resolving") return undefined;
-    let live = true;
+    if (pending || cluster || inFlight.current) return;
+    if (kind !== "signin" && kind !== "register") return;
     const preferred = lastMemberOrigin() || (homeConn() && homeConn().url) || "";
-    if (!preferred) { setPhase("cluster"); return undefined; }
+    if (!preferred) { setKind("connect"); return; }
+    inFlight.current = true;
     discoverCluster(preferred).then((found) => {
-      if (!live) return;
-      if (found.state === "unreachable") { setPhase("cluster"); return; }
+      inFlight.current = false;
+      if (!mounted.current) return;
+      // Nothing answered, so there is nothing to sign in to yet — back to the one question.
+      if (found.state === "unreachable") { setKind("connect"); return; }
       rememberMember(preferred);
       setCluster(found);
-      setPhase(found.state === "ready" ? "auth" : "unavailable");
     });
-    return () => { live = false; };
-  }, [phase]);
+  }, [kind, cluster, pending]);
 
-  // A pending browser reloading has a stashed session but no discovery yet, and the poll needs an
-  // address to run against.
   const pendingOrigin = React.useMemo(
     () => lastMemberOrigin() || (homeConn() && homeConn().url) || "",
     [],
@@ -66,30 +109,27 @@ function AuthGate({ user, onUser }) {
 
   const pickCluster = React.useCallback((probe) => {
     adoptMember(probe);
-    setPhase("resolving");
+    setCluster(null);
+    setKind("signin");
   }, []);
 
   const changeCluster = React.useCallback(() => {
     forgetMember();
     setCluster(null);
-    setPhase("cluster");
+    setKind("connect");
   }, []);
 
   // Turn a minted session into a live one, whichever door it came through.
   //
   // A session holding `none` is not a failure and is not half a sign-in: a fresh registration and a
-  // first provider arrival both land there, and both mean the same thing — an administrator has not
-  // acted yet. So they get the same screen, and the gate keeps their session until one does.
+  // first provider arrival both land there, and both mean an administrator has not acted yet.
   const adoptSession = React.useCallback(async (session) => {
-    const holdsNothing = (session.tier || "none") === "none";
-
-    if (holdsNothing) {
+    if ((session.tier || "none") === "none") {
       stashPendingSession(session);
       setPending(readPendingSession() || { token: session.token, refresh: session.refresh, status: session.status });
       onUser();
       return;
     }
-
     clearPendingSession();
     setPending(null);
     try { await establishClusterSession({ access: session.token, refresh: session.refresh, tier: session.tier, status: session.status }); }
@@ -109,6 +149,7 @@ function AuthGate({ user, onUser }) {
         clearPendingSession();
         setPending(null);
         writeStoredUser(null);
+        setKind("signin");
         onUser();
       }
       return;
@@ -121,8 +162,7 @@ function AuthGate({ user, onUser }) {
       onUser();
       return;
     }
-    // Still waiting, but `pending` and `unknown` are different sentences and an account can move
-    // between them — an admin deleting it is exactly that.
+    // `pending` and `unknown` are different sentences and an account can move between them.
     if (me.status !== held.status) {
       const next = { ...held, status: me.status };
       stashPendingSession(next);
@@ -135,40 +175,35 @@ function AuthGate({ user, onUser }) {
     setPending(null);
     writeStoredUser(null);
     sessionStore.signOut();
+    setKind("signin");
     onUser();
   }, [onUser]);
 
   if (pending) {
-    return (
-      <PendingPage
-        account={pending.status}
-        user={user}
-        onCheck={recheck}
-        onLogout={logout} />
-    );
+    return <PendingPage account={pending.status} user={user} onCheck={recheck} onLogout={logout} />;
   }
+
+  if (kind === "connect") return <ClusterPage onPick={pickCluster} />;
 
   // The cluster answered and cannot sign anybody in. Four different facts, and a person acts on each
   // differently.
-  if (phase === "unavailable" && cluster) {
-    return <ClusterUnavailable cluster={cluster} onChangeCluster={changeCluster} onRetry={() => setPhase("resolving")} />;
+  if (cluster && cluster.state !== "ready") {
+    return <ClusterUnavailable cluster={cluster} onChangeCluster={changeCluster} onRetry={() => setCluster(null)} />;
   }
 
-  if (phase === "auth" && cluster) {
+  if (cluster) {
     return (
       <SignInPage
         cluster={cluster}
-        tab={tab}
-        onTab={setTab}
+        tab={kind === "register" ? "register" : "login"}
+        onTab={(t) => setKind(t === "register" ? "register" : "signin")}
         onSession={adoptSession}
         onChangeCluster={changeCluster} />
     );
   }
 
-  // Deliberately bare — anything here would be on screen for the length of one request.
-  if (phase === "resolving") return <div className="login-shell" />;
-
-  return <ClusterPage onPick={pickCluster} />;
+  // Asking where the cluster signs in. Deliberately bare — one request long.
+  return <div className="login-shell" />;
 }
 
 export { AuthGate };

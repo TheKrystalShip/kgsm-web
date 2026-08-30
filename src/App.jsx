@@ -54,11 +54,31 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 // every one of its screens would refuse.
 const pendingApproval = () => !!readPendingSession();
 
+// Where somebody was going when they were asked to sign in. Kept for this tab only: it is a
+// navigation intent, not a preference, and it must not outlive the browser or leak into another.
+const INTENT_KEY = "krystal:after-signin";
+
+function rememberIntent(route) {
+  if (!route || KrystalRouter.isAuthRoute(route)) return;
+  try { sessionStorage.setItem(INTENT_KEY, KrystalRouter.routeToHash(route)); } catch { /* private mode */ }
+}
+// One-shot: taken on the way back in, so a second sign-in does not land on a page from the first.
+function takeIntent() {
+  try {
+    const h = sessionStorage.getItem(INTENT_KEY);
+    if (h) sessionStorage.removeItem(INTENT_KEY);
+    return h ? KrystalRouter.parseHash(h) : null;
+  } catch { return null; }
+}
+
 function App() {
   const [user, setUser] = React.useState(() => readStoredUser());
   const hosts = useStore(hostsStore, s => s.list);
   const [route, setRouteRaw] = React.useState(() => {
     const hashRoute = KrystalRouter.routeFromHash();
+    // An auth route is not a destination for somebody who is already in — they asked for the door
+    // of a building they are standing in, so they get the room they would have landed in anyway.
+    if (hashRoute && KrystalRouter.isAuthRoute(hashRoute)) return resolveRoute({ kind: "home" });
     return hashRoute ? resolveRoute(hashRoute) : resolveRoute({ kind: "home" });
   });
   const setRoute = React.useCallback((r) => {
@@ -71,10 +91,14 @@ function App() {
   // hooks below a flipping condition to trip React's rules.
   const refreshUser = React.useCallback(() => setUser(readStoredUser()), []);
 
-  // Everything in front of the app: which node, which door, and the wait for approval.
-  // AppInner is not mounted while this is on screen, so none of the shell's hooks —
-  // and none of the data layer they drive — runs for somebody who has not signed in.
+  // Everything in front of the app: which cluster, which door, and the wait for approval. AppInner
+  // is not mounted while this is on screen, so none of the shell's hooks — and none of the data
+  // layer they drive — runs for somebody who has not signed in.
+  //
+  // Where they were going is recorded first. Somebody deep-linked to a server and asked to sign in
+  // should land on that server, not on a home page that makes them find it again.
   if (!user || pendingApproval()) {
+    rememberIntent(KrystalRouter.routeFromHash());
     return <AuthGate user={user} onUser={refreshUser} />;
   }
 
@@ -193,11 +217,19 @@ function AppInner({ user, setUser, route, setRoute }) {
   // would log somebody out over one unlucky request.
   const noteAuthFailure = React.useCallback(() => { sessionStore.expire(); }, []);
 
+  // Where to land, resolved once roles are known. In order: the page somebody was on their way to
+  // when the gate stopped them, then the address bar, then this persona's home. The first is taken
+  // one time only — a later sign-in is not still owed a page from an earlier one.
+  //
+  // An auth route in the bar is not a destination: it is the door somebody just came through, and
+  // leaving it there would put the sign-in screen one Back press away from a signed-in panel.
   React.useEffect(() => {
     if (landingResolved) return;
     if (!authzReady) return;
+    const intended = takeIntent();
     const deepRoute = KrystalRouter.routeFromHash();
-    setRoute(deepRoute || { kind: homeKind() });
+    const fromBar = deepRoute && !KrystalRouter.isAuthRoute(deepRoute) ? deepRoute : null;
+    setRoute(intended || fromBar || { kind: homeKind() });
     setLandingResolved(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolves the landing route once hosts + roles are known; deps are stable setters + the async gate
   }, [authzReady, landingResolved]);

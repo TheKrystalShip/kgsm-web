@@ -32,6 +32,12 @@
 //   #/settings               account settings (Profile)
 //   #/settings/<tab>         account settings, a specific tab
 //
+// In front of the app, where there is no session yet:
+//   #/connect                which cluster to authenticate against
+//   #/signin                 sign in to that cluster
+//   #/register               make an account on it
+//   #/pending                signed in, holding nothing, waiting on an administrator
+//
 // A leaf page nests UNDER the node's Services tab because that is exactly where
 // you reach it from: the URL keeps descending instead of jumping to a sibling
 // top-level word, so the path reads as the trail you walked.
@@ -94,6 +100,12 @@
         return h;
       }
       case "addHost":   return "#/hosts/add";
+      // The screens in front of the app. They carry nothing but their own name: what a person is
+      // being asked for is the whole state, and a half-typed address is not an address to restore.
+      case "connect":   return "#/connect";
+      case "signin":    return "#/signin";
+      case "register":  return "#/register";
+      case "pending":   return "#/pending";
       case "attention": return "#/alerts" + (route.serverId ? "?serverId=" + enc(route.serverId) : "");
       // `profile` is the default and stays OUT of the URL, the same way every other tabbed page
       // omits its own default — so the plain #/settings a bookmark or the sidebar produces is the
@@ -176,6 +188,10 @@
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
+      case "connect":   return { kind: "connect" };
+      case "signin":    return { kind: "signin" };
+      case "register":  return { kind: "register" };
+      case "pending":   return { kind: "pending" };
       case "settings":  return segs[1] ? { kind: "settings", tab: dec(segs[1]) } : { kind: "settings" };
       // Alias words resolve to the cluster route so links and bookmarks keep working.
       case "diagnostics":
@@ -199,6 +215,12 @@
     return routeToHash(a) === routeToHash(b);
   }
 
-  const KrystalRouter = { routeToHash, parseHash, routeFromHash, sameRoute };
+  // The screens in front of the app. Named here rather than tested by hand at each site, because
+  // both directions of the redirect read this: signed out, everything else becomes one of these;
+  // signed in, these become home. Two lists that had to agree would eventually not.
+  const AUTH_KINDS = ["connect", "signin", "register", "pending"];
+  const isAuthRoute = (route) => !!route && AUTH_KINDS.indexOf(route.kind) !== -1;
+
+  const KrystalRouter = { routeToHash, parseHash, routeFromHash, sameRoute, isAuthRoute, AUTH_KINDS };
 
 export { KrystalRouter };

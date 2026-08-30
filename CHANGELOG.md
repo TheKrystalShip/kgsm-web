@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.193.0]
+
+### Added — the screens in front of the app have addresses
+
+`#/connect`, `#/signin`, `#/register` and `#/pending`. They are pages like every other one: Back
+works through them, a refresh stays where it was, and `#/register` is a link somebody can paste to a
+friend. The gate reads the hash rather than holding a phase beside it, so there is nothing for the
+address bar to disagree with.
+
+Two redirects, in both directions. Signed out, a route somebody cannot have takes them to the door
+and **remembers where they were going** — a deep link to a server ends on that server rather than on
+a home page they have to search from, and the destination is taken once so a later sign-in is not
+still owed a page from an earlier one. Signed in, an auth route is not a destination: asking for the
+door while standing in the building answers with the room, which is also what stops a stale
+`#/signin` from sitting one Back press behind a signed-in panel.
+
+`resolveRoute` is where the second half lives, because it is the chokepoint every navigation already
+passes through.
+
+
 ## [1.192.0]
 
 ### Removed — the connection banners

@@ -1,4 +1,5 @@
 import { hostAddressOf } from "./config.js";
+import { KrystalRouter } from "./router.js";
 import { sessionStore } from "./sessionStore.js";
 
 // persona.js — the authorization POLICY layer (the single source of truth for
@@ -121,10 +122,15 @@ import { sessionStore } from "./sessionStore.js";
     var cap = ROUTE_CAP[route.kind];
     return cap ? can(cap) : true;
   }
-  // resolveRoute — the single chokepoint. A forbidden destination is mapped to
-  // the persona's home SYNCHRONOUSLY, so a route this role can't occupy never
-  // enters state and its page never mounts. No post-render bounce, no flash.
+  // resolveRoute — the single chokepoint. A forbidden destination is mapped to the persona's home
+  // SYNCHRONOUSLY, so a route this role cannot occupy never enters state and its page never mounts.
+  // No post-render bounce, no flash.
+  //
+  // The screens in front of the app go the same way. Reaching one from inside means asking for a
+  // door while standing in the building, and the answer is the room they are already in — which is
+  // also what stops a stale `#/signin` in the address bar from mounting anything.
   function resolveRoute(route) {
+    if (KrystalRouter.isAuthRoute(route)) return { kind: homeKind() };
     return canReach(route) ? route : { kind: homeKind() };
   }
 
