@@ -70,17 +70,23 @@ after the mechanics change, and nobody has the new key.
 ## `auth/` — the screens in front of the app
 
 `auth/` is not on the router. `components/AuthGate.jsx` renders these instead of the shell,
-so they answer to no `route.kind` and no persona: `NodePage` (which host), `SignInPage`
-(one card, two tabs, against that host) and `PendingPage` (signed in, holding nothing).
-`AuthChrome.jsx` holds what all three share. The domain logic — probing a node, the two
-credential calls, the pending session and the field checks — is `lib/authFlow.js`, so these
+so they answer to no `route.kind` and no persona: `ClusterPage` (which cluster), `SignInPage`
+(one card, two tabs, at the anchor), `ClusterUnavailable` (a cluster that answered and cannot
+sign anybody in) and `PendingPage` (signed in, holding nothing).
+`AuthChrome.jsx` holds what they share. The domain logic — discovery, the credential calls,
+the pending session and the field checks — is `lib/authFlow.js` and `lib/anchor.js`, so these
 files are the rendering and nothing else.
 
+**A node is never named here.** An account is the cluster's, so a cluster is the only thing
+anybody chooses; the address somebody gives reaches one of its members, and which member is a
+routing detail that does not surface. **And the text stays thin**: the anchor's refusals name
+the rule they applied, so nothing here keeps a second copy of the rules to stand beside them.
+
 Two rules they encode. **A refusal sits with what it is about**: a wrong password renders
-above the username inside the form, while a host that cannot be reached renders above the
+above the username inside the form, while an anchor that cannot be reached renders above the
 tabs, because it invalidates every door on the card rather than one of them. And **every
-check here is also the node's** — the client validates shape so somebody is told while
-typing, and the node decides.
+check here is also the anchor's** — the client validates shape so somebody is told while
+typing, and the anchor decides.
 
 ## The split-page folders — keep the entry thin
 

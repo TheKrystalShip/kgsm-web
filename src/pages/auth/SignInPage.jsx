@@ -1,36 +1,28 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { providerStartUrl, register, signIn } from "../../lib/anchor.js";
-import {
-  PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
-  passwordOk, passwordStrength, usernameOk, usernameProblem,
-} from "../../lib/authFlow.js";
+import { passwordOk, passwordStrength, usernameOk, usernameProblem } from "../../lib/authFlow.js";
 import { takeOAuthError } from "../../lib/authRedirect.js";
 import { AuthError, AuthShell, DoorwayChip, PasswordField, PasswordMeter, ProviderButtons } from "./AuthChrome.jsx";
 
 // SignInPage — one card, two tabs, one cluster.
 //
-// A session belongs to the cluster, so this signs in at the ANCHOR and at nothing else. Which member
-// the panel happens to be talking to decided where to ask that question, and nothing after it.
+// A session belongs to the cluster, so this signs in at the ANCHOR and at nothing else.
 //
 // The order down the card is the same on both tabs, so nothing moves when you toggle:
 //
 //   segment → providers → divider → form
 //
 // Which providers exist and whether sign-up is open both come from the anchor's own
-// /auth/providers, carried here on the discovery the gate already did. This SPA holds no list of
-// providers and no opinion about whether a cluster takes new accounts.
+// /auth/providers. This SPA holds no list of providers and no opinion about whether a cluster takes
+// new accounts — and the anchor's refusals name the rule they applied, which is why nothing here
+// keeps a second copy of the rules to show alongside them.
 //
 // Errors sit with what they are about. A wrong password renders above the username, inside the
 // form, where the eye already is on the way back to fixing it. An anchor that cannot be reached
-// invalidates the tabs, the providers and the form alike, so that one sits at the very top of the
-// card, above the segmented control.
+// invalidates the tabs, the providers and the form alike, so that one sits at the top of the card.
 
-const USERNAME_RULE = (
-  <>{USERNAME_MIN}–{USERNAME_MAX} characters · letters, digits, <code>.</code> <code>_</code> <code>-</code> · starts with a letter or digit</>
-);
-
-function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
+function SignInPage({ cluster, tab, onTab, onSession, onChangeCluster }) {
   const anchor = cluster && cluster.url;
   const registering = tab === "register";
 
@@ -93,7 +85,7 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
   const unreachable = !!anchorError;
 
   return (
-    <AuthShell tagline={registering ? "Create an account on this cluster." : "Sign in to your control panel."}>
+    <AuthShell tagline={registering ? "Create an account." : "Sign in to your control panel."}>
       <div className="login-card">
         {/* Above the tabs: this is not about either of them. */}
         <AuthError>{anchorError}</AuthError>
@@ -129,15 +121,10 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
             <div className="login-note login-note--warn">
               <Icon name="ban" size={15} />
               <div>
-                <b>This cluster isn’t taking new accounts.</b> An administrator has to create one for
-                you, or sign in with an account you already have.
+                <b>This cluster isn’t taking new accounts.</b>
               </div>
             </div>
-            {providers.length ? (
-              <div className="field-hint" style={{ textAlign: "center", margin: 0 }}>
-                Signing up with a provider is still open.
-              </div>
-            ) : null}
+
           </>
         ) : (
           <>
@@ -166,7 +153,6 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
                   {username && nameProblem
                     ? <div className="field-note field-note--bad"><Icon name="x" size={13} /> <span>{nameProblem}</span></div>
                     : null}
-                  <div className="field-hint">{USERNAME_RULE}</div>
                 </>
               ) : null}
 
@@ -184,7 +170,6 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
                     value={displayName}
                     disabled={unreachable || !!busy}
                     onChange={(e) => setDisplayName(e.target.value)} />
-                  <div className="field-hint">How you appear to everyone else. Defaults to your username.</div>
                 </>
               ) : null}
 
@@ -201,16 +186,14 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
                     className="btn-link"
                     style={{ fontSize: 11, letterSpacing: 0, textTransform: "none" }}
                     onClick={() => setFormError(
-                      "Ask an administrator to reset it — this cluster has no self-service reset.")}>
+                      "Ask an administrator to reset it.")}>
                     Forgot?
                   </button>
                 ) : null}>
                 {registering ? (
                   <>
                     <PasswordMeter strength={strength} />
-                    {password && !passwordOk(password)
-                      ? <div className="field-hint" style={{ marginTop: -3 }}>At least {PASSWORD_MIN} characters. Length beats punctuation.</div>
-                      : null}
+
                   </>
                 ) : null}
               </PasswordField>
@@ -241,8 +224,8 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
         )}
 
         {unreachable ? (
-          <button type="button" className="btn-ghost" onClick={onChangeMember}>
-            <Icon name="arrow-left" size={15} /> Reach the cluster another way
+          <button type="button" className="btn-ghost" onClick={onChangeCluster}>
+            <Icon name="arrow-left" size={15} /> Another cluster
           </button>
         ) : null}
       </div>
@@ -251,7 +234,7 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeMember }) {
         anchor={anchor}
         verb={registering ? "register" : "login"}
         down={unreachable}
-        onOpen={onChangeMember} />
+        onOpen={onChangeCluster} />
     </AuthShell>
   );
 }

@@ -2,13 +2,13 @@ import React from "react";
 import { establishClusterSession } from "../lib/authRedirect.js";
 import { writeStoredUser } from "../lib/authStorage.js";
 import {
-  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember, knownMembers,
+  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember,
   lastMemberOrigin, readPendingSession, rememberMember, stashPendingSession,
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
 import { sessionStore } from "../lib/sessionStore.js";
+import { ClusterPage } from "../pages/auth/ClusterPage.jsx";
 import { ClusterUnavailable } from "../pages/auth/ClusterUnavailable.jsx";
-import { NodePage } from "../pages/auth/NodePage.jsx";
 import { PendingPage } from "../pages/auth/PendingPage.jsx";
 import { SignInPage } from "../pages/auth/SignInPage.jsx";
 
@@ -18,19 +18,17 @@ import { SignInPage } from "../pages/auth/SignInPage.jsx";
 // a separate component: the shell's hooks would otherwise run for a visitor who has not signed in,
 // fetching and subscribing on behalf of nobody. Here there is nothing to run.
 //
-//   member ──► discover ──► sign in / register ──┬──► a session with a tier  → the shell
-//                                                └──► a session with none    → pending ──► the shell
+//   cluster ──► sign in / register ──┬──► a session with a tier  → the shell
+//                                    └──► a session with none    → pending ──► the shell
 //
-// The member is a ROUTE and the only thing it decides is who gets asked where the cluster signs
-// people in. The session that comes back is the cluster's and every member accepts it, so there is
-// nothing to choose and nothing to repeat for a second member.
+// An account is the cluster's, so the cluster is the only thing anybody chooses. The address they
+// give reaches one of its members; which member is a routing detail and never surfaces.
 //
-// A returning visitor skips the member screen entirely: the anchor's address is remembered, so the
-// sign-in draws before anything has answered. The list is for a cold browser, for a member that has
-// stopped answering, and for anybody who asks.
+// A returning visitor skips the first screen: the address is remembered, so the sign-in draws
+// before anything has answered.
 
 function AuthGate({ user, onUser }) {
-  const [phase, setPhase] = React.useState(() => (CONNECTIONS.length ? "resolving" : "member"));
+  const [phase, setPhase] = React.useState(() => (CONNECTIONS.length ? "resolving" : "cluster"));
   const [cluster, setCluster] = React.useState(null);
   // The session of somebody who holds nothing. It cannot become the app's session — everything
   // behind the gate would render for somebody entitled to none of it — so the gate carries it for
@@ -43,20 +41,15 @@ function AuthGate({ user, onUser }) {
     catch { return "login"; }
   });
 
-  // Ask a member where this cluster signs people in. Any member will do — the answer is the
-  // cluster's — so this asks the one this browser is already pointed at and only falls back to the
-  // list when it cannot be asked.
+  // Ask where this cluster signs people in. Any member will do, since the answer is the cluster's.
   React.useEffect(() => {
     if (phase !== "resolving") return undefined;
     let live = true;
-    const known = knownMembers();
-    const preferred = lastMemberOrigin()
-      || (homeConn() && homeConn().url)
-      || (known.length === 1 ? known[0].origin : "");
-    if (!preferred) { setPhase("member"); return undefined; }
+    const preferred = lastMemberOrigin() || (homeConn() && homeConn().url) || "";
+    if (!preferred) { setPhase("cluster"); return undefined; }
     discoverCluster(preferred).then((found) => {
       if (!live) return;
-      if (found.state === "unreachable") { setPhase("member"); return; }
+      if (found.state === "unreachable") { setPhase("cluster"); return; }
       rememberMember(preferred);
       setCluster(found);
       setPhase(found.state === "ready" ? "auth" : "unavailable");
@@ -64,22 +57,22 @@ function AuthGate({ user, onUser }) {
     return () => { live = false; };
   }, [phase]);
 
-  // A pending browser reloading has a stashed session but no discovery yet — it needs the member's
-  // origin for the poll, which is the same one it signed in through.
+  // A pending browser reloading has a stashed session but no discovery yet, and the poll needs an
+  // address to run against.
   const pendingOrigin = React.useMemo(
     () => lastMemberOrigin() || (homeConn() && homeConn().url) || "",
     [],
   );
 
-  const pickMember = React.useCallback((probe) => {
+  const pickCluster = React.useCallback((probe) => {
     adoptMember(probe);
     setPhase("resolving");
   }, []);
 
-  const changeMember = React.useCallback(() => {
+  const changeCluster = React.useCallback(() => {
     forgetMember();
     setCluster(null);
-    setPhase("member");
+    setPhase("cluster");
   }, []);
 
   // Turn a minted session into a live one, whichever door it came through.
@@ -104,8 +97,8 @@ function AuthGate({ user, onUser }) {
     onUser();
   }, [onUser]);
 
-  // Ask a member what it says about this caller now. The same read that decided they hold nothing,
-  // which is why it is the one that notices they no longer do.
+  // The same read that decided they hold nothing, which is why it is the one that notices they no
+  // longer do.
   const recheck = React.useCallback(async () => {
     const held = pending || readPendingSession();
     if (!held || !pendingOrigin) { onUser(); return; }
@@ -156,9 +149,9 @@ function AuthGate({ user, onUser }) {
   }
 
   // The cluster answered and cannot sign anybody in. Four different facts, and a person acts on each
-  // differently, so they are not collapsed into one apology.
+  // differently.
   if (phase === "unavailable" && cluster) {
-    return <ClusterUnavailable cluster={cluster} onChangeMember={changeMember} onRetry={() => setPhase("resolving")} />;
+    return <ClusterUnavailable cluster={cluster} onChangeCluster={changeCluster} onRetry={() => setPhase("resolving")} />;
   }
 
   if (phase === "auth" && cluster) {
@@ -168,15 +161,14 @@ function AuthGate({ user, onUser }) {
         tab={tab}
         onTab={setTab}
         onSession={adoptSession}
-        onChangeMember={changeMember} />
+        onChangeCluster={changeCluster} />
     );
   }
 
-  // Asking a member where the cluster signs in. Deliberately bare — anything here would be on screen
-  // for the length of one request and then replaced.
+  // Deliberately bare — anything here would be on screen for the length of one request.
   if (phase === "resolving") return <div className="login-shell" />;
 
-  return <NodePage onPick={pickMember} lastOrigin={lastMemberOrigin()} />;
+  return <ClusterPage onPick={pickCluster} />;
 }
 
 export { AuthGate };

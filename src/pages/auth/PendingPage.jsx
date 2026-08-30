@@ -83,11 +83,8 @@ function PendingPage({ account, user, onCheck, onLogout }) {
         <h1 className="pending__title">{waiting ? "Waiting for approval" : "No access on this cluster"}</h1>
         <p className="pending__body">
           {waiting
-            ? <>You’re signed in. An administrator has to approve your account before
-              you can see anything — they’ll find you on their accounts screen. This page will let you
-              in the moment they do.</>
-            : <>You’re signed in, but this cluster has no account for you. An administrator has to
-              create one — signing in again won’t change it.</>}
+            ? <>An administrator has to approve your account.</>
+            : <>This cluster has no account for you.</>}
         </p>
         {(handle || id) ? (
           <div className="pending__who">{handle}{handle && id ? " · " : ""}{id}</div>

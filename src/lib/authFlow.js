@@ -9,7 +9,7 @@
 // by definition, and the seam's whole job is attaching a session to a call for a member.
 
 import { anchorDoors, discoverAnchor, rememberAnchor } from "./anchor.js";
-import { CONNECTIONS, originOfHost } from "./config.js";
+import { CONNECTIONS } from "./config.js";
 import { addConnection, normalizeHostUrl, registryEntry } from "./connect.js";
 
 // The member this browser last reached the cluster through. A route and nothing more — the cluster
@@ -24,13 +24,6 @@ function rememberMember(origin) {
 }
 function forgetMember() {
   try { localStorage.removeItem(LAST_MEMBER_KEY); } catch { /* private mode */ }
-}
-
-// The members this browser knows, as the member screen lists them.
-function knownMembers() {
-  return CONNECTIONS
-    .map(c => ({ id: c.id || null, origin: originOfHost(c.id) || c.url, name: c.name || null }))
-    .filter(n => n.origin);
 }
 
 // What a member says about itself. `GET /api/v1` is also the reachability probe, deliberately: a row
@@ -201,7 +194,7 @@ const passwordOk = (password) => (password || "").length >= PASSWORD_MIN;
 
 export {
   LAST_MEMBER_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
-  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember, knownMembers,
-  lastMemberOrigin, passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
+  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember, lastMemberOrigin,
+  passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
   stashPendingSession, usernameOk, usernameProblem,
 };

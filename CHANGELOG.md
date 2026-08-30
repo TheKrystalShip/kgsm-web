@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.191.0]
+
+### Changed — the way in asks for a cluster, and says almost nothing else
+
+An account is the cluster's, so a cluster is the only thing there is to choose. The first screen is
+one question, one address and Next; the list of nodes, their status dots, regions, builds and the
+notes explaining that each issues its own session are gone with the model that needed them. The
+address reaches one of the cluster's members, which is a routing detail and no longer surfaces
+anywhere a person can see.
+
+The rest of the flow loses its explanations rather than its facts. The username rule no longer
+stands on screen beside the field: the anchor's refusal names the rule it applied, so keeping a copy
+here was a second statement of one thing, drifting. The password floor goes the same way — the
+strength meter is the answer to "is this enough". The display-name hint, the note that a provider is
+still available when sign-up is closed, and the reassurances on the waiting screen go because none
+of them were data.
+
+What each screen still says is what it measured or was told: which cluster, what was refused and
+why, and — where a cluster answered and cannot sign anybody in — which of the four states it is in,
+in one sentence each.
+
+
 ## [1.190.0]
 
 ### Changed — one sign-in, one session, for the whole cluster
