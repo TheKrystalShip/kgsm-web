@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.192.0]
+
+### Removed — the connection banners
+
+Nothing in the panel's chrome reports a connection any more. The strip that named nodes whose live
+channel had dropped, and the notice that said a node had ended your session, are both gone, along
+with the CSS and the wiring behind them.
+
+A node's live channel is still shown where the node is the subject — its own card and its own header
+on the Cluster page — and a first load that never reached anything still takes over the screen,
+because there is nothing behind it to look at. What is gone is the reporting that followed somebody
+onto every page.
+
+
 ## [1.191.0]
 
 ### Changed — the way in asks for a cluster, and says almost nothing else

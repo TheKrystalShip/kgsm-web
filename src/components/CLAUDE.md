@@ -24,8 +24,12 @@ into `App.jsx`.
 - `AppRouter.jsx` — routing-only switch (see `../pages/CLAUDE.md`). It lives here
   but is the routing layer, not a presentational component.
 - `Breadcrumb.jsx`, `BootLanding.jsx`, `MobileNavToggle.jsx`, `Sidebar.jsx`,
-  `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ConnectivityBanner`/
-  `ContentError`/`AppCrash`) — the layout chrome.
+  `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ContentError`/`AppCrash`),
+  `HostConnection.jsx` — the layout chrome.
+
+  **Nothing in the chrome reports a connection.** A node's live channel is shown on that node's own
+  surfaces (`HostConnection`, the Cluster page and the node cards) and nowhere else, so a degraded
+  link is read where the node is the subject rather than announced on every page somebody opens.
 
   `Sidebar.jsx` also holds **`SidebarFavorites`**, the shortcut list under Servers. Three rules make
   it safe to give permanent chrome to: it renders **nothing** with nothing starred — no header, no

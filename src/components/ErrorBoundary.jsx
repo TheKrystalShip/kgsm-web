@@ -7,11 +7,7 @@ import { Icon } from "./Icon.jsx";
 //   1. ErrorBoundary (class)  — catches SYNCHRONOUS render/lifecycle crashes.
 //                               App-level = last resort; content-level = keeps
 //                               the shell alive while one page recovers.
-//   2. ConnectivityBanner     — the single connection-status slot, by precedence:
-//                               browser offline → backend UNREACHABLE (warm REST
-//                               drop) → one or more HOST links dropped (named).
-//   2b. HostConnection        — per-host live/reconnecting/offline indicator, on
-//                               each host's own surfaces (the channel is per host).
+//   2. HostConnection         — a node's live channel, on that node's own surfaces.
 //   3. ColdStartDown          — a COLD failure (first load never succeeded, so
 //                               there's nothing to show). The only full takeover.
 //   4. SurfaceError           — one store/endpoint failed; inline + retry on

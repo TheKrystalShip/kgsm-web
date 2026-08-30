@@ -5,7 +5,6 @@ import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { sessionStore, TIER_LABEL } from "../lib/sessionStore.js";
 import { statusTone } from "../lib/formatting.js";
-import { nodeLabel } from "../lib/nodeLabel.js";
 
 // host-helpers.jsx — shared host-related UI components extracted from page files.
 //
@@ -82,43 +81,6 @@ function ClusterReach({ className = "" }) {
 // display name, with the connection's own label behind it.
 //
 // Silent when every node accepts us.
-// Which members are not honouring the one session, and which of the two refusals they gave.
-//
-// The session itself is the cluster's and is either live or it is not — when it is not, the whole
-// panel says so once and there is nothing per-member to report. What this reports is narrower and
-// is a fact about a MEMBER: it accepted the anchor's signature and still would not serve, which
-// happens while a member's replica catches up with an account it has never seen.
-//
-// The two are different sentences because they resolve differently. A member that knows the token
-// and not the person needs an administrator, or time. A member that could not check the token at
-// all is not describing this person, and there is nothing for them to do about it.
-function NodeAccessNotice({ onManage }) {
-  const hosts = useStore(hostsStore, s => s.list);
-  const nodes = useStore(sessionStore, s => s.nodes);
-  const nameOf = (id) => nodeLabel(id, hosts);
-  const refused = Object.keys(nodes).filter(id => nodes[id].accepts === "refusing");
-  if (!refused.length) return null;
-  return (
-    <div className="node-access" role="status">
-      {refused.map(id => {
-        const unknown = nodes[id].reason === "unknown_here";
-        const name = nameOf(id);
-        return (
-          <div key={id} className={"node-access__row node-access__row--" + (unknown ? "denied" : "expired")}>
-            <Icon name={unknown ? "lock" : "rotate-cw"} size={14} />
-            <span className="node-access__text">
-              {unknown
-                ? <><b>{name}</b> grants your account nothing. Its servers aren{"’"}t shown.</>
-                : <><b>{name}</b> can{"’"}t verify your session yet. Its servers aren{"’"}t shown.</>}
-            </span>
-            <button className="node-access__act" onClick={() => onManage && onManage({ id, name })}>Details</button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ---------- The Node list-filter ----------
 
 // Option list for a toolbar's "Node" field. This is a LIST filter: it narrows
@@ -339,4 +301,4 @@ function OAuthIcon({ provider, size = 20 }) {
   return null;
 }
 
-export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, NodeAccessNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions, providerLabel, signInMethodLabel };
+export { CapacityMeter, ClusterReach, HostAuthBadge, HostCapacityStrip, HostDeniedNotice, OAuthIcon, hostCapacityMeters, nodeFilterOptions, providerLabel, signInMethodLabel };

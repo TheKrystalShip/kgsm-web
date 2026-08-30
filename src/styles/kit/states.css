@@ -11,68 +11,6 @@
 }
 
 /* --- Connection banner (warm degradation) --- */
-.conn-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  background: color-mix(in srgb, var(--warning) 14%, var(--surface-1));
-  border-bottom: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border-subtle));
-  color: var(--warning-fg);
-  font-size: 13px;
-}
-
-.conn-banner>svg {
-  flex-shrink: 0;
-}
-
-.conn-banner__text {
-  color: var(--fg-2);
-}
-
-.conn-banner__text b {
-  color: var(--fg-1);
-  font-weight: 600;
-}
-
-.conn-banner__pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--r-pill);
-  flex-shrink: 0;
-  background: var(--warning);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent);
-  animation: kr-pulse 1.6s ease-in-out infinite;
-}
-
-.conn-banner__retry {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--r-sm);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border-subtle));
-  color: var(--warning-fg);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--d-fast) var(--ease-out);
-}
-
-.conn-banner__retry:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--warning) 16%, transparent);
-}
-
-.conn-banner__retry:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 /* --- Per-host connection indicator (lives on each host's own surfaces) --- */
 .host-conn {
   display: inline-flex;
@@ -164,17 +102,6 @@
 }
 
 /* --- Connectivity banner extras (offline = the most severe, global case) --- */
-.conn-banner--down {
-  background: color-mix(in srgb, var(--danger) 14%, var(--surface-1));
-  border-bottom-color: color-mix(in srgb, var(--danger) 34%, var(--border-subtle));
-  color: var(--danger-fg);
-}
-
-.conn-banner__pulse--down {
-  background: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
-}
-
 /* --- Dev panel: per-host realtime rows --- */
 .dev-panel__row--sub {
   padding-bottom: 4px;

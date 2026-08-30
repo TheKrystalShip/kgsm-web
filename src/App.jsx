@@ -2,8 +2,6 @@ import React from "react";
 import { AssistantDockProvider, useAssistantDock } from "./components/AssistantDockContext.jsx";
 import { alertsTone, anchoredAlerts } from "./components/ContextualAlerts.jsx";
 import { ColdStartDown } from "./components/ErrorBoundary.jsx";
-import { ConnectivityBanner } from "./components/ConnectivityBanner.jsx";
-import { NodeAccessNotice } from "./components/host-helpers.jsx";
 import { NavProvider } from "./components/NavContext.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
@@ -132,8 +130,8 @@ function AppInner({ user, setUser, route, setRoute }) {
   // reads whichever node's board is currently held and shows nothing when none is.
   const servicesByHost = useStore(servicesStore, s => s.byHost);
 
-  // One session, so authorization settles once. A member still catching up does not hold the
-  // panel back — its own rows are what wait, and NodeAccessNotice is what says so.
+  // One session, so authorization settles once. A member still catching up does not hold the panel
+  // back — its own rows are what wait.
   const authzSettled = !!session && session.status !== "none" && session.status !== "bootstrapping";
 
   const authzReady = hostsLoaded && authzSettled;
@@ -385,11 +383,6 @@ function AppInner({ user, setUser, route, setRoute }) {
 
       <main className="app__main">
         <div className="content">
-          <ConnectivityBanner conn={conn} onRetry={retryConnection} />
-          {/* A member refusing the cluster's session, reported rather than gated: it takes its own
-              rows off the aggregated surfaces and nothing else, because the session is fine and
-              every other member is honouring it. */}
-          <NodeAccessNotice onManage={(h) => setRoute({ kind: "cluster", hostId: h.id })} />
           <Breadcrumb
             route={route}
             onNavigate={setRoute}

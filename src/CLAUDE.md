@@ -37,7 +37,7 @@ origin and has no notion of a node. `npm run check:assistant` walks the import g
 those roots, because tree-shaking will NOT save you: a static import of a module with side effects
 is retained whether or not its exports are read. When a shared component needs something from that
 layer, **cut the edge** — split the module or take the value as a prop — rather than widening the
-list. `components/AccountAvatar.jsx`, `components/ConnectivityBanner.jsx` and `lib/oauthFragment.js`
+list. `components/AccountAvatar.jsx`, `components/HostConnection.jsx` and `lib/oauthFragment.js`
 all exist because of exactly this.
 
 ## The layering (top → bottom, one direction)
