@@ -118,7 +118,7 @@ wearing one button.
 - **`jobsStore`** — `lib/stores/servers.js:211`. Per-job state off the `jobs` stream topic.
 - **`favoritesStore`** — `lib/stores/ui.js:16`. An existing per-user set of server ids with
   `toggle`/`set`/`has`; the shape a selection store copies.
-- **`serverOperable(server)` / `canOn("server.operate", hostId)`** — `lib/persona.js`. Per-host, so a
+- **`serverOperable(server)` / `can("server.operate")`** — `lib/persona.js`. Cluster-wide, so a
   selection spanning nodes the user operates unevenly is answerable per row.
 - **`registerWidget`** — `lib/widgets/registry.js:38`. The runs board is a dashboard widget.
 - **The filtered + ordered list** — `pages/ServersPage.jsx:233`/`:243`. Selection is a set over this.

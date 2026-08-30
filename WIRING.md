@@ -183,7 +183,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 |---|---|---|
 | `name` | `label` | **A** |
 | `online: boolean` | `status: "online"` (reaching the row = up) | **A** |
-| `tier`, `authDenied` | (from auth layer, not `/hosts`) | **A**: keep FE's per-host session source |
+| `tier`, `authDenied` | (from auth layer, not `/hosts`) | **A**: the cluster session's tier, and which member refuses it |
 | `cpu:{…}`, `ram:{…detailed}`, `per_core`, `load_avg`, `temp_c` | `cpuPct`, `mem:{used,total}`, `disks:[{mount,used,total}]` | **A**+**F**: BE is coarser — render what exists, honest-unknown the rest (no per-core/temp today) |
 | `processes`, `sensors`, `network.interfaces` | — | **F**: no source → hide those diagnostics panels |
 | `capabilities:{metrics,assistant,watchdog}` | same (richer: `provisioned/status/since/message/info`) | ✓ **A**: align field names (`sample_age_s` etc. → BE `info.intervalMs`) |
@@ -262,7 +262,7 @@ Surprises found by probing:
 - `GET /servers/{id}` detail correctly carries the `network` block
   (`firewall:"absent"`, `required:[{port,proto,open:null}]`). Host detail omits
   `network` honestly when the firewall is absent.
-- **Frontend persona is tier `none` until auth lands** — with no per-host session,
+- **Frontend persona is tier `none` until auth lands** — with no cluster session,
   `resolveRoute` sends admin/operator surfaces (dashboard, fleet) to the viewer home
   (servers). So pre-auth, only the viewer-reachable read path (servers list + server
   detail) renders through the UI; the fleet/host read path is built + crash-safe but
@@ -606,7 +606,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
 7. **Assistant** — **9a + 9b done** (streaming turn through the seam + the command-confirm half: `command.proposed`→fork (a)→SPA-composed `command.verified`).
-8. **Multi-host fan-out** — host registry (D1), per-host sessions/sockets, cluster rollup. Remaining **cluster federation** work (the "add one, see all" + one-login-across-the-cluster build that completes this slice) is tracked in **`kgsm-api/PLAN-peers.md`**. The Cluster page is built: `api.peers`/`clusterStore`/`ClusterPanel` render the real `/peers` roster, and "Cluster" is the canon name for the fleet view. Both SPA-facing API deps are built: the viewer node list (`GET /peers/roster`, client seam wired) and the vouch initiator (`POST /auth/cluster-session/request`). Still to wire: cluster SSO (lazy vouch-on-401 — per-host auth is single-host today) and the roster→registry mirror.
+8. **Multi-host fan-out** — the node registry, one cluster session, per-node sockets, cluster rollup. The Cluster page reads the real `/members` roster and "Cluster" is the canon name for the fleet view. Sign-in is the anchor's alone: a browser asks any member `GET /api/v1/cluster/auth` for the address and signs in there, and every member accepts the result by verifying the anchor's signature. Authority for the remaining cluster work is `../cluster-panel-plan.md` and `../cluster-auth-plan.md`.
 9. **Integrations + settings** — **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, admin-gated, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
 
@@ -663,7 +663,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | FE field | BE today | Bucket | Action |
 |---|---|---|---|
 | `id`, `name`, `online` | `id`, `label`, `status` | **A** | remap (done) |
-| `tier`, `authDenied` | (auth layer) | **A** | keep FE per-host session source |
+| `tier`, `authDenied` | (auth layer) | **A** | the cluster session's tier, and which member refuses it |
 | `capabilities.*` | same (richer) | **A** | align `info` field names |
 | `network.open_ports` | detail `network.openPorts[]` | **A** | remap |
 | `cpu.usage_pct` | `cpuPct` | **A** | passthrough |

@@ -102,8 +102,8 @@ capability, never a second implementation of it. That is also what makes it chea
 a keyboard over things that already work.
 
 **Permission is applied when entries are BUILT, not at render.** An entry a role may not act on is
-never constructed, so it cannot be matched, ranked, arrowed onto or run. Navigation asks `can`,
-anything scoped to one node asks `canOn` — "aggregate for reach, scoped for action", as everywhere.
+never constructed, so it cannot be matched, ranked, arrowed onto or run. Everything asks `can` —
+there is one tier, so there is one question.
 
 `palette/score.js` is the matcher: subsequence, not substring, so `mcsrv` finds `minecraft_survival`.
 It **imports nothing**, deliberately — ranking is exactly the kind of logic that rots silently, and

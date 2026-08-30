@@ -178,7 +178,7 @@ realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-v
 - **`apiClient.js` is the single seam.** Every store stays empty until it fetches;
   **call sites only ever see `api`**. It also owns connection health
   (`connectionStore` = REST reachability → cold-start/banner; `realtimeStore` =
-  per-host SSE stream state, driven by `liveStream` `onMode`), the per-host auth gate
+  per-host SSE stream state, driven by `liveStream` `onMode`), the cluster auth gate
   (`api.host(id)` with 401-retry/silent-renew), `fanOut` (multi-host roll-up),
   `reconnectHost`/`reconnectAll` (drive the per-host sockets). **The assistant is not on
   this seam** — see below.
@@ -218,34 +218,44 @@ break boot. Read the comments before "tidying" an import.
 
 ## Auth, RBAC, capabilities
 
-- **`sessionStore.js` — per-host identity (Model A).** Two doors: a KGSM username
-  and password (`POST /auth/login`), and Discord as an SSO anchor. Each host mints
-  its OWN short-lived access token (sessionStorage) + long-lived refresh token
-  (localStorage, weeks), and resolves the user's **tier from that host's KGSM
-  account for them** — a provider proves who you are and nothing more.
-  `authRedirect.js` captures the OAuth fragment handoff at boot;
-  `establishNodeSession` is the shared adoption path both doors end in.
-  The per-host record carries `account` (`active｜pending｜unknown`) beside the
-  tier, because a `none` tier is two facts: waiting on an admin, and unknown here.
-  **A tier is LIVE, not something learned once at sign-in.** The node pushes
-  `{tier, status}` on the primary stream's `me` topic whenever it regrades the account
-  behind this session, and that push is the authority — a demotion is written exactly like
-  a promotion. The node delivers the frame only to this account's own connections, so one
-  that arrives is about the reader and needs no filtering here. Everything gated re-renders
-  off the record write; `App.jsx` re-runs `resolveRoute` against the page the person is
-  standing on and takes them home if they may no longer be there, and says once, per node,
-  what their access now is. Nothing reconnects — the node re-gates the connection in place,
-  so topics the new role may not read simply stop arriving.
-  **`components/AuthGate.jsx` is everything in front of the app** — the node screen, the
-  one sign-in/register card, and the wait for approval — and `App.jsx` renders it *instead
-  of* the shell, so none of the shell's hooks and none of the data layer run for somebody
-  who has not signed in. A **pending** account cannot be carried by `sessionStore`: that
-  store is keyed by backend host id, and the only way to learn one is `GET /hosts`, which
-  is viewer-gated. The gate holds their session itself (`lib/authFlow.js`, sessionStorage,
-  keyed by origin) and polls `GET /me` — bare-authorized precisely so a tierless caller can
-  ask — until an admin approves them, at which point the ordinary per-host session takes
-  over. There is no push here to replace the poll: `/api/v1/stream` is viewer-gated, so a
-  caller holding no tier cannot open one to be told on.
+- **`sessionStore.js` — ONE session, for the whole cluster.** An account belongs to the cluster and
+  so does the session it opens. The **anchor** — the member holding the `auth` capability — mints it
+  and is the only thing that renews it; every other member accepts it by verifying the anchor's
+  signature against the published key and resolves the tier from its own replica of the account
+  store. **No member ever issues this browser a credential or extends one.** That is a rule, not an
+  implementation detail: a member that could re-mint would be a second door to the same session on
+  every machine in the cluster, permanently, in exchange for an outage largely shared with the
+  panel's own ingress anyway.
+  Two doors, both at the anchor: a username and password (`POST /auth/sign-in`, and `/auth/register`
+  for a new account) and a provider bounce (`/auth/{provider}/start?prompt=consent` — the bare start
+  is a silent attempt, which is right for a renewal behind somebody's back and wrong for a person
+  who has just pressed Sign in). `authRedirect.js` captures the fragment handoff at boot and
+  `establishClusterSession` is the adoption path both doors end in — it adopts the session FIRST,
+  because the tokens are valid on their signature and nothing a member says makes them more so.
+  The record carries `account` (`active｜pending｜unknown`) beside the tier, because a `none` tier is
+  two facts: waiting on an admin, and holding nothing at all.
+  **A tier is LIVE, not something learned once at sign-in.** A member pushes `{tier, status}` on the
+  primary stream's `me` topic whenever the account is regraded, and that push is the authority — a
+  demotion is written exactly like a promotion. Everything gated re-renders off the record write;
+  `App.jsx` re-runs `resolveRoute` against the page the person is standing on, takes them home if
+  they may no longer be there, and says once what their access now is.
+  **A member's refusal is not the session's**, and this is the part that does not follow from a
+  per-node model. A member verifies a signature offline but can only say what somebody MAY DO once
+  its replica carries their account, so a member that has just joined refuses a perfectly good
+  cluster session. `nodes` records who is currently honouring it, and the two refusals are separate
+  claims: a **403** means the token validated and the person resolved to a tier too low (for an
+  unknown account, `none`) — always about that member's view of this person, never about the
+  session, so it is recorded at once; a **401** means the token itself did not validate, which is
+  ambiguous until a renewal settles it, because a member still refusing a *fresh* session is not
+  describing the session.
+  **`components/AuthGate.jsx` is everything in front of the app** — the member screen, discovery,
+  the one sign-in/register card, and the wait for approval — and `App.jsx` renders it *instead of*
+  the shell, so none of the shell's hooks and none of the data layer run for somebody who has not
+  signed in. A **pending** account is not carried by `sessionStore`: everything behind the gate
+  would render for somebody entitled to none of it. The gate holds their session itself
+  (`lib/authFlow.js`, sessionStorage) and polls `GET /me` — bare-authorized precisely so a tierless
+  caller can ask — until an admin acts. A fresh registration and a first provider arrival land in
+  exactly that state, so there is one screen for both.
 - **`SettingsIdentities.jsx` — connected accounts, per host.** Which provider accounts are attached
   to the caller's own KGSM account, and attaching or detaching one. Both writes confirm the password
   first (`POST /auth/reauth`), asked BEFORE starting rather than after being refused; a fresh sign-in
@@ -257,11 +267,13 @@ break boot. Read the comments before "tidying" an import.
   `#/settings`, because the callback can only return to one address and landing on the dashboard
   after connecting an account tells nobody whether it worked.
 - **`persona.js` — the authorization POLICY (single source of truth).** Roles are
-  `admin｜operator｜viewer｜none`, resolved **per host** (you can be admin on one
-  box, viewer on another). The rule: **`can(cap)` = aggregate (held on ANY host) for
-  nav/reach; `canOn(cap, host)` = scoped for actions** — never substitute one for
-  the other. `resolveRoute()` is the **routing chokepoint**: a forbidden route is
-  mapped to the persona's home synchronously, so it never enters state or mounts.
+  `admin｜operator｜viewer｜none`, and there is **one tier, cluster-wide** — the anchor resolves it
+  and every member reads the same one from its own replica. So there is one question, `can(cap)`: a
+  scoped variant would let a surface ask "may they do this *here*" and receive a cluster answer that
+  only looks scoped, which is worse than not offering the question. Whether a MEMBER will honour
+  that answer is a different fact and lives in `sessionStore.nodeRefusal(id)`.
+  `resolveRoute()` is the **routing chokepoint**: a forbidden route is mapped to the persona's home
+  synchronously, so it never enters state or mounts.
 - **`assistantSession.js` — the session with the LEAF, separate from the node's, and obtained
   silently.** The assistant issues and revokes its own tokens, but every surface on a host is the
   **same Discord application** (one `KgsmAuth__Providers__discord__ClientId`, differing only in redirect URI), so a

@@ -119,15 +119,26 @@ re-exports `stores/` — import from either.
   for auth-disabled dev.
 
 **Auth / RBAC / capabilities**
-- `sessionStore.js` — per-host identity (Model A): Discord SSO anchor, each host
-  mints its own access (sessionStorage) + refresh (localStorage) token, resolves
-  role via that host's bot. It also holds the LIVE half of that role: the primary
-  stream's `me` topic carries the node's own `{tier, status}` whenever it regrades
-  this account, and `applyMePatch` writes it as given — the push is the node's
-  current answer, so a demotion lands exactly like a promotion. `onTierChange`
-  reports a genuine delta to the two things a re-render cannot cover on its own:
-  the shell (which says so, and leaves a route the role can no longer occupy) and
-  the dashboard's default arrangement.
+- `anchor.js` — where the cluster signs people in, and the calls that do it. Discovery
+  (`GET /api/v1/cluster/auth` on any member, unauthenticated because a browser asking has no session
+  yet), the anchor's door list, the interactive provider bounce, and sign-in / register / refresh /
+  sign-out. It does not go through `apiClient`: every call is anonymous or carries a token passed
+  explicitly, which is the opposite of what that seam is for.
+- `sessionStore.js` — **ONE session, for the whole cluster.** The anchor mints it and is the only
+  thing that renews it; every member accepts it by verifying the anchor's signature against the
+  published key and resolves the tier from its own replica. No member ever issues this browser a
+  credential or extends one — a member that could would be a second door to the same session on
+  every machine in the cluster, permanently.
+  It also holds the LIVE half of the tier: the primary stream's `me` topic carries `{tier, status}`
+  whenever the account is regraded, and `applyMePatch` writes it as given, so a demotion lands
+  exactly like a promotion. `onTierChange` reports a genuine delta to the two things a re-render
+  cannot cover: the shell (which says so, and leaves a route the role can no longer occupy) and the
+  dashboard's default arrangement.
+  **A member's refusal is not the session's.** `nodes` records who is currently honouring it, which
+  is a different fact: a member verifies a signature offline but can only say what somebody may do
+  once its replica carries their account, so one that has just joined refuses a good session. A
+  **403** is never about the session (the token validated; the person is unknown there) and is
+  recorded at once; a **401** is ambiguous until a renewal settles it.
 - `authRedirect.js` — captures the OAuth fragment handoff at boot, and **says who issued
   it**. A node login and an assistant-leaf login both land on this origin with the same
   `access`/`refresh`/`error` fragment keys; the `assistant_login=<hostId>` marker that
@@ -136,9 +147,10 @@ re-exports `stores/` — import from either.
   stays a leaf of the import graph and the two session layers keep their own storage.
 - `authStorage.js` — the app-shell user read/write (extracted from `App.jsx`).
 - `persona.js` — the authorization **policy, single source of truth**. Roles
-  `admin｜operator｜viewer｜none`, resolved **per host**. `can(cap)` = aggregate
-  (any host) for nav/reach; `can(cap)` = scoped for actions — **never
-  substitute one for the other**. `resolveRoute()` is the routing chokepoint.
+  `admin｜operator｜viewer｜none`, one tier cluster-wide. `can(cap)` is the only question there is: a
+  scoped variant would let a surface ask "may they do this *here*" and receive a cluster answer that
+  only looks scoped. Where a surface needs to know whether a MEMBER will honour that answer, that is
+  `sessionStore.nodeRefusal(id)` and a different fact. `resolveRoute()` is the routing chokepoint.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
   `provisioned` × `status`. The assistant is per-host with no central fallback.
 
