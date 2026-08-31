@@ -18,6 +18,7 @@ import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore } from "../../lib/stores/cluster.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
+import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
 
 function AnchorPage() {
   const { anchor, anchored, holder, known } = useAccountHolder();
@@ -87,6 +88,9 @@ function AnchorPage() {
     <>
       {head}
       <AccountsAdmin />
+      {/* Served by the anchor itself. A leaf's configuration comes from the node that runs it; this
+          one has no node above it, so the page reads it on the same origin it reads accounts on. */}
+      <AnchorConfiguration anchor={anchor} />
     </>
   );
 }

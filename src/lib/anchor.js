@@ -290,4 +290,48 @@ function anchorNamesTheFleet() {
   return !!(d && d.kind === "anchor");
 }
 
-export { ANCHOR_KEY, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };
+// What this anchor can be configured with, and changing it. The anchor answers for its own
+// configuration because nothing else can: a leaf is configured through the node that runs it, and an
+// anchor is a peer of every node rather than something one of them hosts.
+//
+// The shape is kgsm-api's leaf config, key for key, so the panel renders both through one set of
+// components. What differs is who answers.
+async function readConfig(anchorUrl, token, { fetchImpl = fetch, signal } = {}) {
+  const res = await fetchImpl(originOf(anchorUrl) + "/auth/config", {
+    headers: { Accept: "application/json", Authorization: "Bearer " + token },
+    signal,
+  });
+  if (!res.ok) {
+    const err = new Error("config_unavailable");
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// Apply a change. The anchor restarts itself to pick one up, and answers before it goes — so
+// `restarting` is part of the answer rather than something to infer from the connection closing.
+async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal } = {}) {
+  const res = await fetchImpl(originOf(anchorUrl) + "/auth/config", {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error("apply_failed");
+    err.status = res.status;
+    // The anchor's own words, which name the key and the rule it broke. Nothing here keeps a second
+    // copy of those rules to stand beside them.
+    err.userMessage = (payload && payload.error && payload.error.message) || null;
+    throw err;
+  }
+  return payload;
+}
+
+export { ANCHOR_KEY, readConfig, applyConfig, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };

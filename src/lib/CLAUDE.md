@@ -143,7 +143,8 @@ re-exports `stores/` — import from either.
   an anchor because it says so, never because something was inferred from it), `authDoors`
   (`GET /auth/providers`, read on an anchor and a node alike, and which reports a clustered node's
   503 as the holder's NAME), the interactive provider bounce, sign-in / register / refresh /
-  sign-out, and THE DOOR — the one stored fact about where this browser signs in, carrying its
+  sign-out, **the anchor's own configuration surface** (`readConfig`/`applyConfig` — a leaf's settings
+  come from the node that runs it, and an anchor has none above it), and THE DOOR — the one stored fact about where this browser signs in, carrying its
   `kind`. It does not go through `apiClient`: every call is anonymous or carries a token passed
   explicitly, which is the opposite of what that seam is for.
 - **Two entry paths, and nothing is discovered through a node.** An auth anchor holds a cluster's

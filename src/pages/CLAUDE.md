@@ -124,6 +124,15 @@ says. Both of those follow the DOOR, never `anchored` — they describe where th
 
 No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 
+`accounts/AnchorConfiguration.jsx` is the anchor page's other half, and it goes somewhere else again:
+straight to the anchor, through `lib/anchor.js`, never through `apiClient`. A leaf's settings are
+delivered by the node that runs it, and an anchor has no node above it — on the ordinary topology
+there is not even one beside it. The ROWS are `leafConfig/LeafConfigRow.jsx`, because a component's
+settings read the same whoever serves them; only the transport differs, and that is all this file
+adds. Applying restarts the anchor, so the confirmation says what that costs rather than asking for a
+click: it holds every account in the cluster, and nothing restores the old values if it does not come
+back.
+
 ## The split-page folders — keep the entry thin
 
 Big screens live as folders: the entry file stays thin (state + layout) and the
@@ -136,7 +145,7 @@ pieces live beside it.
 | `DiagnosticsPage.jsx` | `diagnostics/` | `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), host cards, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
-| `accounts/AnchorPage.jsx` | `accounts/` | `AccountsAdmin` (the roster, the create/edit modal and its sessions half) |
+| `accounts/AnchorPage.jsx` | `accounts/` | `AccountsAdmin` (the roster, the create/edit modal and its sessions half), `AnchorConfiguration` (the anchor's own settings, read from the anchor) |
 | `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `DashFleetStrip`, `AddWidgetSheet`, `DashboardEmpty` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
 | `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |

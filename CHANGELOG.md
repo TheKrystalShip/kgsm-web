@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.205.0]
+
+### Added — the anchor's page configures the anchor
+
+A Configuration section on `#/anchor`, read from and written to the anchor's own origin. A leaf's
+settings come from the node that runs it; an anchor has no node above it, so the page asks the anchor
+on the same origin it already asks for accounts and sessions.
+
+The rows are the leaf configuration page's own — the same three provenance tiers, the same risk
+badges, the same reset — because a component's settings read the same whoever serves them. Only the
+transport differs, which is the whole of what the new file adds.
+
+Applying restarts the anchor, and the confirmation says so in those terms: it holds every account in
+the cluster, nobody can sign in while it is down, and nothing puts the old values back if it does not
+come back. The outcome afterwards distinguishes three things a single "saved" would flatten — nothing
+changed, applied and restarting, and written but not in force because the restart was refused.
+
 ## [1.204.0]
 
 ### Added — the cluster's accounts are administered on the anchor's page
