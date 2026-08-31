@@ -220,4 +220,44 @@ export const refreshSession = (anchorUrl, refresh, opts) =>
 export const signOut = (door, refresh, opts) =>
   post(doorOf(door).origin, doorOf(door).paths.signOut, { refresh }, opts);
 
+// The cluster's members, as the anchor knows them — nodes and other anchors, each with `kind`.
+// Authenticated, so it is asked with the session the anchor just minted rather than anonymously: who
+// is in a cluster is not something an unauthenticated caller learns.
+//
+// This is where the panel's fleet comes from. A clustered node announces nothing about its cluster,
+// so there is no second source to reconcile against and none to disagree with. Every address in the
+// answer is fetchable from a browser — the anchor OMITS a member that advertises none rather than
+// falling back to the address its peers use, which would turn "not reachable from here" into
+// "reachable, and permanently down".
+//
+// The token is passed explicitly, like every other call in this module: none of this goes through
+// apiClient, whose seam exists to address nodes.
+export async function clusterMembers(anchorUrl, token, { fetchImpl = fetch, signal } = {}) {
+  const base = originOf(anchorUrl);
+  if (!base) return { ok: false, members: [] };
+  try {
+    const res = await fetchImpl(base + "/auth/cluster/members", {
+      headers: token ? { Accept: "application/json", Authorization: "Bearer " + token } : { Accept: "application/json" },
+      signal,
+    });
+    if (!res.ok) return { ok: false, status: res.status, members: [] };
+    const body = await res.json();
+    const rows = Array.isArray(body && body.members) ? body.members : [];
+    return {
+      ok: true,
+      cluster: (body && body.cluster) || "",
+      members: rows.map((m) => ({
+        memberId: m.memberId || "",
+        kind: m.kind || "node",
+        url: originOf(m.url) || "",
+        nickname: m.nickname || null,
+        status: m.status || "unknown",
+        membership: m.membership || "unknown",
+      })).filter((m) => m.memberId && m.url),
+    };
+  } catch {
+    return { ok: false, members: [] };
+  }
+}
+
 export { ANCHOR_KEY, originOf, rememberDoor, rememberedDoor };

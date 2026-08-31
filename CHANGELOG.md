@@ -8,6 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.201.0]
+
+### Changed — in a cluster, the fleet comes from the anchor
+
+A clustered node announces nothing about its cluster, so there is no longer anything to ask one. The
+nodes this panel drives are read from the anchor's own roster, with the session it just minted,
+because who is in a cluster is not something an unauthenticated caller learns. A member's own roster
+is still read for what it alone knows — health, latency, which member holds which capability — and
+never to decide who is driven: two sources for one list disagree the first time they diverge.
+
+It is asked the moment a session exists rather than on the next discovery interval, so somebody who
+has just signed in does not wait a minute to see their servers, and again on that interval so a node
+joining the cluster arrives without anyone reloading. An anchor that cannot be reached changes
+nothing — reconciling against a roster nobody answered with would drop every node and show a fleet
+that appears to have gone, which is worse than one briefly stale.
+
+A standalone deployment has no anchor and no cluster: the node somebody signed in at is the whole of
+it, and none of this runs.
+
+### Fixed — choosing a door is visible to the page that chose it
+
+The door was written to storage without being handed to the session layer, which had read its copy
+at boot. So a browser picking one for the first time signed in and then asked nobody for its nodes,
+while a reload fixed it — the failure that looks like an intermittent backend. Storage and memory
+now move together.
+
 ## [1.200.0]
 
 ### Fixed — signing in at a standalone node reaches it

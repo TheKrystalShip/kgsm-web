@@ -2,7 +2,7 @@ import React from "react";
 import { establishClusterSession } from "../lib/authRedirect.js";
 import { writeStoredUser } from "../lib/authStorage.js";
 import {
-  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, rememberDoor,
+  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress,
   lastMemberOrigin, readPendingSession, rememberMember, stashPendingSession,
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
@@ -89,7 +89,11 @@ function AuthGate({ user, onUser }) {
   // servers or metrics, and the nodes come from its own roster once there is a session to ask with.
   const applyDoor = React.useCallback((found) => {
     if (found.kind === "anchor" || found.kind === "standalone") {
-      rememberDoor(found);
+      // Through the session layer, which holds the door in memory as well as in storage. Writing
+      // storage alone leaves the running page reading the door it booted with — and the fleet is
+      // fetched from the door, so a browser choosing one for the first time would sign in and then
+      // ask nobody for its nodes.
+      sessionStore.setDoor({ origin: found.origin, kind: found.kind });
       if (found.kind === "standalone") adoptMember({ origin: found.origin, label: found.label, reachable: true });
     }
     setCluster(found);

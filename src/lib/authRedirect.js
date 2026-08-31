@@ -86,6 +86,13 @@ export async function establishClusterSession(captured) {
   });
   takePendingTokens();                                  // consume the one-shot stash; adopted directly
 
+  // In a cluster the fleet is the anchor's to name, and it is asked the moment there is a session to
+  // ask with — a person who has just signed in should not wait a discovery interval to see their
+  // servers. It runs before the reads below because those address a node, and until this returns
+  // there may be no node to address.
+  try { const { refreshFleetFromAnchor } = await import("./fleet.js"); await refreshFleetFromAnchor(); }
+  catch { /* the discovery timer asks again */ }
+
   const conn = homeConn();
   if (!conn) return;
   const apiV1 = conn.url + "/api/v1";

@@ -9,6 +9,8 @@
 import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
 import { reconcileRosterToRegistry } from "../connect.js";
+import { refreshFleetFromAnchor } from "../fleet.js";
+import { sessionStore } from "../sessionStore.js";
 import { createStore } from "../store.js";
 import { hostsStore } from "./hosts.js";
 
@@ -104,6 +106,11 @@ function applyRoster(hostId, { nodes, admin }) {
   // Fired alongside, not awaited: the roster is the answer this returns and a slower second
   // read must not hold it up. The store updates when it lands.
   loadCapabilities(hostId);
+  // In a cluster the connection set is the ANCHOR's answer (lib/fleet.js), so a member's own roster
+  // is read here for what it alone knows — health, latency, which member holds which capability —
+  // and never to decide who is driven. Two sources for one list disagree the first time they
+  // diverge. Without an anchor there is no second source and this is the only one.
+  if (sessionStore.anchorOrigin()) return { added: 0, removed: 0 };
   return reconcileRosterToRegistry(nodes, { localHostId: hostId });
 }
 
@@ -166,11 +173,17 @@ clusterStore.discover = () => {
 const DISCOVER_MS = 60000;
 let _discoverTimer = null;
 function startDiscovery() {
-  if (_discoverTimer || !CONNECTIONS.length) return;
-  const run = () => { clusterStore.discover().catch(() => {}); };
+  // An anchored panel has somewhere to ask even with nothing connected yet — the anchor is the
+  // source of the fleet and needs no node to reach it. Without one there is nothing to discover
+  // until a node is connected.
+  if (_discoverTimer || (!CONNECTIONS.length && !sessionStore.anchorOrigin())) return;
+  const run = () => {
+    refreshFleetFromAnchor().catch(() => {});
+    clusterStore.discover().catch(() => {});
+  };
   // Nothing is addressable until the first GET /hosts reconciles an id, so wait
   // for that rather than spending the boot attempt on an empty set.
-  if (addressable().length) run();
+  if (addressable().length || sessionStore.anchorOrigin()) run();
   else {
     const stop = hostsStore.subscribe(() => {
       if (!addressable().length) return;

@@ -8,7 +8,7 @@
 // Everything here talks to a host directly rather than through `apiClient`: every call is anonymous
 // by definition, and the seam's whole job is attaching a session to a call for a member.
 
-import { anchorIdentity, authDoors, rememberDoor as storeDoor } from "./anchor.js";
+import { anchorIdentity, authDoors } from "./anchor.js";
 import { CONNECTIONS } from "./config.js";
 import { addConnection, normalizeHostUrl, registryEntry } from "./connect.js";
 
@@ -110,14 +110,6 @@ async function identifyAddress(address, opts = {}) {
   };
 }
 
-// Remember where this browser signs in, once it is known. Both kinds are kept, because both mint and
-// renew their own sessions — what must not happen is a standalone node stored as an anchor, which
-// would send account writes to a cluster-scoped path it does not serve.
-function rememberDoor(found) {
-  if (found && (found.kind === "anchor" || found.kind === "standalone")) {
-    storeDoor({ origin: found.origin, kind: found.kind });
-  }
-}
 
 // Register a member this browser has just been pointed at, so the rest of the app can address it.
 // Idempotent by origin.
@@ -224,6 +216,6 @@ const passwordOk = (password) => (password || "").length >= PASSWORD_MIN;
 export {
   LAST_MEMBER_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
   adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, lastMemberOrigin,
-  passwordOk, passwordStrength, probeMember, readPendingSession, rememberDoor, rememberMember,
+  passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
   stashPendingSession, usernameOk, usernameProblem,
 };

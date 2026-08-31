@@ -55,7 +55,8 @@ globalThis.fetch = async (url) => {
   return json({ error: { code: "not_found" } }, 404);
 };
 
-const { identifyAddress, rememberDoor } = await import("../src/lib/authFlow.js");
+const { identifyAddress } = await import("../src/lib/authFlow.js");
+const { sessionStore } = await import("../src/lib/sessionStore.js");
 const { signIn, signOut } = await import("../src/lib/anchor.js");
 const config = await import("../src/lib/config.js");
 
@@ -103,12 +104,21 @@ check(!calls.some((u) => u.includes("/api/v1/cluster/auth")),
 
 // 7. Only a door is kept, and only a NODE is driven. An anchor serves no servers and no metrics; a
 //    connection to one would be called by every fan-out and named in every banner forever.
-rememberDoor(await identifyAddress(ANCHOR));
+// Through the session layer, which is the only way that also updates the RUNNING page. Writing
+// storage alone leaves the door this page booted with in place, and the fleet is fetched from the
+// door — so a browser choosing one for the first time would sign in and then ask nobody for its
+// nodes. That shipped, and only a real sign-in found it.
+const chosen = await identifyAddress(ANCHOR);
+sessionStore.setDoor({ origin: chosen.origin, kind: chosen.kind });
+check(sessionStore.anchorOrigin() === ANCHOR,
+  "choosing a door is visible to the running page at once, not only on the next load",
+  sessionStore.anchorOrigin() || "(empty)");
 check(door() && door().origin === ANCHOR && door().kind === "anchor", "an anchor is kept as the door", JSON.stringify(door()));
 check(ids() === "", "and is never driven as a node", ids() || "(none)");
 
-rememberDoor(await identifyAddress(CLUSTERED));
-check(door().origin === ANCHOR, "a node that is not a door does not replace one", JSON.stringify(door()));
+const notADoor = await identifyAddress(CLUSTERED);
+check(notADoor.kind === "held-elsewhere" && door().origin === ANCHOR,
+  "a node that is not a door does not replace one", JSON.stringify(door()));
 
 // 8. The credential calls take the DOOR, not its address. Two of the paths are spelled differently
 //    on each — an anchor mints for a cluster and named its endpoints for that, a node minted for
