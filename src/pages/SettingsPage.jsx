@@ -2,6 +2,7 @@ import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { ThemePicker } from "../components/ThemePicker.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { ResetLocalData } from "../components/ResetLocalData.jsx";
 import { SettingsMemory } from "../components/SettingsMemory.jsx";
 import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { useAssistantDock } from "../components/AssistantDockContext.jsx";
@@ -122,6 +123,9 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
                   Delete account
                 </button>
               </SettingsRow>
+              {/* Above the notice, because unlike the row above it this one works, and unlike
+                  deleting an account it is reversible by signing in again. */}
+              <ResetLocalData />
               <div className="settings-notice">
                 <Icon name="info" size={13} /> To sign out of every device, use Log out all under
                 Devices.

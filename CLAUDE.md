@@ -37,6 +37,7 @@ npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-
 
 npm run check:door   # where an account call goes — anchor or node — in both clusters
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
+npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
 
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```

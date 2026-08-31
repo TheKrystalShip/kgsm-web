@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.198.0]
+
+### Added — Clear local data, in the Danger zone
+
+Stale client state is recoverable by clearing site data, except in the one place people actually hit
+it. An installed app has no address bar and no site-data controls, so the only route left there is
+uninstalling it — too big a hammer for a node list that has gone out of date, and the reason this is
+a control rather than a support instruction.
+
+It forgets every key the app owns, in both storages, and the caches and service worker an installed
+copy holds; the reload afterwards is the point, since half of what it clears is read once at boot and
+a live page would look unchanged. Anything else served from the same origin is untouched, and so is
+everything on every node — what it clears was this browser's own, which is what makes it safe to
+offer beside a delete that is not.
+
+### Added — `npm run check:reset`
+
+The quiet failure it pins: removing keys while walking a live storage index shifts the index under
+the loop, so about half survive and the app returns still holding whatever was wrong. A reset that
+half-works is worse than none, because the person who pressed it now believes the state is clean.
+
 ## [1.197.0]
 
 ### Fixed — a healthy node is no longer reported as one that didn't answer
