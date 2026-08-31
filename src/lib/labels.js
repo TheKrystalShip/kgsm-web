@@ -27,6 +27,15 @@ export const ROUTE_TABS = {
     { id: "servers",   label: "Servers",   icon: "server" },
     { id: "file",      label: "File",      icon: "file-code" },
   ],
+  // An ANCHOR's tabs. A cluster member is a node or an anchor and both are reached at
+  // #/cluster/<member>, so both name their tabs here — what differs is which set, because an anchor
+  // runs no game servers and has no capacity to report and holds the cluster's accounts instead.
+  anchor: [
+    { id: "overview", label: "Overview", icon: "layout-grid" },
+    { id: "users",    label: "Users",    icon: "users" },
+    { id: "logs",     label: "Logs",     icon: "scroll-text" },
+    { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
+  ],
   cluster: [
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
     { id: "resources", label: "Resources", icon: "activity" },

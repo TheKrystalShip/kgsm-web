@@ -66,7 +66,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
     >
       <div
         className={"dash-fleet-row dash-fleet-row--" + tone + (opens ? "" : " dash-fleet-row--static")}
-        onClick={opens ? onOpenAnchor : undefined}
+        onClick={opens ? () => onOpenAnchor(fed.nodeId) : undefined}
       >
         <span className="dash-fleet-row__id">
           <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>

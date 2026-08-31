@@ -309,6 +309,22 @@ async function readConfig(anchorUrl, token, { fetchImpl = fetch, signal } = {}) 
   return res.json();
 }
 
+// This anchor's own journal. A node's is read by the API on that node; an anchor has no node above
+// it, so it reads its own and serves it in the same shape every KGSM log surface renders.
+async function readLogs(anchorUrl, token, { lines = 300, fetchImpl = fetch, signal } = {}) {
+  const res = await fetchImpl(originOf(anchorUrl) + "/auth/logs?lines=" + encodeURIComponent(lines), {
+    headers: { Accept: "application/json", Authorization: "Bearer " + token },
+    signal,
+  });
+  if (!res.ok) {
+    const err = new Error("logs_unavailable");
+    err.status = res.status;
+    throw err;
+  }
+  const payload = await res.json();
+  return (payload && payload.data) || [];
+}
+
 // Apply a change. The anchor restarts itself to pick one up, and answers before it goes — so
 // `restarting` is part of the answer rather than something to infer from the connection closing.
 async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal } = {}) {
@@ -334,4 +350,4 @@ async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal }
   return payload;
 }
 
-export { ANCHOR_KEY, readConfig, applyConfig, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };
+export { ANCHOR_KEY, readConfig, applyConfig, readLogs, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };

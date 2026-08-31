@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.206.0]
+
+### Changed — an anchor is a member, and its page is shaped like one
+
+`#/cluster/<member>`, the same route a node opens at. A cluster has members and a member is a node or
+an anchor; to a URL they are the same kind of thing — one machine's role in one cluster — and a
+separate word for anchors would need a third when the assistant becomes one.
+
+The page carries its own tab strip (Overview, Users, Logs, Configuration), each tab is a URL, Back
+walks between them, a deep link opens into one, and the trail above names whichever is open from the
+anchor's strip rather than the node's. That is the node page's structure exactly, with different data
+in it.
+
+### Added — an anchor's Overview and its journal
+
+Overview answers what an anchor is asked, which is not what a node is asked: which capability it
+holds, where the cluster reaches it, whether the cluster can see it, and how many accounts, pending
+approvals and administrators are behind the capability. A figure that could not be read renders as a
+dash — a zero there would say the thing holding every account in the cluster holds none.
+
+Logs reads the anchor's own journal through the same console a leaf's journal uses. It is read on
+demand rather than followed: a leaf's streams because the API holds a socket to that node, and this
+is a cross-origin read against a daemon with no stream to offer, so the surface says so and can be
+asked again.
+
 ## [1.205.0]
 
 ### Added — the anchor's page configures the anchor

@@ -18,7 +18,7 @@ import { CONNECTIONS, subscribeConnections } from "./lib/config.js";
 import { fleetStore, refreshFleetFromAnchor } from "./lib/fleet.js";
 import { sessionStore, TIER_LABEL } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
+import { clusterStore, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import { CommandPalette } from "./components/palette/CommandPalette.jsx";
 import { FirstRunWelcome, hasSeenWelcome } from "./pages/FirstRunWelcome.jsx";
@@ -125,6 +125,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     openAssistant, openView, handleAssistantNavigate, setManualPin,
     review, exitReview } = dock;
   const hosts = useStore(hostsStore, s => s.list);
+  const clusterMembers = useStore(clusterStore, s => s.nodes);
 
   // --- Auth ---
 
@@ -419,7 +420,19 @@ function AppInner({ user, setUser, route, setRoute }) {
     // for one — so the breadcrumb has to know, or it would name a tab that isn't on screen.
     serverOperable: serverForRender ? serverOperable(serverForRender) : false,
     gameName: activeGame ? activeGame.name : null,
-    hostName: route.hostId ? ((hosts.find(h => h.id === route.hostId) || {}).name || null) : null,
+    // A cluster route names a MEMBER, and a member is a node or an anchor. A node is in the
+    // connection set with a friendly name; an anchor is not driven by this browser at all and is
+    // known only from the roster, so both are looked up and the crumb reads the same either way.
+    hostName: route.hostId
+      ? ((hosts.find(h => h.id === route.hostId) || {}).name
+         || (clusterMembers.find(m => m.nodeId === route.hostId) || {}).label
+         || null)
+      : null,
+    // Which kind, so the breadcrumb names the tab from that member's own strip. The two offer
+    // different tabs, and naming one from the other's list silently drops the crumb.
+    memberKind: route.hostId
+      ? ((clusterMembers.find(m => m.nodeId === route.hostId) || {}).kind || "node")
+      : null,
     // The leaf's display name is the services board's to give, and that board is host-scoped — a row
     // read while it still holds another host's list would name the wrong machine's leaf.
     leafName: (route.leaf && route.hostId && servicesByHost[route.hostId]

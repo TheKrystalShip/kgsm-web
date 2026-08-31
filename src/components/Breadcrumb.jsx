@@ -48,11 +48,13 @@ function breadcrumbTrail(route, ctx) {
     case "attention": trail.push({ label: "Alerts" }); break;
     case "audit":     trail.push({ label: "Audit log" }); break;
     case "addHost":   trail.push({ label: "Cluster", to: { kind: "cluster" } }, { label: "Add a host" }); break;
+    // One route for one member, and a member is a node or an anchor. The trail is the same either
+    // way; only which tab strip names the tab differs, because the two members offer different ones.
     case "cluster":   if (route.hostId) {
                         trail.push(
                           { label: "Cluster", to: { kind: "cluster" } },
                           { label: ctx.hostName || route.hostId, to: { kind: "cluster", hostId: route.hostId } });
-                        tab("cluster");
+                        tab(ctx.memberKind === "anchor" ? "anchor" : "cluster");
                       } else {
                         trail.push({ label: "Cluster" });
                       }
@@ -77,12 +79,6 @@ function breadcrumbTrail(route, ctx) {
                           ? { label: "Configuration", to: { kind: "leafConfig", hostId: route.hostId } }
                           : { label: "Configuration" });
                       if (route.leaf) trail.push({ label: ctx.leafName || route.leaf });
-                      break;
-    // The crumb names the ROLE, not the member, because the route does: one auth anchor per cluster,
-    // reached from the Anchors card on the page this crumb walks back to.
-    case "anchor":    trail.push(
-                        { label: "Cluster", to: { kind: "cluster" } },
-                        { label: "Auth anchor" });
                       break;
     case "settings":  trail.push({ label: "Settings", to: { kind: "settings" } }); tab("settings"); break;
     default:          break;

@@ -18,6 +18,7 @@ import { pingStore, startPingLoop } from "../lib/stores/ui.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 
 // Imports from extracted modules
+import { AnchorPage } from "./accounts/AnchorPage.jsx";
 import { AddNodeModal } from "./diagnostics/AddNodeModal.jsx";
 import { ClusterConstellation } from "./diagnostics/ClusterConstellation.jsx";
 import { ClusterAnchorList } from "./diagnostics/ClusterAnchorList.jsx";
@@ -151,6 +152,28 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
           <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>No nodes configured</div>
           <div style={{ marginTop: 4, fontSize: 13 }}>Add a node to start aggregating servers and diagnostics.</div>
         </div>
+        {modals}
+      </>
+    );
+  }
+
+  // A cluster route names a MEMBER, and a member is a node or an anchor. An anchor is not in the
+  // connection set — this browser drives nodes, and an anchor serves one capability rather than
+  // anything to drive — so it is looked up in the roster and its own page is rendered here. Checked
+  // before the fall-through below, which would otherwise read "not a node I hold" as "no member
+  // named" and quietly show the grid.
+  const anchorMember = focusHostId
+    ? (clusterAnchorRows.find(e => e.fed && e.fed.nodeId === focusHostId) || null)
+    : null;
+
+  if (anchorMember) {
+    const held = clusterCapabilities.find(c => c.held && c.memberId === focusHostId);
+    return (
+      <>
+        <AnchorPage
+          member={{ ...anchorMember.fed, capability: held ? held.capability : null }}
+          tab={tab}
+          onSelectTab={setTab} />
         {modals}
       </>
     );

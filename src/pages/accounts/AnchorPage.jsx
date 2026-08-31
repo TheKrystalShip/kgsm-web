@@ -1,77 +1,61 @@
-// AnchorPage — the cluster's auth anchor, and the accounts it holds.
+// AnchorPage — one anchor of the cluster, with its own sub-tabs.
 //
-// An anchor is a member that provides ONE capability to the whole cluster, and the one that holds
-// `auth` holds every account in it. So this is where accounts are administered in a cluster: on the
-// member that owns them and is the only thing that writes them. A node holds a read-only replica and
-// refuses every write against it, which is why no node's page offers the screen.
+// A cluster has members, and a member is a node or an anchor. Both are reached at
+// `#/cluster/<member>`, because both are the same kind of thing to a URL: one machine's role in one
+// cluster. What differs is the body — a node runs game servers and reports capacity, an anchor
+// provides one capability to the whole cluster and reports what that capability holds.
 //
-// There is one route and it names no member. A cluster has one auth anchor, this browser signed in
-// at it, and addressing the page by the member id would make the URL depend on a roster read that
-// the accounts themselves do not need.
+// The tabs are the anchor's own (`ROUTE_TABS.anchor`) and each one is a URL: `#/cluster/<member>`
+// opens Overview, `#/cluster/<member>/users` opens the accounts, and the trail above names whichever
+// is open. That is the node page's structure exactly, with different data in it.
 //
-// Reached from the Anchors card on the Cluster page, which is where a person meets the anchor as a
-// member. The page repeats none of that card's health columns — the trail above says where it came
-// from, and the same row twice is the one thing this page has to avoid to be worth having.
+// Reached from the Anchors card on the Cluster page, which is where a person meets this member as a
+// member. The page repeats none of that card's columns — the trail says where it came from, and the
+// same row twice is the one thing it has to avoid to be worth having.
 
 import { Icon } from "../../components/Icon.jsx";
+import { SubTabs } from "../../components/SubTabs.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
-import { useStore } from "../../lib/store.js";
-import { clusterStore } from "../../lib/stores/cluster.js";
+import { ROUTE_TABS } from "../../lib/labels.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
 import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
+import { AnchorLogs } from "./AnchorLogs.jsx";
+import { AnchorOverview } from "./AnchorOverview.jsx";
 
-function AnchorPage() {
-  const { anchor, anchored, holder, known } = useAccountHolder();
-  const members = useStore(clusterStore, s => s.nodes);
+function AnchorPage({ member, tab, onSelectTab }) {
+  const { anchor, anchored } = useAccountHolder();
 
-  const row = holder ? members.find(m => m.nodeId === holder) : null;
-  const name = (row && row.label) || holder || "Auth anchor";
-  // The door first: it is the address this browser actually reaches, and the roster's is what one
-  // member says. They agree in every case that works, and when they do not the working one is the
-  // one to show.
-  const address = anchor || (row && row.clientUrl) || "";
+  const name = (member && (member.label || member.nodeId)) || "Anchor";
+  // The door first: it is the address this browser actually reaches. The roster's is what one member
+  // says about another, and where the two differ the working one is the one to show.
+  const address = anchor || (member && member.clientUrl) || "";
+  const capability = member && member.capability;
+
+  const tabs = ROUTE_TABS.anchor;
+  const active = tabs.some(t => t.id === tab) ? tab : "overview";
 
   const head = (
     <div className="dash-head dash-head--actions">
       <div className="dash-head__titles">
         <h1><Icon name="anchor" size={20} /> {name}</h1>
         <div className="dash-head__sub">
-          Holds this cluster’s accounts
+          {capability
+            ? <>Holds this cluster’s <b>{capability}</b></>
+            : "Holds no capability yet"}
           {address && <> &middot; <span className="svc-fact svc-fact--unit">{address}</span></>}
         </div>
       </div>
     </div>
   );
 
-  // Nothing holds the cluster's accounts, so there is no anchor to be on. Reachable by typing the
-  // address, and by standing here while an anchor is removed.
-  if (known && !anchored) {
-    return (
-      <>
-        <div className="dash-head dash-head--actions">
-          <div className="dash-head__titles">
-            <h1><Icon name="anchor" size={20} /> Auth anchor</h1>
-          </div>
-        </div>
-        <div className="chat-brief">
-          <div className="chat-brief__empty chat-brief__empty--neutral">
-            <div className="chat-brief__empty-title">This cluster has no auth anchor</div>
-            <div className="chat-brief__empty-sub">
-              Each node holds its own accounts. They are administered on that node’s API service.
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  // An anchor holding the accounts, reached by a browser signed in at a NODE. It can read nothing
+  // here and write nothing anywhere, and naming the holder is the whole of what this browser knows —
+  // a member gives out an anchor's name and never its address.
+  const elsewhere = anchored && !anchor;
 
-  // The accounts belong to the anchor and this session was opened at a node, so it can read nothing
-  // here and write nothing anywhere. Naming the holder is the whole of what this browser knows —
-  // a member gives out the anchor's name and never its address.
-  if (anchored && !anchor) {
-    return (
-      <>
-        {head}
+  const body = () => {
+    if (elsewhere) {
+      return (
         <div className="chat-brief">
           <div className="chat-brief__empty chat-brief__empty--neutral">
             <div className="chat-brief__empty-title">Signed in somewhere else</div>
@@ -80,17 +64,19 @@ function AnchorPage() {
             </div>
           </div>
         </div>
-      </>
-    );
-  }
+      );
+    }
+    if (active === "users") return <AccountsAdmin />;
+    if (active === "logs") return <AnchorLogs anchor={anchor} />;
+    if (active === "config") return <AnchorConfiguration anchor={anchor} />;
+    return <AnchorOverview anchor={anchor} member={member} />;
+  };
 
   return (
     <>
       {head}
-      <AccountsAdmin />
-      {/* Served by the anchor itself. A leaf's configuration comes from the node that runs it; this
-          one has no node above it, so the page reads it on the same origin it reads accounts on. */}
-      <AnchorConfiguration anchor={anchor} />
+      <SubTabs tabs={tabs} active={active} onChange={onSelectTab} />
+      {body()}
     </>
   );
 }

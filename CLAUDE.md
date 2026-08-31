@@ -140,7 +140,8 @@ real history), `cors-anchor.mjs` (what the live anchor accepts, from the panel's
 `anchor-accounts.mjs` (administering a cluster's accounts on the anchor's page, against a real
 anchor and a real clustered node), `standalone-accounts.mjs` (the mirror: a node holding its own,
 and the tab leaving when a member takes them), `anchor-config.mjs` (configuring an anchor on its own
-page — the run that caught a CORS list with no `PUT` in it),
+page — the run that caught a CORS list with no `PUT` in it), `anchor-tabs.mjs` (an anchor reached at
+the member route a node uses, its own tab strip, and the URL and trail following the tab),
 `live-panel-anchor.mjs` (the deployed panel, read-only and unauthenticated).
 Playwright + **Chromium and Firefox** (no sudo on this host) drive the real SPA against
 a real **auth-disabled** dev kgsm-api with real data — this is the only way to actually

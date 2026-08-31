@@ -23,11 +23,10 @@
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
 //   #/cluster                cluster grid
-//   #/cluster/<hostId>       a node's diagnostics deep-dive (overview)
-//   #/cluster/<hostId>/<tab> a node's diagnostics, a specific tab
+//   #/cluster/<member>       one member of the cluster — a node's deep-dive, or an anchor's page
+//   #/cluster/<member>/<tab> that member, a specific tab
 //   #/cluster/<hostId>/services/<leaf>[/<tab>]
 //                            one leaf on that node — the Services tab drilled in
-//   #/anchor                 the cluster's auth anchor, and the accounts it holds
 //   #/config/<hostId>        a node's leaf configuration (first configurable leaf)
 //   #/config/<hostId>/<leaf> one leaf's configuration surface
 //   #/settings               account settings (Profile)
@@ -101,9 +100,6 @@
         return h;
       }
       case "addHost":   return "#/hosts/add";
-      // The auth anchor names no member. A cluster has one, and addressing the page by the member id
-      // would make the URL depend on a roster read the accounts themselves never need.
-      case "anchor":    return "#/anchor";
       // The screens in front of the app. They carry nothing but their own name: what a person is
       // being asked for is the whole state, and a half-typed address is not an address to restore.
       case "connect":   return "#/connect";
@@ -192,7 +188,6 @@
         return r;
       }
       case "alerts":    return q.get("serverId") ? { kind: "attention", serverId: q.get("serverId") } : { kind: "attention" };
-      case "anchor":    return { kind: "anchor" };
       case "connect":   return { kind: "connect" };
       case "signin":    return { kind: "signin" };
       case "register":  return { kind: "register" };
