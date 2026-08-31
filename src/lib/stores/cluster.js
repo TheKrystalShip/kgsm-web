@@ -24,6 +24,10 @@ const clusterStore = createStore({
   error: null,
   everLoaded: false,
   admin: false,
+  // The member these rows were read FROM. A membership write is addressed with `peerId`, which is
+  // an id in that member's own peer table and means nothing anywhere else — so the write goes back
+  // to whoever answered. A fact about the read, not a choice about the cluster.
+  rosterFrom: null,
 });
 
 // Admin MemberView row → normalized node. A cluster member is a node or an
@@ -102,7 +106,7 @@ function loadCapabilities(hostId) {
 }
 
 function applyRoster(hostId, { nodes, admin }) {
-  clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin }));
+  clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin, rosterFrom: hostId }));
   // Fired alongside, not awaited: the roster is the answer this returns and a slower second
   // read must not hold it up. The store updates when it lands.
   loadCapabilities(hostId);

@@ -152,8 +152,8 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
 // liveness would block the operation at the only moment it is needed. Showing the state
 // rather than filtering on it leaves that judgement where it belongs.
 //
-// The local node is absent because a member is never in its own roster, and the backend
-// requires the target to be one — so the option it cannot accept is not offered.
+// The member that answered is absent because a member is never in its own roster, and the
+// backend requires the target to be one — so the option it cannot accept is not offered.
 //
 // Nobody is a real choice and is written as one. It converges as a decision, which is a
 // different thing from an assignment nobody has heard about yet.

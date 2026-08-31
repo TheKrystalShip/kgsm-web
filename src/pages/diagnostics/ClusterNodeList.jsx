@@ -31,7 +31,6 @@ import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { api } from "../../lib/apiClient.js";
-import { homeHostId } from "../../lib/config.js";
 import { can } from "../../lib/persona.js";
 import { playerTally } from "../../lib/servers.js";
 import { useStore } from "../../lib/store.js";
@@ -165,11 +164,6 @@ function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeer
       </button>
 
       <div className="cluster-node-row__badges">
-        {n.isLocal && (
-          <span className="cluster-chip cluster-chip--local">
-            <Icon name="map-pin" size={10} strokeWidth={2.2} />local
-          </span>
-        )}
         {n.fed && <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />}
         {canAct && <MemberRowActions hostId={hostId} member={n.fed} />}
         <span className="cluster-node-row__spacer" />
@@ -189,6 +183,7 @@ function ClusterNodeList({ hovered, onHover }) {
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterErrored = useStore(clusterStore, s => s.status === "error");
   const pingByHost = useStore(pingStore, s => s.byHost);
+  const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
 
   // Editing an existing node's name/region, and dropping one. The card owns these because the
   // rows do: a menu whose modal lived on the page would be a dead control the moment the card is
@@ -197,18 +192,15 @@ function ClusterNodeList({ hovered, onHover }) {
   const [editing, setEditing] = React.useState(null);
   const [removing, setRemoving] = React.useState(null);
 
-  const homeId = homeHostId();
-  // Every member call is addressed to ONE member, because there is no cluster-wide roster — each
-  // member holds its own copy. It is the member serving this panel: the address somebody typed,
-  // which is the one this browser is demonstrably talking to. Nothing selects it and nothing
-  // stores it; it is derived on every render. Where that scope is load-bearing — disabling holds
-  // only on the member that recorded it — the control names the member itself.
-  const actingHostId = homeId;
-  const canManagePeers = !!actingHostId && can("host.manage") && !!clusterAdmin;
+  // A membership write is addressed with `peerId` — an id in one member's own peer table, which
+  // means nothing anywhere else — so it goes back to whichever member answered the roster these
+  // rows came from. Nothing is selected: the panel belongs to no member and reaches every one of
+  // them across a network.
+  const canManagePeers = !!rosterFrom && can("host.manage") && !!clusterAdmin;
 
   const nodes = React.useMemo(
-    () => nodeEntries(buildClusterNodes(hosts, clusterNodesRaw, pingByHost, homeId)),
-    [hosts, clusterNodesRaw, pingByHost, homeId]);
+    () => nodeEntries(buildClusterNodes(hosts, clusterNodesRaw, pingByHost)),
+    [hosts, clusterNodesRaw, pingByHost]);
 
   const hover = onHover || NOOP;
   const select = (key) => nav.openHost(key);
@@ -243,9 +235,9 @@ function ClusterNodeList({ hovered, onHover }) {
       <div className="dash-fleet__rows">
         {nodes.map(n => (n.ghost
           ? <GhostNodeRow key={n.key} n={n} hovered={hovered} onHover={hover} onSelect={select}
-              hostId={actingHostId} canManagePeers={canManagePeers} />
+              hostId={rosterFrom} canManagePeers={canManagePeers} />
           : <NodeRow key={n.key} n={n} servers={servers} hovered={hovered} onHover={hover} onSelect={select}
-              hostId={actingHostId} canManagePeers={canManagePeers} menuProps={menuProps} />))}
+              hostId={rosterFrom} canManagePeers={canManagePeers} menuProps={menuProps} />))}
         {nodes.length === 0 && (
           <div className="chat-brief__empty chat-brief__empty--neutral">No nodes connected.</div>
         )}

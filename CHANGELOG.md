@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.210.0]
+
+### Removed — nothing on the Cluster page claims a node is nearby
+
+The panel is a static artifact served by whatever web server publishes it. It belongs to no
+cluster, sits on none of the machines, and reaches every member across a network — so a node
+marked `local` was false wherever the panel is not served by that node's own kgsm-api, and it was
+decided by connection-list position, which named whichever node happened to be first.
+
+The pill is gone, and with it the local-first ordering: members sort by name, because none is
+nearer than another.
+
+The topology dial is centred on the BROWSER instead, which is where every radius was already
+being measured from. Every member is now plotted at its own round trip rather than one being
+pinned to the middle — so a single-node cluster draws that node at its measured distance instead
+of reading "no peers yet" beside a dot standing in for itself.
+
+A membership write goes back to whichever member answered the roster on screen
+(`clusterStore.rosterFrom`). That is the only member that can accept it: the write is addressed
+with a `peerId`, which is an id in that member's own peer table and means nothing anywhere else.
+
+
 ## [1.209.0]
 
 ### Removed — the member cards no longer caption which member they write through

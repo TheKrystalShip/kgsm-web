@@ -22,9 +22,10 @@ import { clusterStore } from "../../lib/stores.js";
 // not yet connected — rather than silently dropped or faked as connected.
 function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
   const [url, setUrl] = React.useState("");
-  // The node whose peer list this federation joins. Preselected only when it is
-  // the only choice; beyond that it is named here.
-  const [localHostId, setLocalHostId] = React.useState(
+  // The member whose peer list this federation joins. Preselected only when it is
+  // the only choice; beyond that it is named here. A per-act target, chosen for this
+  // one write and kept nowhere.
+  const [federateVia, setFederateVia] = React.useState(
     () => (federateHosts.length === 1 ? federateHosts[0].id : null));
   const [nickname, setNickname] = React.useState("");
   const [federate, setFederate] = React.useState(true);
@@ -37,7 +38,7 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
 
   const normalized = normalizeHostUrl(url);
   // Federating with no node named is not a thing to guess at, so the form waits.
-  const needsFederateNode = canFederate && federate && !localHostId;
+  const needsFederateNode = canFederate && federate && !federateVia;
   const valid = !!normalized && !needsFederateNode;
 
   const submit = async () => {
@@ -51,13 +52,13 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
     //    Federation and connection are independent — a federate failure is
     //    surfaced but never blocks the connect attempt that follows.
     let didFederate = federated;
-    if (canFederate && federate && localHostId && !federated) {
+    if (canFederate && federate && federateVia && !federated) {
       setStep("federating");
       try {
-        await api.members(localHostId).add(normalized, nickname.trim() || null);
+        await api.members(federateVia).add(normalized, nickname.trim() || null);
         didFederate = true;
         setFederated(true);
-        clusterStore.refresh(localHostId);
+        clusterStore.refresh(federateVia);
       } catch (e) {
         setFedError((e && e.message) || "Couldn't federate with that node.");
       }
@@ -144,9 +145,9 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
                 <label className="host-field">
                   <span className="host-field__label">Federate through</span>
                   <Select
-                    value={localHostId || ""}
+                    value={federateVia || ""}
                     disabled={busy || federated}
-                    onChange={(e) => setLocalHostId(e.target.value || null)}>
+                    onChange={(e) => setFederateVia(e.target.value || null)}>
                     <option value="">Choose a node…</option>
                     {federateHosts.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                   </Select>
@@ -157,7 +158,7 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
           ) : (
             <div className="cluster-addnode-note">
               <Icon name="info" size={13} />
-              <span>Connect-only — federating this node's backend into the cluster needs admin on the local node.</span>
+              <span>Connect-only — federating a backend into the cluster needs admin on a member of it.</span>
             </div>
           )}
 

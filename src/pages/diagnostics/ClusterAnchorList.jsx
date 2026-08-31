@@ -23,7 +23,6 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
-import { homeHostId } from "../../lib/config.js";
 import { can } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
@@ -129,17 +128,17 @@ function ClusterAnchorList({ hovered, onHover }) {
   const capabilities = useStore(clusterStore, s => s.capabilities);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const pingByHost = useStore(pingStore, s => s.byHost);
+  const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
 
-  const homeId = homeHostId();
   const anchors = React.useMemo(
-    () => anchorEntries(buildClusterNodes(hosts, members, pingByHost, homeId)),
-    [hosts, members, pingByHost, homeId]);
+    () => anchorEntries(buildClusterNodes(hosts, members, pingByHost)),
+    [hosts, members, pingByHost]);
 
   // A capability assignment is cluster state — versioned, gossiped, convergent — so any member
-  // serves it, and the call goes to the member serving this panel. Derived on every render;
-  // nothing selects it and nothing stores it.
-  const actingHostId = homeId;
-  const canReassign = can("host.manage") && !!clusterAdmin && !!actingHostId;
+  // serves it, and it goes back to whichever member answered the roster on screen. Removing a
+  // member is addressed with `peerId`, which only that member's peer table holds. Nothing is
+  // selected here; the panel belongs to no member.
+  const canReassign = can("host.manage") && !!clusterAdmin && !!rosterFrom;
 
   const orphaned = (capabilities || []).filter(c => c.orphaned);
   const hover = onHover || NOOP;
@@ -168,7 +167,7 @@ function ClusterAnchorList({ hovered, onHover }) {
             hovered={hovered}
             onHover={hover}
             onOpenAnchor={(memberId) => nav.openHost(memberId)}
-            hostId={actingHostId}
+            hostId={rosterFrom}
             canManage={canReassign}
             onReassign={setAssigning}
           />
@@ -176,7 +175,7 @@ function ClusterAnchorList({ hovered, onHover }) {
       </div>
       {assigning && (
         <CapabilityAssignDialog
-          hostId={actingHostId}
+          hostId={rosterFrom}
           capability={assigning.capability}
           currentMemberId={assigning.memberId}
           members={members}

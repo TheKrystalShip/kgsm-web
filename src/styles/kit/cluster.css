@@ -89,7 +89,7 @@
   background: var(--fg-4);
 }
 
-/* ---- status / disabled / local chips (reachability axis, separate from membership) ---- */
+/* ---- status / disabled chips (reachability axis, separate from membership) ---- */
 .cluster-chip {
   display: inline-flex;
   align-items: center;
@@ -132,11 +132,6 @@
 .cluster-chip--kind {
   color: var(--fg-1);
   background: var(--veil-2);
-}
-
-.cluster-chip--local {
-  color: var(--krystal-teal);
-  background: var(--krystal-teal-dim);
 }
 
 /* What an anchor holds, in the column a node row spends on its capacity meters. Same slot,
@@ -312,20 +307,6 @@
   color: var(--warning-fg);
 }
 
-@media (max-width: 720px) {
-  .cluster-row {
-    grid-template-columns: 1fr;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .cluster-row--local {
-    grid-template-columns: 1fr auto;
-  }
-  .cluster-row__actions {
-    justify-self: start;
-  }
-}
-
 /* ============================================================================
    Cluster page — the constellation centerpiece over the two member cards.
    Stacked BriefCards, hover-synced by the page (hoveredNode state); both member
@@ -409,7 +390,7 @@
   opacity: 0.75;
 }
 
-.cluster-constellation__local-ring {
+.cluster-constellation__origin-ring {
   fill: none;
   stroke: var(--krystal-teal);
   stroke-width: 1.4;
@@ -438,12 +419,6 @@
   stroke-width: 2;
 }
 
-.cluster-constellation__node--local:focus-visible .cluster-constellation__local-ring,
-.cluster-constellation__node--local.cluster-constellation__node--hovered .cluster-constellation__local-ring {
-  stroke-width: 2.4;
-  opacity: 0.8;
-}
-
 .cluster-constellation__dot {
   stroke: var(--surface-1);
   stroke-width: 2;
@@ -462,12 +437,6 @@
   fill: var(--fg-2);
   pointer-events: none;
   transition: fill var(--d-fast) var(--ease-out);
-}
-
-.cluster-constellation__label--local {
-  fill: var(--krystal-teal);
-  font-weight: 700;
-  font-size: 11px;
 }
 
 .cluster-constellation__node--hovered .cluster-constellation__label {

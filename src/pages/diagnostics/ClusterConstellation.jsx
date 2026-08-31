@@ -1,6 +1,8 @@
-// ClusterConstellation — the Cluster page's latency-topology centerpiece. The
-// local node is pinned at the center; every peer is placed on two honest axes
-// only: radius from `entry.latencyMs` (a connected node's client-measured
+// ClusterConstellation — the Cluster page's latency-topology centerpiece. THIS
+// BROWSER is the center, because it is where every radius is measured from —
+// the panel is a static artifact belonging to no cluster, so no member is
+// nearer than another and none is pinned to the middle. Every member is placed
+// on two honest axes only: radius from `entry.latencyMs` (a connected node's client-measured
 // round-trip via pingStore, or a "ghost" — a federation peer with no connected
 // host — its gossip-reported latency; never a fabricated distance) and angle
 // from a stable hash of its node id (so a node always sits in the same
@@ -21,7 +23,7 @@ import { membershipMeta } from "./clusterBadges.jsx";
 
 const VB = 320;
 const CENTER = VB / 2;
-const R_MIN = 56;      // closest ring — right outside the local marker
+const R_MIN = 56;      // closest ring — right outside the origin marker
 const LOW_MS = 10;     // the LAN band: 0–10ms is stretched linearly for maximum
                        // separation between same-subnet nodes, which otherwise
                        // all land within a few ms of each other
@@ -35,8 +37,8 @@ const HEALTH_TONE_COLOR = { success: "var(--success)", warn: "var(--warning)", d
 const MEMBERSHIP_TONE_COLOR = { ok: "var(--success)", provisional: "var(--warning)", warn: "var(--warning)", danger: "var(--danger)", muted: "var(--fg-4)" };
 
 // latencyRadius — two honest segments so single-digit-ms LAN nodes stay
-// visibly distinct from each other instead of bunching just outside the local
-// marker: a LINEAR stretch across 0–LOW_MS (where most same-subnet peers
+// visibly distinct from each other instead of bunching just outside the
+// origin marker: a LINEAR stretch across 0–LOW_MS (where most same-subnet peers
 // live), then a log scale from LOW_MS out to LAT_CAP_MS so a 250ms+ node still
 // doesn't get pushed absurdly far out. The two segments meet at LOW_MS with no
 // jump (both evaluate to R_LOW there).
@@ -121,30 +123,21 @@ function fmtLatencyMs(ms) {
   return ms != null ? Math.round(ms) + "ms" : "—";
 }
 
-// LocalMarker — the pinned-center "you" node, shared by the empty (N=1) and
-// populated layouts so it's hoverable/selectable (and hover-syncs with its
-// list row) in both.
-function LocalMarker({ local, hovered, onEnter, onLeave, onFocus, onSelect, onKeyDown, withLabel }) {
-  if (!local) return null;
+// OriginMarker — where the radii are measured from: this browser. Not a member, so it
+// carries no name, answers to no hover and goes nowhere when pressed. Hidden from a screen
+// reader, which reads the dial's own label instead — "you are here" is the one thing about
+// this picture that a list of members already conveys.
+function OriginMarker() {
   return (
-    <g className={"cluster-constellation__node cluster-constellation__node--local" + (hovered === local.key ? " cluster-constellation__node--hovered" : "")}
-      tabIndex={0} role="button" aria-label={local.host.name + ", this node"}
-      onMouseEnter={onEnter} onMouseLeave={onLeave}
-      onFocus={onFocus} onBlur={onLeave}
-      onClick={onSelect}
-      onKeyDown={onKeyDown}
-    >
-      <circle cx={CENTER} cy={CENTER} r={19} className="cluster-constellation__local-ring" />
+    <g className="cluster-constellation__origin" aria-hidden="true">
+      <circle cx={CENTER} cy={CENTER} r={19} className="cluster-constellation__origin-ring" />
       <circle cx={CENTER} cy={CENTER} r={13} fill="var(--krystal-teal)" />
-      {withLabel && <text x={CENTER} y={CENTER + 33} className="cluster-constellation__label cluster-constellation__label--local" textAnchor="middle">{local.host.name}</text>}
     </g>
   );
 }
 
 function ClusterConstellation({ nodes, hovered, onHover, onSelect }) {
-  const local = nodes.find(n => n.isLocal) || null;
-  const rawPeers = React.useMemo(() => nodes.filter(n => !n.isLocal), [nodes]);
-  const placed = React.useMemo(() => placeNodes(rawPeers), [rawPeers]);
+  const placed = React.useMemo(() => placeNodes(nodes), [nodes]);
 
   const focus = (key) => { if (onHover) onHover(key); };
   const blur = () => { if (onHover) onHover(null); };
@@ -155,20 +148,12 @@ function ClusterConstellation({ nodes, hovered, onHover, onSelect }) {
     <BriefCard icon="waypoints" title="Topology" count={nodes.length} countTone="neutral" className="cluster-constellation-card">
       {placed.length === 0 ? (
         <div className="cluster-constellation cluster-constellation--empty">
-          <svg viewBox={`0 0 ${VB} ${VB}`} className="cluster-constellation__svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="This node, no peers yet">
-            <LocalMarker
-              local={local}
-              hovered={hovered}
-              onEnter={() => focus(local && local.key)}
-              onLeave={blur}
-              onFocus={() => focus(local && local.key)}
-              onSelect={() => select(local && local.key)}
-              onKeyDown={keySelect(local && local.key)}
-            />
+          <svg viewBox={`0 0 ${VB} ${VB}`} className="cluster-constellation__svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="No members yet">
+            <OriginMarker />
           </svg>
           <div className="cluster-constellation__empty-copy">
             <Icon name="waypoints" size={15} />
-            <span>No peers yet — add a node.</span>
+            <span>No members yet — add a node.</span>
           </div>
         </div>
       ) : (
@@ -238,17 +223,8 @@ function ClusterConstellation({ nodes, hovered, onHover, onSelect }) {
               );
             })}
 
-            {/* Local node — pinned center, always the reference point */}
-            <LocalMarker
-              local={local}
-              hovered={hovered}
-              onEnter={() => focus(local && local.key)}
-              onLeave={blur}
-              onFocus={() => focus(local && local.key)}
-              onSelect={() => select(local && local.key)}
-              onKeyDown={keySelect(local && local.key)}
-              withLabel
-            />
+            {/* Drawn last so the members' edges pass under it rather than over. */}
+            <OriginMarker />
           </svg>
           <div className="cluster-constellation__scale" aria-hidden="true">
             latency rings · {TICK_BANDS_MS.map(ms => ms + "ms").join(" · ")} · <span className="cluster-constellation__scale-muted">dashed = unmeasured</span>

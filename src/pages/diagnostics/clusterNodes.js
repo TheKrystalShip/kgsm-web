@@ -37,21 +37,23 @@ function matchFederationNode(host, clusterNodes) {
   return null;
 }
 
-// buildClusterNodes(hosts, clusterNodes, pingByHost, localId) — one entry per
-// connected host: { key, host, fed, ping, latencyMs, isLocal, ghost:false },
-// PLUS one "ghost" entry per federation node that matched no connected host:
-// { key: "fed:"+nodeId, host:null, fed, ping:null, latencyMs, isLocal:false,
-// ghost:true } — a peer the backend gossips about that this browser has no
-// live host session for. A federation node is counted at most once: the same
-// node that enriches a connected host is never also emitted as a ghost
-// (tracked by nodeId as each host is matched). `latencyMs` is the ONE honest
-// latency reading either side of the merge exposes to the constellation:
-// connected → the client-measured ping (never the federation's own number,
-// which measures a different link); ghost → the federation-reported latency
-// (the only number that exists for a peer with no host session). Sorted
-// local-first, then connected hosts by name, then ghosts by name — ghosts
-// read as secondary, ordered last.
-function buildClusterNodes(hosts, clusterNodes, pingByHost, localId) {
+// buildClusterNodes(hosts, clusterNodes, pingByHost) — one entry per connected
+// host: { key, host, fed, ping, latencyMs, ghost:false }, PLUS one "ghost"
+// entry per federation node that matched no connected host:
+// { key: "fed:"+nodeId, host:null, fed, ping:null, latencyMs, ghost:true } —
+// a peer the backend gossips about that this browser has no live host session
+// for. A federation node is counted at most once: the same node that enriches
+// a connected host is never also emitted as a ghost (tracked by nodeId as each
+// host is matched). `latencyMs` is the ONE honest latency reading either side
+// of the merge exposes to the constellation: connected → the client-measured
+// ping (never the federation's own number, which measures a different link);
+// ghost → the federation-reported latency (the only number that exists for a
+// peer with no host session).
+//
+// No node is nearer than another. The panel is a static artifact belonging to no
+// cluster, reaching every member across a network, so the members are equals and
+// sort by name — connected hosts first, then ghosts, which read as secondary.
+function buildClusterNodes(hosts, clusterNodes, pingByHost) {
   const fedList = clusterNodes || [];
   const matchedIds = new Set();
   const nodes = (hosts || []).map(host => {
@@ -64,11 +66,10 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost, localId) {
       fed: fed || null,
       ping,
       latencyMs: ping && ping.ms != null ? ping.ms : null,
-      isLocal: host.id === localId,
       ghost: false,
     };
   });
-  nodes.sort((a, b) => (b.isLocal - a.isLocal) || a.host.name.localeCompare(b.host.name));
+  nodes.sort((a, b) => a.host.name.localeCompare(b.host.name));
 
   const ghosts = fedList
     .filter(n => !matchedIds.has(n.nodeId))
@@ -78,7 +79,6 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost, localId) {
       fed: n,
       ping: null,
       latencyMs: n.latencyMs != null ? n.latencyMs : null,
-      isLocal: false,
       ghost: true,
     }))
     .sort((a, b) => (a.fed.label || a.fed.nodeId).localeCompare(b.fed.label || b.fed.nodeId));

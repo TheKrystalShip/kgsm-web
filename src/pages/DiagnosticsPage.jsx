@@ -7,7 +7,6 @@ import { Icon } from "../components/Icon.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { useAlerts } from "../components/NeedsAttention.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
-import { homeHostId } from "../lib/config.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
@@ -50,7 +49,6 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // instrument, so hovering a dot lights its row and hovering a row lights its dot — the state
   // is the page's because it is the only thing that holds both.
   const [hoveredNode, setHoveredNode] = React.useState(null);
-  const homeId = homeHostId();
   const manageable = hosts.filter(h => can("host.manage"));
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
@@ -68,8 +66,8 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // about a kind. The anchors are split back out here for one question the page alone asks —
   // which kind of member a cluster route names — while the cards build their own lists.
   const clusterNodes = React.useMemo(
-    () => buildClusterNodes(hosts, clusterNodesRaw, pingByHost, homeId),
-    [hosts, clusterNodesRaw, pingByHost, homeId]);
+    () => buildClusterNodes(hosts, clusterNodesRaw, pingByHost),
+    [hosts, clusterNodesRaw, pingByHost]);
   const clusterAnchorRows = React.useMemo(() => anchorEntries(clusterNodes), [clusterNodes]);
   const selectNode = (key) => onFocusHost(key);
 
