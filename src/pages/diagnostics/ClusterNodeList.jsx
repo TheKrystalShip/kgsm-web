@@ -38,7 +38,7 @@ import { clusterStore, hostsStore, serversStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
 import { MemberRowActions } from "./clusterActions.jsx";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
-import { HostEditorModal, HostMenu, RemoveHostDialog } from "./diagComponents.jsx";
+import { HostEditorModal, NodeEditButton } from "./diagComponents.jsx";
 import { buildClusterNodes, nodeEntries } from "./clusterNodes.js";
 
 // What a node is carrying. `unseen` counts servers that cannot report a roster —
@@ -63,7 +63,6 @@ function NodeCounts({ servers }) {
 // federation membership, the only axis a ghost has.
 function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers }) {
   const isHovered = hovered === n.key;
-  const canAct = canManagePeers && !!n.fed.peerId;
   const tone = membershipRowTone(n.fed.membership);
   return (
     <div
@@ -92,20 +91,19 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
       <div className="cluster-node-row__badges">
         <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />
         {n.fed.clientUrl && <span className="cluster-node-row__url">{n.fed.clientUrl}</span>}
-        {canAct && <MemberRowActions hostId={hostId} member={n.fed} />}
+        {canManagePeers && n.fed && <MemberRowActions hostId={hostId} member={n.fed} />}
       </div>
     </div>
   );
 }
 
-function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeers, menuProps }) {
+function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeers, onEdit }) {
   const h = n.host;
   const alerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id);
   const { denied, metricsDown, meters, tone } = hostHealth(h);
   const fresh = hostMetricsFreshness(h);
   const mine = React.useMemo(() => servers.filter(s => s.hostId === h.id), [servers, h.id]);
   const isHovered = hovered === n.key;
-  const canAct = canManagePeers && n.fed && !!n.fed.peerId;
   // Frozen is a statement ABOUT readings, so it is only worth making where there
   // are readings to qualify. A node showing no meters already says why in their
   // place, and saying it twice reads as two different faults.
@@ -165,9 +163,9 @@ function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeer
 
       <div className="cluster-node-row__badges">
         {n.fed && <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />}
-        {canAct && <MemberRowActions hostId={hostId} member={n.fed} />}
+        {canManagePeers && n.fed && <MemberRowActions hostId={hostId} member={n.fed} />}
         <span className="cluster-node-row__spacer" />
-        <HostMenu host={n.host} {...menuProps} />
+        <NodeEditButton host={n.host} onEdit={onEdit} />
       </div>
     </div>
   );
@@ -185,12 +183,10 @@ function ClusterNodeList({ hovered, onHover }) {
   const pingByHost = useStore(pingStore, s => s.byHost);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
 
-  // Editing an existing node's name/region, and dropping one. The card owns these because the
-  // rows do: a menu whose modal lived on the page would be a dead control the moment the card is
-  // pinned. Bringing a NEW node in is the page's "Add node" and goes through AddNodeModal, which
-  // federates + connects for real rather than dropping a client-side skeleton.
+  // Renaming a node. The card owns the form because the row owns the control: one whose modal lived
+  // on the page would be dead the moment the card is pinned. Bringing a NEW node in is the page's
+  // "Add node" and goes through AddNodeModal, which federates and connects for real.
   const [editing, setEditing] = React.useState(null);
-  const [removing, setRemoving] = React.useState(null);
 
   // A membership write is addressed with `peerId` — an id in one member's own peer table, which
   // means nothing anywhere else — so it goes back to whichever member answered the roster these
@@ -217,12 +213,6 @@ function ClusterNodeList({ hovered, onHover }) {
       })
       .catch(() => {});
   };
-  const menuProps = {
-    onEdit: (host) => setEditing(host),
-    onToggle: (host) => hostsStore.update(host.id, { online: !host.online, _pending: false }),
-    onRemove: (host) => setRemoving(host),
-  };
-
   return (
     <BriefCard
       icon="server-cog"
@@ -237,19 +227,12 @@ function ClusterNodeList({ hovered, onHover }) {
           ? <GhostNodeRow key={n.key} n={n} hovered={hovered} onHover={hover} onSelect={select}
               hostId={rosterFrom} canManagePeers={canManagePeers} />
           : <NodeRow key={n.key} n={n} servers={servers} hovered={hovered} onHover={hover} onSelect={select}
-              hostId={rosterFrom} canManagePeers={canManagePeers} menuProps={menuProps} />))}
+              hostId={rosterFrom} canManagePeers={canManagePeers} onEdit={setEditing} />))}
         {nodes.length === 0 && (
           <div className="chat-brief__empty chat-brief__empty--neutral">No nodes connected.</div>
         )}
       </div>
       {editing && <HostEditorModal host={editing} onSave={saveHost} onClose={() => setEditing(null)} />}
-      {removing && (
-        <RemoveHostDialog
-          host={removing}
-          serverCount={servers.filter(s => s.hostId === removing.id).length}
-          onConfirm={() => { hostsStore.remove(removing.id); setRemoving(null); }}
-          onClose={() => setRemoving(null)} />
-      )}
     </BriefCard>
   );
 }

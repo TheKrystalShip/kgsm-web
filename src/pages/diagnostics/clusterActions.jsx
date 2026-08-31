@@ -1,63 +1,67 @@
 // clusterActions.jsx — the admin controls a member row carries, and the two decisions
-// they open: what happens to a member, and who holds a capability.
+// they open: whether a member is still in the cluster, and who holds a capability.
 //
-// Both decisions are deliberate acts with no automatic equivalent. Nothing promotes
-// itself — an automatic failover during a partition produces two members issuing
-// conflicting statements about who may do what — and nothing removes a member on its
-// behalf. So this is where a person decides, on either card: nodes and anchors are
-// different things to look at and the same thing to manage.
+// Both are deliberate acts with no automatic equivalent. Nothing promotes itself — an
+// automatic failover during a partition produces two members issuing conflicting
+// statements about who may do what — and nothing removes a member on its behalf. So
+// this is where a person decides, on either card: nodes and anchors are different
+// things to look at and the same thing to manage.
+//
+// Both are CLUSTER acts, which is the only kind this panel offers. Removing records a
+// departure that travels to every member and is reaped everywhere; assigning is
+// versioned cluster state that converges. Either can be sent to any member holding a
+// row for the target, so neither names one.
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { api } from "../../lib/apiClient.js";
-import { nodeLabel } from "../../lib/nodeLabel.js";
-import { useStore } from "../../lib/store.js";
-import { clusterStore, hostsStore } from "../../lib/stores.js";
+import { clusterStore } from "../../lib/stores.js";
 import { MemberState } from "./clusterBadges.jsx";
 
-// The controls on a member row. Disable is one click because it is reversible from the
-// same button; removal opens the dialog, because it is the choice that can be the wrong
-// one and it is where the two acts are told apart.
+// memberRemoval(member) — whether removing this member would do anything, and the sentence
+// explaining why not. The counterpart to `verbGuard` for a member, and it exists for the same
+// reason: a control that runs and quietly undoes itself is worse than one that says it cannot.
 //
-// Both controls name the member they are SENT TO as well as the member they are about, because
-// disabling holds only on the member that recorded it. The other two writes converge across the
-// cluster, so naming a member for those would imply a scope they do not have.
-function MemberRowActions({ hostId, member }) {
-  const hosts = useStore(hostsStore, s => s.list);
-  const [busy, setBusy] = React.useState(false);
-  const [removing, setRemoving] = React.useState(false);
-  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
-  const on = nodeLabel(hostId, hosts);
-  const name = member.label || member.nodeId;
-  const toggleLabel = (member.enabled === false ? "Enable " : "Disable ") + name + " on " + on;
+// Removal records a terminal state above the incarnation the member last claimed. Only a member may
+// raise its OWN incarnation, so one that is still running and still gossiping re-asserts itself and
+// comes back — which is what stops a live member being buried by a false report, and what makes
+// removing a live member a request the cluster overturns.
+//
+// So the answer is a fact about the MEMBER and reads the same on every row. It is also why the
+// member currently answering for the roster is never removable: it just answered, so it is running.
+function memberRemoval(member) {
+  const name = (member && (member.label || member.nodeId)) || "this member";
+  if (!member || !member.peerId)
+    return { ok: false, reason: name + " is the member answering for this roster, so it is running" };
+  if (member.membership === "left") return { ok: true };
+  if (member.status === "unreachable") return { ok: true };
+  return {
+    ok: false,
+    reason: name + " is still running. Stop it first — a member that is still gossiping re-asserts "
+      + "itself and rejoins on its next round",
+  };
+}
 
-  const toggle = stop(() => {
-    if (busy) return;
-    setBusy(true);
-    api.members(hostId).setEnabled(member.peerId, member.enabled === false)
-      .then(() => clusterStore.refresh(hostId))
-      .catch(() => {})
-      .finally(() => setBusy(false));
-  });
+// The one control on a member row. It opens a dialog rather than acting, because removal is the
+// choice that can be the wrong one and the dialog is where what it costs is stated.
+//
+// A member it would not remove keeps the control, disabled, carrying the reason — the same rule
+// every lifecycle button in the panel follows. Hiding it would leave an admin hunting for a control
+// that is on the row beside it.
+function MemberRowActions({ hostId, member }) {
+  const [removing, setRemoving] = React.useState(false);
+  const name = member.label || member.nodeId;
+  const guard = memberRemoval(member);
 
   return (
     <span className="cluster-node-row__actions">
       <button
         className="icon-btn"
-        title={toggleLabel}
-        aria-label={toggleLabel}
-        onClick={toggle}
-        disabled={busy}
-      >
-        <Icon name={member.enabled === false ? "power" : "power-off"} size={13} />
-      </button>
-      <button
-        className="icon-btn"
-        title={"Remove " + name}
-        aria-label="Remove member"
-        onClick={stop(() => setRemoving(true))}
-        disabled={busy}
+        title={guard.ok ? "Remove " + name + " from the cluster" : guard.reason}
+        aria-label={guard.ok ? "Remove " + name + " from the cluster" : guard.reason}
+        onClick={(e) => { e.stopPropagation(); setRemoving(true); }}
+        disabled={!guard.ok}
       >
         <Icon name="trash-2" size={13} />
       </button>
@@ -68,32 +72,26 @@ function MemberRowActions({ hostId, member }) {
   );
 }
 
-// Remove and disable are different acts on different scopes, and the moment somebody
-// is about to pick one is where the difference is worth stating.
+// Removing a member from the cluster. The dialog exists to say what that is: not a row deleted here,
+// but a departure recorded above the member's last incarnation, which supersedes the alive every
+// other member holds and is reaped everywhere once the reap window passes. An absence does not
+// travel — anti-entropy exists to repair a roster that is missing something, so a deleted row would
+// be handed straight back by the first member that still holds it.
 //
-// REMOVE takes the member out of this node's roster. A member that is still running
-// refutes its own removal: it gossips, this node hears a live member it does not have
-// a row for, and it comes back. So removal answers "this member is gone" and nothing
-// else — the one case where it is final is a member that has already announced its own
-// departure, which the dialog reads off the roster rather than assuming.
-//
-// DISABLE is local and permanent until undone here. This node stops calling the member
-// and stops accepting its calls; no gossip and no returning member reverses it. So it
-// answers "I no longer trust this member", which survives exactly the situation removal
-// does not.
+// It is refused outright when the member holds a capability for the cluster, because removing the
+// holder leaves the cluster pointing at somebody who is gone and nothing promotes itself to fill the
+// gap. The member says which capability to move first, and that sentence is shown verbatim.
 function MemberRemoveDialog({ hostId, member, onClose }) {
-  const hosts = useStore(hostsStore, s => s.list);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState(null);
   const label = member.label || member.nodeId;
-  const on = nodeLabel(hostId, hosts);
   const departed = member.membership === "left";
 
-  const run = (fn) => {
+  const run = () => {
     if (busy) return;
     setBusy(true);
     setErr(null);
-    fn()
+    api.members(hostId).remove(member.peerId)
       .then(() => { clusterStore.refresh(hostId); onClose(); })
       .catch((e) => { setErr((e && e.message) || "That didn't go through."); setBusy(false); });
   };
@@ -104,18 +102,14 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
         <div className="host-remove__icon host-remove__icon--danger">
           <Icon name="trash-2" size={20} />
         </div>
-        <h2 className="host-remove__title">Remove {label}?</h2>
+        <h2 className="host-remove__title">Remove {label} from the cluster?</h2>
         <p className="host-remove__text">
           {departed ? (
-            <><b>{label}</b> has announced its departure. Removing it clears the record this node
-            still holds, and there is nothing running to come back.</>
+            <><b>{label}</b> has announced its departure. Removing it clears the record the cluster
+            is still carrying, and there is nothing running to come back.</>
           ) : (
-            <>This takes <b>{label}</b> out of this node&apos;s roster. If it is still running it
-            rejoins on its next gossip round.</>
-          )}
-          {member.enabled !== false && (
-            <> Disabling it instead stops <b>{on}</b> calling it, holds only there, and nothing in
-            the cluster undoes it.</>
+            <><b>{label}</b> is not answering. Removing it tells the rest of the cluster it has gone,
+            and every member drops it once the record is reaped.</>
           )}
         </p>
         {err && (
@@ -123,20 +117,7 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
         )}
         <div className="host-remove__foot">
           <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          {member.enabled !== false && (
-            <button
-              className="host-btn"
-              onClick={() => run(() => api.members(hostId).setEnabled(member.peerId, false))}
-              disabled={busy}
-            >
-              <Icon name="power-off" size={14} /> Disable on {on}
-            </button>
-          )}
-          <button
-            className="host-btn host-btn--danger"
-            onClick={() => run(() => api.members(hostId).remove(member.peerId))}
-            disabled={busy}
-          >
+          <button className="host-btn host-btn--danger" onClick={run} disabled={busy}>
             <Icon name={busy ? "loader" : "trash-2"} size={14} className={busy ? "cluster-spin" : ""} />
             {busy ? "Working…" : "Remove"}
           </button>

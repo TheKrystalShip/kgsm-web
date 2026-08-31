@@ -112,7 +112,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
             Move {capability}
           </button>
         )}
-        {canManage && !!fed.peerId && <MemberRowActions hostId={hostId} member={fed} />}
+        {canManage && <MemberRowActions hostId={hostId} member={fed} />}
       </div>
     </div>
   );

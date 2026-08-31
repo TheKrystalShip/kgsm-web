@@ -3,6 +3,7 @@
 import { api } from "../apiClient.js";
 import { reconcileConnectionId } from "../config.js";
 import * as merge from "../merge.js";
+import { sortNodes } from "../nodeLabel.js";
 import { createStore } from "../store.js";
 
 const hostsStore = createStore({
@@ -16,7 +17,7 @@ hostsStore.patch = (id, partial) =>
   hostsStore.setState(s => ({ ...s, list: s.list.map(x => (x.id === id ? { ...x, ...partial } : x)) }));
 hostsStore.find = (id) => hostsStore.getState().list.find(x => x.id === id) || null;
 hostsStore.add = (host) =>
-  hostsStore.setState(s => ({ ...s, list: [...s.list, host] }));
+  hostsStore.setState(s => ({ ...s, list: sortNodes([...s.list, host]) }));
 hostsStore.update = (id, partial) => hostsStore.patch(id, partial);
 hostsStore.remove = (id) =>
   hostsStore.setState(s => ({ ...s, list: s.list.filter(x => x.id !== id) }));
@@ -32,7 +33,10 @@ hostsStore.refresh = () => {
       throw err;
     }
     okr.forEach(r => { const h = (r.data || [])[0]; if (r.conn && h && h.id) reconcileConnectionId(r.conn.url, h.id); });
-    const list = merge.mergeHosts(okr.map(r => r.data));
+    // Ordered HERE, once, so every surface that lists nodes shows them in the same order — the
+    // fan-out returns them in whichever order the nodes answered, which is not an order anybody
+    // chose and moves between loads.
+    const list = sortNodes(merge.mergeHosts(okr.map(r => r.data)));
     hostsStore.setState(s => ({ ...s, list, status: "ready", error: null, everLoaded: true }));
     return list;
   });

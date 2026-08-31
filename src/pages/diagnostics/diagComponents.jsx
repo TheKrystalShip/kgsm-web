@@ -3,8 +3,7 @@
 // every consumer (DiagServices / DiagResources / DiagOverview /
 // DiagnosticsPage) keeps importing from the same path.
 //   • diagLeafCards.jsx — StatusLed, ServicesSummaryCard
-//   • diagHostCards.jsx — host/fleet cards + host modals (HostMenu, FleetHostCard,
-//     HostEditorModal, RemoveHostDialog)
+//   • diagHostCards.jsx — a node's own controls (NodeEditButton, HostEditorModal)
 
 export { StatusLed, ServicesSummaryCard } from "./diagLeafCards.jsx";
-export { HostMenu, FleetHostCard, HostEditorModal, RemoveHostDialog } from "./diagHostCards.jsx";
+export { NodeEditButton, HostEditorModal } from "./diagHostCards.jsx";

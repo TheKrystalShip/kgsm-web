@@ -18,6 +18,8 @@
 // A host that matches nothing still renders: federation data is enrichment, never a
 // gate. It is shown without a membership badge rather than with a guessed one.
 
+import { compareNodeNames } from "../../lib/nodeLabel.js";
+
 // matchFederationNode(host, clusterNodes) — the federation NODE that is this host, by id.
 //
 // Exact, because a fuzzy match on this data pairs the wrong members. A substring test
@@ -51,8 +53,10 @@ function matchFederationNode(host, clusterNodes) {
 // peer with no host session).
 //
 // No node is nearer than another. The panel is a static artifact belonging to no
-// cluster, reaching every member across a network, so the members are equals and
-// sort by name — connected hosts first, then ghosts, which read as secondary.
+// cluster, reaching every member across a network, so the members are equals: the
+// connected ones arrive in the order `hostsStore` holds them, which is the order
+// every surface shows, and the ghosts follow in the same order — secondary, and
+// last, because there is nothing to drive behind one.
 function buildClusterNodes(hosts, clusterNodes, pingByHost) {
   const fedList = clusterNodes || [];
   const matchedIds = new Set();
@@ -69,8 +73,6 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost) {
       ghost: false,
     };
   });
-  nodes.sort((a, b) => a.host.name.localeCompare(b.host.name));
-
   const ghosts = fedList
     .filter(n => !matchedIds.has(n.nodeId))
     .map(n => ({
@@ -81,7 +83,7 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost) {
       latencyMs: n.latencyMs != null ? n.latencyMs : null,
       ghost: true,
     }))
-    .sort((a, b) => (a.fed.label || a.fed.nodeId).localeCompare(b.fed.label || b.fed.nodeId));
+    .sort((a, b) => compareNodeNames(a.fed.label || a.fed.nodeId, b.fed.label || b.fed.nodeId));
 
   return [...nodes, ...ghosts];
 }

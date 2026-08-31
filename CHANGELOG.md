@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.212.0]
+
+### Changed — one order for every list of nodes, and one control on a member row
+
+The sidebar's strip showed nodes in the order the fan-out answered — not an order anybody chose, and
+one that moves between loads — while the Cluster page's Nodes card sorted them by name. Ordering is
+now `stores/hosts.js`'s, once, by the name a person reads (`nodeLabel`), collated numerically so
+`node-2` comes before `node-10`. No surface sorts a node list of its own.
+
+### Removed — the member controls that were not cluster acts
+
+**Disable** is gone. It is one member's private override of one link, and no gossip undoes it: the
+panel drives every member directly, so it changed nothing this panel can do, and the page had
+nowhere to say which link it applied to — it rendered the flag as though it were a property of the
+member.
+
+**Remove** is what it always was on the backend and is now what it says: a departure recorded above
+the member's last incarnation, which travels to every member and is reaped everywhere. It is offered
+on every member row, and refused with its reason on a member that is still running, because only a
+member may raise its own incarnation — a live one re-asserts itself and comes back.
+
+A node row's remaining control is renaming the node, which is this panel's own word for a machine.
+**Connect/Disconnect** flipped a measured `online` field client-side, so the panel reported a node as
+offline while it was answering. **Remove host** dropped a row from this browser's registry, which the
+cluster's roster restored on the next discovery.
+
+
 ## [1.211.0]
 
 ### Changed — the dashboard's catalog rail renders the Catalog page's card

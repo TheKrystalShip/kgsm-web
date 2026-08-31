@@ -50,3 +50,29 @@ export function nodeLabel(id, hosts) {
 export function isNamedNode(id) {
   return !!id && CONNECTIONS.some(c => c.id === id);
 }
+
+// ---- one order for every list of nodes ------------------------------------
+//
+// The sidebar's strip, the Cluster page's Nodes card and every picker that names a node read the same
+// list, so they read it in the same order — by the NAME a person sees, which is what `nodeLabel`
+// answers. Ordered at the source (`stores/hosts.js`), so a surface that lists nodes cannot introduce
+// an order of its own: two lists of the same nodes disagreeing about which comes first reads as two
+// different sets.
+//
+// Fan-out order — which node answered first — is not an order anybody chose, and it moves.
+//
+// `numeric` so `node-2` sorts before `node-10`, and `sensitivity: "base"` so case and accents do not
+// split a list somebody reads as one.
+const NODE_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+// Two node NAMES, for a list this module cannot resolve ids for — a federation peer this browser
+// holds no connection to has no host row to look up.
+export function compareNodeNames(a, b) {
+  return NODE_COLLATOR.compare(a || "", b || "");
+}
+
+// A list of host rows, in the order every surface shows them.
+export function sortNodes(hosts) {
+  const list = Array.isArray(hosts) ? [...hosts] : [];
+  return list.sort((a, b) => compareNodeNames(nodeLabel(a.id, list), nodeLabel(b.id, list)));
+}
