@@ -9,7 +9,7 @@
 import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
 import { reconcileRosterToRegistry } from "../connect.js";
-import { refreshFleetFromAnchor } from "../fleet.js";
+import { fleetStore, refreshFleetFromAnchor } from "../fleet.js";
 import { sessionStore } from "../sessionStore.js";
 import { createStore } from "../store.js";
 import { hostsStore } from "./hosts.js";
@@ -24,6 +24,9 @@ const clusterStore = createStore({
   error: null,
   everLoaded: false,
   admin: false,
+  // What one member said, before the anchor's answer was laid over it. Kept so the overlay can be
+  // redone when the anchor answers second, which it usually does.
+  rosterRows: [],
   // The member these rows were read FROM. A membership write is addressed with `peerId`, which is
   // an id in that member's own peer table and means nothing anywhere else — so the write goes back
   // to whoever answered. A fact about the read, not a choice about the cluster.
@@ -105,8 +108,55 @@ function loadCapabilities(hostId) {
     .catch(() => {});
 }
 
+// The roster with the ANCHOR's answer laid over it.
+//
+// Neither source names every member on its own, and the gap is the same in both: a member is never in
+// its own roster, so a node's roster omits that node and the anchor's omits the anchor. Together they
+// name everybody exactly once — the anchor covers every node, and a node covers the anchor — which is
+// why one card could show a member's membership and the card beside it could not.
+//
+// Where both hold a row, the ANCHOR wins on what the cluster is: whether a member is still in it, and
+// whether it is being reached. The member's own row keeps what only it measures — the round trip it
+// last observed — and the peer handle a removal is addressed with, which is a key in that member's
+// table and exists nowhere else.
+function withAnchorRoster(rows) {
+  const fromAnchor = new Map((fleetStore.getState().members || []).map(m => [m.nodeId, m]));
+  if (!fromAnchor.size) return rows;
+
+  const merged = rows.map(row => {
+    const said = fromAnchor.get(row.nodeId);
+    if (!said) return row;
+    fromAnchor.delete(row.nodeId);
+    return { ...row, membership: said.membership, status: said.status };
+  });
+
+  // Whatever the anchor names and this roster does not — the member it was read from, above all.
+  // Absent fields are absent, not defaulted: nobody has measured a round trip to it from here, and no
+  // member holds a peer row for it, so both are null and the surfaces read them as unknown.
+  for (const said of fromAnchor.values()) {
+    merged.push({
+      nodeId: said.nodeId,
+      kind: said.kind,
+      label: said.label,
+      clientUrl: said.clientUrl,
+      membership: said.membership,
+      status: said.status,
+      latencyMs: null,
+      lastSeen: null,
+      enabled: true,
+      apiVersion: null,
+      peerId: null,
+      isAdmin: false,
+    });
+  }
+  return merged;
+}
+
 function applyRoster(hostId, { nodes, admin }) {
-  clusterStore.setState(s => ({ ...s, nodes, status: "ready", error: null, everLoaded: true, admin, rosterFrom: hostId }));
+  clusterStore.setState(s => ({
+    ...s, rosterRows: nodes, nodes: withAnchorRoster(nodes),
+    status: "ready", error: null, everLoaded: true, admin, rosterFrom: hostId,
+  }));
   // Fired alongside, not awaited: the roster is the answer this returns and a slower second
   // read must not hold it up. The store updates when it lands.
   loadCapabilities(hostId);
@@ -136,6 +186,16 @@ clusterStore.refresh = (hostId) => {
     throw err;
   });
 };
+
+// The anchor usually answers after the member does — discovery fires both and they land in whichever
+// order the network decides. So the overlay is redone when its answer arrives, rather than the page
+// holding a roster with a hole in it until the next discovery round a minute later.
+fleetStore.subscribe(() => {
+  const st = clusterStore.getState();
+  if (!st.everLoaded) return;
+  const nodes = withAnchorRoster(st.rosterRows);
+  if (JSON.stringify(nodes) !== JSON.stringify(st.nodes)) clusterStore.setState(s => ({ ...s, nodes }));
+});
 
 // ---- Cluster discovery --------------------------------------------------
 // The node set the SPA drives is the CLUSTER's, not the list of addresses this

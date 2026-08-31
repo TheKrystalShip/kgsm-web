@@ -32,15 +32,19 @@ import { MemberState } from "./clusterBadges.jsx";
 // member currently answering for the roster is never removable: it just answered, so it is running.
 function memberRemoval(member) {
   const name = (member && (member.label || member.nodeId)) || "this member";
-  if (!member || !member.peerId)
-    return { ok: false, reason: name + " is the member answering for this roster, so it is running" };
-  if (member.membership === "left") return { ok: true };
-  if (member.status === "unreachable") return { ok: true };
-  return {
-    ok: false,
-    reason: name + " is still running. Stop it first — a member that is still gossiping re-asserts "
-      + "itself and rejoins on its next round",
-  };
+  const gone = !!member && (member.membership === "left" || member.status === "unreachable");
+  if (!gone) {
+    return {
+      ok: false,
+      reason: name + " is still running. Stop it first — a member that is still gossiping re-asserts "
+        + "itself and rejoins on its next round",
+    };
+  }
+  // A departure is recorded against a peer row, which is a key in one member's own table. The member
+  // this browser read the roster from is the one member no roster it holds has a row for.
+  if (!member.peerId)
+    return { ok: false, reason: "No other member holds a record of " + name + " to clear" };
+  return { ok: true };
 }
 
 // The one control on a member row. It opens a dialog rather than acting, because removal is the

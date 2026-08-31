@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.213.0]
+
+### Changed — every member of a cluster says whether it is still in it
+
+Membership and reachability came from ONE member's roster, and a member is never in its own roster.
+So the node whose roster the panel happened to read carried no badges while the node beside it
+carried two — an asymmetry decided by which member answered discovery first, and one that reads as a
+fact about the node.
+
+There are two authorities and each covers the other's hole. The anchor holds a row for every member
+except itself; a node holds one for every member except itself. `clusterStore` lays one over the
+other, so every member is named exactly once. Where both answer, the **anchor wins** on what the
+cluster is — whether a member is still in it, and whether it is being reached. A member's own row
+keeps what only it measures: the round trip it last observed, and the peer handle a removal is
+addressed with, which is a key in that member's table and exists nowhere else.
+
+The overlay is redone when the anchor answers, since discovery fires both reads and they land in
+whichever order the network decides.
+
+
 ## [1.212.0]
 
 ### Changed — one order for every list of nodes, and one control on a member row

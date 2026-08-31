@@ -12,7 +12,10 @@ import { createStore } from "./store.js";
 //   asking       a session exists and the anchor has not answered yet
 //   ready        the anchor answered; `count` is how many nodes it named
 //   unreachable  the anchor could not be asked. NOT an empty cluster
-const fleetStore = createStore({ state: "idle", count: 0 });
+//
+// `members` is the anchor's answer kept rather than consumed: it is the authority for what the
+// cluster contains, and every member is in it except the anchor itself.
+const fleetStore = createStore({ state: "idle", count: 0, members: [] });
 
 // fleet.js — which nodes this panel drives, and where that answer comes from.
 //
@@ -45,23 +48,25 @@ async function refreshFleetFromAnchor() {
     return { ok: false, reason: "unreachable", added: 0, removed: 0 };
   }
 
+  // Normalized to the shape the Cluster page's roster speaks, so what the anchor says about a member
+  // can stand in for what a member says about it without a translation at the reading end.
+  const members = roster.members.map((m) => ({
+    nodeId: m.memberId,
+    kind: m.kind,
+    label: m.nickname || m.memberId,
+    clientUrl: m.url,
+    enabled: true,
+    membership: m.membership,
+    status: m.status,
+  }));
+
   // Only NODES are driven. An anchor serves no servers and no metrics, so a connection to one would
   // be called by every fan-out and named in every banner forever; other anchors are the cluster's
   // business and appear on the Cluster page rather than in the connection set.
-  const nodes = roster.members
-    .filter((m) => m.kind === "node")
-    .map((m) => ({
-      nodeId: m.memberId,
-      kind: "node",
-      label: m.nickname || m.memberId,
-      clientUrl: m.url,
-      enabled: true,
-      membership: m.membership,
-      status: m.status,
-    }));
+  const nodes = members.filter((m) => m.kind === "node");
 
   const result = reconcileRosterToRegistry(nodes, {});
-  fleetStore.setState({ state: "ready", count: nodes.length });
+  fleetStore.setState({ state: "ready", count: nodes.length, members });
   return { ok: true, cluster: roster.cluster, count: nodes.length, ...result };
 }
 
