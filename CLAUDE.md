@@ -39,6 +39,7 @@ npm run check:entry  # what an address is: anchor, standalone node, or a node in
 npm run check:door   # where an account call goes — anchor or node — in both clusters
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
+npm run check:assistants # which assistants exist: a node's leaf, the cluster's anchor, or both
 
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
@@ -238,11 +239,14 @@ realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-v
   `server.patch` carrying a new `name`, so nothing needs invalidating: the row is patched in place and
   every surface re-renders. **Searching reads both**, because a person who knows an instance as
   `factorio-42` from a shell must still find it after somebody has labelled it "Sunday Server".
-- **`assistantClient.js` + `assistantSession.js` — the SECOND seam, onto the assistant
-  LEAF.** The assistant is a standalone service, so the chat talks to it **directly**, on
-  the public origin the host's assistant capability reports (`info.url`), with a session
-  the **leaf** issued — `kgsm-api` is not in the path of a turn, a confirmation, or a
-  conversation read. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
+- **`assistants.js` + `assistantClient.js` + `assistantSession.js` — the SECOND seam, onto the
+  ASSISTANT.** The assistant is a standalone service, so the chat talks to it **directly** — 
+  `kgsm-api` is not in the path of a turn, a confirmation, or a conversation read. It runs in one of
+  two standings and `assistants.js` finds both: a **leaf** on a node, at the public origin that
+  node's assistant capability reports (`info.url`), with a session the leaf issued; or an **anchor**,
+  a member of the cluster holding the `assistant` capability at its own member address, reached with
+  the **cluster's own session** because another member holds the accounts. A cluster can have both,
+  so the dock offers a choice rather than resolving one silently. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
   `turn`, `confirm`, …) against the leaf's own unprefixed routes. **A host that reports no
   public origin has no chat** (`ENOROUTE`, and the capability reads down) — it never falls
   back to kgsm-api's `/assistant/*` relay, which exists to reach a *peer* node's assistant
@@ -313,8 +317,12 @@ break boot. Read the comments before "tidying" an import.
   that answer is a different fact and lives in `sessionStore.nodeRefusal(id)`.
   `resolveRoute()` is the **routing chokepoint**: a forbidden route is mapped to the persona's home
   synchronously, so it never enters state or mounts.
-- **`assistantSession.js` — the session with the LEAF, separate from the node's, and obtained
-  silently.** The assistant issues and revokes its own tokens, but every surface on a host is the
+- **`assistantSession.js` — the session with the assistant.** An ANCHORED one needs none of what
+  follows: its sign-in doors answer `503` because another member holds the cluster's accounts, and it
+  verifies the cluster session this browser already carries — so nothing is minted, nothing is
+  rotated, and no redirect is ever attempted at a door that is shut.
+  A LEAF is separate from the node's, and obtained
+  silently. The leaf issues and revokes its own tokens, but every surface on a host is the
   **same Discord application** (one `KgsmAuth__Providers__discord__ClientId`, differing only in redirect URI), so a
   browser signed into the panel has already authorized the assistant: its round trip completes with
   `prompt=none`, rendering nothing. It is chained onto a panel login (already mid-redirect, so it
@@ -326,10 +334,12 @@ break boot. Read the comments before "tidying" an import.
   kgsm-api and gets a 401. **One redirect per host per tab**, so a refusing leaf cannot loop the
   browser.
 - **`capabilities.js` — per-host services** (metrics / assistant / watchdog), each
-  with `provisioned` (offered?) × `status` (live health). **The assistant is
-  per-host with no central fallback** — if a host doesn't expose it, that host has
-  no assistant. An assistant whose capability names no public origin reads **down**,
-  because the browser has nowhere to send a turn however healthy the leaf is.
+  with `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of
+  the **two** places an assistant is found — `assistants.js` joins it with the cluster's capability
+  assignments — and there is no central fallback for either: a node that exposes no leaf has no leaf,
+  and a cluster that assigns the capability to nobody has no cluster assistant. An assistant whose
+  capability names no public origin reads **down**, because the browser has nowhere to send a turn
+  however healthy the leaf is.
 
 ## The shell (`App.jsx`)
 

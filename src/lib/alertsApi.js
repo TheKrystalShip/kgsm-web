@@ -1,6 +1,7 @@
 import { api } from "./apiClient.js";
 import * as merge from "./merge.js";
 import { createStore } from "./store.js";
+import { serverHostId } from "./stores.js";
 
 // alertsApi.js — the alerts domain, on the shared store layer.
 //
@@ -116,3 +117,27 @@ import { createStore } from "./store.js";
   try { alertsStore.refresh().catch(() => {}); } catch {}
 
 export { KrystalAlerts, alertsStore };
+
+// Which host an alert belongs to. Host-monitor alerts carry it explicitly on the anchor; server
+// alerts derive it from their server; anything else is panel-wide (null) and shows under every
+// scope — mirrors auditEventHost.
+//
+// Here rather than beside the components that render alerts, because the capability layer asks the
+// same question and a library reaching up into a component drags the whole render tree into every
+// consumer of it — including the checks that load these modules outside a browser.
+function alertHost(a) {
+  if (a && a.anchor && a.anchor.hostId) return a.anchor.hostId;
+  if (a && a.serverId) return serverHostId(a.serverId);
+  return null;
+}
+
+// Whether an alert belongs under a given node's scope. An alert with no host is panel-wide and
+// shows everywhere.
+function alertInScope(a, hostId) {
+  if (!hostId || hostId === "all") return true;
+  const h = alertHost(a);
+  if (!h) return true;
+  return h === hostId;
+}
+
+export { alertHost, alertInScope };

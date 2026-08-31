@@ -21,6 +21,11 @@ into `App.jsx`.
 - `AssistantDockContext.jsx` — the assistant dock's state, derived layout, and
   interaction fns. `AssistantDockProvider` wraps the app; consumers read via
   `useAssistantDock()` instead of threading dock props through the shell.
+  It holds WHICH assistant is addressed, and keeps two things apart that look alike: a **choice**,
+  made in the picker, is the account's and is stored as a preference so it follows them to their
+  other devices; a **retarget**, derived from what somebody opened (a server's chat, a conversation
+  held on another node), lasts as long as that subject does and is never written. The candidates
+  come from `lib/assistants.js`, so a cluster's own assistant and a node's own appear in one list.
 - `AppRouter.jsx` — routing-only switch (see `../pages/CLAUDE.md`). It lives here
   but is the routing layer, not a presentational component.
 - `Breadcrumb.jsx`, `BootLanding.jsx`, `MobileNavToggle.jsx`, `Sidebar.jsx`,

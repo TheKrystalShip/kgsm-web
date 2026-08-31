@@ -17,7 +17,7 @@ import "../lib/theme.js";
 
 // This surface is served BY the leaf it talks to, so its address is simply where the page came
 // from — there is nothing to discover, and no host store to discover it in.
-assistantSession.setOriginResolver(() => window.location.origin);
+assistantSession.setTargetResolver(() => window.location.origin);
 
 async function boot() {
   // A returning sign-in lands here with the session in the URL fragment. Capture and strip it

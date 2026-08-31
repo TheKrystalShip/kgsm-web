@@ -16,21 +16,27 @@ import { libraryStore } from "./library.js";
 import { hostsStore, syncCapabilitySubscriptions } from "./hosts.js";
 import { auditStore } from "./audit.js";
 import { batchesStore } from "./batches.js";
-import { startDiscovery, stopDiscovery } from "./cluster.js";
+import { clusterStore, startDiscovery, stopDiscovery } from "./cluster.js";
 import { prefsStore } from "./prefs.js";
 import { startPingLoop, stopPingLoop } from "./ui.js";
 import { assistantSession } from "../assistantSession.js";
+import { assistantTargets } from "../assistants.js";
 
-// Tell the assistant session layer how THIS surface finds a leaf: by discovery, off the node's
-// assistant capability. The session module holds no opinion, so it can also serve the standalone
-// assistant — which has one leaf at a known address and no host store to read.
+// Tell the assistant session layer how THIS surface finds an assistant, and what kind it found. The
+// session module holds no opinion about either, so it can also serve the standalone assistant, which
+// has one at a known address and no stores to look in.
+//
+// Both standings are resolved from the same derivation the dock's picker is built from, so the
+// address a turn is sent to and the entry somebody chose can never disagree.
 //
 // Pure wiring, so it stays at import: it registers a resolver and asks nothing of anybody.
-assistantSession.setOriginResolver((hostId) => {
-  const host = hostsStore.find(hostId);
-  const cap = host && host.capabilities && host.capabilities.assistant;
-  if (!cap || cap.provisioned === false) return null;
-  return (cap.info && cap.info.url) || null;
+assistantSession.setTargetResolver((id) => {
+  const target = assistantTargets({
+    hosts: hostsStore.getState().list,
+    members: clusterStore.getState().nodes,
+    capabilities: clusterStore.getState().capabilities,
+  }).find(t => t.id === id);
+  return target && target.origin ? { origin: target.origin, anchored: target.kind === "anchor" } : null;
 });
 
 // sessionStore is reached by a LAZY import, not a static one. It imports hostsStore from
@@ -49,7 +55,13 @@ function startDataLayer() {
   started = true;
   try {
     const swallow = () => {};
-    withSessionStore((s) => s.startBootstrap());
+    withSessionStore((s) => {
+      s.startBootstrap();
+      // An assistant held by a cluster anchor is reached with the cluster's own session — its sign-in
+      // doors are shut because another member holds the accounts. Handed over here because this is
+      // the one place that already reaches the session store without closing the import cycle.
+      assistantSession.setClusterSession(s);
+    });
     api.startStreams();
     serversStore.refresh().catch(swallow);
     libraryStore.refresh().catch(swallow);

@@ -44,21 +44,68 @@ const recOf = (id) => store.getState().byHost[id] || null;
 // importing the host store, which drags the whole node data layer into a surface that has no nodes.
 //
 // Not installed ⇒ no route, which is the honest answer for a surface that has not said.
-let resolveOrigin = () => null;
-function setOriginResolver(fn) { resolveOrigin = typeof fn === "function" ? fn : () => null; }
+let resolveTarget = () => null;
+function setTargetResolver(fn) { resolveTarget = typeof fn === "function" ? fn : () => null; }
 
-// The leaf's public origin for a host. Null is an honest "no route" — never guessed from the
+// An assistant held by a cluster ANCHOR has no session of its own for this browser to hold. Another
+// member holds `auth`, so its sign-in doors answer `503` and it verifies the CLUSTER's session
+// instead — the credential this browser is already carrying. So everything below routes to that
+// credential for such a target and mints, refreshes and redirects nothing.
+//
+// Handed in rather than imported, for the reason the resolver above is: this module sits underneath
+// the one that owns the cluster session, and importing it would close a cycle through the store
+// barrel. Not installed means no cluster session exists, which is true of the standalone surface.
+let clusterSession = null;
+function setClusterSession(s) { clusterSession = s || null; }
+
+// What kind of assistant this id names, and where it is. `null` is the honest answer for an id the
+// surface has not described — never guessed.
+function targetOf(id) {
+  if (!id) return null;
+  const t = resolveTarget(id);
+  if (!t) return null;
+  // A resolver may answer with the address alone, which is what a surface with one assistant and no
+  // cluster has to say.
+  const url = typeof t === "string" ? t : t.origin;
+  if (typeof url !== "string" || !url.trim()) return null;
+  return { origin: url.trim().replace(/\/+$/, ""), anchored: typeof t === "object" && !!t.anchored };
+}
+
+// Whether this id is served by an anchor whose credential is the cluster's. False whenever there is
+// no cluster session to present, so a surface that never installed one keeps the leaf behaviour it
+// has always had rather than losing its session to a branch that cannot answer.
+function anchored(id) {
+  const t = targetOf(id);
+  return !!(t && t.anchored && clusterSession);
+}
+
+// The assistant's public origin for an id. Null is an honest "no route" — never guessed from the
 // panel's own origin, which would send a turn to whatever happened to serve the bundle.
-function originOf(hostId) {
-  if (!hostId) return null;
-  const url = resolveOrigin(hostId);
-  return typeof url === "string" && url.trim() ? url.trim().replace(/\/+$/, "") : null;
+function originOf(id) {
+  const t = targetOf(id);
+  return t ? t.origin : null;
 }
 
 const hasRoute = (hostId) => !!originOf(hostId);
-const statusOf = (id) => { const r = recOf(id); return r ? r.status : "none"; };
-const tokenOf = (id) => { const r = recOf(id); return r && r.status === "live" ? (r.token || null) : null; };
-const tierOf = (id) => { const r = recOf(id); return r ? (r.tier || null) : null; };
+
+// The three reads every surface makes. An anchored assistant answers each of them from the cluster
+// session, which speaks the same status vocabulary — so a surface asks one question and never has
+// to know which kind it is talking to.
+const statusOf = (id) => {
+  if (anchored(id)) return clusterSession.statusOf();
+  const r = recOf(id);
+  return r ? r.status : "none";
+};
+const tokenOf = (id) => {
+  if (anchored(id)) return clusterSession.tokenOf();
+  const r = recOf(id);
+  return r && r.status === "live" ? (r.token || null) : null;
+};
+const tierOf = (id) => {
+  if (anchored(id)) return clusterSession.tierOf();
+  const r = recOf(id);
+  return r ? (r.tier || null) : null;
+};
 const isLive = (id) => statusOf(id) === "live";
 const isDenied = (id) => statusOf(id) === "denied";
 
@@ -145,6 +192,10 @@ function signOut(hostId) {
 // host, so several calls healing from 401 at once spend one token between them rather than
 // racing each other for it.
 function rotate(hostId) {
+  // An anchored assistant holds nothing to rotate. The cluster session is renewed at the door that
+  // minted it, and this hands back whatever that renewal produced so a caller retrying a refused
+  // call retries with the token that renewal actually yielded.
+  if (anchored(hostId)) return clusterSession.rotate().then(() => clusterSession.tokenOf());
   if (rotations[hostId]) return rotations[hostId];
   const p = rotateSession(hostId).finally(() => { delete rotations[hostId]; });
   rotations[hostId] = p;
@@ -221,6 +272,9 @@ function unreachable(hostId) {
 // every sense that matters, already signed in. Resolves to whether we now hold a session.
 function authorize(hostId) {
   if (!hostId || !originOf(hostId)) return Promise.resolve(false);
+  // The cluster session heals itself the same way and at its own door, so an anchored assistant asks
+  // for nothing of its own here.
+  if (anchored(hostId)) return clusterSession.authorize().then(() => clusterSession.isLive());
   const status = statusOf(hostId);
   if (status === "live") return Promise.resolve(true);
   if (status === "denied" || status === "none") return Promise.resolve(false);
@@ -232,6 +286,10 @@ function authorize(hostId) {
 // with neither is worth a redirect. Called wherever a host becomes the assistant we address.
 function ensureSession(hostId) {
   if (!hostId || !originOf(hostId)) return Promise.resolve(false);
+  // An anchored assistant is reached with the session this browser already holds, so wanting to talk
+  // to it costs nothing and can never involve a redirect: its own sign-in doors are shut, and sending
+  // the browser to one would land it on a refusal.
+  if (anchored(hostId)) return clusterSession.authorize().then(() => clusterSession.isLive());
   const status = statusOf(hostId);
   if (status === "live") return Promise.resolve(true);
   if (status === "denied") return Promise.resolve(false);          // terminal; a retry loops forever
@@ -281,6 +339,10 @@ let navigate = (url) => { window.location.href = url; };
 function __setNavigator(fn) { navigate = fn || ((url) => { window.location.href = url; }); }
 
 function signIn(hostId, opts) {
+  // An anchored assistant has no door to send anybody to: another member holds the cluster's
+  // accounts, so its sign-in answers `503` and a bounce would land the browser on a refusal instead
+  // of on a sign-in. Nothing to do here, and nothing missing — the credential is already held.
+  if (anchored(hostId)) return false;
   // `origin` is passed by the caller that runs BEFORE the app mounts (the login chain), where the
   // host roster is not loaded yet and there is nothing to resolve an address from.
   const origin = (opts && opts.origin) || originOf(hostId);
@@ -330,7 +392,7 @@ function seed() {
 
 const assistantSession = Object.assign(store, {
   ASSISTANT_LOGIN_PARAM,
-  __setNavigator, setOriginResolver,
+  __setNavigator, setClusterSession, setTargetResolver,
   adopt, attempted, authorize, deny, ensureSession, hasRoute, isDenied, isLive, needsConsent,
   markConsentNeeded, originOf, rotate, seed, signIn, signOut, statusOf, takeRoute, tierOf, tokenOf,
 });

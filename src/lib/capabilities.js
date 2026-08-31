@@ -1,4 +1,4 @@
-import { alertHost } from "../components/ContextualAlerts.jsx";
+import { alertHost } from "./alertsApi.js";
 import { sessionStore } from "./sessionStore.js";
 import { hostsStore, serverHostId } from "./stores.js";
 

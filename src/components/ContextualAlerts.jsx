@@ -1,6 +1,5 @@
 import { Icon } from "./Icon.jsx";
-import { KrystalAlerts } from "../lib/alertsApi.js";
-import { serverHostId } from "../lib/stores.js";
+import { KrystalAlerts, alertHost, alertInScope } from "../lib/alertsApi.js";
 import { AlertCard } from "./AlertCard.jsx";
 
 // ContextualAlerts — surface active alerts at their point of origin.
@@ -16,21 +15,6 @@ import { AlertCard } from "./AlertCard.jsx";
 function anchoredAlerts(match) {
   const list = KrystalAlerts.list();
   return list.filter(a => a.status === "firing" && a.anchor && match(a.anchor, a));
-}
-
-// Which host an alert belongs to. Host-monitor alerts carry it explicitly on
-// the anchor; server alerts derive it from their server; anything else is
-// panel-wide (null) and shows under every scope — mirrors auditEventHost.
-function alertHost(a) {
-  if (a && a.anchor && a.anchor.hostId) return a.anchor.hostId;
-  if (a && a.serverId) return serverHostId(a.serverId);
-  return null;
-}
-function alertInScope(a, hostId) {
-  if (!hostId || hostId === "all") return true;
-  const h = alertHost(a);
-  if (!h) return true;
-  return h === hostId;
 }
 
 // Worst severity in a set → a tone, for badges and strip accents.

@@ -120,7 +120,7 @@ function App() {
 function AppInner({ user, setUser, route, setRoute }) {
   const dock = useAssistantDock();
   const { assistantOpen, setAssistantOpen, assistantSeed,
-    assistantHost, assistantHostList, setAssistantHostId,
+    assistantHost, assistantHostList, chooseAssistant,
     dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
     openAssistant, openView, handleAssistantNavigate, setManualPin,
     review, exitReview } = dock;
@@ -515,7 +515,7 @@ function AppInner({ user, setUser, route, setRoute }) {
             getServerState={dock.getServerState}
             assistantHost={assistantHost}
             assistantHosts={assistantHostList}
-            onSelectAssistantHost={setAssistantHostId}
+            onSelectAssistantHost={chooseAssistant}
             review={review}
             onExitReview={exitReview}
           />
@@ -533,7 +533,7 @@ function AppInner({ user, setUser, route, setRoute }) {
               onClose={() => setChatFullscreen(false)}
               assistantHost={assistantHost}
               assistantHosts={assistantHostList}
-              onSelectAssistantHost={setAssistantHostId}
+              onSelectAssistantHost={chooseAssistant}
               onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
               onOpenView={openView}
               onNavigate={handleAssistantNavigate}

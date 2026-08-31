@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.214.0]
+
+### Added — the assistant as a cluster anchor, beside the assistant as a node's leaf
+
+The assistant runs in one of two standings. On a machine with no cluster it is a **leaf**: a service
+on a node, found from that node's `assistant` capability, holding its own accounts and issuing its
+own sessions. In a cluster it is an **anchor** — a member in its own right, holding the cluster's
+`assistant` capability at its own member address.
+
+The dock knew only the first, so it looked at every connected node, found no node serving an
+assistant, and reported "No assistant available" — a true statement about where it looked and a false
+one about a cluster whose assistant was healthy.
+
+Both are now found and both appear in one picker, because a cluster can have both at once and only a
+person can say which one they mean. The cluster's own is the default: it acts on every node, where a
+leaf knows only the machine it runs on. A deliberate pick is the account's and is stored as a
+preference, so it follows somebody to their other devices; a retarget derived from what they opened —
+a server's chat, a conversation held on another node — lasts as long as that subject and is not kept.
+
+The anchor is found through the capability **assignment**, never off whichever member states an
+address: only the holder is believed, so pointing this browser somewhere else takes a visible
+reassignment of cluster state.
+
+### Changed — an anchored assistant is reached with the cluster's own session
+
+Another member holds the cluster's accounts, so an anchored assistant's sign-in doors answer `503`
+and it verifies the cluster session offline instead. The panel presents the credential it is already
+carrying: nothing is minted, nothing is rotated, and no redirect is attempted at a door that is shut.
+A leaf keeps its own session, its own refresh rotation and its silent bounce, unchanged.
+
+### Changed — the alert scope helpers moved into the alerts module
+
+`alertHost` and `alertInScope` sit beside the alerts domain rather than beside the components that
+render alerts. The capability layer asks the same question, and a library reaching up into a
+component drags the render tree into every consumer of it — including the `check:*` scripts, which
+load these modules outside a browser and cannot parse JSX.
+
 ## [1.213.1]
 
 ### Fixed — a panel opened cold reaches the app instead of holding a cover over it

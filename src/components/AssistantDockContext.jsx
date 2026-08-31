@@ -1,6 +1,10 @@
 import React from "react";
 import { assistantSession } from "../lib/assistantSession.js";
-import { assistantHosts, assistantHostsAll, capUsable } from "../lib/capabilities.js";
+import { assistantTargets, resolveTarget, usableTargets } from "../lib/assistants.js";
+import { capUsable } from "../lib/capabilities.js";
+import { PREF_KEYS, prefsStore } from "../lib/stores/prefs.js";
+import { useStore } from "../lib/store.js";
+import { clusterStore } from "../lib/stores.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { serverHostId, serversStore } from "../lib/stores.js";
 
@@ -32,6 +36,12 @@ function alertAssistantPrompt(item) {
 }
 
 function AssistantDockProvider({ hosts, setRoute, children }) {
+  // The cluster's own roster and its capability assignments — what says an assistant exists as a
+  // member rather than as a service on a node. Both empty on a standalone deployment, which is what
+  // makes this the same code in both.
+  const clusterMembers = useStore(clusterStore, s => s.nodes);
+  const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
+  const prefsHydrated = useStore(prefsStore, s => s.hydrated);
   // ===== State =====
   const [assistantOpen, setAssistantOpen] = React.useState(false);
   const [assistantSeed, setAssistantSeed] = React.useState(null);
@@ -42,6 +52,13 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   });
   const [vw, setVw] = React.useState(() => window.innerWidth);
   const [assistantHostId, setAssistantHostId] = React.useState(null);
+  // Which assistant is addressed, and whether that was a decision. A seeded ask retargets to the
+  // node a question is about, which is derived from the subject and lasts as long as the subject
+  // does; the picker is a choice, and a choice is the account's and is kept.
+  const chooseAssistant = React.useCallback((id, opts) => {
+    setAssistantHostId(id);
+    if (opts && opts.chosen) prefsStore.set(PREF_KEYS.ASSISTANT_TARGET, id || null);
+  }, []);
   const [dockWidth, setDockWidth] = React.useState(() => {
     const saved = parseInt(localStorage.getItem("krystal:dock:width") || "", 10);
     return saved && saved >= 320 && saved <= 900 ? saved : 420;
@@ -154,29 +171,32 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     } catch {}
   }, [manualPin]);
 
-  // Per-host assistant capability
+  // Every assistant this browser could address, of both standings: the cluster's own, held by the
+  // member the `assistant` capability is assigned to, and any node running one of its own. A
+  // deployment with no cluster contributes an empty roster and gets exactly the leaf list it had.
   const assistantHostList = React.useMemo(
-    () => assistantHostsAll(hosts),
-    [hosts]
+    () => assistantTargets({ hosts, members: clusterMembers, capabilities: clusterCapabilities }),
+    [hosts, clusterMembers, clusterCapabilities]
   );
-  const usableAssistants = React.useMemo(
-    () => assistantHosts(hosts),
-    [hosts]
-  );
-  // With no subject to derive from, a node is taken only when it is the ONLY
-  // one that can answer — that is the sole candidate, not a positional default.
-  // Several assistant-capable nodes and no subject leaves the target unset, and
-  // the dock renders that as its host picker rather than binding to whichever
-  // node happened to sort first.
-  const soleAssistant =
-    usableAssistants.length === 1 ? usableAssistants[0]
-    : (usableAssistants.length === 0 && assistantHostList.length === 1 ? assistantHostList[0] : null);
-  const assistantHost = hosts.find(h => h.id === assistantHostId) || soleAssistant || null;
+  // Which one the dock addresses. The choice this account made wins; the cluster's own assistant is
+  // the default behind it, because it acts on every node where a leaf knows only its own machine.
+  // Several leaves, no cluster assistant and nothing chosen resolves to null on purpose — that is
+  // the picker, and binding to whichever node sorted first would be a choice nobody made.
+  // The ones that could answer right now. The palette offers "ask the assistant" off this, so an
+  // empty list is what hides an action that could only fail.
+  const usableAssistants = React.useMemo(() => usableTargets(assistantHostList), [assistantHostList]);
+  const assistantHost = resolveTarget(assistantHostList, assistantHostId);
 
+  // The chosen assistant is the ACCOUNT's, kept where every other preference is: it rides the same
+  // mirror, so it follows the person to their other devices when they have sync on. Read once the
+  // store has hydrated — before that the stored answer is not yet known, and writing this render's
+  // fallback would overwrite it with a default nobody picked.
   React.useEffect(() => {
-    if (!assistantHostId && assistantHost) setAssistantHostId(assistantHost.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only assistantHost.id is used (and in deps); the object is re-derived every render, so depping it would loop
-  }, [assistantHost && assistantHost.id, assistantHostId]);
+    if (!prefsHydrated) return;
+    const stored = prefsStore.get(PREF_KEYS.ASSISTANT_TARGET, null);
+    if (stored && stored !== assistantHostId) setAssistantHostId(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- adopts the stored choice once, when the mirror lands; assistantHostId is read, not tracked
+  }, [prefsHydrated]);
 
   // Sign in to the targeted assistant's leaf without being asked to. Every surface on a host is the
   // same Discord application, so a browser signed into the panel has already authorized the
@@ -190,7 +210,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   // Gated on the leaf being USABLE, not merely declared: a redirect to a leaf that is down lands the
   // browser on a dead origin, which is a far worse answer than the dock saying it is unavailable.
   // The flag is in the deps so a leaf that comes up later still gets its one attempt.
-  const assistantReachable = !!(assistantHost && capUsable(assistantHost, "assistant"));
+  const assistantReachable = !!(assistantHost && usableTargets([assistantHost]).length);
   React.useEffect(() => {
     if (assistantHost && assistantReachable) assistantSession.ensureSession(assistantHost.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the targeted host id + reachability; the object is re-derived every render
@@ -254,7 +274,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     assistantOpen, setAssistantOpen,
     assistantSeed, setAssistantSeed,
     manualPin, setManualPin,
-    vw, assistantHostId, setAssistantHostId,
+    vw, assistantHostId, setAssistantHostId, chooseAssistant,
     dockWidth, setDockWidth,
     tw, desktop, canPush, effPush, pushingPanel, railMode,
     assistantHostList, usableAssistants, assistantHost,
@@ -266,7 +286,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     assistantOpen, setAssistantOpen,
     assistantSeed, setAssistantSeed,
     manualPin, setManualPin,
-    vw, assistantHostId, setAssistantHostId,
+    vw, assistantHostId, setAssistantHostId, chooseAssistant,
     dockWidth, setDockWidth,
     desktop, canPush, effPush, pushingPanel, railMode,
     assistantHostList, usableAssistants, assistantHost,

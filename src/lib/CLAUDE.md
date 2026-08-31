@@ -47,7 +47,11 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
 - `sse.js` — the low-level fetch-SSE reader used by `liveStream`.
-- `alertsApi.js` — alerts fetch/stream glue.
+- `alertsApi.js` — alerts fetch/stream glue, plus `alertHost` / `alertInScope`: which node an
+  alert belongs to and whether it falls under a scope. Those two live here rather than beside the
+  components that render alerts because the capability layer asks the same question, and a library
+  reaching up into a component drags the render tree into every consumer of it — including the
+  `check:*` scripts, which load these modules outside a browser and cannot parse JSX.
 
 **The assistant seam (a separate backend)**
 - `assistantClient.js` — the seam onto an assistant **leaf**, spoken directly on its own
@@ -70,9 +74,22 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   **No fallback:** a host whose capability names no public origin throws `ENOROUTE`. Routing
   the call through kgsm-api's relay instead would restore exactly the coupling this seam
   removes, and the relay is peer transport for another node's assistant.
-- `assistantSession.js` — the per-host session with that leaf: its own storage prefixes, its
+- `assistants.js` — WHICH assistants this browser can address, and where each one lives. An
+  assistant is a **leaf** on a node, discovered from that node's `assistant` capability, or an
+  **anchor** — a member of the cluster holding the cluster's `assistant` capability at its own
+  member address. Both appear in one list, because a cluster can have both and only a person can
+  say which one they mean. The anchor is found through the capability ASSIGNMENT rather than off
+  whichever member states an address: only the holder is believed, so pointing this browser
+  somewhere else takes a visible reassignment. Pure — every fact arrives as an argument.
+- `assistantSession.js` — the session with that assistant: its own storage prefixes, its
   own refresh rotation against the leaf's `/auth/session/refresh`, and the sign-in bounce.
-  `originOf(hostId)` reads the address off the host's assistant capability, which is the only
+  An ANCHORED assistant has no session of its own to hold: another member holds the cluster's
+  accounts, so its sign-in doors answer `503` and it verifies the CLUSTER's session instead — every
+  read and every renewal routes to that credential and no redirect is ever attempted. The credential
+  is handed in (`setClusterSession`) rather than imported, because this module sits underneath the
+  one that owns it.
+  `setTargetResolver` is installed by the surface and answers where an assistant is and which kind
+  it is; resolving it here would mean this module importing the stores, which
   thing the aggregator contributes — discovery, not transport.
   **The sign-in is silent.** Every surface on a host is the same Discord application, so a browser
   signed into the panel has already authorized the assistant and `prompt=none` completes with
@@ -191,7 +208,8 @@ re-exports `stores/` — import from either.
   only looks scoped. Where a surface needs to know whether a MEMBER will honour that answer, that is
   `sessionStore.nodeRefusal(id)` and a different fact. `resolveRoute()` is the routing chokepoint.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
-  `provisioned` × `status`. The assistant is per-host with no central fallback.
+  `provisioned` × `status`. A node's assistant capability is one of the two places an assistant is
+  found; `assistants.js` joins it with the cluster's.
 
 **Routing & presentation helpers**
 - `router.js` — pure URL-hash ↔ `route` object bridge (framework-free). Full URL

@@ -47,6 +47,10 @@ const TURN_FRAMES = new Set([
   "audio.delta",
 ]);
 
+// An assistant's title reads mid-sentence ("hotrod\u2019s assistant", "the cluster assistant"), which
+// is where most of them appear. This is the same phrase starting one.
+const sentence = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 function ChatPage({
   user, onOpenServer, onOpenView, docked, seed, onClose, onExpand, onNavigate, getServerState,
   assistantHost, assistantHosts = [], onSelectAssistantHost,
@@ -506,13 +510,15 @@ function ChatPage({
     pinnedRef.current = distanceFromBottom <= 80;
   }, []);
 
+  // A deliberate pick, which is a different act from the retarget below: this one is the person
+  // choosing which assistant they talk to, so the surface is told to keep it.
   const pickAssistantHost = (id) => {
     if (!onSelectAssistantHost) return;
     const next = (assistantHosts || []).find(h => h.id === id);
-    onSelectAssistantHost(id);
+    onSelectAssistantHost(id, { chosen: true });
     if (activeId && next) {
       setConvos(prev => prev.map(c => (c.id === activeId && c.messages.length > 0)
-        ? { ...c, messages: [...c.messages, { role: "scope", label: "Now talking to " + next.name + "\u2019s assistant" }] }
+        ? { ...c, messages: [...c.messages, { role: "scope", label: "Now talking to " + next.title }] }
         : c));
     }
   };
@@ -521,6 +527,9 @@ function ChatPage({
   // node — the subject decides where we're talking. A conversation whose node
   // isn't among the assistant-capable ones is opened without retargeting; the
   // history load below then declines it rather than asking the wrong node.
+  //
+  // Derived from what was opened, so it is NOT a choice and is not kept: reading yesterday's
+  // conversation should not silently move which assistant this account talks to.
   const pickChat = (id) => {
     const c = convos.find(x => x.id === id);
     const want = c && c.hostId;
@@ -675,10 +684,10 @@ function ChatPage({
         setConvos(prev => prev.map(c => c.id !== convId ? c : { ...c, stale: true }));
         return;
       }
-      const reason = e && e.code === 503 ? assistantHost.name + "\u2019s assistant is currently unavailable."
-        : e && e.code === 502 ? "Couldn\u2019t reach " + assistantHost.name + "\u2019s assistant \u2014 try again, or check the host."
-        : e && e.code === 404 ? assistantHost.name + " isn\u2019t serving an assistant right now."
-        : (e && e.userMessage) || (assistantHost.name + "\u2019s assistant didn\u2019t respond.");
+      const reason = e && e.code === 503 ? sentence(assistantHost.title) + " is currently unavailable."
+        : e && e.code === 502 ? "Couldn\u2019t reach " + assistantHost.title + " \u2014 try again, or check that it is running."
+        : e && e.code === 404 ? sentence(assistantHost.title) + " isn\u2019t answering right now."
+        : (e && e.userMessage) || (sentence(assistantHost.title) + " didn\u2019t respond.");
       setConvos(prev => prev.map(c => {
         if (c.id !== convId) return c;
         const msgs = c.messages.slice();
@@ -762,7 +771,7 @@ function ChatPage({
       setConvos(prev => prev.map(c => {
         if (c.id !== convId) return c;
         const why = leafStatus === "denied"
-          ? "You don\u2019t have access to " + assistantHost.name + "\u2019s assistant."
+          ? "You don\u2019t have access to " + assistantHost.title + "."
           : "Sign in to " + assistantHost.name + "\u2019s assistant to talk to it.";
         return {
           ...c, lastActivity: Date.now(),

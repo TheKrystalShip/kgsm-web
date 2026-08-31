@@ -24,6 +24,7 @@ import { createStore } from "../store.js";
 const PREF_KEYS = {
   DASHBOARD_LAYOUT: "dashboard.layout",
   SERVER_FAVORITES: "servers.favorites",
+  ASSISTANT_TARGET: "assistant.target",
 };
 
 const LOCAL_PREFIX = "krystal:pref:";
