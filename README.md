@@ -54,8 +54,8 @@ KGSM_API=http://127.0.0.1:8096 npm run smoke   # jsdom mount of the read paths a
 `npm run smoke` (`scripts/smoke-live.mjs`) boots the real Vite module graph in jsdom
 against a running backend and asserts real backend data renders without crashing. It
 needs an **auth-disabled** backend (unauthenticated reads + tier=admin from `/me`) — it
-sends no bearer, so it refuses an auth-enabled host up front. `scripts/visual-harness/
-dev-api.sh` in the workspace root serves one on `:8096`. See `CLAUDE.md` for the rest of
+sends no bearer, so it refuses an auth-enabled host up front. `scripts/visual-harness/dev-api.sh`
+in the workspace root — its own repo, beside the projects — serves one on `:8096`. See `CLAUDE.md` for the rest of
 its contract (Monaco is stubbed; probe instances come from the live roster).
 
 ## Layout

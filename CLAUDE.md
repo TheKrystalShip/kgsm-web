@@ -118,9 +118,26 @@ Five things about the smoke are load-bearing enough to state outright:
   `GET /servers`, because a hardcoded instance name rots the moment someone uninstalls it
   and then fails in a way that reads like an SPA regression.
 
-**For VISUAL / layout testing (smoke is jsdom — it does NOT lay out CSS), use the
-permanent headless-browser harness at `/home/heisen/tks/scripts/visual-harness/`**
-(outside the repos on purpose, so it doesn't violate the no-test-runner rule).
+**Every visual change is checked in the harness before it ships.** Not "may be" — the offline suites
+cannot see any of it. `smoke` runs in jsdom, which lays out no CSS, has no origin policy and mounts
+past every gate: a preflight the browser refuses, a sign-in card that never renders, a credential
+posted to a path that does not exist and a shell that never resolves have all shipped green. If a
+change alters what a person sees or what the browser does on their behalf, a run here is the only
+thing that can tell you it works.
+
+**The harness is `/home/heisen/tks/scripts/visual-harness/`** — its own git repository, beside the
+`kgsm-*` checkouts rather than inside one, because it tests this panel but stands up kgsm-api and
+kgsm-auth to test it against. Commit a script you add there, in that repo. Its `.state*/` never is:
+those hold a session signing key, account stores with password hashes and the bootstrap passwords a
+test signs in with.
+
+There is a script per thing worth seeing, and adding one is the normal way to check a change — copy
+the nearest neighbour, since they all share `_panel.mjs`. Existing ones worth knowing: `shoot.mjs`
+(screenshots + overflow/footer diagnostics for any route), `auth-routes.mjs` (the address bar and
+real history), `cors-anchor.mjs` (what the live anchor accepts, from the panel's own origin),
+`standalone-signin.mjs` (signing in at a node that holds its own accounts, `API_AUTH=on`),
+`cluster-signin.mjs` (signing in at a real anchor and the fleet arriving from it),
+`live-panel-anchor.mjs` (the deployed panel, read-only and unauthenticated).
 Playwright + **Chromium and Firefox** (no sudo on this host) drive the real SPA against
 a real **auth-disabled** dev kgsm-api with real data — this is the only way to actually
 *see* a mobile/responsive/overflow bug rather than reason about the CSS. Flow:
