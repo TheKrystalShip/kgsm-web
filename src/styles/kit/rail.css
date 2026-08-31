@@ -52,7 +52,7 @@
 /* ---- the track --------------------------------------------------------- */
 
 .rail__track {
-  --rail-per-view: 3.4;
+  --rail-per-view: 5.4;
   --rail-gap: 12px;
   --rail-pad: 14px;
   --rail-fade: 30px;
@@ -133,7 +133,7 @@
    (`.game-grid`), so the rail's density is set to keep it above that at every width rather than to
    fit as many as possible — measured in both engines by `catalog-rail.mjs`. */
 .rail--catalog .rail__track {
-  --rail-per-view: 4.4;
+  --rail-per-view: 5.4;
 }
 
 @container rail (max-width: 1000px) {
