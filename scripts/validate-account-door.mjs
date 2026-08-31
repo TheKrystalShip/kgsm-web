@@ -75,6 +75,7 @@ globalThis.fetch = async (url, opts) => {
       reauth: { fresh: true, windowMinutes: 10 },
     });
   }
+  if (u.includes("/auth/sessions")) return json({ data: [{ sid: "sid_1", userId: "local:usr_1", current: true }] });
   if (u.endsWith("/start")) return json({ url: "https://discord.test/oauth" });
   return json({});
 };
@@ -141,11 +142,32 @@ const read = since(mark).find((c) => c.u.endsWith("/auth/identities"));
 check(read && read.credentials === null,
   "and nothing else is credentialed — one missing CORS header would take every account read with it");
 
-// Revoking takes authority away rather than granting it, and the rows belong to whoever holds them.
+// A session's rows sit with whatever minted it. In an anchored cluster the members mint none, so
+// asking one returns an honest empty list that reads as "no other devices".
 mark = calls.length;
-await api.sessions("hotrod").list();
+const sess = await api.sessions("hotrod").list();
+check(sess.sessions.length === 1, "the session list reads");
+check(at(NODE, since(mark)).length === 0, "and no member was asked for it",
+  String(at(NODE, since(mark)).map((c) => c.u)));
+
+mark = calls.length;
+await api.sessions("hotrod").revokeUser("usr_1");
+const all = since(mark).find((c) => c.u.includes("revoke-all"));
+check(all && all.u === ANCHOR + "/auth/cluster/users/usr_1/sessions/revoke-all",
+  "logging somebody out everywhere is scoped under the cluster's accounts", all && all.u);
+
+// Ending ONE of somebody's sessions is scoped under the account too, so the anchor's check is
+// "is this session that person's" rather than "does this session exist".
+mark = calls.length;
+await api.sessions("hotrod").revokeSid("usr_1", "sid_1");
+const one = since(mark).find((c) => c.u.includes("/revoke"));
+check(one && one.u === ANCHOR + "/auth/cluster/users/usr_1/sessions/sid_1/revoke",
+  "and ending one of them names whose it is", one && one.u);
+
+// Sign-out is the one auth call that never resolves a door: it is the member's own.
+mark = calls.length;
 await api.logout("hotrod");
-check(at(ANCHOR, since(mark)).length === 0, "sessions and sign-out stay with the member",
+check(at(ANCHOR, since(mark)).length === 0, "sign-out stays with the member",
   String(at(ANCHOR, since(mark)).map((c) => c.u)));
 
 } else {
@@ -165,6 +187,20 @@ const pw2 = since(mark).find((c) => c.u.endsWith("/auth/password"));
 check(pw2 && pw2.u.startsWith(NODE), "a password change stays on the node");
 check(pw2 && JSON.parse(pw2.body).currentPassword === "old" && JSON.parse(pw2.body).newPassword === "new",
   "in the node's spelling", pw2 && pw2.body);
+
+mark = calls.length;
+await api.sessions("hotrod").list();
+await api.sessions("hotrod").revokeUser("usr_1");
+const solo2 = since(mark);
+check(at(ANCHOR, solo2).length === 0, "sessions are the node's too when it mints them");
+check(solo2.some((c) => c.u === NODE + "/auth/users/usr_1/sessions/revoke-all"),
+  "and revoke-all keeps the node's own accounts path", String(solo2.map((c) => c.u)));
+
+mark = calls.length;
+await api.sessions("hotrod").revokeSid("usr_1", "sid_1");
+const one2 = since(mark).find((c) => c.u.includes("/revoke"));
+check(one2 && one2.u === NODE + "/auth/sessions/sid_1/revoke",
+  "and a node keeps its own unscoped single revoke", one2 && one2.u);
 
 mark = calls.length;
 await api.identities("hotrod").startLink("discord");

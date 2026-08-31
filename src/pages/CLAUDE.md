@@ -95,8 +95,15 @@ who I am". Both ask `useAccountHolder()` first, because whose accounts these are
 answer rather than either screen's. Held by an anchor, an account is the cluster's: one list, no
 host picker, and the member the page is routed to is a routing detail that names nothing. Held by
 each node, they are that node's and the node is named — a list that did not name it would imply an
-account exists somewhere it does not. Neither screen decides where its calls go; `accountDoor` in
-`../lib/apiClient.js` does, once.
+account exists somewhere it does not. `SettingsSessions.jsx` asks it too, for two reasons that both cost a person something. It reads
+the sessions from ONE source under an anchor, because every member resolves to the same anchor and
+fanning out would fetch the identical list once per member — every device rendered as many times as
+the cluster has nodes, each copy tagged with a member that has nothing to do with it. And it labels
+recency `last refreshed` rather than `last active`, because an anchor's `lastSeen` is the last time
+the session rotated its tokens, at roughly a quarter-hour's granularity: calling that activity would
+report a person from a token. A node measures its own requests and means what it says.
+
+Neither screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 
 ## The split-page folders — keep the entry thin
 

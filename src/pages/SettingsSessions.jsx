@@ -2,6 +2,7 @@ import React from "react";
 import { ConfirmRevokeDialog } from "../components/ConfirmRevokeDialog.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { useAccountHolder } from "../hooks/useAccountHolder.js";
 import { api } from "../lib/apiClient.js";
 import { fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";
 import { sessionStore } from "../lib/sessionStore.js";
@@ -58,14 +59,17 @@ function deviceIcon(userAgent) {
 }
 
 function SettingsSessions({ onLogout }) {
-  // Your sessions are a CLUSTER fact: one login grants access everywhere and
-  // each node mints its own session, so this page fans out over every node the
-  // browser holds a live session on and merges. No node is "primary" — none of
-  // them is the one you are "on".
+  // Your sessions are a CLUSTER fact: one login grants access everywhere. WHERE the rows are read
+  // from is whoever minted them. An anchor mints for the whole cluster, so there is exactly one list
+  // and asking each member would fetch the same one once per member — every device rendered as many
+  // times as the cluster has nodes, each tagged with a node that has nothing to do with it. Without
+  // an anchor each node mints its own and the list is the union over everything live; no node is
+  // "primary" there either — none of them is the one you are "on".
   //
   // `hostId` is the ENTRY POINT for cluster-wide mutations only (revoke-all
   // propagates over the backend's own bus, so any live node performs it for the
   // whole cluster). It is not a scope, and nothing is read through it alone.
+  const { anchor } = useAccountHolder();
   const liveNodes = sessionStore.readRegistry().filter(h => h && h.id && sessionStore.isLive());
   const hostId = (liveNodes[0] && liveNodes[0].id) || null;
   const nodeKey = liveNodes.map(h => h.id).join(",");
@@ -87,13 +91,13 @@ function SettingsSessions({ onLogout }) {
     setErr(null);
     setOtherNote(null);
 
-    // One symmetric fan-out over every live node. Each node reports its own
-    // sessions and its own recent logins (a login happens at the node you
-    // authenticated against and is vouched onward), so both are unions across
-    // whatever answered. A node that fails drops its rows and earns an honest
-    // note — the list never silently shrinks.
-    setLiveNodeCount(liveNodes.length);
-    Promise.allSettled(liveNodes.map(h =>
+    // One symmetric fan-out over every source. Each reports its own sessions and each node its own
+    // recent logins, so both are unions across whatever answered. A source that fails drops its rows
+    // and earns an honest note — the list never silently shrinks. Under an anchor there is one
+    // source, which is what stops the same list being counted once per member.
+    const sources = anchor ? liveNodes.slice(0, 1) : liveNodes;
+    setLiveNodeCount(sources.length);
+    Promise.allSettled(sources.map(h =>
       Promise.all([api.sessions(h.id).list(), api.host(h.id).get("/me")])
         .then(([s, me]) => ({ node: h, rows: (s && s.sessions) || [], logins: (me && me.recentLogins) || [] }))
     )).then(results => {
@@ -109,7 +113,7 @@ function SettingsSessions({ onLogout }) {
           .sort((a, b) => new Date(b.at || b.time || 0) - new Date(a.at || a.time || 0))
       );
       setOtherNote(failed > 0
-        ? failed + " of " + liveNodes.length + " node" + (liveNodes.length > 1 ? "s" : "") + " didn't respond — showing partial results."
+        ? failed + " of " + sources.length + " node" + (sources.length > 1 ? "s" : "") + " didn't respond — showing partial results."
         : null);
       // Every node failing is a real error, not a partial.
       setErr(ok.length === 0 ? "Couldn't load sessions." : null);
@@ -118,7 +122,13 @@ function SettingsSessions({ onLogout }) {
 
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeKey IS the identity of liveNodes; depending on the array itself would refetch every render
-  }, [nodeKey]);
+  }, [nodeKey, anchor]);
+
+  // An anchor's recency is the last time the session ROTATED its tokens — the only contact it has
+  // with one, since every other request goes to a member and is verified against a signature with
+  // nothing written down. Calling that "last active" would report a person from a token, at roughly
+  // a quarter-hour's granularity. A node measures its own requests and means what it says.
+  const seenLabel = anchor ? "last refreshed" : "last active";
 
   if (!hostId) {
     return (
@@ -221,7 +231,7 @@ function SettingsSessions({ onLogout }) {
             }
             sub={
               "Signed in " + fmtGuard(s.created, d => fmtRelative(d)) +
-              " · last active " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
+              " · " + seenLabel + " " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
               " · expires " + fmtGuard(s.expires, fmtTime)
             }
           >
@@ -275,7 +285,7 @@ function SettingsSessions({ onLogout }) {
             }
             sub={
               "Signed in " + fmtGuard(s.created, d => fmtRelative(d)) +
-              " · last active " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
+              " · " + seenLabel + " " + fmtGuard(s.lastSeen, d => fmtRelative(d)) +
               " · expires " + fmtGuard(s.expires, fmtTime)
             }
           >

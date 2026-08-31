@@ -373,17 +373,10 @@ import("./stores.js").then((m) => {
     return livedel(path, hostId);
   }
 
-  // Root-routed counterparts to get/post: the session endpoints
-  // (/auth/sessions, /auth/session/revoke, …) live at the bare origin, NOT
-  // under /api/v1 — but unlike meWith, callers here DO want the funnel: the
-  // cluster bearer + the 401-heal in
-  // sessionsScoped's withRetry below. Leaving bearerOverride undefined routes
-  // liveFetch through authorizedBearer exactly like get/post do; only baseOverride
-  // changes.
-  async function rootGet(path, hostId) {
-    if (!CONNECTIONS.length) return Promise.reject(offlineError());
-    return liveFetch("GET", path, null, hostId, undefined, apiOriginOf(hostId));
-  }
+  // A root-routed counterpart to post, for the node's own sign-out: the auth endpoints live at the
+  // bare origin, NOT under /api/v1. Unlike meWith the caller DOES want the funnel — the cluster
+  // bearer, resolved the same way every other call resolves it. Leaving bearerOverride undefined
+  // routes liveFetch through authorizedBearer exactly like get/post do; only baseOverride changes.
   async function rootPost(path, body, hostId) {
     if (!CONNECTIONS.length) return Promise.reject(offlineError());
     return liveFetch("POST", path, body, hostId, undefined, apiOriginOf(hostId));
@@ -790,13 +783,16 @@ import("./stores.js").then((m) => {
   }
 
   // api.sessions(id) — the root-routed session-management surface (list/revoke
-  // active sessions against kgsm-api's session endpoints). Root-routed
-  // because these auth endpoints live at the bare origin, not under /api/v1
-  // (rootGet/rootPost above); funneled (not the meWith bypass)
-  // because every other call site here wants the live cluster bearer plus the
-  // same 401→expire→replay heal hostScoped gives REST calls. Mirrors hostScoped's
-  // withRetry verbatim rather than sharing it, since hostScoped's closure is
-  // itself scoped to the get/post/patch/put/del set.
+  // active sessions), through accountDoor: a session's rows sit with whatever minted it, and in a
+  // cluster with an anchor the members mint none — they verify a signature and keep nothing, so
+  // asking a member would return an honest empty list that reads as "no other devices".
+  // Root-routed either way (these live at the bare origin, not under /api/v1); funneled (not the
+  // meWith bypass) because every call site here wants the live cluster bearer plus the same
+  // 401→expire→replay heal hostScoped gives REST calls. Mirrors hostScoped's withRetry verbatim
+  // rather than sharing it, since hostScoped's closure is itself scoped to the get/post/patch/put/del
+  // set.
+  //
+  // Sign-out is the exception and stays on the node (see logout below).
   function sessionsScoped(id) {
     if (!id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch(err => {
@@ -804,15 +800,28 @@ import("./stores.js").then((m) => {
       sessionStore.expire();
       return call();
     });
+    const at = (method, path, body) =>
+      accountDoor(id).then((d) => doorFetch(method, path, body, id, d));
     return {
       // Self, or (admin) another user's sessions via ?userId=.
-      list: (userId) => withRetry(() => rootGet("/auth/sessions" + (userId ? "?userId=" + encodeURIComponent(userId) : ""), id)).then(adapt.adaptSessions),
+      list: (userId) => withRetry(() => at("GET", "/auth/sessions" + (userId ? "?userId=" + encodeURIComponent(userId) : ""))).then(adapt.adaptSessions),
       // Self-revoke: {sid} one, {all:true} every session, {} the caller's own.
-      revoke: (body) => withRetry(() => rootPost("/auth/session/revoke", body || {}, id)),
-      // Admin: revoke any session cross-user.
-      revokeSid: (sid) => withRetry(() => rootPost("/auth/sessions/" + encodeURIComponent(sid) + "/revoke", {}, id)),
-      // Admin: log a user out everywhere.
-      revokeUser: (userId) => withRetry(() => rootPost("/auth/users/" + encodeURIComponent(userId) + "/sessions/revoke-all", {}, id)),
+      revoke: (body) => withRetry(() => at("POST", "/auth/session/revoke", body || {})),
+      // Admin: end ONE of another user's sessions — a different decision from signing them out
+      // everywhere, and the narrow one is the one an admin reaches for when they have a single
+      // suspicious session. Scoped under the account at an anchor, which makes the question "is this
+      // session that person's" rather than "does this session exist": an admin with the wrong account
+      // open is told so instead of being shown a stranger's row.
+      revokeSid: (userId, sid) => withRetry(() => accountDoor(id).then((d) => doorFetch(
+        "POST",
+        d.anchor
+          ? d.users + "/" + encodeURIComponent(userId) + "/sessions/" + encodeURIComponent(sid) + "/revoke"
+          : "/auth/sessions/" + encodeURIComponent(sid) + "/revoke",
+        {}, id, d))),
+      // Admin: log a user out everywhere. Scoped under the accounts path, which is the one place
+      // the two doors spell differently.
+      revokeUser: (userId) => withRetry(() => accountDoor(id).then((d) => doorFetch(
+        "POST", d.users + "/" + encodeURIComponent(userId) + "/sessions/revoke-all", {}, id, d))),
     };
   }
 
@@ -946,7 +955,9 @@ import("./stores.js").then((m) => {
   }
 
   // Server-side sign-out for a host: revoke the CALLING session in the registry
-  // (root-routed POST /auth/logout, funneled with the live bearer). Best-effort
+  // (root-routed POST /auth/logout, funneled with the live bearer). The one auth call that never
+  // resolves a door — it is the node's own, and the cluster-wide sign-out is sessionStore's, which
+  // tells the anchor directly. Best-effort
   // — the caller drops its local tokens regardless; a 401 (already gone) or a
   // network error must never block the client-side logout.
   function logout(id) {

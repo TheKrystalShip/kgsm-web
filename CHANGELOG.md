@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.195.0]
+
+### Fixed — the Devices card reads the sessions that exist
+
+A session's rows sit with whatever minted it. In a cluster with an anchor the members mint none —
+they verify a signature and keep nothing — so the card was asking the one party that had nothing to
+answer with. Twenty live sessions, none of them visible, rendered as "no active sessions", which
+reads as a fact about the account rather than about where the question was sent.
+
+It also fanned out over every live node and merged, which was right when each node minted its own.
+Under an anchor every node resolves to the same anchor, so a two-node cluster would have fetched the
+identical list twice and rendered every device twice, each copy tagged with a member that has
+nothing to do with that session. Under an anchor there is one source; without one the union stands.
+
+Ending one of somebody's sessions is scoped under their account, so the question asked is "is this
+session that person's" rather than "does this session exist" — an admin with the wrong account open
+is told so instead of being shown a stranger's row. Sign-out stays with the node: it revokes the
+calling session in that node's own registry, and the cluster-wide sign-out was already the anchor's.
+
+### Changed — session recency says what it measures
+
+An anchor's `lastSeen` is the last time the session rotated its tokens. That is the only contact it
+has with a live session, since every other request goes to a member and is verified against a
+signature with nothing written down — so it lands at roughly a quarter-hour's granularity and is
+absent entirely for a session that has not rotated. Rendering it as "last active" would report a
+person from a token. It reads "last refreshed" where an anchor holds the accounts and keeps "last
+active" where a node does, which measures its own requests and means it.
+
 ## [1.194.0]
 
 ### Fixed — administering accounts reaches whoever holds them

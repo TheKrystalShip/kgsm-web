@@ -30,12 +30,17 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   in a member's read-only replica would be overwritten by the next thing the anchor published, so it
   would appear to work and then quietly not have — and every member refuses those calls on that
   basis. A cluster without an anchor holds its own, and the same calls go to the node. `api.users`
-  and `api.identities` resolve through it per call; `api.sessions` and `logout` never do, because
-  revoking takes authority away rather than granting it and the rows belong to whoever holds them.
+  `api.identities` and `api.sessions` resolve through it per call — a session's rows sit with
+  whatever minted it, and in an anchored cluster the members mint none, so asking one returns an
+  honest empty list that reads as "no other devices". `logout` is the one auth call that never
+  resolves a door: it revokes the calling session in the node's own registry, and the cluster-wide
+  sign-out is `sessionStore`'s, which tells the anchor directly.
   The two doors differ in three details, all absorbed here: the accounts sit under
   `/auth/cluster/users` at an anchor, a password change spells its two fields `{current, password}`
   there and `{currentPassword, newPassword}` on a node, and a credential is named `credentialId`
-  there and `id` on a node — the list normalises, so the screen above reads one field. A call to an
+  there and `id` on a node — the list normalises, so the screen above reads one field. Admin session
+  revokes ride the accounts path, so ending one of somebody's sessions asks "is this session that
+  person's" rather than "does this session exist". A call to an
   anchor also leaves the connection signal alone: an anchor is not a member, and its reachability is
   not a node's.
 - `liveStream.js` — fetch-based SSE. One

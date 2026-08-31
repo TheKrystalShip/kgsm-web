@@ -296,6 +296,10 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
 // account is untouched, so they can sign straight back in. The confirmation says so, because an
 // admin reaching for this during an incident is usually reaching for the other one.
 function UserSessions({ hostId, user, disabled }) {
+  // An anchor's recency is the last token rotation, not a person's last request — see the same note
+  // on the Devices card.
+  const { anchor } = useAccountHolder();
+  const seenLabel = anchor ? "last refreshed" : "last active";
   const [rows, setRows] = React.useState(null);   // null = not loaded
   const [error, setError] = React.useState(null);
   const [busy, setBusy] = React.useState(null);   // a sid, "all", or null
@@ -317,7 +321,7 @@ function UserSessions({ hostId, user, disabled }) {
     setBusy(all ? "all" : confirm.sid);
     const call = all
       ? api.sessions(hostId).revokeUser(user.id)
-      : api.sessions(hostId).revokeSid(confirm.sid);
+      : api.sessions(hostId).revokeSid(user.id, confirm.sid);
     call.then(
       () => { setConfirm(null); setBusy(null); reload(); },
       (e) => { setBusy(null); setError(messageOf(e, "Couldn’t end that session.")); });
@@ -350,7 +354,7 @@ function UserSessions({ hostId, user, disabled }) {
           <span className="settings-users__session-device">
             {s.userAgent && String(s.userAgent).trim() ? s.userAgent : "Unknown device"}
           </span>
-          <span className="settings-users__session-when">last active {rel(s.lastSeen)}</span>
+          <span className="settings-users__session-when">{seenLabel} {rel(s.lastSeen)}</span>
           <button type="button" className="settings-link__btn"
             disabled={disabled || busy != null}
             onClick={() => setConfirm({ mode: "admin-one", sid: s.sid })}>
