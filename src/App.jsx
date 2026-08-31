@@ -127,12 +127,13 @@ function AppInner({ user, setUser, route, setRoute }) {
   // --- Auth ---
 
   const handleLogout = React.useCallback(async () => {
-    // Revoke this device's session SERVER-SIDE on every node the SPA holds one
-    // (best-effort, awaited so the reload below doesn't abort the requests) — this
-    // needs the live bearer, so it runs BEFORE we drop the local credentials. At
-    // N=1 that's just the one host; at N≥2 each connected node's calling session is
-    // revoked. (The Settings → "Log out everywhere" path additionally revokes {all}
-    // on a node, which fans session.revoke to peers over the cluster bus.)
+    // Revoke this device's session SERVER-SIDE wherever a row for it exists (best-effort, awaited so
+    // the reload below doesn't abort the requests) — this needs the live bearer, so it runs BEFORE
+    // we drop the local credentials. A node that mints its own sessions holds the row and revokes
+    // it here; a member of a cluster whose anchor mints them holds none, and the revocation that
+    // matters is sessionStore.signOut() below, which tells the anchor directly. Asking every node
+    // either way costs a no-op where there is nothing to revoke, and is the only thing that works
+    // where there is.
     const ids = sessionStore.readRegistry().map(h => h && h.id).filter(Boolean);
     await Promise.all(ids.map(id => api.logout(id).catch(() => {})));
     writeStoredUser(null);
