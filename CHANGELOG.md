@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.213.1]
+
+### Fixed — a panel opened cold reaches the app instead of holding a cover over it
+
+The access token lives in sessionStorage, which is per browsing context: a reload keeps it, a new
+tab, a browser restart and every launch of the installed PWA do not. So the ordinary way to open the
+panel is holding a stored account, a refresh token and a chosen door — and no session.
+
+That load asked the anchor for the cluster's members, found no session, and returned without asking.
+A panel whose fleet is named by an anchor keeps no node list between loads, so there was then nothing
+to call, no data layer to start, and nothing that would ever spend the refresh token — the boot cover
+stayed up for the life of the page. The one surface where it never happened is a tab that had already
+signed in, which is why it was invisible on a desktop and permanent on a phone.
+
+The fleet call spends the refresh token itself. It has to be that call: until the anchor answers there
+is no node to address, so nothing else in the app makes a request.
+
+The shell also stops waiting on a fan-out that is not coming. With no connection there is no
+`GET /hosts` in flight, so a cluster that names nobody — and one that could not be asked — now renders
+the panel and its own empty state rather than a cover over an answered question. A roster that did
+name somebody is still waited for.
+
 ## [1.213.0]
 
 ### Changed — every member of a cluster says whether it is still in it

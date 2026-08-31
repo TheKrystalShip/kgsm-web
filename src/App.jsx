@@ -168,8 +168,6 @@ function AppInner({ user, setUser, route, setRoute }) {
   // back — its own rows are what wait.
   const authzSettled = !!session && session.status !== "none" && session.status !== "bootstrapping";
 
-  const authzReady = hostsLoaded && authzSettled;
-
   const [tab] = React.useState(null);
   const [installing, setInstalling] = React.useState(null);
   // The refusal the last install came back with. Held here because the shell owns the POST, and
@@ -215,6 +213,18 @@ function AppInner({ user, setUser, route, setRoute }) {
     startDataLayer();
     return () => stopDataLayer();
   }, [wired]);
+
+  // The fan-out has answered, or there was never one to make. A panel whose nodes come from a
+  // cluster holds no connection until the anchor names one, so a cluster that names nobody — and one
+  // that could not be asked — leaves no `GET /hosts` in flight and none coming. Waiting for it then
+  // holds the boot cover over a question that is already answered, which is how a boot never ends.
+  //
+  // A roster that DID name somebody is still waited for: the nodes are being called, and rendering a
+  // panel that says nothing is connected is a wrong answer rather than an early one.
+  const hostsSettled = hostsLoaded
+    || (!wired && (fleet.state === "unreachable" || (fleet.state === "ready" && !fleet.count)));
+
+  const authzReady = hostsSettled && authzSettled;
 
   useRouteSync(route, setRoute, landingResolved);
 

@@ -34,9 +34,23 @@ const fleetStore = createStore({ state: "idle", count: 0, members: [] });
 async function refreshFleetFromAnchor() {
   const url = sessionStore.anchorOrigin();
   if (!url) { fleetStore.setState({ state: "idle" }); return { ok: false, reason: "no_anchor", added: 0, removed: 0 }; }
-  if (!sessionStore.isLive()) return { ok: false, reason: "no_session", added: 0, removed: 0 };
 
   if (fleetStore.getState().state === "idle") fleetStore.setState({ state: "asking" });
+
+  // The access token lives in sessionStorage, which is per browsing context: a reload keeps it, a
+  // new tab and every launch of the installed app do not. So the ordinary way to open the panel is
+  // holding a refresh token, a door, and no session — and this call is what spends the first.
+  //
+  // It has to be this one. A clustered panel keeps no node list between loads, so until the anchor
+  // answers there is no node to call and nothing else in the app makes a request. Waiting for
+  // somebody else's call to authorize would be waiting for a call nobody makes.
+  if (!sessionStore.isLive()) await sessionStore.authorize();
+  if (!sessionStore.isLive()) {
+    // Not an empty cluster and not a stale roster: this browser could not ask. The session layer has
+    // already recorded why, and a session it could not renew surfaces as the door.
+    if (fleetStore.getState().state !== "ready") fleetStore.setState({ state: "unreachable" });
+    return { ok: false, reason: "no_session", added: 0, removed: 0 };
+  }
   const roster = await clusterMembers(url, sessionStore.tokenOf());
   // An anchor that could not be asked is not an empty cluster. Reconciling against nothing would
   // drop every node the panel is driving and leave somebody looking at a fleet that appears to have
