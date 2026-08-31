@@ -55,7 +55,22 @@ r = reconcileRosterToRegistry([member("hotbox", "http://192.168.1.129:8080")], {
 assert(r.removed === 1, "reconciling drops it", `removed=${r.removed}`);
 assert(ids() === "hotrod", "so the banner it was stuck in clears itself", ids());
 
-// 4. An address a PERSON typed is theirs. The cluster taught us the ones above; it has said nothing
+// 4. The heal, which is what somebody actually experiences: a stale plaintext entry stored before
+//    the cluster advertised a browser address is dropped, and the member returns on the usable one
+//    the next time the roster is read. Two passes, because the drop and the join are the same
+//    member and removing by id would take the new row with the old — and the roster is re-read on a
+//    timer, so nobody has to reload for it.
+config.removeConnections(["hotbox", "typed"]);
+config.addConnections([{ id: "hotbox", url: "http://192.168.1.129:8080", name: "hotbox", via: "roster" }]);
+const usable = [member("hotbox", "https://hotbox.kgsm.test")];
+r = reconcileRosterToRegistry(usable, { localHostId: "hotrod" });
+assert(r.removed === 1 && ids() === "hotrod", "the stale address goes on the first pass", ids());
+r = reconcileRosterToRegistry(usable, { localHostId: "hotrod" });
+assert(r.added === 1 && ids() === "hotrod,hotbox", "and the member returns on the usable one", ids());
+assert(config.CONNECTIONS.filter((c) => c.id === "hotbox").length === 1,
+  "exactly once — a heal that leaves both is a fan-out over one node twice");
+
+// 5. An address a PERSON typed is theirs. The cluster taught us the ones above; it has said nothing
 //    about this one, and a rule about roster addresses is not licence to remove somebody's own.
 config.addConnections([{ id: "typed", url: "http://192.168.1.50:8080", name: "Typed by hand" }]);
 r = reconcileRosterToRegistry([member("hotbox", "https://hotbox.kgsm.test")], { localHostId: "hotrod" });
