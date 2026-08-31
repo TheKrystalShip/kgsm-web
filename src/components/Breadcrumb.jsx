@@ -78,6 +78,12 @@ function breadcrumbTrail(route, ctx) {
                           : { label: "Configuration" });
                       if (route.leaf) trail.push({ label: ctx.leafName || route.leaf });
                       break;
+    // The crumb names the ROLE, not the member, because the route does: one auth anchor per cluster,
+    // reached from the Anchors card on the page this crumb walks back to.
+    case "anchor":    trail.push(
+                        { label: "Cluster", to: { kind: "cluster" } },
+                        { label: "Auth anchor" });
+                      break;
     case "settings":  trail.push({ label: "Settings", to: { kind: "settings" } }); tab("settings"); break;
     default:          break;
   }

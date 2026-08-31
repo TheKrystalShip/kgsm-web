@@ -1,23 +1,18 @@
-// ApiUsers — the API leaf's Users tab: the KGSM accounts somebody may sign in with.
+// AccountsAdmin — the KGSM accounts somebody may sign in with, and what each of them may do.
 //
-// An account is the primary identity object: it exists on its own, carries the tier, and an
-// external provider (Discord today, others later) is a credential attached to it rather than the
-// source of it. So this screen is where authority on a node is decided — the only place a tier ever
-// changes.
+// An account is the primary identity object: it exists on its own, carries the tier, and an external
+// provider (Discord today, others later) is a credential attached to it rather than the source of
+// it. So this is where authority is decided — the only place a tier ever changes.
 //
-// It lives on the API leaf because that is where the account store is administered, alongside the
-// service's logs and its configuration. A person's own settings page answers "who am I and how do I
-// sign in"; this answers "who may do what", which is a different question about a different subject.
+// WHOSE accounts these are decides where the screen lives, and the cluster decides that, not this
+// component. Held by an anchor they are the cluster's — one account, one tier, everywhere — and they
+// are administered on the anchor's page, because that is the member that holds and writes them. Held
+// by a node they are that node's, administered on that node's API leaf beside the service's logs and
+// its configuration. One component either way: the subject differs, the screen does not.
 //
-// WHOSE accounts these are is the cluster's answer, not this page's. Held by an anchor they are the
-// cluster's — one account, one tier, everywhere — and the member this page is routed to is a
-// routing detail that says nothing about them. Held by each node they are that node's, and the node
-// is named, because a list that did not name it would imply an account exists somewhere it does
-// not.
-//
-// Read straight from `api.users(host)` rather than through a store: accounts change only when
-// somebody changes them here, and a cached list is a list that can be stale about who may do what.
-// Each write re-reads.
+// Read straight from `api.users()` rather than through a store: accounts change only when somebody
+// changes them here, and a cached list is a list that can be stale about who may do what. Each write
+// re-reads.
 
 import React from "react";
 
@@ -35,18 +30,21 @@ const TIERS = ["viewer", "operator", "admin"];
 const TIER_LABEL = { none: "No access", viewer: "Viewer", operator: "Operator", admin: "Admin" };
 const STATUS_LABEL = { active: "Active", pending: "Awaiting approval", disabled: "Disabled" };
 
-function ApiUsers({ hostId }) {
+function AccountsAdmin({ hostId }) {
+  const { anchor, anchored } = useAccountHolder();
+  // An anchor is addressed by its own origin, so the cluster's accounts need no node. A node's need
+  // the node.
+  const reachable = anchor ? true : !!hostId;
   // Checked before asking, because a table that 403s tells the reader less than a sentence naming
   // what they would need.
-  const admin = !!hostId && sessionStore.isLive() && sessionStore.tierOf() === "admin";
-  const { anchor } = useAccountHolder();
+  const admin = reachable && sessionStore.isLive() && sessionStore.tierOf() === "admin";
 
   const [rows, setRows] = React.useState(null);          // null = not loaded yet
   const [error, setError] = React.useState(null);
   const [editing, setEditing] = React.useState(null);    // a user row, or "new"
 
   const reload = React.useCallback(() => {
-    if (!hostId || !admin) return Promise.resolve();
+    if (!admin) return Promise.resolve();
     setError(null);
     return api.users(hostId).list().then(
       (list) => setRows(list),
@@ -82,14 +80,14 @@ function ApiUsers({ hostId }) {
   const activeAdmins = (rows || []).filter((u) => u.status === "active" && u.tier === "admin").length;
   const waiting = (rows || []).filter((u) => u.status === "pending").length;
   // People waiting first. They are the only rows on this screen that need something done, and a
-  // node with twenty accounts would otherwise bury them.
+  // cluster with twenty accounts would otherwise bury them.
   const ordered = [...(rows || [])].sort(
     (a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
 
   return (
     <SettingsSection icon="users" title="Accounts"
-      meta={anchor ? "Who can sign in to this cluster, and what they may do."
-                   : "Who can sign in to this node, and what they may do."}>
+      meta={anchored ? "Who can sign in to this cluster, and what they may do."
+                     : "Who can sign in to this node, and what they may do."}>
       {error && (
         <div className="login-card__error" role="alert">
           <Icon name="alert-triangle" size={14} />{error}
@@ -145,7 +143,7 @@ function ApiUsers({ hostId }) {
       )}
 
       <div className="settings-foot">
-        <button className="fb-editor__btn" onClick={() => setEditing("new")} disabled={!hostId}>
+        <button className="fb-editor__btn" onClick={() => setEditing("new")}>
           Add an account
         </button>
       </div>
@@ -154,8 +152,9 @@ function ApiUsers({ hostId }) {
         <UserModal
           hostId={hostId}
           user={editing === "new" ? null : editing}
-          // The backend refuses to leave a node with no way in, and says so with `last_admin`. The
-          // modal is told the count so it can explain BEFORE somebody tries, rather than only after.
+          // The backend refuses to leave the accounts with no way in, and says so with `last_admin`.
+          // The modal is told the count so it can explain BEFORE somebody tries, rather than only
+          // after.
           isLastActiveAdmin={editing !== "new" && editing.status === "active"
             && editing.tier === "admin" && activeAdmins <= 1}
           onClose={() => setEditing(null)}
@@ -168,7 +167,7 @@ function ApiUsers({ hostId }) {
 // Create or edit one account. One modal for both, because the fields are the same and a separate
 // "create" form is how the two drift apart.
 function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
-  const { anchor } = useAccountHolder();
+  const { anchored } = useAccountHolder();
   const creating = !user;
   const [form, setForm] = React.useState(() => ({
     username: user ? user.username : "",
@@ -232,7 +231,7 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
         {isLastActiveAdmin && (
           <div className="settings-users__note">
             <Icon name="info" size={14} />
-            This is the only active admin{anchor ? " in this cluster" : " on this node"}. Give someone
+            This is the only active admin{anchored ? " in this cluster" : " on this node"}. Give someone
             else the admin tier before changing or removing it.
           </div>
         )}
@@ -297,7 +296,8 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
 // admin reaching for this during an incident is usually reaching for the other one.
 function UserSessions({ hostId, user, disabled }) {
   // An anchor's recency is the last token rotation, not a person's last request — see the same note
-  // on the Devices card.
+  // on the Devices card. It follows the DOOR rather than the cluster, because it describes where
+  // these rows were measured.
   const { anchor } = useAccountHolder();
   const seenLabel = anchor ? "last refreshed" : "last active";
   const [rows, setRows] = React.useState(null);   // null = not loaded
@@ -387,4 +387,4 @@ function messageOf(e, fallback) {
   return (e && e.userMessage) || fallback;
 }
 
-export { ApiUsers };
+export { AccountsAdmin };

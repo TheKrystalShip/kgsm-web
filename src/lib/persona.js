@@ -79,6 +79,10 @@ import { sessionStore } from "./sessionStore.js";
     // aggregates — the service row, the config, and the assistant's conversation review — is
     // Admin-policy in kgsm-api, so a lower tier would reach it and meet a 403 on every read.
     leaf: CAP.HOST_MANAGE,
+    // The anchor's page is the cluster's account administration, which the anchor itself allows to
+    // admins alone. Gated on host management like the leaf pages, so a tier that would meet a 403 on
+    // every read never mounts it.
+    anchor: CAP.HOST_MANAGE,
   };
 
   function storedUser() {

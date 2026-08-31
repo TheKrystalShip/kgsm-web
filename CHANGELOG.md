@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.204.0]
+
+### Added — the cluster's accounts are administered on the anchor's page
+
+`#/anchor`, reached from the Anchors card on the Cluster page, where the anchor's row was a click
+that navigated nowhere. It names the anchor and what it holds, and carries the accounts screen: the
+roster with people awaiting approval first, one-press approve, create and edit with tier and status,
+delete with the last-active-admin guard, and where each account is signed in with revoke-one and
+revoke-everywhere.
+
+### Changed — a node's API leaf offers accounts only while it holds them
+
+In a cluster the accounts are the anchor's: it holds them and is the only writer, a node keeps a
+read-only replica and refuses every write against it. So no node's API leaf offers the Users tab,
+and a link to one made before the cluster existed lands on the leaf's overview. A standalone node
+holds its own and keeps the tab exactly where it was.
+
+Which of those is true is read from the cluster's capability assignment, re-read on the roster's own
+cadence — so a node that joins a cluster with an anchor loses the tab where the reader is standing,
+with no reload and nothing redeployed. A browser signed in at a node cannot administer an anchor's
+accounts, and the anchor's page says so by naming the holder rather than offering a table whose
+every write the node refuses.
+
+`api.sessions()` requires a host id only once the door resolves to a node. An anchor is addressed by
+its own origin and the id is never read, which is what lets a screen about the cluster's accounts
+hold no node.
+
+
 ## [1.203.0]
 
 ### Added — a build may name the anchor it belongs to

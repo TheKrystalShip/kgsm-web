@@ -165,6 +165,14 @@ const one = since(mark).find((c) => c.u.includes("/revoke"));
 check(one && one.u === ANCHOR + "/auth/cluster/users/usr_1/sessions/sid_1/revoke",
   "and ending one of them names whose it is", one && one.u);
 
+// A screen about the CLUSTER's accounts holds no node, and needs none: the anchor is addressed by
+// its own origin and the host id is never read. This is what lets the anchor's page exist at all.
+mark = calls.length;
+const noNode = await api.sessions(null).list("usr_1");
+check(noNode && Array.isArray(noNode.sessions), "sessions read with no node named at all");
+check(since(mark).every((c) => c.u.startsWith(ANCHOR)), "asked of the anchor, which is what addresses them",
+  String(since(mark).map((c) => c.u)));
+
 // Sign-out is the one auth call that never resolves a door: it is the member's own.
 mark = calls.length;
 await api.logout("hotrod");
@@ -202,6 +210,13 @@ await api.sessions("hotrod").revokeSid("usr_1", "sid_1");
 const one2 = since(mark).find((c) => c.u.includes("/revoke"));
 check(one2 && one2.u === NODE + "/auth/sessions/sid_1/revoke",
   "and a node keeps its own unscoped single revoke", one2 && one2.u);
+
+// The same call with no node named. Here the door IS a node, and the id is what addresses one, so
+// its absence is refused rather than answered from whichever connection happens to be first.
+let refused = null;
+try { await api.sessions(null).list("usr_1"); } catch (e) { refused = e; }
+check(refused instanceof Error && /concrete host id/.test(refused.message),
+  "a node's sessions cannot be read without naming the node", refused ? refused.message : "(no error)");
 
 mark = calls.length;
 await api.identities("hotrod").startLink("discord");

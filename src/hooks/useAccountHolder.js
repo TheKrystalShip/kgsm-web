@@ -1,34 +1,40 @@
-import React from "react";
-
 import { sessionStore } from "../lib/sessionStore.js";
+import { useStore } from "../lib/store.js";
+import { clusterStore } from "../lib/stores/cluster.js";
 
-// useAccountHolder — where this cluster's accounts are held.
+// useAccountHolder — whether this cluster's accounts belong to an anchor, and where this browser can
+// reach them.
 //
-// A cluster whose accounts sit with an anchor has ONE set of them, and the member a screen happens
-// to be pointed at is a routing detail nobody chooses: no picker, no "on this node", one list. A
-// cluster without an anchor keeps its accounts on each node, and there the node is the subject and
-// naming it is the honest thing to do. Both screens that administer accounts ask the same question,
-// so they ask it the same way.
+// Two facts, and keeping them apart is the whole point. `anchored` says the accounts are the
+// CLUSTER's: one set, one tier everywhere, administered on the anchor's page and on no node's.
+// `anchor` says where THIS browser can read and write them — the door it signed in through — and it
+// is empty for a session opened at a node, whatever the cluster has since become.
 //
-// `anchor` is the anchor's address, or "" when the node holds its own. `known` says whether a member
-// has answered yet — a screen that draws the per-node framing before the answer arrives would show
-// it and then take it away. A browser that has signed in already knows on the first render, because
-// the address is kept; only a first visit waits.
+// They answer differently exactly once, and it is the case worth rendering honestly: a node that
+// held its own accounts joins a cluster with an anchor. The cluster now says the anchor holds them
+// and this session still cannot act on them, so the surface names the holder rather than offering a
+// table whose every write the node refuses.
+//
+// Live, because the cluster is. The capability assignment is re-read on every roster read and on
+// cluster discovery's own cadence, so an anchor joining, leaving or being reassigned moves the
+// surfaces on its own — no reload, no redeploy.
+//
+// `known` says whether there is an answer yet. A door that is an anchor answers on the first render,
+// because the address is kept; otherwise it waits for the cluster to have been read once. Until
+// then the answer is "no anchor", which is the safe way round: the account calls resolve their own
+// door, so a surface drawn a moment early still reaches the right place.
+const AUTH_CAPABILITY = "auth";
+
 function useAccountHolder() {
-  const [state, setState] = React.useState(() => {
-    const held = sessionStore.anchorOrigin();
-    return { anchor: held || "", known: !!held };
-  });
+  // Subscribed for its own sake — the value is read back through the store's resolver, so what
+  // "held" means is defined once, where the capability list lives.
+  useStore(clusterStore, s => s.capabilities);
+  const everLoaded = useStore(clusterStore, s => s.everLoaded);
 
-  React.useEffect(() => {
-    let live = true;
-    sessionStore.resolveAnchor().then(
-      (url) => { if (live) setState({ anchor: url || "", known: true }); },
-      () => { if (live) setState((s) => (s.known ? s : { anchor: "", known: false })); });
-    return () => { live = false; };
-  }, []);
+  const anchor = sessionStore.anchorOrigin() || "";
+  const holder = clusterStore.holderOf(AUTH_CAPABILITY);
 
-  return state;
+  return { anchor, holder, anchored: !!anchor || !!holder, known: !!anchor || everLoaded };
 }
 
 export { useAccountHolder };

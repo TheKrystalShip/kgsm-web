@@ -48,11 +48,15 @@ function OrphanedCapabilities({ capabilities, canReassign, onReassign }) {
   );
 }
 
-function AnchorRow({ entry, capability, hovered, onHover, onSelect, hostId, canManage, onReassign }) {
+// Only the member holding `auth` opens: its page is the cluster's accounts, and that is the whole of
+// what there is to see behind an anchor. One holding nothing, or holding a capability with no page,
+// has no destination — so the row does not pretend to be a link to one.
+function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, canManage, onReassign }) {
   const fed = entry.fed;
   const isHovered = hovered === entry.key;
   const tone = membershipRowTone(fed.membership);
   const latencyLabel = entry.latencyMs != null ? Math.round(entry.latencyMs) + "ms" : "—";
+  const opens = capability === "auth" && !!onOpenAnchor;
 
   return (
     <div
@@ -60,7 +64,10 @@ function AnchorRow({ entry, capability, hovered, onHover, onSelect, hostId, canM
       onMouseEnter={() => onHover(entry.key)}
       onMouseLeave={() => onHover(null)}
     >
-      <div className={"dash-fleet-row dash-fleet-row--" + tone} onClick={() => onSelect(entry.key)}>
+      <div
+        className={"dash-fleet-row dash-fleet-row--" + tone + (opens ? "" : " dash-fleet-row--static")}
+        onClick={opens ? onOpenAnchor : undefined}
+      >
         <span className="dash-fleet-row__id">
           <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
           <span className="dash-fleet-row__name">{fed.label || fed.nodeId}</span>
@@ -76,6 +83,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onSelect, hostId, canM
         </span>
         <span className="dash-fleet-row__end">
           <span className="dash-fleet-row__latency">{latencyLabel}</span>
+          {opens && <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />}
         </span>
       </div>
       <div className="cluster-node-row__badges">
@@ -95,7 +103,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onSelect, hostId, canM
   );
 }
 
-function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, onSelect, hostId, actingLabel, canManage, admin }) {
+function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, onOpenAnchor, hostId, actingLabel, canManage, admin }) {
   const [assigning, setAssigning] = React.useState(null);
   const orphaned = (capabilities || []).filter(c => c.orphaned);
   if (!anchors.length && !orphaned.length) return null;
@@ -125,7 +133,7 @@ function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, o
             capability={capabilityOf(entry.fed.nodeId)}
             hovered={hovered}
             onHover={onHover}
-            onSelect={onSelect}
+            onOpenAnchor={onOpenAnchor}
             hostId={hostId}
             canManage={canReassign}
             onReassign={setAssigning}

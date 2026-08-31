@@ -21,6 +21,7 @@ import React from "react";
 
 import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
+import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { useStore } from "../../lib/store.js";
 import { useKeyedResource } from "../../lib/keyedResource.js";
 import { fetchLeafCommands, fetchLeafReactorProposals, hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
@@ -29,7 +30,7 @@ import { ROUTE_TABS } from "../../lib/labels.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
 import { AssistantConversations } from "./AssistantConversations.jsx";
 import { ApiOverview } from "./ApiOverview.jsx";
-import { ApiUsers } from "./ApiUsers.jsx";
+import { AccountsAdmin } from "../accounts/AccountsAdmin.jsx";
 import { MonitorThresholds } from "./MonitorThresholds.jsx";
 import { BotOverview } from "./BotOverview.jsx";
 import { FirewallOverview } from "./FirewallOverview.jsx";
@@ -63,9 +64,10 @@ const LEAF_TABS = {
     { id: "conversations", label: "Conversations", icon: "messages-square", render: (p) => <AssistantConversations {...p} /> },
   ],
   // Accounts belong to the API leaf because kgsm-api is what holds the account store — administered
-  // where the service is, next to its logs and its configuration.
+  // where the service is, next to its logs and its configuration. Only while it holds them: see
+  // tabOffered.
   api: [
-    { id: "users", label: "Users", icon: "users", render: (p) => <ApiUsers {...p} /> },
+    { id: "users", label: "Users", icon: "users", render: (p) => <AccountsAdmin hostId={p.hostId} /> },
   ],
   // Thresholds belong to the Monitor leaf for the same reason: the monitor is what evaluates them,
   // sample by sample, and the API only mirrors its verdicts into the alert feed.
@@ -94,6 +96,16 @@ const LEAF_TABS = {
   ],
 };
 
+// Whether a leaf's own tab is offered at all. Every one above is unconditional except the API
+// leaf's accounts: a node holds its own only while nothing else does, and in a cluster with an auth
+// anchor they are the anchor's. It holds them and is the only writer — a node keeps a read-only
+// replica and refuses every write against it — so the tab is not on any node and the anchor's page
+// carries it.
+function tabOffered(leafId, tabId, anchored) {
+  if (leafId === "api" && tabId === "users") return !anchored;
+  return true;
+}
+
 // The Overview body a leaf renders. Falls back to the generic one, which is built purely from the
 // service row + config descriptor and therefore works for any leaf.
 const LEAF_OVERVIEW = {
@@ -111,6 +123,10 @@ const LEAF_OVERVIEW = {
 
 function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAudit }) {
   const hosts = useStore(hostsStore, s => s.list);
+  // Whose accounts this node's API leaf answers for, which decides whether it offers the tab at all.
+  // Read live: a node that joins a cluster with an auth anchor loses it where the reader stands,
+  // with no reload and nothing redeployed.
+  const { anchored } = useAccountHolder();
   const svcEntry = useStore(servicesStore, s => (hostId ? s.byHost[hostId] : null));
 
   useKeyedResource(
@@ -162,7 +178,7 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAu
   }, [hostId, leafId, tab]);
 
   const extraTabs = [
-    ...(LEAF_TABS[leafId] || []),
+    ...(LEAF_TABS[leafId] || []).filter(t => tabOffered(leafId, t.id, anchored)),
     // Only once a manifest is actually in hand — a tab that appears and then turns out to be empty
     // is worse than one that appears a moment late.
     ...(commands ? [{

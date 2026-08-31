@@ -33,7 +33,7 @@ import { QueuedJobs, RunningJobs } from "./diagnostics/DiagJobs.jsx";
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
-function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onRunAlertAction, onOpenServer, onViewAlerts, onViewAudit, onOpenLeaf }) {
+function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onRunAlertAction, onOpenServer, onViewAlerts, onViewAudit, onOpenLeaf, onOpenAnchor }) {
   useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
@@ -195,7 +195,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
               members={clusterNodesRaw}
               hovered={hoveredNode}
               onHover={setHoveredNode}
-              onSelect={selectNode}
+              onOpenAnchor={onOpenAnchor}
               hostId={actingHostId}
               actingLabel={actingLabel}
               canManage={canManageMembers}

@@ -1169,6 +1169,14 @@
   background: var(--surface-2);
 }
 
+/* A row with nowhere to go — an anchor holding no capability, which has no page behind it. The row
+   is a link everywhere else it is used, so what this takes away is the promise of one. */
+.dash-fleet-row--static,
+.dash-fleet-row--static:hover {
+  cursor: default;
+  background: transparent;
+}
+
 .dash-fleet-row:hover .dash-fleet-row__go {
   color: var(--krystal-teal);
 }

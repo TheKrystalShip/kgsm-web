@@ -10,6 +10,7 @@ import { useAssistantDock } from "./AssistantDockContext.jsx";
 import { ServerGate } from "../pages/ServerGate.jsx";
 
 const AlertsPage = React.lazy(() => import("../pages/AlertsPage.jsx"));
+const AnchorPage = React.lazy(() => import("../pages/accounts/AnchorPage.jsx"));
 const AuditLogPage = React.lazy(() => import("../pages/AuditLogPage.jsx"));
 const DashboardPage = React.lazy(() => import("../pages/DashboardPage.jsx"));
 const ClusterPage = React.lazy(() => import("../pages/DiagnosticsPage.jsx"));
@@ -89,7 +90,9 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onViewAlerts={() => setRoute({ kind: "attention" })}
       onViewAudit={() => setRoute({ kind: "audit" })}
       onOpenLeaf={(hostId, leaf, leafTab) => setRoute({ kind: "leaf", hostId, leaf, tab: leafTab })}
+      onOpenAnchor={() => setRoute({ kind: "anchor" })}
     />}
+    {route.kind === "anchor"  && <AnchorPage />}
     {route.kind === "leafConfig" && <LeafConfigPage
       hostId={route.hostId}
       leafId={route.leaf}

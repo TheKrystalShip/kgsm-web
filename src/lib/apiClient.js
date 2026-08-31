@@ -797,14 +797,19 @@ import("./stores.js").then((m) => {
   //
   // Sign-out is the exception and stays on the node (see logout below).
   function sessionsScoped(id) {
-    if (!id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch(err => {
       if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
       sessionStore.expire();
       return call();
     });
+    // A host id is what addresses a NODE, so it is required once the door turns out to be one, and
+    // not before. An anchor is addressed by its own origin and the id is never read — which is what
+    // lets a surface about the cluster's accounts be about the cluster, holding no node.
     const at = (method, path, body) =>
-      accountDoor(id).then((d) => doorFetch(method, path, body, id, d));
+      accountDoor(id).then((d) => {
+        if (!d.anchor && !id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
+        return doorFetch(method, path, body, id, d);
+      });
     return {
       // Self, or (admin) another user's sessions via ?userId=.
       list: (userId) => withRetry(() => at("GET", "/auth/sessions" + (userId ? "?userId=" + encodeURIComponent(userId) : ""))).then(adapt.adaptSessions),

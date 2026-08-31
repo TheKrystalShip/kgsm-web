@@ -91,22 +91,38 @@ tabs, because it invalidates every door on the card rather than one of them. And
 check here is also the anchor's** — the client validates shape so somebody is told while
 typing, and the anchor decides.
 
-## Administering accounts — two screens, one question
+## Administering accounts — one screen, two homes
 
-`leaf/ApiUsers.jsx` answers "who may do what" and `SettingsIdentities.jsx` answers "how do I prove
-who I am". Both ask `useAccountHolder()` first, because whose accounts these are is the cluster's
-answer rather than either screen's. Held by an anchor, an account is the cluster's: one list, no
-host picker, and the member the page is routed to is a routing detail that names nothing. Held by
-each node, they are that node's and the node is named — a list that did not name it would imply an
-account exists somewhere it does not. `SettingsSessions.jsx` asks it too, for two reasons that both cost a person something. It reads
-the sessions from ONE source under an anchor, because every member resolves to the same anchor and
-fanning out would fetch the identical list once per member — every device rendered as many times as
-the cluster has nodes, each copy tagged with a member that has nothing to do with it. And it labels
-recency `last refreshed` rather than `last active`, because an anchor's `lastSeen` is the last time
-the session rotated its tokens, at roughly a quarter-hour's granularity: calling that activity would
-report a person from a token. A node measures its own requests and means what it says.
+`accounts/AccountsAdmin.jsx` answers "who may do what". Where it is MOUNTED is the cluster's answer,
+not the screen's, and `useAccountHolder()` is the one question that decides it.
 
-Neither screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
+Held by an **anchor**, the accounts are the cluster's: one list, one tier everywhere, and
+`accounts/AnchorPage.jsx` carries the screen — the anchor holds them and is the only writer, so a
+node keeps a read-only replica and refuses every write against it. No node's API leaf offers the tab
+at all, and a link to one made before the cluster existed lands on the leaf's overview. Held by a
+**node**, they are that node's, the screen sits on its API leaf beside the service's logs and its
+configuration, and the node is named — a list that did not name it would imply an account exists
+somewhere it does not.
+
+The hook reports two facts and they are not the same one. `anchored` says the accounts belong to an
+anchor, which is what decides where the screen lives; `anchor` says where THIS browser can reach
+them, which is empty for a session opened at a node. They disagree exactly once — a node that held
+its own accounts joins a cluster with an anchor — and the anchor's page renders that honestly by
+naming the holder rather than offering a table whose every write the node refuses. Because the
+capability assignment is re-read on the roster's own cadence, the tab moves with no reload and
+nothing redeployed.
+
+`SettingsIdentities.jsx` answers the other question — "how do I prove who I am" — and asks the same
+hook. `SettingsSessions.jsx` asks it too, for two reasons that each cost a person something. It
+reads the sessions from ONE source under an anchor, because every member resolves to the same anchor
+and fanning out would fetch the identical list once per member — every device rendered as many times
+as the cluster has nodes, each copy tagged with a member that has nothing to do with it. And it
+labels recency `last refreshed` rather than `last active`, because an anchor's `lastSeen` is the
+last time the session rotated its tokens, at roughly a quarter-hour's granularity: calling that
+activity would report a person from a token. A node measures its own requests and means what it
+says. Both of those follow the DOOR, never `anchored` — they describe where the rows were measured.
+
+No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 
 ## The split-page folders — keep the entry thin
 
@@ -120,6 +136,7 @@ pieces live beside it.
 | `DiagnosticsPage.jsx` | `diagnostics/` | `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), host cards, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
+| `accounts/AnchorPage.jsx` | `accounts/` | `AccountsAdmin` (the roster, the create/edit modal and its sessions half) |
 | `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `DashFleetStrip`, `AddWidgetSheet`, `DashboardEmpty` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
 | `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |
