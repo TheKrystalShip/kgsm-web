@@ -16,6 +16,9 @@ globalThis.sessionStorage = dom.window.sessionStorage;
 globalThis.document = dom.window.document;
 
 const ANCHOR = "https://auth.kgsm.test";
+// The door is chosen by a person and stored. Nothing discovers it, because a clustered node
+// announces nothing about its cluster — which is why no stub below answers for one.
+localStorage.setItem("krystal:anchor", JSON.stringify({ origin: ANCHOR, kind: "anchor" }));
 localStorage.setItem("krystal:hosts:registry", JSON.stringify([
   { id: "hotrod", url: "https://kgsm.test", name: "hotrod" },
   { id: "hotbox", url: "https://hotbox.test", name: "hotbox" },
@@ -43,9 +46,6 @@ globalThis.fetch = async (url, opts) => {
       return json({ token: "access.1", refresh: "refresh.1", tier: "admin", userId: "usr_1", status: "active" });
     }
     if (u.endsWith("/auth/session/sign-out")) return json({});
-  }
-  if (u.endsWith("/api/v1/cluster/auth")) {
-    return json({ held: true, memberId: "hotrod-auth", url: ANCHOR, orphaned: false });
   }
   return json({});
 };

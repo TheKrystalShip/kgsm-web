@@ -18,49 +18,65 @@ function originOf(input) {
   try { return new URL(/^https?:\/\//i.test(s) ? s : "https://" + s).origin; } catch { return ""; }
 }
 
-// The anchor this browser last used. Held so a reload can draw the sign-in before any member has
-// answered — the address is not a credential and a stale one costs a failed discovery, not a wrong
-// session, because the tokens are only ever accepted on the strength of their signature.
-function rememberAnchor(url) {
-  try { if (url) localStorage.setItem(ANCHOR_KEY, url); else localStorage.removeItem(ANCHOR_KEY); } catch { /* private mode */ }
+// THE DOOR — where this browser signs in, and the only thing about it worth keeping. Both entry
+// paths land here: an anchor holding a cluster's accounts, or a standalone node holding its own.
+// `kind` is what separates them, and it decides more than wording — an anchor administers accounts
+// under a cluster-scoped path a node does not have, and renews sessions a node never minted.
+//
+// Not a credential. A stale one costs a failed renewal, never a wrong session, because a token is
+// only ever accepted on the strength of its signature.
+function rememberDoor(door) {
+  try {
+    if (door && door.origin) localStorage.setItem(ANCHOR_KEY, JSON.stringify({ origin: door.origin, kind: door.kind || "anchor" }));
+    else localStorage.removeItem(ANCHOR_KEY);
+  } catch { /* private mode */ }
 }
-function rememberedAnchor() {
-  try { return localStorage.getItem(ANCHOR_KEY) || ""; } catch { return ""; }
+function rememberedDoor() {
+  try {
+    const raw = localStorage.getItem(ANCHOR_KEY);
+    if (!raw) return null;
+    // A bare string is an anchor address — the only shape this key ever held before it had to carry
+    // a standalone node too. Read rather than discarded, so a browser mid-session is not signed out
+    // to learn a field name.
+    if (raw[0] !== "{") return { origin: raw, kind: "anchor" };
+    const d = JSON.parse(raw);
+    return d && d.origin ? { origin: d.origin, kind: d.kind === "standalone" ? "standalone" : "anchor" } : null;
+  } catch { return null; }
 }
 
 // ---- discovery ------------------------------------------------------------
 //
 // A browser holding nothing asks any member where the cluster signs people in. Unauthenticated by
 // design: it is asking BECAUSE it has no session, and what it learns is that this cluster has an
-// anchor and where to knock — which the sign-in page would have told it anyway.
+// What an address says it is, asked before anybody has classified it. Unauthenticated, because a
+// browser holding nothing is exactly who is asking, and it is the only question that can be answered
+// before a person has chosen a door.
 //
-// The four answers are kept apart because a person acts on them differently, and collapsing any of
-// them into "sign-in is unavailable" turns a fixable configuration into a mystery:
+// A clustered node announces nothing about its cluster — not the anchor's address, not its own
+// membership — so there is nothing to discover THROUGH a node and no member is asked anything here.
+// An address is an anchor because it says so, or it is not.
 //
-//   held, url          → sign in there
-//   held, orphaned     → the assignment names a member that has left. Nothing serves it, and every
-//                        other surface reads healthy, so this is the only place it can be said
-//   held, url: null    → the holder is known and states no address a browser can reach
-//   held: false        → this member knows of no anchor. Either the cluster has none or it has not
-//                        heard; those are indistinguishable from here and both mean the same thing
-//                        to a person, which is to sign in against the member they are pointed at
-export async function discoverAnchor(memberOrigin, { fetchImpl = fetch, signal } = {}) {
-  const base = originOf(memberOrigin);
-  if (!base) return { ok: false, reason: "unreachable" };
+// `holding` is the part that decides whether a person can be sent there. An anchor standing by is a
+// promotion candidate rather than a second authority, and offering it as a door puts somebody in
+// front of one that refuses them.
+export async function anchorIdentity(address, { fetchImpl = fetch, signal } = {}) {
+  const base = originOf(address);
+  if (!base) return { ok: false };
   try {
-    const res = await fetchImpl(base + "/api/v1/cluster/auth", { headers: { Accept: "application/json" }, signal });
-    if (!res.ok) return { ok: false, reason: "unreachable" };
+    const res = await fetchImpl(base + "/auth/identity", { headers: { Accept: "application/json" }, signal });
+    if (!res.ok) return { ok: false };
     const body = await res.json();
-    const url = originOf(body && body.url);
+    // Named, not inferred. Anything else answering on this path is not an anchor, and treating a
+    // 200 as proof would classify a reverse proxy as the cluster's identity authority.
+    if (!body || body.name !== "kgsm-auth-anchor") return { ok: false };
     return {
       ok: true,
-      held: !!(body && body.held),
-      memberId: (body && body.memberId) || "",
-      url: url || null,
-      orphaned: !!(body && body.orphaned),
+      origin: base,
+      cluster: body.cluster || "",
+      holding: body.holding !== false,
     };
   } catch {
-    return { ok: false, reason: "unreachable" };
+    return { ok: false };
   }
 }
 
@@ -77,12 +93,20 @@ export async function discoverAnchor(memberOrigin, { fetchImpl = fetch, signal }
 // tab. It is OFF by default on the anchor, so an anchor that does not state it is one that is not
 // offering it — assuming otherwise puts a sign-up card in front of the first person to deploy this
 // panel against a cluster that never turned it on.
-export async function anchorDoors(anchorUrl, { fetchImpl = fetch, signal } = {}) {
-  const closed = { providers: [], redirects: false, registration: false, reachable: false };
-  const base = originOf(anchorUrl);
+export async function authDoors(origin, { fetchImpl = fetch, signal } = {}) {
+  const closed = { providers: [], redirects: false, registration: false, reachable: false, heldBy: null };
+  const base = originOf(origin);
   if (!base) return closed;
   try {
     const res = await fetchImpl(base + "/auth/providers", { headers: { Accept: "application/json" }, signal });
+    // A node whose cluster holds the accounts refuses every auth path and names the holder — a name,
+    // never an address, because a clustered node announces nothing about its cluster. It is the
+    // difference between "this node is down" and "this node is not the door", and a person acts on
+    // those differently.
+    if (res.status === 503) {
+      const holder = res.headers && res.headers.get ? res.headers.get("X-Kgsm-Auth-Holder") : null;
+      return { ...closed, reachable: true, heldBy: holder || "" };
+    }
     if (!res.ok) return closed;
     const body = await res.json();
     return {
@@ -90,6 +114,7 @@ export async function anchorDoors(anchorUrl, { fetchImpl = fetch, signal } = {})
       redirects: !!(body && body.redirects),
       registration: !!(body && body.registration),
       reachable: true,
+      heldBy: null,
     };
   } catch {
     return closed;
@@ -180,4 +205,4 @@ export const refreshSession = (anchorUrl, refresh, opts) =>
 export const signOut = (anchorUrl, refresh, opts) =>
   post(anchorUrl, "/auth/session/sign-out", { refresh }, opts);
 
-export { ANCHOR_KEY, originOf, rememberAnchor, rememberedAnchor };
+export { ANCHOR_KEY, originOf, rememberDoor, rememberedDoor };

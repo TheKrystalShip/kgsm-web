@@ -23,7 +23,9 @@ import { AuthError, AuthShell, DoorwayChip, PasswordField, PasswordMeter, Provid
 // invalidates the tabs, the providers and the form alike, so that one sits at the top of the card.
 
 function SignInPage({ cluster, tab, onTab, onSession, onChangeCluster }) {
-  const anchor = cluster && cluster.url;
+  // Whichever door was chosen — an anchor holding a cluster's accounts, or a standalone node
+  // holding its own. Both mint their own sessions, and the credential calls are the same on each.
+  const anchor = cluster && cluster.origin;
   const registering = tab === "register";
 
   const [username, setUsername] = React.useState("");

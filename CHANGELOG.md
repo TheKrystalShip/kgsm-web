@@ -8,6 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.199.0]
+
+### Fixed — a standalone node is a door again
+
+Pointing the panel at a node that holds its own accounts showed "No sign-in here. Nothing here is
+holding accounts." and stopped. The one-session work made an anchor the only door there was, so a
+deployment with no anchor — which is most of them — had nowhere to sign in at all.
+
+### Changed — two entry paths, and nothing is discovered through a node
+
+An auth anchor holds a cluster's accounts; a standalone node holds its own. Both mint and renew their
+own sessions, both are doors, and neither is above the other. `identifyAddress` asks the address
+itself what it is: `GET /auth/identity` names an anchor, and anything else has to answer as a
+kgsm-api before its `/auth/providers` says whether it keeps its own accounts.
+
+A node that belongs to a cluster is not an entry path. It serves no auth and announces nothing about
+its cluster, so it is refused at the address box rather than after a sign-in attempt, and the refusal
+names the holder — a name, never an address, because the node has none to give.
+
+Where this browser signs in is now a stored fact, chosen by a person, carrying whether it is an
+anchor or a node. Renewal reads the door, which is what makes a standalone session renewable; the
+account surfaces read the narrower question of whether that door is an anchor, which is what keeps a
+cluster-scoped path off a node that does not serve it. An anchor is never registered as a node: it
+serves no servers and no metrics, and a connection to one would be called by every fan-out and named
+in every banner forever.
+
+### Added — `npm run check:entry`
+
+Fifteen assertions over the three things somebody can type, plus the claim underneath all of it: no
+node is asked where this browser signs in, measured as a zero rather than asserted as an absence.
+
 ## [1.198.0]
 
 ### Added — Clear local data, in the Danger zone

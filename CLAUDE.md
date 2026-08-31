@@ -35,6 +35,7 @@ npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
 
+npm run check:entry  # what an address is: anchor, standalone node, or a node inside a cluster
 npm run check:door   # where an account call goes — anchor or node — in both clusters
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin

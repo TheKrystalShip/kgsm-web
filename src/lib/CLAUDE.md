@@ -138,16 +138,28 @@ re-exports `stores/` — import from either.
   for auth-disabled dev.
 
 **Auth / RBAC / capabilities**
-- `anchor.js` — where the cluster signs people in, and the calls that do it. Discovery
-  (`GET /api/v1/cluster/auth` on any member, unauthenticated because a browser asking has no session
-  yet), the anchor's door list, the interactive provider bounce, and sign-in / register / refresh /
-  sign-out. It does not go through `apiClient`: every call is anonymous or carries a token passed
+- `anchor.js` — where this browser signs in, and the calls that do it. `anchorIdentity`
+  (`GET /auth/identity`, unauthenticated because a browser asking has no session yet — an address is
+  an anchor because it says so, never because something was inferred from it), `authDoors`
+  (`GET /auth/providers`, read on an anchor and a node alike, and which reports a clustered node's
+  503 as the holder's NAME), the interactive provider bounce, sign-in / register / refresh /
+  sign-out, and THE DOOR — the one stored fact about where this browser signs in, carrying its
+  `kind`. It does not go through `apiClient`: every call is anonymous or carries a token passed
   explicitly, which is the opposite of what that seam is for.
-- `sessionStore.js` — **ONE session, for the whole cluster.** The anchor mints it and is the only
-  thing that renews it; every member accepts it by verifying the anchor's signature against the
-  published key and resolves the tier from its own replica. No member ever issues this browser a
-  credential or extends one — a member that could would be a second door to the same session on
-  every machine in the cluster, permanently.
+- **Two entry paths, and nothing is discovered through a node.** An auth anchor holds a cluster's
+  accounts; a standalone node holds its own. Both mint and renew their own sessions and neither is
+  above the other. A node that belongs to a cluster is not an entry path at all — it serves no auth
+  and announces nothing about its cluster, so it is refused, and the refusal can name the holder but
+  never an address. `authFlow.identifyAddress` is the one place that decides which of those an
+  address is.
+- `sessionStore.js` — **ONE session.** Whichever door minted it renews it, and only that door:
+  `doorOrigin()` is what renewal reads, `anchorOrigin()` is the narrower question of whether that
+  door is an anchor, and the account surfaces key off the second. In a cluster the anchor mints, and
+  every member accepts by verifying the anchor's signature against the published key and resolves
+  the tier from its own replica; no member ever issues this browser a credential or extends one — a
+  member that could would be a second door to the same session on every machine in the cluster,
+  permanently. The door is a stored fact set when somebody chose it, never discovered: nothing here
+  asks a member anything.
   It also holds the LIVE half of the tier: the primary stream's `me` topic carries `{tier, status}`
   whenever the account is regraded, and `applyMePatch` writes it as given, so a demotion lands
   exactly like a promotion. `onTierChange` reports a genuine delta to the two things a re-render

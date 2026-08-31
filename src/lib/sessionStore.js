@@ -1,4 +1,4 @@
-import { discoverAnchor, refreshSession, rememberAnchor, rememberedAnchor, signOut as anchorSignOut } from "./anchor.js";
+import { refreshSession, rememberDoor, rememberedDoor, signOut as anchorSignOut } from "./anchor.js";
 import { REGISTRY_KEY, homeConn, originOfHost } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore } from "./stores.js";
@@ -191,31 +191,24 @@ import { hostsStore } from "./stores.js";
     });
   }
 
-  // ---- where the cluster signs in ----------------------------------------
-  // The address is discovered from any member and kept, so a reload can draw the sign-in before a
-  // member has answered. Not a credential: a stale one costs a failed renewal, never a wrong
-  // session, because a token is only ever accepted on the strength of its signature.
-  let anchorUrl = rememberedAnchor();
-  let anchorAnswer = null;
-  const anchorOrigin = () => anchorUrl;
-  function setAnchor(url) { anchorUrl = url || ""; rememberAnchor(anchorUrl); anchorAnswer = null; }
-
-  // A member that ANSWERS "nobody holds the accounts" has answered; a member that says nothing has
-  // not. The first is remembered for the life of the page, so a cluster administering its own
-  // accounts is not re-probed before every read; the second is asked again, because silence is not
-  // a fact about the cluster.
-  async function resolveAnchor() {
-    if (anchorUrl) return anchorUrl;
-    if (anchorAnswer) return anchorAnswer;
-    const conn = homeConn();
-    if (!conn) return "";
-    anchorAnswer = discoverAnchor(conn.url).then((found) => {
-      if (found.ok && found.held && found.url) setAnchor(found.url);
-      else if (!found.ok) anchorAnswer = null;
-      return anchorUrl;
-    }, () => { anchorAnswer = null; return anchorUrl; });
-    return anchorAnswer;
+  // ---- where this browser signs in ---------------------------------------
+  // The door is chosen by a person and kept, never discovered through anything else. A clustered
+  // node announces nothing about its cluster — not the anchor's address, not its own membership — so
+  // there is nothing to ask a member and no call here asks one.
+  //
+  // Two kinds, and the difference is load-bearing. An anchor mints for a whole cluster and keeps its
+  // accounts under a cluster-scoped path; a standalone node mints for itself and keeps its own. Both
+  // renew what they minted, which is why renewal reads the door and not the anchor.
+  let door = rememberedDoor();
+  const doorOrigin = () => (door ? door.origin : "");
+  const anchorOrigin = () => (door && door.kind === "anchor" ? door.origin : "");
+  function setDoor(next) {
+    door = next && next.origin ? { origin: next.origin, kind: next.kind === "standalone" ? "standalone" : "anchor" } : null;
+    rememberDoor(door);
   }
+  // Kept async: every caller already awaits it, and the answer is a stored fact rather than a
+  // question anybody is asked.
+  async function resolveAnchor() { return anchorOrigin(); }
 
   // ---- adopt (a session minted out of band) -------------------------------
   // Both doors end here — a password sign-in and a provider's return leg — so a session is in
@@ -244,7 +237,7 @@ import { hostsStore } from "./stores.js";
     const refreshTok = readRefresh();
     if (!refreshTok) { setRec({ status: "expired", error: "login_required" }); return Promise.resolve("expired"); }
 
-    const p = resolveAnchor().then(url => {
+    const p = Promise.resolve(doorOrigin()).then(url => {
       if (!url) {
         // Nothing to renew against. The session is not wrong — there is nowhere to take it — so this
         // is an outage with a cause, and the surfaces can say which.
@@ -365,6 +358,8 @@ import { hostsStore } from "./stores.js";
   // happens either way, because somebody pressing sign out is signed out.
   function signOut() {
     const refreshTok = readRefresh();
+    // Only an anchor is told: a standalone node ends its own session through its logout endpoint,
+    // which the shell already calls on every node it drives.
     const url = anchorOrigin();
     drop();
     if (url && refreshTok) { try { anchorSignOut(url, refreshTok); } catch { /* best effort */ } }
@@ -410,7 +405,8 @@ import { hostsStore } from "./stores.js";
   store.markNode = markNode;
   store.forgetNode = forgetNode;
   store.anchorOrigin = anchorOrigin;
-  store.setAnchor = setAnchor;
+  store.setDoor = setDoor;
+  store.doorOrigin = doorOrigin;
   store.resolveAnchor = resolveAnchor;
 
   const sessionStore = store;

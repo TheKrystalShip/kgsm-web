@@ -2,7 +2,7 @@ import React from "react";
 import { establishClusterSession } from "../lib/authRedirect.js";
 import { writeStoredUser } from "../lib/authStorage.js";
 import {
-  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember,
+  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, rememberDoor,
   lastMemberOrigin, readPendingSession, rememberMember, stashPendingSession,
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
@@ -84,34 +84,48 @@ function AuthGate({ user, onUser }) {
   // Keep the address honest for the screen actually showing.
   React.useEffect(() => { go(kind); }, [kind]);
 
-  // Ask where this cluster signs people in. Any member will do, since the answer is the cluster's.
-  // Only the sign-in screens need it, so `#/connect` costs no round trip.
+  // A door that can be signed in at is kept, and a standalone node is ALSO the node this browser
+  // drives — so it joins the connection set. An anchor never does: it is not a node, it serves no
+  // servers or metrics, and the nodes come from its own roster once there is a session to ask with.
+  const applyDoor = React.useCallback((found) => {
+    if (found.kind === "anchor" || found.kind === "standalone") {
+      rememberDoor(found);
+      if (found.kind === "standalone") adoptMember({ origin: found.origin, label: found.label, reachable: true });
+    }
+    setCluster(found);
+  }, []);
+
+  // Classify the address this browser last used. Only the sign-in screens need it, so `#/connect`
+  // costs no round trip.
   React.useEffect(() => {
     if (pending || cluster || inFlight.current) return;
     if (kind !== "signin" && kind !== "register") return;
-    const preferred = lastMemberOrigin() || (homeConn() && homeConn().url) || "";
+    // The DOOR first, and it is the only one of these that is a door. The other two are nodes this
+    // browser drives, and a node that belongs to a cluster is not somewhere anybody signs in — so
+    // preferring one would send a returning person to a refusal instead of to the sign-in they used
+    // yesterday. They stay as the fallback for a browser that has a node and has never signed in.
+    const preferred = sessionStore.doorOrigin() || lastMemberOrigin() || (homeConn() && homeConn().url) || "";
     if (!preferred) { setKind("connect"); return; }
     inFlight.current = true;
-    discoverCluster(preferred).then((found) => {
+    identifyAddress(preferred).then((found) => {
       inFlight.current = false;
       if (!mounted.current) return;
       // Nothing answered, so there is nothing to sign in to yet — back to the one question.
-      if (found.state === "unreachable") { setKind("connect"); return; }
+      if (found.kind === "unreachable" || found.kind === "invalid") { setKind("connect"); return; }
       rememberMember(preferred);
-      setCluster(found);
+      applyDoor(found);
     });
-  }, [kind, cluster, pending]);
+  }, [kind, cluster, pending, applyDoor]);
 
   const pendingOrigin = React.useMemo(
     () => lastMemberOrigin() || (homeConn() && homeConn().url) || "",
     [],
   );
 
-  const pickCluster = React.useCallback((probe) => {
-    adoptMember(probe);
-    setCluster(null);
+  const pickCluster = React.useCallback((found) => {
+    applyDoor(found);
     setKind("signin");
-  }, []);
+  }, [applyDoor]);
 
   const changeCluster = React.useCallback(() => {
     forgetMember();
@@ -187,7 +201,7 @@ function AuthGate({ user, onUser }) {
 
   // The cluster answered and cannot sign anybody in. Four different facts, and a person acts on each
   // differently.
-  if (cluster && cluster.state !== "ready") {
+  if (cluster && cluster.kind !== "anchor" && cluster.kind !== "standalone") {
     return <ClusterUnavailable cluster={cluster} onChangeCluster={changeCluster} onRetry={() => setCluster(null)} />;
   }
 

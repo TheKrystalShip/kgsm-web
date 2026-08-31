@@ -1,14 +1,18 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
-import { adoptMember, probeMember } from "../../lib/authFlow.js";
+import { identifyAddress } from "../../lib/authFlow.js";
 import { normalizeHostUrl } from "../../lib/connect.js";
 import { AuthError, AuthShell } from "./AuthChrome.jsx";
 
-// ClusterPage — which cluster, and nothing else.
+// ClusterPage — one address, and nothing else.
 //
-// An account is the cluster's, so a cluster is the only thing there is to choose. The address typed
-// here reaches one of its members, which is a routing detail and never surfaces: what comes back is
-// where the cluster signs people in, and everything after this is about the cluster.
+// There are two things worth typing here and the page does not ask which: an auth anchor holding a
+// cluster's accounts, or a standalone node holding its own. Both are doors, neither is above the
+// other, and what was typed is classified by what answers rather than by being told in advance.
+//
+// A node that belongs to a cluster is the third thing somebody types, and it is the one that cannot
+// work: it serves no auth and announces nothing about its cluster, so the only honest answer is that
+// this is not the door. It is refused here rather than after a sign-in attempt.
 //
 // The address is checked before it is kept, so a refusal is what something answered rather than a
 // guess about what was typed.
@@ -26,17 +30,16 @@ function ClusterPage({ onPick }) {
     if (!usable || busy) return;
     setBusy(true);
     setError(null);
-    const probe = await probeMember(typed);
+    const found = await identifyAddress(typed);
     setBusy(false);
-    if (!probe.reachable) { setError(probe.reason); return; }
-    adoptMember(probe);
-    onPick(probe);
+    if (found.kind === "unreachable" || found.kind === "invalid") { setError(found.reason); return; }
+    onPick(found);
   };
 
   return (
     <AuthShell tagline="Sign in to your control panel.">
       <div className="login-card">
-        <div className="login-card__heading">Which cluster do you want to authenticate against?</div>
+        <div className="login-card__heading">Where do you want to sign in?</div>
 
         <AuthError>{error}</AuthError>
 
@@ -45,7 +48,7 @@ function ClusterPage({ onPick }) {
             <span className="addr__scheme">https://</span>
             <input
               id="cluster-address"
-              aria-label="Cluster address"
+              aria-label="Address"
               value={value}
               onChange={(e) => { setValue(e.target.value); if (error) setError(null); }}
               placeholder="kgsm.example.com"

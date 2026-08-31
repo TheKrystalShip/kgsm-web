@@ -46,9 +46,12 @@ localStorage.setItem("krystal:hosts:registry", JSON.stringify([
   { id: "hotrod", url: NODE, name: "hotrod" },
 ]));
 
-// The door is discovered, never assumed — this is the only thing that decides it, and it is what a
-// member's /cluster/auth would be saying.
+// The door is a stored fact chosen by a person, never discovered through a node: a clustered node
+// announces nothing about its cluster, so there is nothing to ask one. This is the whole of what
+// decides where an account call goes.
 const held = process.env.KGSM_DOOR !== "node";
+localStorage.setItem("krystal:anchor", JSON.stringify(
+  held ? { origin: ANCHOR, kind: "anchor" } : { origin: NODE, kind: "standalone" }));
 
 const calls = [];
 const json = (body, status = 200) =>
@@ -59,11 +62,6 @@ globalThis.fetch = async (url, opts) => {
   const method = (opts && opts.method) || "GET";
   calls.push({ u, method, credentials: (opts && opts.credentials) || null, body: opts && opts.body });
 
-  if (u.endsWith("/api/v1/cluster/auth")) {
-    return json(held
-      ? { held: true, memberId: "hotrod-auth", url: ANCHOR, orphaned: false }
-      : { held: false, memberId: null, url: null, orphaned: false });
-  }
   if (/\/auth\/(cluster\/)?users$/.test(u)) return json({ data: [{ id: "usr_1", username: "heisen" }] });
   if (u.endsWith("/auth/identities")) {
     return json({
@@ -94,6 +92,9 @@ const since = (n) => calls.slice(n);
 // Only the ACCOUNT traffic. The session layer legitimately talks to the member — /me, discovery —
 // and counting that here would measure the wrong thing.
 const at = (origin, list) => list.filter((c) => c.u.startsWith(origin) && /\/auth\//.test(c.u));
+// A clustered node is never asked anything about its cluster's identity — the route that answered
+// that is gone, and nothing here may depend on it.
+const askedNodeAboutAuth = () => calls.some((c) => c.u.includes("/api/v1/cluster/auth"));
 
 let mark = calls.length;
 
@@ -208,6 +209,8 @@ const start2 = since(mark).find((c) => c.u.endsWith("/start"));
 check(start2 && start2.u.startsWith(NODE) && !start2.credentials,
   "and the link flow is same-origin, needing nothing said about credentials");
 }
+
+check(!askedNodeAboutAuth(), "and no node was asked where this browser signs in");
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

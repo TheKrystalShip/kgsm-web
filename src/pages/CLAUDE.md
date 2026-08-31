@@ -77,9 +77,12 @@ sign anybody in) and `PendingPage` (signed in, holding nothing).
 the pending session and the field checks — is `lib/authFlow.js` and `lib/anchor.js`, so these
 files are the rendering and nothing else.
 
-**A node is never named here.** An account is the cluster's, so a cluster is the only thing
-anybody chooses; the address somebody gives reaches one of its members, and which member is a
-routing detail that does not surface. **And the text stays thin**: the anchor's refusals name
+**One address, and what answers decides the rest.** Two things are worth typing — an auth anchor
+holding a cluster's accounts, or a standalone node holding its own — and the page does not ask
+which, because `identifyAddress` classifies what answers. A node that belongs to a cluster is the
+third thing somebody types and the one that cannot work: it serves no auth and announces nothing
+about its cluster, so `ClusterUnavailable` refuses it and names the holder, which is a name and
+never an address. **And the text stays thin**: the anchor's refusals name
 the rule they applied, so nothing here keeps a second copy of the rules to stand beside them.
 
 Two rules they encode. **A refusal sits with what it is about**: a wrong password renders

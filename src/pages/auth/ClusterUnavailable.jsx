@@ -1,50 +1,43 @@
 import { Icon } from "../../components/Icon.jsx";
 import { AuthShell } from "./AuthChrome.jsx";
 
-// ClusterUnavailable — the cluster answered, and nobody can sign in.
+// ClusterUnavailable — something answered, and it is not a door.
 //
-// Four different facts reach this screen and a person acts on each of them differently, so they are
-// not collapsed into one apology. Every one is a configuration somebody can fix, and this is the one
-// place any of it can be said — every other surface reads healthy.
+// Each fact reaching this screen is acted on differently, so they are not collapsed into one
+// apology. Every one is a configuration somebody can fix, and this is the one place any of it can be
+// said — every other surface reads healthy.
 //
-// What each says, and why it is its own sentence:
-//
-//   orphaned   a member holds the cluster's accounts on paper and has left. Nothing serves them.
-//              Naming the departed holder is the whole content: an administrator reassigns it.
-//   unrouted   the holder is known and states no address a browser can reach. It is reachable to
-//              the cluster and not to a person, which is a vhost away from working.
-//   none       this member knows of no anchor. Either the cluster has none, or it has not heard —
-//              indistinguishable from here, so it is not guessed at.
-//   unreachable  the anchor is named and is not answering. The one a person can wait out, which is
-//              why it is the only one offering Try again.
+//   held-elsewhere  a node that belongs to a cluster. It serves no auth and announces nothing about
+//                   its cluster, so the holder's NAME is the whole of what can be said — a name is
+//                   not an address, and somebody who knows the cluster knows where that is
+//   anchor-standby  an anchor that is not holding. A promotion candidate rather than a second
+//                   authority, so sending anybody here would put them at a door that refuses them
+//   unreachable     nothing answered. The one a person can wait out, which is why it is the only one
+//                   offering Try again
 
 const WHAT = {
-  orphaned: {
-    icon: "unlink",
-    title: "No holder for this cluster’s accounts",
-    body: (c) => <><b>{c.memberId}</b> holds this cluster’s accounts and has left it.</>,
-  },
-  unrouted: {
+  "held-elsewhere": {
     icon: "route-off",
-    title: "The sign-in has no address",
-    body: (c) => <><b>{c.memberId}</b> holds this cluster’s accounts and states no address a browser can reach.</>,
+    title: "Not the door",
+    body: (c) => (c.holder
+      ? <>This node belongs to a cluster whose accounts are held by <b>{c.holder}</b>. Sign in there.</>
+      : <>This node belongs to a cluster that keeps its accounts elsewhere.</>),
   },
-  none: {
-    icon: "help-circle",
-    title: "No sign-in here",
-    body: () => <>Nothing here is holding accounts.</>,
+  "anchor-standby": {
+    icon: "unlink",
+    title: "Standing by",
+    body: () => <>This anchor is not holding a cluster’s accounts.</>,
   },
   unreachable: {
     icon: "plug-zap",
-    title: "The sign-in isn’t answering",
-    body: (c) => <><b>{(c.url || "").replace(/^https?:\/\//, "")}</b> isn’t answering.</>,
+    title: "Nothing answered",
+    body: (c) => <><b>{(c.origin || "").replace(/^https?:\/\//, "")}</b> isn’t answering.</>,
   },
 };
 
 function ClusterUnavailable({ cluster, onChangeCluster, onRetry }) {
-  // A `ready` state that could not be reached is the waiting one; the rest are what discovery said.
-  const key = cluster.state === "ready" ? "unreachable" : cluster.state;
-  const what = WHAT[key] || WHAT.none;
+  const key = WHAT[cluster.kind] ? cluster.kind : "unreachable";
+  const what = WHAT[key];
 
   return (
     <AuthShell tagline="Sign in to your control panel.">
@@ -60,7 +53,7 @@ function ClusterUnavailable({ cluster, onChangeCluster, onRetry }) {
             <button type="button" className="login-form__submit" onClick={onRetry}>Try again</button>
           ) : null}
           <button type="button" className="btn-ghost" onClick={onChangeCluster}>
-            <Icon name="arrow-left" size={15} /> Another cluster
+            <Icon name="arrow-left" size={15} /> Another address
           </button>
         </div>
       </div>

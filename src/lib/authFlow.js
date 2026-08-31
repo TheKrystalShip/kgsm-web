@@ -8,7 +8,7 @@
 // Everything here talks to a host directly rather than through `apiClient`: every call is anonymous
 // by definition, and the seam's whole job is attaching a session to a call for a member.
 
-import { anchorDoors, discoverAnchor, rememberAnchor } from "./anchor.js";
+import { anchorIdentity, authDoors, rememberDoor as storeDoor } from "./anchor.js";
 import { CONNECTIONS } from "./config.js";
 import { addConnection, normalizeHostUrl, registryEntry } from "./connect.js";
 
@@ -56,38 +56,67 @@ async function probeMember(origin, { fetchImpl = fetch, signal } = {}) {
   };
 }
 
-// Where this cluster signs people in, and through which doors — asked of one member, then of the
-// anchor it names.
+// What is at this address — the one question a fresh browser can ask, and the only thing that
+// decides what happens next.
 //
-// The answers are kept apart because somebody acts on each differently, and collapsing any of them
-// into "sign-in is unavailable" turns a fixable configuration into a mystery:
+// There are TWO entry paths and neither is above the other. An auth anchor holds a cluster's
+// accounts: sign in there, and it names the cluster's members afterwards. A standalone node holds
+// its own: sign in there, and it is the whole deployment. A node that belongs to a cluster is not an
+// entry path at all — it serves no auth and announces nothing about its cluster, so it can only be
+// refused, and the refusal names the holder because a name is not an address.
 //
-//   ready        an anchor with an address; `reachable` says whether it is answering
-//   orphaned     the capability names a member that has left. Nothing serves it, and every other
-//                surface reads healthy, so this is the only place it can be said
-//   unrouted     the holder is known and states no address a browser can reach
-//   none         this member knows of no anchor at all
-//   unreachable  the member could not be asked
-async function discoverCluster(memberOrigin, opts = {}) {
-  const found = await discoverAnchor(memberOrigin, opts);
-  if (!found.ok) return { state: "unreachable" };
-  if (!found.held) return { state: "none" };
-  if (found.orphaned) return { state: "orphaned", memberId: found.memberId };
-  if (!found.url) return { state: "unrouted", memberId: found.memberId };
+// Asked of the address itself, never through anything else. Nothing here discovers a second machine.
+//
+//   anchor          an anchor holding a cluster's accounts — the door
+//   anchor-standby  an anchor that is not holding. A promotion candidate, not a second authority,
+//                   and offering it as a door puts somebody in front of one that refuses them
+//   standalone      a node holding its own accounts — also a door, and the common case
+//   held-elsewhere  a node whose cluster keeps its accounts somewhere this node will not name
+//   unreachable     nothing answered, or what answered is not ours
+//   invalid         not an address
+async function identifyAddress(address, opts = {}) {
+  const origin = normalizeHostUrl(address);
+  if (!origin) return { kind: "invalid", origin: String(address || ""), reason: "That is not a usable address." };
 
-  const doors = await anchorDoors(found.url, opts);
-  rememberAnchor(found.url);
+  // The anchor first, because it is the only one that can name itself in a single unauthenticated
+  // call. A node cannot answer this, so a miss costs one request and settles nothing incorrectly.
+  const anchor = await anchorIdentity(origin, opts);
+  if (anchor.ok) {
+    const doors = anchor.holding ? await authDoors(origin, opts) : null;
+    return {
+      kind: anchor.holding ? "anchor" : "anchor-standby",
+      origin, cluster: anchor.cluster,
+      providers: doors ? doors.providers : [],
+      redirects: doors ? doors.redirects : false,
+      registration: doors ? doors.registration : false,
+      reachable: doors ? doors.reachable : false,
+    };
+  }
+
+  // Not an anchor. Whatever it is has to answer as a kgsm-api before anything else is worth asking,
+  // so somebody pointed at the wrong thing entirely is told that rather than told about auth.
+  const probe = await probeMember(origin, opts);
+  if (!probe.reachable) return { kind: "unreachable", origin, reason: probe.reason };
+
+  const doors = await authDoors(origin, opts);
+  if (doors.heldBy !== null) {
+    return { kind: "held-elsewhere", origin, label: probe.label, holder: doors.heldBy || "" };
+  }
   return {
-    state: "ready",
-    memberId: found.memberId,
-    url: found.url,
-    providers: doors.providers,
-    redirects: doors.redirects,
-    registration: doors.registration,
-    // The anchor is named and does not answer. Not the same as having none, and not the same as
-    // there being nowhere to go — this is the one a person can wait out.
-    reachable: doors.reachable,
+    kind: "standalone",
+    origin, label: probe.label, build: probe.build,
+    providers: doors.providers, redirects: doors.redirects,
+    registration: doors.registration, reachable: doors.reachable,
   };
+}
+
+// Remember where this browser signs in, once it is known. Both kinds are kept, because both mint and
+// renew their own sessions — what must not happen is a standalone node stored as an anchor, which
+// would send account writes to a cluster-scoped path it does not serve.
+function rememberDoor(found) {
+  if (found && (found.kind === "anchor" || found.kind === "standalone")) {
+    storeDoor({ origin: found.origin, kind: found.kind });
+  }
 }
 
 // Register a member this browser has just been pointed at, so the rest of the app can address it.
@@ -194,7 +223,7 @@ const passwordOk = (password) => (password || "").length >= PASSWORD_MIN;
 
 export {
   LAST_MEMBER_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
-  adoptMember, clearPendingSession, discoverCluster, fetchMe, forgetMember, lastMemberOrigin,
-  passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
+  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, lastMemberOrigin,
+  passwordOk, passwordStrength, probeMember, readPendingSession, rememberDoor, rememberMember,
   stashPendingSession, usernameOk, usernameProblem,
 };
