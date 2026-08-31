@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.196.0]
+
+### Fixed — every call to the anchor was refused by the browser
+
+`liveFetch` puts `X-Krystal-Device` on every request, for the per-device half of the preference
+store. The anchor answers a fixed `Access-Control-Allow-Headers: Authorization, Content-Type` rather
+than reflecting what the preflight asked for, so a header it does not name takes the whole request
+with it — not the one feature the header belongs to. Every account call, every identity call and the
+Devices card failed in the browser with no status code and nothing in the anchor's log, while
+sign-in kept working because `anchor.js` has its own fetch that sends neither header.
+
+The header is kgsm-api's own and means nothing to another service, so it is withheld from anything
+that is not a node. Deciding per PATH which headers to attach is a seam that breaks when a path
+moves; deciding per SERVICE is the boundary that actually exists.
+
+### Added — a real browser checks the anchor's doors
+
+`scripts/visual-harness/cors-anchor.mjs`. `check:door` runs in jsdom, which has no origin policy: a
+preflight a browser refuses outright passes there in silence, so the entire failure above was
+invisible to it and always would have been. This probes the live anchor from the panel's own origin
+with a deliberately invalid bearer — a readable 401 proves the preflight passed, and a CORS refusal
+is not a status code but a TypeError with no response at all — and reads the guard out of the
+**served** bundle, because a fix that is not in the deployed build is not a fix.
+
 ## [1.195.0]
 
 ### Fixed — the Devices card reads the sessions that exist

@@ -238,10 +238,13 @@ import("./stores.js").then((m) => {
     // `undefined` = use the host's live access bearer; a string/null = send/omit as given.
     const tok = bearerOverride !== undefined ? bearerOverride : await authorizedBearer(hostId);
     if (tok) headers.Authorization = "Bearer " + tok;
-    // Which BROWSER is asking, for the per-device half of the preference store. Sent on every call
-    // rather than only the preference ones: it is one short header, and a seam that decides per path
-    // which headers to attach is a seam that gets it wrong when a path moves.
-    headers[DEVICE_HEADER] = deviceId();
+    // Which BROWSER is asking, for the per-device half of the preference store. Sent on every call to
+    // a NODE rather than only the preference ones: it is one short header, and a seam that decides
+    // per path which headers to attach is a seam that gets it wrong when a path moves. Withheld from
+    // anything that is not a node — the header is kgsm-api's own, another service has no use for it,
+    // and a service that does not name it in Access-Control-Allow-Headers refuses the whole request
+    // at the preflight. Per PATH is a mistake; per SERVICE is the boundary that exists.
+    if (opts.device !== false) headers[DEVICE_HEADER] = deviceId();
     // baseOverride routes off the default /api/v1 base (the auth endpoints are
     // root-routed on the backend, not under /api/v1; the fan-out addresses an
     // as-yet-unidentified connection by its own URL).
@@ -411,7 +414,7 @@ import("./stores.js").then((m) => {
   // sending it on every call would put every account read behind that same header.
   function doorFetch(method, path, body, hostId, door, ticket) {
     const init = door.anchor
-      ? (ticket ? { track: false, credentials: "include" } : { track: false })
+      ? (ticket ? { track: false, device: false, credentials: "include" } : { track: false, device: false })
       : undefined;
     return liveFetch(method, path, body, door.anchor ? null : hostId, undefined, door.origin, init);
   }
