@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.197.0]
+
+### Fixed — a healthy node is no longer reported as one that didn't answer
+
+A member's address in the roster is the one MEMBERS reach it at, and that is not always one a browser
+can use. A secure page cannot fetch a plaintext origin — the request is blocked before it is made —
+so registering one strands a connection that can only ever read as down, and the reach banner then
+names a node that is answering perfectly well. Somebody reads "hotbox didn't answer" and goes to
+check a machine with nothing wrong with it.
+
+The join guard already refuses every other kind of address that cannot become a working connection;
+scheme is one more, and it is checked in the same place. An entry stored before the rule existed is
+dropped on the next reconcile, exactly as an anchor registered by an older build is, rather than
+waiting for somebody to clear their browser storage by hand. An address a PERSON typed is untouched:
+the cluster taught us the roster's, and a rule about those is not licence to remove somebody's own.
+
+Asymmetric on purpose — a panel served over plain HTTP can drive either kind, so nothing is withheld
+there.
+
+### Added — `npm run check:origin`
+
+The guard reads `location.protocol`, and the origin a jsdom is built with is fixed for the life of
+the module graph, so it needs a process of its own rather than a case in the existing reconcile
+suite.
+
 ## [1.196.0]
 
 ### Fixed — every call to the anchor was refused by the browser

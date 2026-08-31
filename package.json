@@ -1,7 +1,7 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.196.0",
+  "version": "1.197.0",
   "type": "module",
   "description": "Krystal Control Panel \u2014 production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
@@ -20,7 +20,8 @@
     "check:merge": "node scripts/validate-cluster-merge.mjs",
     "check:labels": "node scripts/validate-node-labels.mjs",
     "check:session": "node scripts/validate-cluster-session.mjs",
-    "check:door": "node scripts/validate-account-door.mjs"
+    "check:door": "node scripts/validate-account-door.mjs",
+    "check:origin": "node scripts/validate-mixed-origin.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

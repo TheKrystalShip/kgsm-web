@@ -125,6 +125,20 @@ function isNode(member) {
   return !member.kind || member.kind === "node";
 }
 
+// A member's address in the roster is the one MEMBERS reach it at, which is not always one this
+// page can use. A secure page cannot fetch a plaintext origin — the browser blocks it before the
+// request is made — so registering one strands a connection that can only ever read as down, and
+// the banner then names a node that is perfectly healthy. That is the exact failure the join guard
+// above exists to prevent; scheme is one more way an address can be unusable from here.
+//
+// Only asymmetric: a panel served over plain HTTP can drive either, so nothing is withheld there.
+function addressableFromHere(origin) {
+  try {
+    if (typeof location === "undefined" || location.protocol !== "https:") return true;
+    return new URL(origin).protocol === "https:";
+  } catch { return false; }
+}
+
 export function reconcileRosterToRegistry(nodes, opts = {}) {
   const localHostId = (opts && opts.localHostId) || null;
   const roster = (Array.isArray(nodes) ? nodes : []).filter(n => n && typeof n === "object");
@@ -146,6 +160,7 @@ export function reconcileRosterToRegistry(nodes, opts = {}) {
     if (nodeId === localHostId || knownIds.has(nodeId)) continue;
     const origin = normalizeHostUrl(clientUrl);
     if (!origin || knownOrigins.has(origin)) continue;
+    if (!addressableFromHere(origin)) continue;
     addConnection(registryEntry(origin, label, nodeId, "roster"));
     knownOrigins.add(origin);
     knownIds.add(nodeId);
@@ -165,15 +180,19 @@ export function reconcileRosterToRegistry(nodes, opts = {}) {
   // than the connection set, and turning it back on re-registers it.
   // Anchors are deliberately absent from this set, so one already registered by an
   // older build — or by a roster read before this rule existed — is dropped on the
-  // next reconcile rather than needing the person to clear it by hand.
+  // next reconcile rather than needing the person to clear it by hand. An address this
+  // page cannot fetch goes the same way and for the same reason: it was stored before
+  // the rule existed, it can only read as down, and leaving it in place names a healthy
+  // node in a banner until somebody clears their browser storage by hand.
   const members = new Set(
     roster
       .filter(n => n.enabled !== false && isNode(n) && n.membership !== "left")
       .map(n => n.nodeId).filter(Boolean));
-  const departed = CONNECTIONS
-    .filter(c => c.via === "roster" && c.id && c.id !== localHostId && !members.has(c.id))
+  const dropped = CONNECTIONS
+    .filter(c => c.via === "roster" && c.id && c.id !== localHostId
+      && (!members.has(c.id) || !addressableFromHere(normalizeHostUrl(c.url))))
     .map(c => c.id);
-  const removed = departed.length ? removeConnections(departed).length : 0;
+  const removed = dropped.length ? removeConnections(dropped).length : 0;
 
   return { added, removed };
 }

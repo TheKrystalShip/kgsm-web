@@ -36,6 +36,7 @@ npm run preview      # serve the built dist/
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
 
 npm run check:door   # where an account call goes — anchor or node — in both clusters
+npm run check:origin # a roster address this page cannot fetch never becomes a connection
 
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
