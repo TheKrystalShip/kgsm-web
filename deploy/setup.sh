@@ -6,14 +6,17 @@
 #
 # Idempotent: safe to re-run any time.
 #
-# kgsm-web is the one project in the ecosystem that needs NO privilege at all — not even here.
-# The SPA is static files served by kgsm-api out of its wwwroot, which the API's service user
-# already owns, so there is no install prefix to chown, no systemd unit to link, and no polkit
-# grant to install. This script exists so every repo answers `deploy/setup.sh` the same way; all
-# it does is verify the target is present and yours, and tell you exactly what to fix if not.
+# Creates the directory a web server publishes the SPA from and hands it to you, so every deploy
+# after this one is a plain unprivileged file copy. That is the whole of it: static files, no
+# daemon, no unit, no polkit grant, nothing to restart.
 #
-# Its one prerequisite is that kgsm-api has been deployed (that is what creates wwwroot). If the
-# API lives somewhere else, point this at it:  KGSM_API_WWWROOT=/path ./deploy/setup.sh
+# Asks for sudo ONCE, to create the directory and chown it. Override the location with
+# KGSM_WEB_ROOT=/path ./deploy/setup.sh — pointing it at somewhere you already own needs no sudo
+# at all.
+#
+# Serving it is the web server's business and deliberately not this script's: the panel is a static
+# artifact with no dependency on any cluster, and which server publishes it — nginx, an object
+# store, a CDN — is a deployment choice this repo does not make.
 #
 set -euo pipefail
 
@@ -27,23 +30,35 @@ log "checking ${PROJECT} deploy target"
 command -v npm    >/dev/null || { err "npm is required to build the SPA"; exit 1; }
 command -v rsync  >/dev/null || { err "rsync is required"; exit 1; }
 
-if [[ ! -d "$WWWROOT" ]]; then
-    err "wwwroot not found: ${WWWROOT}"
-    err ""
-    err "this is created by the API deploy. Run, in the kgsm-api checkout:"
-    err "    ./deploy/setup.sh && ./deploy/deploy.sh"
-    err "or point this project at an API installed elsewhere:"
-    err "    KGSM_API_WWWROOT=/path/to/wwwroot ./deploy/setup.sh"
+if [[ ! -d "$WEBROOT" ]]; then
+    log "creating ${WEBROOT} (needs sudo once)"
+    $SUDO install -d -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" -m 755 "$WEBROOT"
+fi
+
+if [[ ! -w "$WEBROOT" ]]; then
+    log "handing ${WEBROOT} to ${DEPLOY_USER} (needs sudo once)"
+    $SUDO chown -R "$DEPLOY_USER:$DEPLOY_GROUP" "$WEBROOT"
+fi
+
+if [[ ! -w "$WEBROOT" ]]; then
+    err "${WEBROOT} is still not writable by $(id -un)."
     exit 1
 fi
 
-if [[ ! -w "$WWWROOT" ]]; then
-    err "${WWWROOT} exists but is not writable by $(id -un)."
-    err "it should be owned by the kgsm-api service user — the same user you deploy as."
-    err "fix once:  sudo chown -R $(id -un) $(dirname "$WWWROOT")"
+# Verified the way deploy.sh will use it, rather than assumed from the mode bits.
+probe="${WEBROOT}/.kgsm-web-setup-probe"
+if ! touch "$probe" 2>/dev/null; then
+    err "cannot write into ${WEBROOT} as $(id -un)."
     exit 1
 fi
+rm -f "$probe"
 
-log "${PROJECT} is ready ✓  — deploys need no privilege"
-printf '   wwwroot: %s (writable by %s)\n' "$WWWROOT" "$DEPLOY_USER"
-printf '\n   deploy with:  %s/deploy/deploy.sh   (no sudo, no prompts, no API restart)\n' "$REPO_DIR"
+printf '\n\033[1;32m✓ %s is provisioned\033[0m\n' "$PROJECT"
+printf '   web root: %s (writable by %s)\n' "$WEBROOT" "$DEPLOY_USER"
+if [[ -n "$AUTH_ANCHOR" ]]; then
+    printf '   opens on: %s\n' "$AUTH_ANCHOR"
+else
+    printf '   opens on: no anchor configured — the panel will ask for an address\n'
+    printf '             set one with: echo KGSM_AUTH_ANCHOR=https://auth.example.com > deploy/deploy.local.env\n'
+fi
+printf '\n   deploy with:  ./deploy/deploy.sh\n\n'

@@ -18,6 +18,23 @@ function originOf(input) {
   try { return new URL(/^https?:\/\//i.test(s) ? s : "https://" + s).origin; } catch { return ""; }
 }
 
+// ---- the deployment's own anchor (optional) -------------------------------
+//
+// A build may name the anchor it belongs to. OPT-IN and blank by default: an SPA with no
+// configuration points at no cluster at all, which is the whole reason it can be deployed anywhere
+// and pointed at anything. Set it and this build opens on that cluster's sign-in instead of asking
+// for an address — the difference between a panel somebody hosts for one cluster and a panel that
+// serves any of them.
+//
+// It is a DEFAULT, never a lock. A door somebody has already chosen wins, and "Another address" on
+// the sign-in card still reaches the address box, so a configured build can be pointed elsewhere
+// without a rebuild. And it is not trusted to be true: the address is classified like any other, so
+// a deployment configured with something that is not an anchor is told so rather than failing at a
+// sign-in.
+const buildEnv = (typeof import.meta !== "undefined" && import.meta.env) || {};
+const CONFIGURED_ANCHOR = originOf((buildEnv.VITE_AUTH_ANCHOR || "").trim());
+function configuredAnchor() { return CONFIGURED_ANCHOR; }
+
 // THE DOOR — where this browser signs in, and the only thing about it worth keeping. Both entry
 // paths land here: an anchor holding a cluster's accounts, or a standalone node holding its own.
 // `kind` is what separates them, and it decides more than wording — an anchor administers accounts
@@ -273,4 +290,4 @@ function anchorNamesTheFleet() {
   return !!(d && d.kind === "anchor");
 }
 
-export { ANCHOR_KEY, anchorNamesTheFleet, originOf, rememberDoor, rememberedDoor };
+export { ANCHOR_KEY, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };

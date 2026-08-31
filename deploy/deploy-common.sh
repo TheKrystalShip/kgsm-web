@@ -6,10 +6,9 @@
 # disagree about where the SPA lands.
 #
 # The canonical source of this pattern is tks/scripts/deploy-template/ — see its README for the
-# contract. kgsm-web is the one project that needed no privilege to begin with: the SPA is static
-# files served by kgsm-api out of its wwwroot, which the API's service user already owns. There
-# is no unit, no daemon, and no polkit grant here — setup.sh only checks that the target exists
-# and is yours.
+# contract. The SPA is static files with no daemon, no unit and no polkit grant: setup.sh creates
+# the directory a web server publishes and hands it to the deploy user, and deploy.sh writes files
+# into it. Nothing restarts, because nothing is running.
 #
 # Not executable on its own.
 
@@ -28,10 +27,21 @@ DEPLOY_GROUP="${KGSM_DEPLOY_GROUP:-$(id -gn)}"
 # ── PROJECT BLOCK ─────────────────────────────────────────────────────────────
 PROJECT="kgsm-web"
 
-# kgsm-api serves this SPA same-origin from its wwwroot via ASP.NET UseStaticFiles
-# (PhysicalFileProvider — read from disk per request, no content cache), so a new bundle is LIVE
-# THE MOMENT the files land: no systemctl, no service bounce, no sudo.
-WWWROOT="${KGSM_API_WWWROOT:-/opt/kgsm-api/wwwroot}"
+# Where the built SPA lands, for whatever serves static files on this host to publish. A new bundle
+# is LIVE THE MOMENT the files land: no systemctl, no service bounce, no sudo.
+#
+# The panel is NOT served by a node. It is a static artifact with no dependency on any cluster —
+# deployable to a web server, an object store or a CDN — and it reaches whichever cluster it is
+# pointed at over that cluster's public addresses. A node serving it was convenience, and
+# convenience that made it look like part of the cluster.
+WEBROOT="${KGSM_WEB_ROOT:-/srv/kgsm-web}"
+
+# OPTIONAL, and blank by default: the auth anchor this build opens on. Blank means the panel points
+# at no cluster and asks for an address, which is what makes one deployment usable against any of
+# them. Kept in an untracked file beside these scripts so a host does not have to remember it on
+# every deploy, and so the repo carries no deployment's address.
+[[ -f "${REPO_DIR}/deploy/deploy.local.env" ]] && source "${REPO_DIR}/deploy/deploy.local.env"
+AUTH_ANCHOR="${KGSM_AUTH_ANCHOR:-}"
 
 # The standalone assistant's wwwroot, served the same way by kgsm-assistant-service out of its own
 # content root. This repo builds BOTH surfaces from one source tree (src/chat/ is shared), so it
@@ -53,17 +63,17 @@ refuse_root() {
     fi
 }
 
-# The contract deploy.sh enforces. wwwroot missing means kgsm-api has not been deployed yet —
-# there is nothing to drop files into, and creating it here would just hide that.
+# The contract deploy.sh enforces. The web root missing means setup.sh has not run — creating it
+# here would need privilege deploy.sh must never ask for, and would hide that the host is not
+# provisioned.
 require_setup() {
     local problem=0
 
-    if [[ ! -d "$WWWROOT" ]]; then
-        err "wwwroot not found: ${WWWROOT}"
-        err "deploy the API first (kgsm-api/deploy/setup.sh then deploy.sh), or set KGSM_API_WWWROOT=/path."
+    if [[ ! -d "$WEBROOT" ]]; then
+        err "web root not found: ${WEBROOT}"
         problem=1
-    elif [[ ! -w "$WWWROOT" ]]; then
-        err "${WWWROOT} is not writable by $(id -un) (expected it owned by the API service user)."
+    elif [[ ! -w "$WEBROOT" ]]; then
+        err "${WEBROOT} is not writable by $(id -un)."
         problem=1
     fi
 

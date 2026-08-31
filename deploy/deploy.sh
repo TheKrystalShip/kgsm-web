@@ -4,15 +4,15 @@
 #
 #   ./deploy/deploy.sh          # or: npm run deploy:prod
 #
-# Builds for same-origin (VITE_API_BASE=self) and syncs dist/ straight into the kgsm-api wwwroot.
-# kgsm-api serves wwwroot via ASP.NET UseStaticFiles (PhysicalFileProvider — read from disk per
-# request, no in-memory content cache), so the new bundle is LIVE THE MOMENT the files land: no
-# systemctl, no service bounce, no sudo.
+# Builds the SPA and syncs dist/ into the directory a web server publishes. The new bundle is LIVE
+# THE MOMENT the files land: no systemctl, no service bounce, no sudo.
 #
-# Use this for pure frontend changes. For an API code change use kgsm-api/deploy/deploy.sh — that
-# one publishes the API AND re-bundles the SPA; this is the fast path that skips the API entirely.
+# The build carries NO node address. The panel is a static artifact that belongs to no cluster and
+# reaches whichever one it is pointed at; baking a node in would make it that node's panel. It
+# carries an anchor only when this host has configured one, which is optional and is a default
+# rather than a lock — see deploy-common.sh.
 #
-# Target wwwroot defaults to the live install; override with KGSM_API_WWWROOT.
+# Target defaults to /srv/kgsm-web; override with KGSM_WEB_ROOT.
 #
 set -euo pipefail
 
@@ -29,8 +29,12 @@ require_setup
 cd "$REPO_DIR"
 [[ -d node_modules ]] || npm ci
 
-log "building the SPA (VITE_API_BASE=self) → dist/"
-VITE_API_BASE=self npm run build
+if [[ -n "$AUTH_ANCHOR" ]]; then
+    log "building the SPA (opens on ${AUTH_ANCHOR}) → dist/"
+else
+    log "building the SPA (no anchor configured — it will ask for an address) → dist/"
+fi
+VITE_API_BASE= VITE_AUTH_ANCHOR="$AUTH_ANCHOR" npm run build
 
 [[ -f "$REPO_DIR/dist/index.html" ]] || { err "build produced no dist/index.html"; exit 1; }
 
@@ -39,9 +43,9 @@ VITE_API_BASE=self npm run build
 # alphabetically, so the content-hashed assets/ land before the new index.html that references
 # them, and old assets are removed only once the new tree is fully in place — a client mid-load
 # never sees an index.html pointing at an asset that's already gone. Each file is written to a
-# temp name + renamed, so updates are atomic per-file. wwwroot holds only the SPA dist, so
+# temp name + renamed, so updates are atomic per-file. The web root holds only the SPA dist, so
 # --delete is safe.
-log "syncing dist/ → ${WWWROOT}"
-rsync -a --delete-after "$REPO_DIR/dist/" "$WWWROOT/"
+log "syncing dist/ → ${WEBROOT}"
+rsync -a --delete-after "$REPO_DIR/dist/" "$WEBROOT/"
 
-log "frontend is live at ${WWWROOT} ✓  (kgsm-api serves it from disk — no restart)"
+log "frontend is live at ${WEBROOT} ✓  (static files — nothing to restart)"

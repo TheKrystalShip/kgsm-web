@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.203.0]
+
+### Added — a build may name the anchor it belongs to
+
+`VITE_AUTH_ANCHOR`, opt-in and blank by default. Blank is the interesting case: an unconfigured
+build points at no cluster and asks for an address, which is what lets one deployment be pointed at
+any of them. Configured, it opens on that cluster's sign-in instead of asking somebody who is
+already there where they are.
+
+A default, never a lock. A door somebody has already chosen wins, "Another address" still reaches
+the address box so a configured build can be pointed elsewhere without a rebuild, and the value is
+classified like every other address rather than trusted — a build configured with something that is
+not an anchor is told so, instead of failing at a sign-in.
+
+### Changed — the panel is served by no node
+
+It is a static artifact that belongs to no cluster: it holds no cluster state, depends on no node,
+and reaches whichever cluster it is pointed at over that cluster's public addresses. `deploy.sh`
+publishes it into a directory a web server serves rather than into a node's wwwroot, and `setup.sh`
+creates that directory — the one thing here that needs privilege, and the only time it asks for
+sudo.
+
+The build carries no node address at all. Baking one in is what made the panel look like part of the
+cluster; the same convenience that had a node serving it.
+
 ## [1.202.0]
 
 ### Changed — a clustered panel keeps no list of nodes

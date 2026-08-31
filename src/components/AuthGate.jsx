@@ -7,6 +7,7 @@ import {
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
 import { KrystalRouter } from "../lib/router.js";
+import { configuredAnchor } from "../lib/anchor.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { ClusterPage } from "../pages/auth/ClusterPage.jsx";
 import { ClusterUnavailable } from "../pages/auth/ClusterUnavailable.jsx";
@@ -47,7 +48,9 @@ function AuthGate({ user, onUser }) {
   const [kind, setKind] = React.useState(() => {
     const r = KrystalRouter.parseHash();
     if (KrystalRouter.isAuthRoute(r)) return r.kind;
-    return CONNECTIONS.length ? "signin" : "connect";
+    // Somewhere to sign in already known — a door chosen before, a node this browser drives, or an
+    // anchor this build was configured with — means the address box has nothing to ask.
+    return (sessionStore.doorOrigin() || configuredAnchor() || CONNECTIONS.length) ? "signin" : "connect";
   });
   const [cluster, setCluster] = React.useState(null);
   // The session of somebody who holds nothing. It cannot become the app's session — everything
@@ -108,7 +111,14 @@ function AuthGate({ user, onUser }) {
     // browser drives, and a node that belongs to a cluster is not somewhere anybody signs in — so
     // preferring one would send a returning person to a refusal instead of to the sign-in they used
     // yesterday. They stay as the fallback for a browser that has a node and has never signed in.
-    const preferred = sessionStore.doorOrigin() || lastMemberOrigin() || (homeConn() && homeConn().url) || "";
+    // The DOOR first — chosen by a person, and the only one of these that is a door. Then the
+    // deployment's own anchor, if this build names one: a panel hosted for one cluster should open on
+    // its sign-in rather than asking somebody who is already there where they are. The last two are
+    // nodes this browser drives, kept as the fallback for a browser that has one and has never
+    // signed in; a node inside a cluster is not somewhere anybody signs in, so preferring one would
+    // send a returning person to a refusal instead of the sign-in they used yesterday.
+    const preferred = sessionStore.doorOrigin() || configuredAnchor()
+      || lastMemberOrigin() || (homeConn() && homeConn().url) || "";
     if (!preferred) { setKind("connect"); return; }
     inFlight.current = true;
     identifyAddress(preferred).then((found) => {

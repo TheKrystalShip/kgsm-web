@@ -32,8 +32,8 @@ npm run build:assistant   # → dist-assistant/
 npm run check:assistant   # the standalone bundle contains no Control Panel, and is fully styled
 npm run deploy:assistant  # = deploy/deploy-assistant.sh — publish it into the leaf's wwwroot
 npm run preview      # serve the built dist/
-./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
-npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
+./deploy/setup.sh    # ONCE per host — creates the web root and hands it to you (sudo once)
+npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the web root, nothing restarts
 
 npm run check:entry  # what an address is: anchor, standalone node, or a node inside a cluster
 npm run check:door   # where an account call goes — anchor or node — in both clusters
@@ -46,21 +46,29 @@ KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLE
 `check:door` runs offline, and has to: the smoke's backend is auth-disabled, which reports no
 anchor and exercises no account surface at all.
 
-**Frontend-only deploys never restart the API.** kgsm-api serves this SPA
-same-origin from its `wwwroot/` via ASP.NET `UseStaticFiles` (PhysicalFileProvider
-— read from disk per request, no content cache), so `npm run deploy:prod`
-(`deploy/deploy.sh`) just builds `VITE_API_BASE=self` and `rsync`s `dist/`
-into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service user → no
-sudo); the bundle is live the moment the files land. Reserve the full
-`kgsm-api/deploy/deploy.sh` (which bounces the systemd unit) for **API code**
-changes — it also re-bundles the SPA.
+**The panel is served by no node.** It is a static artifact that belongs to no cluster: it holds no
+cluster state, depends on no node, and reaches whichever cluster it is pointed at over that
+cluster's public addresses. `npm run deploy:prod` (`deploy/deploy.sh`) builds and `rsync`s `dist/`
+into the directory a web server publishes (`/srv/kgsm-web`, yours → no sudo; override with
+`KGSM_WEB_ROOT`). The bundle is live the moment the files land, because nothing is running to
+restart. Which server publishes it — nginx, an object store, a CDN — is a deployment choice this
+repo does not make.
+
+The build carries **no node address**. Baking one in would make this that node's panel.
+
+It carries an anchor only when the host has configured one: `KGSM_AUTH_ANCHOR` in the untracked
+`deploy/deploy.local.env`, or the environment. **Blank by default, and blank is the interesting
+case** — an unconfigured build points at no cluster and asks for an address, which is what lets one
+deployment serve any of them. Configured, it opens on that cluster's sign-in instead. Either way it
+is a DEFAULT and never a lock: a door somebody has already chosen wins, "Another address" still
+reaches the address box, and the value is classified like any other address rather than trusted.
 
 This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
-`kgsm-*` repo uses, and is the simplest case of it — the one project that needs no
-privilege even at setup. It owns no systemd unit and runs no process of its own, so
-`setup.sh` installs nothing and needs no polkit grant: it only verifies that the
-wwwroot target exists and is writable by you, since kgsm-api's deploy is what
-creates it. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
+`kgsm-*` repo uses. It owns no systemd unit and runs no process of its own, so
+`setup.sh` installs nothing and needs no polkit grant: it creates the web root and hands it to you,
+which is the one thing that needs privilege and the reason it asks for sudo once. It verifies the
+target is writable the way `deploy.sh` will use it, since a mode bit is not a
+guarantee. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
 refuses up front with *"run `deploy/setup.sh`"* when the target isn't there. The
 three files in `deploy/` are self-contained, so a standalone clone deploys.
 

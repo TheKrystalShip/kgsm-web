@@ -16,24 +16,30 @@ npm install
 npm run dev          # http://localhost:5173 — no host connected → the connect screen
 npm run build        # → dist/  (minified, hashed, production bundle)
 npm run preview      # serve the built dist/ locally
-npm run deploy:prod  # build + sync dist/ into the kgsm-api wwwroot — NO API restart
+npm run deploy:prod  # build + sync dist/ into the web root — nothing restarts
 ```
 
-## Deploying the frontend (no API restart)
+## Deploying the frontend
 
-`kgsm-api` serves this SPA same-origin from its `wwwroot/` via ASP.NET's static
-file middleware (read from disk per request — no in-memory content cache). So a
-**pure frontend change** doesn't need an API restart: `npm run deploy:prod`
-(`deploy/deploy.sh`) builds with `VITE_API_BASE=self` and `rsync`s `dist/`
-straight into the live `wwwroot/` (`/opt/kgsm-api/wwwroot`, owned by the service
-user → no sudo). The new bundle is live the moment the files land. Override the
-target with `KGSM_API_WWWROOT=/path`.
+The panel is served by **no node**. It is a static artifact that belongs to no cluster — it holds no
+cluster state, depends on no node, and reaches whichever cluster it is pointed at over that
+cluster's public addresses. `npm run deploy:prod` (`deploy/deploy.sh`) builds and `rsync`s `dist/`
+into the directory a web server publishes (`/srv/kgsm-web` by default, yours → no sudo; override
+with `KGSM_WEB_ROOT`). The new bundle is live the moment the files land, because nothing is running
+to restart. Which server publishes it is a deployment choice this repo does not make.
 
-Run `./deploy/setup.sh` once on a new host first — it verifies the wwwroot target
-exists and is writable by you, and `deploy.sh` refuses until it is. This is the
-same `setup.sh`-once / `deploy.sh`-forever pattern every `kgsm-*` repo uses, and
-the only one that needs no privilege even at setup: the SPA owns no systemd unit,
-so there is nothing to install and no polkit grant to make.
+The build carries **no node address**. Baking one in would make this that node's panel rather than
+a panel.
+
+It carries an anchor only when the host configures one — `KGSM_AUTH_ANCHOR` in the untracked
+`deploy/deploy.local.env`, or the environment. Blank by default: an unconfigured build points at no
+cluster and asks for an address, which is what lets one deployment serve any of them. Configured, it
+opens on that cluster's sign-in. A default, never a lock — a door somebody has already chosen wins,
+and "Another address" still reaches the address box.
+
+Run `./deploy/setup.sh` once on a new host first. It creates the web root and hands it to you, which
+is the one thing here that needs privilege and the only time you are asked for sudo; `deploy.sh`
+refuses until it has run.
 
 For an **API code change**, use the full `kgsm-api/deploy/deploy.sh` instead — it
 publishes the API and re-bundles the SPA, swapping the systemd service.
