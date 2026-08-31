@@ -134,7 +134,12 @@ function AppInner({ user, setUser, route, setRoute }) {
     // matters is sessionStore.signOut() below, which tells the anchor directly. Asking every node
     // either way costs a no-op where there is nothing to revoke, and is the only thing that works
     // where there is.
-    const ids = sessionStore.readRegistry().map(h => h && h.id).filter(Boolean);
+    // A member of a cluster whose anchor holds the accounts serves no auth at all, so there is
+    // nothing there to ask and the call would only ever be refused. The anchor is told instead, by
+    // sessionStore.signOut() below.
+    const ids = sessionStore.anchorOrigin()
+      ? []
+      : sessionStore.readRegistry().map(h => h && h.id).filter(Boolean);
     await Promise.all(ids.map(id => api.logout(id).catch(() => {})));
     writeStoredUser(null);
     // Drop EVERY per-host credential — the access token (sessionStorage) AND the

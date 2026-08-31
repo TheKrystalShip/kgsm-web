@@ -24,7 +24,10 @@ import { AuthError, AuthShell, DoorwayChip, PasswordField, PasswordMeter, Provid
 
 function SignInPage({ cluster, tab, onTab, onSession, onChangeCluster }) {
   // Whichever door was chosen — an anchor holding a cluster's accounts, or a standalone node
-  // holding its own. Both mint their own sessions, and the credential calls are the same on each.
+  // holding its own. Both mint their own sessions. The credential calls are passed the whole door
+  // rather than its address, because two of the paths are spelled differently on each and sending a
+  // node the anchor's spelling reaches nothing.
+  const door = cluster || null;
   const anchor = cluster && cluster.origin;
   const registering = tab === "register";
 
@@ -61,7 +64,7 @@ function SignInPage({ cluster, tab, onTab, onSession, onChangeCluster }) {
 
     const result = registering
       ? await register(anchor, username.trim(), password, displayName.trim())
-      : await signIn(anchor, username, password);
+      : await signIn(door, username, password);
 
     if (!result.ok) {
       setBusy(false);

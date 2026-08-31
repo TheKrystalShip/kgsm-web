@@ -56,6 +56,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { identifyAddress, rememberDoor } = await import("../src/lib/authFlow.js");
+const { signIn, signOut } = await import("../src/lib/anchor.js");
 const config = await import("../src/lib/config.js");
 
 let fail = 0;
@@ -108,6 +109,28 @@ check(ids() === "", "and is never driven as a node", ids() || "(none)");
 
 rememberDoor(await identifyAddress(CLUSTERED));
 check(door().origin === ANCHOR, "a node that is not a door does not replace one", JSON.stringify(door()));
+
+// 8. The credential calls take the DOOR, not its address. Two of the paths are spelled differently
+//    on each — an anchor mints for a cluster and named its endpoints for that, a node minted for
+//    itself long before there were clusters — and sending a node the anchor's spelling reaches
+//    nothing. Classifying the address correctly and then posting to the wrong path on it is a
+//    sign-in that fails for a reason nobody can see.
+calls.length = 0;
+await signIn({ origin: ANCHOR, kind: "anchor" }, "u", "p").catch(() => {});
+await signIn({ origin: SOLO, kind: "standalone" }, "u", "p").catch(() => {});
+check(calls.includes(ANCHOR + "/auth/sign-in"), "an anchor is asked for a session at its own path", calls.join(" "));
+check(calls.includes(SOLO + "/auth/login"), "and a node at its own", calls.join(" "));
+
+calls.length = 0;
+await signOut({ origin: ANCHOR, kind: "anchor" }, "r").catch(() => {});
+await signOut({ origin: SOLO, kind: "standalone" }, "r").catch(() => {});
+check(calls.includes(ANCHOR + "/auth/session/sign-out") && calls.includes(SOLO + "/auth/logout"),
+  "and signing out follows the same split", calls.join(" "));
+
+// A bare address is what every caller meant before a node could be a door.
+calls.length = 0;
+await signIn(ANCHOR, "u", "p").catch(() => {});
+check(calls.includes(ANCHOR + "/auth/sign-in"), "a bare address is still an anchor", calls.join(" "));
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

@@ -155,6 +155,21 @@ export function refusalText(body, res) {
   return "That didn’t work — please try again.";
 }
 
+// The two doors spell two of these differently and the rest identically. An anchor mints for a
+// cluster and names its endpoints for that; a node minted for itself long before there were
+// clusters. Nothing else about signing in differs, which is why this is a table and not two clients.
+const DOOR_PATHS = {
+  anchor: { signIn: "/auth/sign-in", signOut: "/auth/session/sign-out" },
+  standalone: { signIn: "/auth/login", signOut: "/auth/logout" },
+};
+// A door is `{origin, kind}`. A bare string is an anchor, which is what every caller meant before a
+// node could be a door.
+function doorOf(door) {
+  if (!door) return { origin: "", paths: DOOR_PATHS.anchor };
+  if (typeof door === "string") return { origin: door, paths: DOOR_PATHS.anchor };
+  return { origin: door.origin || "", paths: DOOR_PATHS[door.kind === "standalone" ? "standalone" : "anchor"] };
+}
+
 async function post(anchorUrl, path, payload, { fetchImpl = fetch } = {}) {
   const base = originOf(anchorUrl);
   if (!base) return { ok: false, error: "There is no address to sign in at.", unreachable: true };
@@ -182,8 +197,8 @@ async function post(anchorUrl, path, payload, { fetchImpl = fetch } = {}) {
 // One session for the whole cluster. The response carries the tier resolved now rather than read off
 // a record, and the account's status, so a person holding nothing can be told they are waiting
 // rather than shown a bare denial.
-export const signIn = (anchorUrl, username, password, opts) =>
-  post(anchorUrl, "/auth/sign-in", { username, password }, opts);
+export const signIn = (door, username, password, opts) =>
+  post(doorOf(door).origin, doorOf(door).paths.signIn, { username, password }, opts);
 
 // Make an account. It answers with the same session shape a sign-in does, so both doors are adopted
 // by one path and registering needs no flow of its own — the session it returns holds `none` at
@@ -202,7 +217,7 @@ export const refreshSession = (anchorUrl, refresh, opts) =>
 
 // End the session everywhere. The anchor revokes the row and tells the members, which is what stops
 // the remaining access bearer being spent on them for the rest of its life.
-export const signOut = (anchorUrl, refresh, opts) =>
-  post(anchorUrl, "/auth/session/sign-out", { refresh }, opts);
+export const signOut = (door, refresh, opts) =>
+  post(doorOf(door).origin, doorOf(door).paths.signOut, { refresh }, opts);
 
 export { ANCHOR_KEY, originOf, rememberDoor, rememberedDoor };

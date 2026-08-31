@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.200.0]
+
+### Fixed — signing in at a standalone node reaches it
+
+Classifying the address correctly and then posting to the wrong path on it is a sign-in that fails
+for a reason nobody can see. An anchor mints for a cluster and named its endpoints for that; a node
+minted for itself long before there were clusters. Sign-in and sign-out are spelled differently on
+each, everything else identically, so the door is passed to the credential calls rather than its
+address and a table decides the two paths that differ.
+
+Signing out of a cluster no longer asks its members. A member whose anchor holds the accounts serves
+no auth at all, so the call could only ever be refused; the anchor is told instead, and it is what
+reaches the members. A standalone node is still told directly, once — being told twice would write
+two sign-outs for one act.
+
 ## [1.199.0]
 
 ### Fixed — a standalone node is a door again

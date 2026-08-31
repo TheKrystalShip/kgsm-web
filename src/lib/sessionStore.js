@@ -358,8 +358,9 @@ import { hostsStore } from "./stores.js";
   // happens either way, because somebody pressing sign out is signed out.
   function signOut() {
     const refreshTok = readRefresh();
-    // Only an anchor is told: a standalone node ends its own session through its logout endpoint,
-    // which the shell already calls on every node it drives.
+    // Only an anchor is told from here. A standalone node ends its own session through the logout
+    // the shell already calls on every node it drives, and telling it twice would write two
+    // sign-outs for one act.
     const url = anchorOrigin();
     drop();
     if (url && refreshTok) { try { anchorSignOut(url, refreshTok); } catch { /* best effort */ } }
