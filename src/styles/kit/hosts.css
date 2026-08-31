@@ -3,84 +3,8 @@
    Split out of the monolithic kit.css; imported by it in cascade order.
    ============================================================================ */
 /* ============================================================= */
-/* Cluster — sidebar chip, fleet board, hosts management          */
+/* Cluster — fleet board, hosts management                        */
 /* ============================================================= */
-
-/* ---- Sidebar cluster chip (reports; sets nothing) ---- */
-.cluster-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin: 2px 0 10px;
-  height: 40px;
-  padding: 0 10px;
-  border: var(--edge);
-  border-radius: var(--r-md);
-  background: var(--surface-1);
-  color: var(--fg-2);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--d-fast), border-color var(--d-fast), color var(--d-fast);
-}
-
-.cluster-status:hover {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
-  color: var(--fg-1);
-}
-
-.cluster-status__lead {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  color: var(--fg-3);
-}
-
-.cluster-status--warn .cluster-status__lead { color: var(--warning); }
-.cluster-status--down .cluster-status__lead { color: var(--danger); }
-.cluster-status--ok .cluster-status__lead { color: var(--success); }
-
-.cluster-status__name {
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--fg-1);
-  white-space: nowrap;
-}
-
-.cluster-status__sep {
-  width: 1px;
-  height: 14px;
-  background: var(--border-subtle);
-  flex: none;
-}
-
-.cluster-status__meta {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--fg-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-}
-
-.cluster-status__flag {
-  flex: none;
-  font-size: 10.5px;
-  font-weight: 650;
-  color: var(--warning);
-  white-space: nowrap;
-}
-
-.cluster-status__code {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--fg-3);
-  font-family: var(--font-mono);
-  line-height: 1;
-}
 
 /* ---- Per-node access degradation (reported, never a gate) ---- */
 /* ---- Server tile top-right corner: host badge + favorite star ---- */

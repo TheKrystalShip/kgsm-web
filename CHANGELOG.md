@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.215.0]
+
+### Changed — the sidebar is four groups, separated by a rule and named by nothing
+
+Home · Servers with its favourites and Catalog · Alerts and the Audit log · Cluster with its nodes.
+A group label cost a row to say what the icons beside it already said, and the collapsed rail had
+always hidden them — so the two modes now read the same way instead of each having its own idiom.
+
+The rule is drawn between groups, which makes it a claim about what a role can see: a group this role
+holds nothing of is absent rather than empty, so the sidebar never rules off a space with nothing in
+it. A viewer holds neither the dashboard nor alerts nor the cluster and sees one group with one rule
+above the foot, not a ladder of them.
+
+The brand keeps the same hairline. With nothing between it and the first link, the wordmark read as
+the top of the nav rather than as the header above it.
+
+The foot is what is yours rather than the fleet's — the notification tray, Settings, then the
+account, which goes last because it is the heaviest row there and anchors the bottom.
+
+### Removed — the cluster badge under the wordmark
+
+The node strip under Cluster says per node what the badge said in aggregate: which one is degraded
+and why ("hasn't answered", "needs a sign-in"), against a count of how many were. Nothing that was
+being reported is no longer reported.
+
 ## [1.214.1]
 
 ### Fixed — one gate decides whether there is an assistant to ask

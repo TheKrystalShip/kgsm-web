@@ -18,51 +18,11 @@ const CATALOG_LABEL = KRYSTAL_LABELS.catalog || "Catalog";
 
 // A node the panel cannot fully drive: unreachable, refusing this session, or
 // needing a re-auth. `reauthDue`, not `expired`: the routine token renewal writes
-// `expired` for one round-trip, and neither the chip nor the node list must tick a
-// node into "degraded" for it. Both read this, so they can never disagree.
+// `expired` for one round-trip, and the node list must not tick a node into "degraded" for it.
 // Offline, or honouring nothing. The session is the cluster's and its health is reported once,
 // app-wide; what varies per node is whether that node is serving it.
 function isDegraded(host, refusal) {
   return !host.online || !!(refusal && refusal.accepts === "refusing");
-}
-
-// ClusterChip — the ambient reachability signal, and the only node-shaped thing
-// in the chrome. It REPORTS: how many nodes the panel drives, how many are
-// online, and how many are degraded (offline, refusing this session, or needing
-// a re-auth). Clicking it opens Cluster.
-//
-// It sets nothing. The panel shows the whole cluster on every surface, so there
-// is no scope to pick here — a node is chosen where it belongs to the object
-// being acted on (which node an install lands on, whose blueprint file to open),
-// never as a mode the rest of the app inherits.
-function ClusterChip({ hosts, onOpen, collapsed }) {
-  const refusals = useStore(sessionStore, s => s.nodes);
-  const online = hosts.filter(h => h.online).length;
-  const degraded = hosts.filter(h => isDegraded(h, refusals[h.id])).length;
-  const tone = !hosts.length ? "muted" : degraded === hosts.length ? "down" : degraded ? "warn" : "ok";
-  const summary = hosts.length === 1
-    ? (online ? "1 node · online" : "1 node · offline")
-    : hosts.length + " nodes · " + online + " online";
-
-  return (
-    <button
-      className={"cluster-status cluster-status--" + tone}
-      onClick={onOpen}
-      data-tip={collapsed ? summary + (degraded ? " · " + degraded + " degraded" : "") : undefined}
-      aria-label={"Cluster: " + summary}>
-      <span className="cluster-status__lead"><Icon name="layers" size={16} /></span>
-      {collapsed ? (
-        <span className="cluster-status__code">{hosts.length || "—"}</span>
-      ) : (
-        <>
-          <span className="cluster-status__name">Cluster</span>
-          <span className="cluster-status__sep"></span>
-          <span className="cluster-status__meta">{summary}</span>
-          {degraded > 0 && <span className="cluster-status__flag">{degraded} degraded</span>}
-        </>
-      )}
-    </button>
-  );
 }
 
 // The dot pulses while something is happening to (or on) the server — live, or mid-transition.
@@ -196,9 +156,9 @@ function SidebarFavorites({ ids, hostById, servers, hosts, activeId, onOpen, onV
 /// a node is not something a person opts into the way a server is starred, and a cluster whose
 /// members came and went from this list would be unreadable as a list of what the panel drives.
 ///
-/// The set is the connected roster the ClusterChip counts, so the strip and the number above it are
-/// always the same nodes. A peer discovered but not connected stays on the Cluster page, where its
-/// "discovered, not connected" state can be said out loud; a row here would have nothing to say.
+/// The set is the connected roster — the nodes this browser drives. A peer discovered but not
+/// connected stays on the Cluster page, where its "discovered, not connected" state can be said out
+/// loud; a row here would have nothing to say.
 ///
 /// The order is the roster's and nothing re-sorts it — a node that moves because it went offline
 /// has stopped being a shortcut, and the dot is what carries the state.
@@ -299,7 +259,6 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
   const canAlerts = can("nav.alerts");
   const canAudit = can("nav.audit");
   const canCluster = can("nav.cluster");
-  const showMonitoring = canAlerts || canAudit || canCluster;
   return (
     <aside className={"sidebar" + (open ? " sidebar--open" : "") + (collapsed ? " sidebar--rail" : "")}>
       <div className="sidebar__brand">
@@ -314,21 +273,30 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
           <Icon name={collapsed ? "panel-left-open" : "panel-left-close"} size={16} />
         </button>
       </div>
-      <ClusterChip hosts={hosts} onOpen={go("cluster")} collapsed={collapsed} />
+      {/* Four groups, separated by a hairline and named by nothing. A label costs a row to say what
+          the icons beside it already say, and the collapsed rail has always hidden them — so both
+          modes read the same way now rather than each having its own idiom.
+
+          A group this role holds nothing of is ABSENT, not empty: the hairline is drawn between
+          groups, so one left standing would rule off a space with nothing in it. A viewer holds
+          neither the dashboard nor alerts nor the cluster and gets one separator, not a ladder. */}
       <nav className="sidebar__nav">
+        {canDashboard && (
         <div className="sidebar__group">
-          <div className="sidebar__group-label">Workspace</div>
-          {canDashboard && (
           <div className={"nav-item" + (isActive("home") ? " nav-item--active" : "")} onClick={go("home")} data-tip="Home" aria-label="Home">
             <Icon name="home" size={16} />
             <span className="nav-item__label">Home</span>
           </div>
-          )}
+        </div>
+        )}
+        <div className="sidebar__group">
           <div className={"nav-item" + (isActive("servers") ? " nav-item--active" : "")} onClick={go("servers")} data-tip={"Servers" + (serversCount > 0 ? " · " + serversCount : "")} aria-label="Servers">
             <Icon name="server" size={16} />
             <span className="nav-item__label">Servers</span>
             {serversCount > 0 && <span className={"nav-item__badge nav-item__badge--" + serversTone}>{serversCount}</span>}
           </div>
+          {/* The favourites belong to Servers the way the nodes belong to Cluster: each is a shortcut
+              INTO the list above it, not a peer of the links beside it. */}
           <SidebarFavorites
             ids={favIds}
             hostById={favHostById}
@@ -342,9 +310,8 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             <span className="nav-item__label">{CATALOG_LABEL}</span>
           </div>
         </div>
-        {showMonitoring && (
+        {(canAlerts || canAudit) && (
         <div className="sidebar__group">
-          <div className="sidebar__group-label">Monitoring</div>
           {canAlerts && (
           <div className={"nav-item" + (isActive("attention") ? " nav-item--active" : "")} onClick={go("attention")} data-tip={"Alerts" + (attentionCount > 0 ? " · " + attentionCount : "")} aria-label="Alerts">
             <Icon name="triangle-alert" size={16} />
@@ -352,25 +319,25 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             {attentionCount > 0 && <span className={"nav-item__badge nav-item__badge--" + attentionTone}>{attentionCount}</span>}
           </div>
           )}
-          {canCluster && (
-          <div className={"nav-item" + (isActive("cluster") ? " nav-item--active" : "")} onClick={go("cluster")} data-tip={"Cluster" + (clusterCount > 0 ? " · " + clusterCount : "")} aria-label="Cluster">
-            <Icon name="server-cog" size={16} />
-            <span className="nav-item__label">Cluster</span>
-            {clusterCount > 0 && <span className={"nav-item__badge nav-item__badge--" + clusterTone}>{clusterCount}</span>}
-          </div>
-          )}
-          {canCluster && (
-          <SidebarNodes
-            hosts={hosts}
-            activeHostId={route.kind === "cluster" ? route.hostId : null}
-            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
-          )}
           {canAudit && (
           <div className={"nav-item" + (isActive("audit") ? " nav-item--active" : "")} onClick={go("audit")} data-tip="Audit log" aria-label="Audit log">
             <Icon name="scroll-text" size={16} />
             <span className="nav-item__label">Audit log</span>
           </div>
           )}
+        </div>
+        )}
+        {canCluster && (
+        <div className="sidebar__group">
+          <div className={"nav-item" + (isActive("cluster") ? " nav-item--active" : "")} onClick={go("cluster")} data-tip={"Cluster" + (clusterCount > 0 ? " · " + clusterCount : "")} aria-label="Cluster">
+            <Icon name="server-cog" size={16} />
+            <span className="nav-item__label">Cluster</span>
+            {clusterCount > 0 && <span className={"nav-item__badge nav-item__badge--" + clusterTone}>{clusterCount}</span>}
+          </div>
+          <SidebarNodes
+            hosts={hosts}
+            activeHostId={route.kind === "cluster" ? route.hostId : null}
+            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
         </div>
         )}
       </nav>
@@ -381,11 +348,14 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             a run somebody else started would pass for something you did yourself. Both sit out of
             Monitoring, which is what the AlertEngine says about the fleet. */}
         <NotificationsPanel onOpenServer={(id) => onNavigate && onNavigate({ kind: "server", id })} />
-        {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
         <div className={"nav-item" + (isActive("settings") ? " nav-item--active" : "")} onClick={go("settings")} data-tip="Settings" aria-label="Settings">
           <Icon name="settings" size={16} />
           <span className="nav-item__label">Settings</span>
         </div>
+        {/* Last, because it is the heaviest thing here — an avatar and two lines — and it anchors the
+            foot rather than sitting in the middle of it. Its popover opens upward for the same
+            reason. */}
+        {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
       </div>
     </aside>
   );
@@ -449,4 +419,4 @@ function TopNav({ tab, onTab, user, onLogout, onMenu, onHome, onAssistant, assis
   );
 }
 
-export { AccountAvatar, ClusterChip, ServerListItem, Sidebar, SidebarAccount, SidebarNodes, TopNav };
+export { AccountAvatar, ServerListItem, Sidebar, SidebarAccount, SidebarNodes, TopNav };

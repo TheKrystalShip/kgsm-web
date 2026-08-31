@@ -61,27 +61,11 @@
     margin-left: 0;
   }
 
-  /* Cluster chip → glyph over the node count */
-  .sidebar--rail .cluster-status {
-    flex-direction: column;
-    gap: 4px;
-    height: auto;
-    padding: 8px 4px;
-    justify-content: center;
-    margin: 2px 0 8px;
-  }
-
-  /* Nav groups → hide labels, separate sections with a hairline */
   .sidebar--rail .sidebar__nav {
     gap: 10px;
   }
 
-  .sidebar--rail .sidebar__group-label {
-    display: none;
-  }
-
   .sidebar--rail .sidebar__group+.sidebar__group {
-    border-top: 1px solid var(--border-subtle);
     padding-top: 10px;
   }
 

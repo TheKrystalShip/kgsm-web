@@ -13,12 +13,19 @@
   min-height: 0;
 }
 
+/* Its own block. With nothing between it and the first link, the wordmark reads as the top of the
+   nav rather than as the header above it — the same hairline the groups use says which it is. */
 .sidebar__brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px 6px;
+  padding: 4px 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
   min-width: 0;
+
+  img {
+    border-radius: var(--r-sm);
+  }
 }
 
 /* The wordmark holds one line whatever --font-ui a theme sets. The rail is a fixed
@@ -68,14 +75,12 @@
   gap: 2px;
 }
 
-.sidebar__group-label {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-4);
-  font-weight: 600;
-  padding: 0 10px;
-  margin-bottom: 4px;
+/* Between groups, never above the first or below the last: a rule with nothing on one side of it
+   reads as a section that failed to render. Groups a role holds nothing of are absent from the DOM
+   rather than empty, which is what makes the adjacency selector enough. */
+.sidebar__group+.sidebar__group {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
 }
 
 /* Server search */

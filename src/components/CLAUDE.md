@@ -50,11 +50,23 @@ into `App.jsx`.
   only the stale case, where a live node has no such server, offers to clear it.
 
   It also holds **`SidebarNodes`**, the same idiom under Cluster. Every node is drawn — a node is not
-  something a person opts into the way a server is starred — and the set is the connected roster the
-  `ClusterChip` above counts, so the strip and that number can never name different nodes. A peer
-  discovered but not connected stays on the Cluster page, where its state can be said in words. Both
-  the chip and the rows read `isDegraded` for "answering, but this session cannot drive it", which is
-  what keeps the count and the dots agreeing.
+  something a person opts into the way a server is starred — and the set is the connected roster this
+  browser drives. A peer discovered but not connected stays on the Cluster page, where its state can
+  be said in words. The rows read `isDegraded` for "answering, but this session cannot drive it", and
+  each carries a dot and a tooltip saying which of the three readings it is: that is the whole of what
+  the chrome reports about node health, and it says which node rather than how many.
+
+  **The nav is four groups, separated by a hairline and named by nothing:** Home · Servers with its
+  favourites and Catalog · Alerts and the Audit log · Cluster with its nodes. A label cost a row to
+  say what the icons beside it already say, and the collapsed rail had always hidden them, so both
+  modes read the same way. The rule is drawn **between** groups (`.sidebar__group+.sidebar__group`),
+  which makes a group this role holds nothing of something that must be **absent from the DOM rather
+  than empty** — otherwise the sidebar rules off a space with nothing in it. A viewer holds neither
+  the dashboard nor alerts nor the cluster and sees one group; that is what `sidebar-nav.mjs` in the
+  visual harness drives, because it is invisible to anyone signed in as an admin.
+
+  The **foot** is what is yours rather than the fleet's: this browser's notification tray, Settings,
+  and the account last — the heaviest row, anchoring the bottom, with its popover opening upward.
 
   `.sidebar__nav` is the one part of the aside allowed to scroll. The foot is pinned by
   `margin-top: auto` and would otherwise be pushed past the bottom edge, where nothing can reach it.
