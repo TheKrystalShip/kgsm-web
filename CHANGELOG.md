@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.209.0]
+
+### Removed — the member cards no longer caption which member they write through
+
+A card headed "Managing · hotrod" reads as a mode: a node picked as primary, a surface scoped to
+one. There is no such thing here. A member call is addressed to whichever member served the page,
+derived on every render and stored nowhere, because membership management and per-member link state
+are held in each member's own peer table.
+
+The one write where that scope is real — disabling holds only on the member that recorded it, and
+no gossip undoes it — names the member on the control itself and in the dialog that confirms it,
+which is where somebody about to make the choice is looking.
+
+
 ## [1.208.0]
 
 ### Changed — the cluster's two member cards are the dashboard's node widgets

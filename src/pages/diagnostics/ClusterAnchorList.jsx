@@ -24,7 +24,6 @@ import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { homeHostId } from "../../lib/config.js";
-import { nodeLabel } from "../../lib/nodeLabel.js";
 import { can } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
@@ -137,9 +136,9 @@ function ClusterAnchorList({ hovered, onHover }) {
     [hosts, members, pingByHost, homeId]);
 
   // A capability assignment is cluster state — versioned, gossiped, convergent — so any member
-  // serves it. The one this browser is demonstrably talking to is the member serving the panel.
+  // serves it, and the call goes to the member serving this panel. Derived on every render;
+  // nothing selects it and nothing stores it.
   const actingHostId = homeId;
-  const actingLabel = actingHostId ? nodeLabel(actingHostId, hosts) : null;
   const canReassign = can("host.manage") && !!clusterAdmin && !!actingHostId;
 
   const orphaned = (capabilities || []).filter(c => c.orphaned);
@@ -158,9 +157,6 @@ function ClusterAnchorList({ hovered, onHover }) {
       count={anchors.length}
       countTone="neutral"
       pin={<PinButton type="cluster.anchors" label="the cluster's anchors" />}
-      meta={canReassign && actingLabel
-        ? <span className="cluster-cardmeta"><span className="cluster-cardmeta__acting">Managing · {actingLabel}</span></span>
-        : null}
     >
       <OrphanedCapabilities capabilities={capabilities} canReassign={canReassign} onReassign={setAssigning} />
       <div className="dash-fleet__rows">

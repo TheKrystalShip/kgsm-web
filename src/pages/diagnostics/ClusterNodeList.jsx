@@ -32,7 +32,6 @@ import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { api } from "../../lib/apiClient.js";
 import { homeHostId } from "../../lib/config.js";
-import { nodeLabel } from "../../lib/nodeLabel.js";
 import { can } from "../../lib/persona.js";
 import { playerTally } from "../../lib/servers.js";
 import { useStore } from "../../lib/store.js";
@@ -42,24 +41,6 @@ import { MemberRowActions } from "./clusterActions.jsx";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
 import { HostEditorModal, HostMenu, RemoveHostDialog } from "./diagComponents.jsx";
 import { buildClusterNodes, nodeEntries } from "./clusterNodes.js";
-
-// Where these controls write. Every member on this card is reached through ONE member, and it is
-// the same one for every row — so it is stated once, at card level, rather than repeated per
-// control or hidden in a tooltip that does not exist on a touch screen. What each write then does
-// with that is the control's own business: disabling holds only there and says so, and the two
-// that converge do not claim a scope they lack.
-//
-// Absent for somebody who cannot manage members. There is no write to place, so a route to it is
-// noise.
-function CardMeta({ acting, error }) {
-  if (!acting && !error) return null;
-  return (
-    <span className="cluster-cardmeta">
-      {acting && <span className="cluster-cardmeta__acting">Managing · {acting}</span>}
-      {error && <span>Federation roster unavailable — showing connected nodes only.</span>}
-    </span>
-  );
-}
 
 // What a node is carrying. `unseen` counts servers that cannot report a roster —
 // their players are not zero, they are unknown, so the tally says "+" and names
@@ -217,12 +198,12 @@ function ClusterNodeList({ hovered, onHover }) {
   const [removing, setRemoving] = React.useState(null);
 
   const homeId = homeHostId();
-  // A membership write lands on ONE member's roster, and it is the member serving this panel —
-  // the address somebody actually typed, which is the member this browser is demonstrably
-  // talking to. Stated at card level (CardMeta) rather than resolved out of sight, because
-  // disabling is local to the member it is sent to and no gossip undoes it.
+  // Every member call is addressed to ONE member, because there is no cluster-wide roster — each
+  // member holds its own copy. It is the member serving this panel: the address somebody typed,
+  // which is the one this browser is demonstrably talking to. Nothing selects it and nothing
+  // stores it; it is derived on every render. Where that scope is load-bearing — disabling holds
+  // only on the member that recorded it — the control names the member itself.
   const actingHostId = homeId;
-  const actingLabel = actingHostId ? nodeLabel(actingHostId, hosts) : null;
   const canManagePeers = !!actingHostId && can("host.manage") && !!clusterAdmin;
 
   const nodes = React.useMemo(
@@ -257,7 +238,7 @@ function ClusterNodeList({ hovered, onHover }) {
       count={nodes.length}
       countTone="neutral"
       pin={<PinButton type="cluster.nodes" label="the cluster's nodes" />}
-      meta={<CardMeta acting={canManagePeers ? actingLabel : null} error={clusterErrored} />}
+      meta={clusterErrored ? "Federation roster unavailable — showing connected nodes only." : null}
     >
       <div className="dash-fleet__rows">
         {nodes.map(n => (n.ghost
