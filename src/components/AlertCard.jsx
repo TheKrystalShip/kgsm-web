@@ -1,7 +1,7 @@
 import { Icon } from "./Icon.jsx";
 import { alertHost } from "./ContextualAlerts.jsx";
 import { ServerActionButton, verbGuard } from "./ServerActions.jsx";
-import { askAssistantUsable } from "../lib/capabilities.js";
+import { useAssistantFor } from "./AssistantDockContext.jsx";
 import { serverOperable } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
@@ -84,6 +84,9 @@ function AlertCard({ item, onAsk, onOpenServer, onOpenHost, onOpenAudit, onRun, 
   const host = hostId ? hostsStore.find(hostId) : null;
   const actions = useAlertActions(item, onRun);
   const hasActions = actions.length > 0;
+  // Which assistant would answer about this alert — the dock's own answer, so the button and the
+  // dock behind it cannot disagree about whether there is one.
+  const asker = useAssistantFor(hostId);
 
   return (
     <div className={"alert-card alert-card--" + item.severity
@@ -144,9 +147,9 @@ function AlertCard({ item, onAsk, onOpenServer, onOpenHost, onOpenAudit, onRun, 
               {...a.job} onRun={a.run} />
           ))}
           <button className={"alert-btn" + (hasActions ? "" : " alert-btn--primary")}
-            disabled={!askAssistantUsable(item)}
-            title={!askAssistantUsable(item) ? "Assistant unavailable on this alert\u2019s host" : undefined}
-            onClick={() => { if (askAssistantUsable(item)) onAsk(item); }}><Icon name="bot" size={13} /> Ask assistant</button>
+            disabled={!asker}
+            title={asker ? undefined : "There is no assistant to ask about this alert"}
+            onClick={() => { if (asker) onAsk(item); }}><Icon name="bot" size={13} /> Ask assistant</button>
           {item.serverId
             ? <button className="alert-btn" onClick={() => onOpenServer(item.serverId, item.anchor && item.anchor.tab)}><Icon name="external-link" size={13} /> Open server</button>
             : (hostId && onOpenHost && <button className="alert-btn" onClick={() => onOpenHost(hostId)}><Icon name="external-link" size={13} /> Open host</button>)}

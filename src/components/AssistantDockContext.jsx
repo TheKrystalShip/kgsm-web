@@ -1,7 +1,6 @@
 import React from "react";
 import { assistantSession } from "../lib/assistantSession.js";
-import { assistantTargets, resolveTarget, usableTargets } from "../lib/assistants.js";
-import { capUsable } from "../lib/capabilities.js";
+import { answersFor, assistantForHost, assistantTargets, resolveTarget, usableTargets } from "../lib/assistants.js";
 import { PREF_KEYS, prefsStore } from "../lib/stores/prefs.js";
 import { useStore } from "../lib/store.js";
 import { clusterStore } from "../lib/stores.js";
@@ -16,6 +15,18 @@ const AssistantDockContext = React.createContext(null);
 
 function useAssistantDock() {
   return React.useContext(AssistantDockContext);
+}
+
+// useAssistantFor(hostId) — which assistant would answer a question scoped to this node, or null.
+//
+// The ONE gate behind every "ask the assistant" affordance on the panel. It reads the same candidate
+// list the dock resolves its own target from, through the same function, so a button that offers to
+// ask and the dock that would answer cannot disagree about whether there is an assistant. They did:
+// each affordance asked whether the alert's own NODE ran a leaf, which is false of every node in a
+// cluster whose assistant is an anchor — so a healthy assistant sat behind disabled buttons.
+function useAssistantFor(hostId) {
+  const dock = useAssistantDock();
+  return assistantForHost((dock && dock.assistantHostList) || [], hostId || null);
 }
 
 function alertAssistantPrompt(item) {
@@ -52,6 +63,11 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   });
   const [vw, setVw] = React.useState(() => window.innerWidth);
   const [assistantHostId, setAssistantHostId] = React.useState(null);
+  // The candidates and the current target, readable from the interaction callbacks below — which are
+  // defined before either is derived, and read them only after a click. Kept in a ref rather than in
+  // their deps so a seeded ask does not rebuild every handler each time a node's health changes.
+  const assistantHostListRef = React.useRef([]);
+  const assistantHostRef = React.useRef(null);
   // Which assistant is addressed, and whether that was a decision. A seeded ask retargets to the
   // node a question is about, which is derived from the subject and lasts as long as the subject
   // does; the picker is a choice, and a choice is the account's and is kept.
@@ -97,14 +113,20 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     setRoute({ kind: view === "diagnostics" ? "fleet" : view });
   }, [setRoute]);
 
+  // Point the dock at something that can answer about `hostId`, without overriding a target that
+  // already can. A leaf only sees the machine it runs on, so a question about another node has to
+  // move; the cluster's own sees every node, so a deliberate choice of it is left alone.
+  const scopeAssistant = React.useCallback((hostId) => {
+    if (!hostId) return;
+    if (answersFor(assistantHostRef.current, hostId)) return;
+    const next = assistantForHost(assistantHostListRef.current, hostId);
+    if (next) setAssistantHostId(next.id);
+  }, []);
+
   const askAssistant = React.useCallback((serverId) => {
-    if (serverId) {
-      const hid = serverHostId(serverId);
-      const h = hid && hosts.find(x => x.id === hid);
-      if (h && capUsable(h, "assistant")) setAssistantHostId(hid);
-    }
+    if (serverId) scopeAssistant(serverHostId(serverId));
     setAssistantOpen(true);
-  }, [hosts]);
+  }, [scopeAssistant]);
 
   const askAboutAlert = React.useCallback((item) => {
     if (item && item.serverId) setRoute({ kind: "server", id: item.serverId });
@@ -117,25 +139,21 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   // an editable, not-yet-sent prompt — the user reads and sends it, we never speak for them.
   // The host is the one the create page picked: the blueprint lands on that host's disk.
   const askCreateBlueprint = React.useCallback((gameName, hostId) => {
-    const h = hostId && hosts.find(x => x.id === hostId);
-    if (h && capUsable(h, "assistant")) setAssistantHostId(hostId);
+    scopeAssistant(hostId);
     setAssistantOpen(true);
     setAssistantSeed({
       prompt: "Create a blueprint for " + (gameName || ""),
       serverId: null,
       nonce: Date.now(),
     });
-  }, [hosts]);
+  }, [scopeAssistant]);
 
-  // Hand a NODE to the assistant, from the dashboard's capacity card. Same contract as
-  // every other seeded ask: the dock opens on that node's own assistant (per-host leaf, no
-  // central fallback) with an editable prompt the user sends — we never speak for them. The
-  // caller only offers this where the node HAS a usable assistant, and the capability check
-  // here is the second half of that, so a node that lost its leaf mid-session opens the dock
-  // on whatever the picker already had rather than pointing it somewhere that can't answer.
+  // Hand a NODE to the assistant, from the dashboard's node card. Same contract as every other
+  // seeded ask: the dock opens on an assistant that can answer about that node, with an editable
+  // prompt the user sends — we never speak for them.
   const askAboutHost = React.useCallback((hostId) => {
     const h = hostId && hosts.find(x => x.id === hostId);
-    if (h && capUsable(h, "assistant")) setAssistantHostId(hostId);
+    scopeAssistant(hostId);
     setAssistantOpen(true);
     setAssistantSeed({
       prompt: "How is " + ((h && h.name) || hostId) + " doing right now \u2014 what's using its capacity, "
@@ -143,7 +161,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
       serverId: null,
       nonce: Date.now(),
     });
-  }, [hosts]);
+  }, [scopeAssistant, hosts]);
 
   // Opening the dock with nothing in hand names no node. The target comes from
   // the subject — the server behind askAssistant, the blueprint behind
@@ -186,6 +204,8 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   // empty list is what hides an action that could only fail.
   const usableAssistants = React.useMemo(() => usableTargets(assistantHostList), [assistantHostList]);
   const assistantHost = resolveTarget(assistantHostList, assistantHostId);
+  assistantHostListRef.current = assistantHostList;
+  assistantHostRef.current = assistantHost;
 
   // The chosen assistant is the ACCOUNT's, kept where every other preference is: it rides the same
   // mirror, so it follows the person to their other devices when they have sync on. Read once the
@@ -302,4 +322,4 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   );
 }
 
-export { AssistantDockProvider, useAssistantDock, alertAssistantPrompt };
+export { AssistantDockProvider, useAssistantDock, useAssistantFor, alertAssistantPrompt };

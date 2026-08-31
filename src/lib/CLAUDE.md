@@ -81,6 +81,10 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   say which one they mean. The anchor is found through the capability ASSIGNMENT rather than off
   whichever member states an address: only the holder is believed, so pointing this browser
   somewhere else takes a visible reassignment. Pure — every fact arrives as an argument.
+  `assistantForHost(targets, hostId)` is the **one gate** behind every "ask the assistant"
+  affordance — the cluster's own answers about every node in it, a leaf only about the machine it
+  runs on — and the dock resolves its own target through the same list, so a button that offers to
+  ask and the dock that would answer cannot disagree about whether there is one.
 - `assistantSession.js` — the session with that assistant: its own storage prefixes, its
   own refresh rotation against the leaf's `/auth/session/refresh`, and the sign-in bounce.
   An ANCHORED assistant has no session of its own to hold: another member holds the cluster's

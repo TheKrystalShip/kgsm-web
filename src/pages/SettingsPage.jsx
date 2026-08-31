@@ -6,7 +6,7 @@ import { ResetLocalData } from "../components/ResetLocalData.jsx";
 import { SettingsMemory } from "../components/SettingsMemory.jsx";
 import { signInMethodLabel } from "../components/host-helpers.jsx";
 import { useAssistantDock } from "../components/AssistantDockContext.jsx";
-import { capUsable } from "../lib/capabilities.js";
+import { usableTargets } from "../lib/assistants.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 import { SettingsAccess } from "./SettingsAccess.jsx";
 import { SettingsIdentities } from "./SettingsIdentities.jsx";
@@ -60,7 +60,7 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
   // "several do and the dock is deliberately holding its target unset until you pick". Opening the
   // chat is how that pick is made; this page never offers a second way to set it.
   const { assistantHost, assistantHostList, setAssistantOpen } = useAssistantDock();
-  const assistantConnected = !!(assistantHost && capUsable(assistantHost, "assistant"));
+  const assistantConnected = !!(assistantHost && usableTargets([assistantHost]).length);
 
   // An unknown tab falls back to the landing one rather than rendering an empty body — a stale or
   // hand-typed URL should land somewhere, not nowhere.

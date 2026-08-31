@@ -21,7 +21,7 @@ globalThis.window = dom.window;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.sessionStorage = dom.window.sessionStorage;
 
-const { assistantTargets, resolveTarget, usableTargets } = await import("../src/lib/assistants.js");
+const { answersFor, assistantForHost, assistantTargets, resolveTarget, usableTargets } = await import("../src/lib/assistants.js");
 
 let fail = 0;
 const assert = (c, label, extra = "") => {
@@ -111,6 +111,45 @@ assert(twoLeaves.length === 2 && resolveTarget(twoLeaves, null) === null,
 assert(resolveTarget(assistantTargets({
   hosts: [leafHost("hotrod", "https://a.example.com")], members: [], capabilities: [] }), null).id === "hotrod",
   "the only one there is, is taken");
+
+// ---- who can answer about a node -------------------------------------------
+// The gate behind every "ask the assistant" affordance. It used to be asked of the alert's own NODE,
+// which is false of every node in a cluster whose assistant is an anchor — so a healthy assistant sat
+// behind disabled buttons. It is the same list and the same function the dock resolves with now.
+const both = assistantTargets({
+  hosts: [leafHost("hotrod", "https://leaf.example.com")],
+  members: [ANCHOR_MEMBER, NODE_MEMBER],
+  capabilities: held("hotrod-assistant") });
+
+assert(answersFor(both[0], "hotbox") && answersFor(both[0], "hotrod"),
+  "the cluster's own answers about every node in it");
+assert(answersFor(both[1], "hotrod") && !answersFor(both[1], "hotbox"),
+  "a leaf answers about its own machine and no other");
+assert(answersFor(both[1], null),
+  "and a question scoped to no node is answered by any of them");
+
+assert(assistantForHost(both, "hotrod").kind === "leaf",
+  "a node running its own leaf is asked its own — closest to the subject");
+assert(assistantForHost(both, "hotbox").kind === "anchor",
+  "a node running none falls to the cluster's own rather than to a leaf that cannot see it");
+
+const leafOnly = assistantTargets({
+  hosts: [leafHost("hotbox", "https://b.example.com")], members: [], capabilities: [] });
+assert(assistantForHost(leafOnly, "hotrod") === null,
+  "with only another node's leaf there is nobody to ask about this one — the button stays disabled");
+assert(assistantForHost(leafOnly, "hotbox") !== null, "and somebody to ask about that one");
+assert(assistantForHost(leafOnly, null) !== null,
+  "a panel-wide question is answerable by whoever is there");
+
+const anchorOnly = assistantTargets({
+  hosts: [], members: [ANCHOR_MEMBER, NODE_MEMBER], capabilities: held("hotrod-assistant") });
+assert(assistantForHost(anchorOnly, "hotrod") !== null && assistantForHost(anchorOnly, "hotbox") !== null,
+  "and a cluster assistant answers about a node that runs no leaf at all — the case that was disabled");
+
+const down = assistantTargets({
+  hosts: [], members: [{ ...ANCHOR_MEMBER, status: "unreachable" }], capabilities: held("hotrod-assistant") });
+assert(assistantForHost(down, "hotrod") === null,
+  "an assistant that cannot be reached is not one to offer to ask");
 
 // ---- a deployment with no cluster -----------------------------------------
 assert(assistantTargets({ hosts: [], members: [], capabilities: [] }).length === 0,

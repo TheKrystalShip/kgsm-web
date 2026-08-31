@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.214.1]
+
+### Fixed — one gate decides whether there is an assistant to ask
+
+Every "ask the assistant" affordance — the alert card's CTA, the dashboard's brief rows, the
+blueprint-authoring hand-off, the memory card on Settings — asked whether the alert's own NODE ran a
+leaf. That is false of every node in a cluster whose assistant is an anchor, so a healthy assistant
+the dock was already talking to sat behind disabled buttons reading "Unavailable".
+
+They all gate on `useAssistantFor(hostId)` now: which assistant would answer a question scoped to
+that node, read from the same candidate list the dock resolves its own target from, through the same
+function. A button that offers to ask and the dock that would answer cannot come to different
+conclusions.
+
+The answer stays honest rather than becoming a flat yes. The cluster's own assistant answers about
+every node in it; a leaf answers about the machine it runs on and no other, so an alert on a node
+whose only assistant is a leaf on a different machine still offers nothing — there is genuinely
+nobody to ask.
+
+### Changed — a seeded ask moves the dock only when it has to
+
+Pressing Ask retargets to an assistant that can answer about the subject, and leaves one that already
+can. A deliberate choice of the cluster's assistant survives a question about a node, because it can
+answer it; a leaf that cannot see the node in question is moved off.
+
 ## [1.214.0]
 
 ### Added — the assistant as a cluster anchor, beside the assistant as a node's leaf

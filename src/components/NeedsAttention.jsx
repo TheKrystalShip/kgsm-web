@@ -1,11 +1,11 @@
 import React from "react";
 import { BriefCard } from "./BriefCard.jsx";
-import { alertInScope } from "./ContextualAlerts.jsx";
+import { alertHost, alertInScope } from "../lib/alertsApi.js";
 import { Icon } from "./Icon.jsx";
 import { KrystalAlerts } from "../lib/alertsApi.js";
 import { useAlertActions } from "./AlertCard.jsx";
 import { ServerActionButton } from "./ServerActions.jsx";
-import { askAssistantUsable } from "../lib/capabilities.js";
+import { useAssistantFor } from "./AssistantDockContext.jsx";
 import { watchedRules } from "../lib/fleetOps.js";
 import { fmtRelative } from "../lib/formatting.js";
 import { useStore } from "../lib/store.js";
@@ -68,7 +68,7 @@ function alertBuckets(hostId, serverId) {
 // first. The button stops the click from reaching the row (ServerActionButton already
 // does), so pressing Update never also opens the assistant.
 function BriefAlertRow({ item, onPick, onRun, actionLabel }) {
-  const askOk = askAssistantUsable(item);
+  const askOk = !!useAssistantFor(alertHost(item));
   const actions = useAlertActions(item, onRun);
   return (
     <div className={"chat-brief__item chat-brief__item--" + item.severity + (item.escalated ? " chat-brief__item--escalated" : "") + (askOk ? "" : " chat-brief__item--noask")} onClick={() => askOk && onPick && onPick(item)}>

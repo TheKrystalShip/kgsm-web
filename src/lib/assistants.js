@@ -114,6 +114,32 @@ function assistantTargets({ hosts, members, capabilities }) {
 const usableTargets = (targets) =>
   (targets || []).filter(t => t.state === "operational" || t.state === "degraded");
 
+// answersFor(target, hostId) — whether this assistant can answer a question scoped to one node. The
+// cluster's own reaches every node in it; a leaf reaches the machine it runs on and no other, so
+// asking one about a different node is asking somebody who cannot see it.
+//
+// A question scoped to no node — a panel-wide alert — is answered by any of them.
+function answersFor(target, hostId) {
+  if (!target) return false;
+  if (!hostId) return true;
+  return target.kind === "anchor" || target.id === hostId;
+}
+
+// assistantForHost(targets, hostId) — which assistant would answer about `hostId`, or null when none
+// would. A leaf on that machine first, because it is closest to the subject, then the cluster's own.
+//
+// This is the ONE gate behind every "ask the assistant" affordance. A button that offers to ask and
+// the dock that would answer read the same list through the same function, so they cannot come to
+// different conclusions about whether there is an assistant — which is how a working assistant ended
+// up behind a disabled button.
+function assistantForHost(targets, hostId) {
+  const usable = usableTargets(targets);
+  if (!hostId) return usable[0] || null;
+  return usable.find(t => t.kind === "leaf" && t.id === hostId)
+    || usable.find(t => t.kind === "anchor")
+    || null;
+}
+
 // Which target the dock addresses, in order: the one this account chose, then the cluster's own
 // assistant, then the only candidate there is.
 //
@@ -137,4 +163,4 @@ function resolveTarget(targets, chosenId) {
   return null;
 }
 
-export { assistantHolder, assistantTargets, resolveTarget, usableTargets };
+export { answersFor, assistantForHost, assistantHolder, assistantTargets, resolveTarget, usableTargets };

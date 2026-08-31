@@ -26,6 +26,9 @@ into `App.jsx`.
   other devices; a **retarget**, derived from what somebody opened (a server's chat, a conversation
   held on another node), lasts as long as that subject does and is never written. The candidates
   come from `lib/assistants.js`, so a cluster's own assistant and a node's own appear in one list.
+  It also exports **`useAssistantFor(hostId)`** — which assistant would answer a question scoped to
+  one node, or null. Every "ask the assistant" affordance gates on that and nothing else, so the
+  button and the dock behind it read the same list through the same function.
 - `AppRouter.jsx` — routing-only switch (see `../pages/CLAUDE.md`). It lives here
   but is the routing layer, not a presentational component.
 - `Breadcrumb.jsx`, `BootLanding.jsx`, `MobileNavToggle.jsx`, `Sidebar.jsx`,

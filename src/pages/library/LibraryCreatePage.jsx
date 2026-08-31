@@ -18,7 +18,7 @@ import { BlueprintHostPicker } from "./BlueprintHostPicker.jsx";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
-import { hostCapability } from "../../lib/capabilities.js";
+import { useAssistantFor } from "../../components/AssistantDockContext.jsx";
 import { can, isAdmin } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
@@ -54,10 +54,11 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
   const hostObj = hostId ? hosts.find(h => h.id === hostId) || null : null;
   const canWrite = hostId ? isAdmin(hostId) : false;
 
-  // The assistant hand-off is offered only where that host actually provisions one
-  // (§7.5) — absent means the button is not rendered, never a promise we can't keep.
-  const assistantCap = hostObj ? hostCapability(hostObj, "assistant") : null;
-  const hasAssistant = !!assistantCap && assistantCap.state !== "absent";
+  // The assistant hand-off is offered only where one would actually answer about the host the
+  // blueprint lands on — the dock's own answer, so the button and the dock behind it cannot disagree
+  // about whether there is an assistant. Absent means the button is not rendered, never a promise we
+  // can't keep.
+  const hasAssistant = !!useAssistantFor(hostId);
 
   // ---- buffer --------------------------------------------------------------
   const [name, setName] = React.useState("");

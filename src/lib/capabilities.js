@@ -1,6 +1,5 @@
-import { alertHost } from "./alertsApi.js";
 import { sessionStore } from "./sessionStore.js";
-import { hostsStore, serverHostId } from "./stores.js";
+import { hostsStore } from "./stores.js";
 
 // capabilities.js — the host capability model.
 //
@@ -141,17 +140,6 @@ import { hostsStore, serverHostId } from "./stores.js";
     var host = server.hostId ? hostsStore.find(server.hostId) : null;
     return host ? capUsable(host, capId) : true;
   }
-  // askAssistantUsable(alert) — can the "Ask assistant" action work for this
-  // alert? Resolves the alert's host (anchor / server) and checks its assistant.
-  // Host-less (panel-wide) alerts route to the default assistant → allowed.
-  function askAssistantUsable(item) {
-    var hostId = alertHost(item)
-      || (item && item.anchor && item.anchor.hostId)
-      || (item && item.serverId && serverHostId(item.serverId));
-    if (!hostId) return true;
-    var host = hostsStore.find(hostId);
-    return host ? capUsable(host, CAPS.ASSISTANT) : true;
-  }
   // Hosts that OFFER an assistant (provisioned, access not denied) — the dock
   // lists them all so a host whose assistant dropped stays visible (disabled).
   function assistantHostsAll(hosts) {
@@ -160,4 +148,4 @@ import { hostsStore, serverHostId } from "./stores.js";
     });
   }
 
-export { CAPS, CAP_META, CAP_ORDER, CAP_STATE, CAP_STATE_LABEL, CAP_STATUS, CAP_TONE, askAssistantUsable, assistantHosts, assistantHostsAll, capProvisioned, capUsable, hostCapability, serverCapUsable, setHostCapability };
+export { CAPS, CAP_META, CAP_ORDER, CAP_STATE, CAP_STATE_LABEL, CAP_STATUS, CAP_TONE, assistantHosts, assistantHostsAll, capProvisioned, capUsable, hostCapability, serverCapUsable, setHostCapability };
