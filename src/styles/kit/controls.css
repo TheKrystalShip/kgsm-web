@@ -818,11 +818,3 @@
 .dash-section__more:hover {
   color: var(--krystal-teal-hover);
 }
-
-/* "Added …" stamp on library cards in the Recently-added view. */
-.game-card__added {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--krystal-teal);
-}

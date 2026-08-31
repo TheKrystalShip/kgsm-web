@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.211.0]
+
+### Changed — the dashboard's catalog rail renders the Catalog page's card
+
+There were two cards for one blueprint. The Catalog page's states capacity, footprint, whether it
+fits this fleet's free memory, whether it needs Steam credentials, which node offers it and what is
+already running from it; the rail's stated a name, a player count and a badge. Nothing failed, which
+is why they drifted — a thinner card is not an error.
+
+The rail now renders `GameCard` with the Catalog page's own inputs: the fleet headroom every card
+compares against, resolved once for the rail, and one "recently added" reference taken across the
+whole catalog rather than per card.
+
+It passes no `onDeploy`, so the card's action reads "View" and the blueprint's own page is where the
+deploy lives — an install is a form (a node, a name, a port) and a rail has nowhere to put one. That
+is the same answer the card already gives a viewer on the Catalog page: an absent callback is a fact
+about the surface, not a lesser variant of the card.
+
+Rail density is retuned for it. The richer card in the track the thin one was tuned for was 165px on
+a desktop and 136px on a phone, where the fit chip is clipped — and that chip is the one thing on the
+card a reader cannot infer from the rest of it. It now holds 245–266px at every width.
+
+
 ## [1.210.0]
 
 ### Removed — nothing on the Cluster page claims a node is nearby

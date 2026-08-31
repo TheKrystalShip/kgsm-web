@@ -6,8 +6,13 @@ import { artBg } from "../lib/art.js";
 import { fmtFootprintMb } from "../lib/formatting.js";
 import { blueprintFit, hostAvailabilityLabel, instancesOfBlueprint } from "../lib/servers.js";
 
-// GameCard.jsx — the catalog game card, extracted from LibraryPage.jsx.
-// Used by LibraryPage and DashboardPage.
+// GameCard.jsx — the catalog game card. One card, wherever a blueprint is shown: the Catalog page's
+// grid and the dashboard's catalog rail render the same component with the same props, so a fact
+// added to it appears on both and neither can quietly say less than the other.
+//
+// `onDeploy` and `headroom` are OPTIONAL, and their absence is a fact rather than a lesser variant.
+// A surface that cannot start an install passes no `onDeploy` and the card's action reads "View"; a
+// surface with no measured headroom passes none and the fit chip stays quiet rather than guessing.
 
 // "Recently added" helpers (shared with LibraryPage).
 const RECENT_WINDOW_DAYS = 30;
@@ -18,21 +23,7 @@ function libraryNow(list) {
   return times.length ? new Date(Math.max(...times)) : new Date();
 }
 
-function fmtAddedLabel(addedAt, now) {
-  if (!addedAt) return "";
-  const date = new Date(addedAt);
-  const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dd = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diff = Math.round((d0 - dd) / 86400000);
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff < 7) return diff + "d ago";
-  if (diff < 14) return "1w ago";
-  if (diff < 30) return Math.floor(diff / 7) + "w ago";
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function GameCard({ game, onPick, onDeploy, addedNow, compact, headroom }) {
+function GameCard({ game, onPick, onDeploy, addedNow, headroom }) {
   const servers = useStore(serversStore, s => s.list);
   const allHosts = useStore(hostsStore, s => s.list);
   const instances = instancesOfBlueprint(game, servers);
@@ -41,31 +32,6 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact, headroom }) {
   const bg = game.cover
     ? `linear-gradient(180deg, transparent 0%, rgba(11,15,20,0.55) 100%), url("${game.cover}")`
     : artBg(game.hero, null);
-
-  if (compact) {
-    return (
-      <div className="game-card" onClick={() => onPick(game)}>
-        <div className="game-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
-          {count > 0 && (
-            <span className="game-card__installed" title={count + " server" + (count === 1 ? "" : "s") + " created"}>
-              <Icon name="server" size={11} strokeWidth={2.2} /> {count}
-            </span>
-          )}
-        </div>
-        <div className="game-card__body">
-          <div className="game-card__title">{game.name}</div>
-          <div className="game-card__meta">
-            {game.players && (
-              <span className="game-card__metarow"><Icon name="users" size={12} /> {game.players} players</span>
-            )}
-            {addedNow && game.addedAt && (
-              <span className="game-card__added"><Icon name="clock" size={11} /> {fmtAddedLabel(game.addedAt, addedNow)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const now = addedNow || libraryNow([game]);
   const addedMs = game.addedAt ? +new Date(game.addedAt) : 0;
@@ -172,4 +138,4 @@ function GameCard({ game, onPick, onDeploy, addedNow, compact, headroom }) {
   );
 }
 
-export { fmtAddedLabel, GameCard, libraryNow, NEW_WINDOW_DAYS, RECENT_WINDOW_DAYS };
+export { GameCard, libraryNow, NEW_WINDOW_DAYS, RECENT_WINDOW_DAYS };
