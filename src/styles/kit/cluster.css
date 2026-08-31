@@ -327,12 +327,11 @@
 }
 
 /* ============================================================================
-   Cluster page unification — the constellation centerpiece + the node-list
-   BriefCard that replaced the fleet-grid. Two stacked BriefCards, hover-synced
-   by the page (hoveredNode state); the node list reuses dash-fleet-row* from
-   kit/hosts.css so it stays pixel-consistent with the dashboard's Fleet
-   capacity card, extended here only with the federation badges/actions strip
-   and the hover-highlight it needs that DashFleetStrip doesn't.
+   Cluster page — the constellation centerpiece over the two member cards.
+   Stacked BriefCards, hover-synced by the page (hoveredNode state); both member
+   lists render the dash-fleet-row* idiom from kit/hosts.css, extended here with
+   the federation badges/actions strip and the hover-highlight that pairs a row
+   with its dot on the map.
    ============================================================================ */
 
 /* ---- constellation ---- */

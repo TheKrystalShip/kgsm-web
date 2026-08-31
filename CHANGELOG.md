@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.208.0]
+
+### Changed — the cluster's two member cards are the dashboard's node widgets
+
+A cluster's members are nodes and anchors, and the Cluster page's Nodes and Anchors cards are what
+the dashboard mounts. Each is pinned from its own header and each is one component: it reads the
+roster, the connections, the ping and the persona from the stores, so it renders identically on its
+page and on a dashboard with nothing above it to wire it.
+
+The node row states what the machine is carrying as well as how loaded it is — the absolute reading
+under each meter, how much is running on it, how many people are on it, and a frozen label in place
+of a round trip when the readings have stopped updating — over the federation strip it already had.
+
+The Nodes card owns the edit and remove dialogs its row menu opens, because a menu whose modal lived
+on the page would be a dead control the moment the card was pinned.
+
+The Anchors card is pinned from the Cluster page and not offered by the Add-widget catalog: it
+renders only where the cluster has an anchor, so a list would put a permanently empty cell on the
+dashboard of the single-machine install that has none.
+
+A stored layout naming the card by its old type is renamed in place, before the layout is
+normalized — the registry drops what it does not know, so a rename read afterwards would already
+have thrown the widget away.
+
+
 ## [1.207.0]
 
 ### Changed — the anchor's journal is live

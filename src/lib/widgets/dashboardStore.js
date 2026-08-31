@@ -38,7 +38,7 @@ const SUMMARY_TILES = [
 
 const DEFAULT_LAYOUT = [
   ...SUMMARY_TILES.map(type => ({ type, w: 2, h: 1 })),
-  { type: "fleet.capacity", w: 12, h: 1 },
+  { type: "cluster.nodes", w: 12, h: 1 },
   { type: "alerts.latest", w: 6, h: 4 },
   { type: "activity.recent", w: 6, h: 4 },
   { type: "servers.rail", w: 12, h: 4 },
@@ -48,7 +48,7 @@ const DEFAULT_LAYOUT = [
 // Capabilities the seed needs to check. Kept beside the list because a seeded widget the viewer
 // cannot see is the one bug this filter exists to prevent.
 const SEED_CAP = {
-  "fleet.capacity": "nav.cluster",
+  "cluster.nodes": "nav.cluster",
   "alerts.latest": "nav.alerts",
   "activity.recent": "nav.audit",
   "library.catalog": "nav.library",
@@ -84,7 +84,7 @@ function writeStored(layout) {
 // default the first time they load a build that has widgets.
 const LEGACY_BAND_TYPE = {
   summary: SUMMARY_TILES[0],   // the band expands into all twelve; see takeSummary
-  capacity: "fleet.capacity",
+  capacity: "cluster.nodes",
   feed: null,                    // one band held two cards; they arrive as the two of them
   recent: "library.catalog",
   servers: "servers.rail",
@@ -142,12 +142,22 @@ function expandSummary(layout) {
   return out;
 }
 
-// A layout holding a tall `fleet.capacity` was sized against a floor the card no longer has: it
-// states its own height from its node rows, so any span above the smallest leaves a cell it cannot
-// fill. Shrink it in place — the card lands in the same position and every widget below it moves up.
-function fitCapacity(layout) {
-  if (!layout.some(w => w.type === "fleet.capacity" && w.h > 1)) return layout;
-  return layout.map(w => (w.type === "fleet.capacity" && w.h > 1 ? { ...w, h: 1 } : w));
+// Types a stored layout can hold that this build renders under another name, mapped before the
+// layout is normalized — `normalizeLayout` drops what the registry does not know, so a rename read
+// afterwards would already have thrown the widget away.
+const RENAMED_TYPES = { "fleet.capacity": "cluster.nodes" };
+
+// The node card states its own height from its rows, so any span above the smallest leaves a cell
+// it cannot fill. Renaming and shrinking happen together, in place: the card lands in the same
+// position and every widget below it moves up.
+function migrateTypes(raw) {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((w) => {
+    if (!w || typeof w !== "object") return w;
+    const type = RENAMED_TYPES[w.type];
+    if (!type) return w;
+    return { ...w, type, h: 1 };
+  });
 }
 
 /// Load the layout.
@@ -164,7 +174,7 @@ function fitCapacity(layout) {
 dashboardStore.hydrate = () => {
   const stored = readStored();
   if (stored) {
-    const layout = fitCapacity(expandSummary(normalizeLayout(stored, hasWidget)));
+    const layout = expandSummary(normalizeLayout(migrateTypes(stored), hasWidget));
     // No write. Re-persisting on load would take a version for a change nobody made, and — before
     // the node has answered — would race its copy.
     dashboardStore.setState({ layout, hydrated: true });
@@ -197,7 +207,7 @@ prefsStore.subscribe(() => {
   _adopted = true;
   const fromNode = prefsStore.get(PREF_KEYS.DASHBOARD_LAYOUT, null);
   if (Array.isArray(fromNode)) {
-    const layout = fitCapacity(expandSummary(normalizeLayout(fromNode, hasWidget)));
+    const layout = expandSummary(normalizeLayout(migrateTypes(fromNode), hasWidget));
     if (JSON.stringify(layout) !== JSON.stringify(dashboardStore.getState().layout)) {
       dashboardStore.setState({ layout, hydrated: true });
     } else {

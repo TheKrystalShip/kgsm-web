@@ -151,11 +151,11 @@ pieces live beside it.
 | Entry | Folder | Holds |
 |---|---|---|
 | `ChatPage.jsx` | `../chat/` (shared by both surfaces) | thread/message/parts, evidence cards, context meter, host picker, `chatUtils`/`chatConstants` |
-| `DiagnosticsPage.jsx` | `diagnostics/` | `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), host cards, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
+| `DiagnosticsPage.jsx` | `diagnostics/` | `ClusterConstellation` + the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), host cards, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
 | `accounts/AnchorPage.jsx` | `accounts/` | the member page's tab strip over `AnchorOverview`, `AccountsAdmin` (the roster, the create/edit modal and its sessions half), `AnchorLogs` and `AnchorConfiguration` — the last three read from the anchor itself |
-| `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `DashFleetStrip`, `AddWidgetSheet`, `DashboardEmpty` |
+| `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `AddWidgetSheet`, `DashboardEmpty` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
 | `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |
 

@@ -1,4 +1,4 @@
-// ClusterAnchorList.jsx — the Anchors card.
+// ClusterAnchorList — the Anchors card.
 //
 // A cluster's members are nodes and anchors, and they get separate cards because they are
 // separate things. A node runs the engine and game servers, so its row is CPU, memory and a
@@ -8,13 +8,30 @@
 //
 // The card is absent when there is nothing to say. Most installs are one machine with no
 // anchor at all, and an empty card headed "Anchors" invites somebody to go and look for the
-// thing that is missing.
+// thing that is missing. That is also why the widget is pinned from this card rather than
+// offered by the Add-widget catalog: the card exists exactly where there is an anchor to pin.
+//
+// It is the Cluster page's second card and a pinnable dashboard widget, and it is the same
+// component in both places: it reads the roster, the capability assignments and the persona
+// from the stores rather than being handed them.
+//
+// `hovered`/`onHover` are the Cluster page's constellation sync. Absent on a dashboard, where
+// there is no map beside the list to sync with.
 
 import React from "react";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
+import { useNav } from "../../components/NavContext.jsx";
+import { PinButton } from "../../components/widgets/PinButton.jsx";
+import { homeHostId } from "../../lib/config.js";
+import { nodeLabel } from "../../lib/nodeLabel.js";
+import { can } from "../../lib/persona.js";
+import { useStore } from "../../lib/store.js";
+import { clusterStore, hostsStore } from "../../lib/stores.js";
+import { pingStore } from "../../lib/stores/ui.js";
 import { CapabilityAssignDialog, MemberRowActions } from "./clusterActions.jsx";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
+import { anchorEntries, buildClusterNodes } from "./clusterNodes.js";
 
 // A capability nothing serves. It sits here rather than on the Nodes card because a
 // capability is what an anchor holds — and it is the one state this page can report that
@@ -56,7 +73,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
   const isHovered = hovered === entry.key;
   const tone = membershipRowTone(fed.membership);
   const latencyLabel = entry.latencyMs != null ? Math.round(entry.latencyMs) + "ms" : "—";
-  const opens = capability === "auth" && !!onOpenAnchor;
+  const opens = capability === "auth";
 
   return (
     <div
@@ -103,16 +120,36 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
   );
 }
 
-function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, onOpenAnchor, hostId, actingLabel, canManage, admin }) {
-  const [assigning, setAssigning] = React.useState(null);
-  const orphaned = (capabilities || []).filter(c => c.orphaned);
-  if (!anchors.length && !orphaned.length) return null;
+const NOOP = () => {};
 
-  const canReassign = canManage && admin && !!hostId;
+function ClusterAnchorList({ hovered, onHover }) {
+  const nav = useNav();
+  const [assigning, setAssigning] = React.useState(null);
+  const hosts = useStore(hostsStore, s => s.list);
+  const members = useStore(clusterStore, s => s.nodes);
+  const capabilities = useStore(clusterStore, s => s.capabilities);
+  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const pingByHost = useStore(pingStore, s => s.byHost);
+
+  const homeId = homeHostId();
+  const anchors = React.useMemo(
+    () => anchorEntries(buildClusterNodes(hosts, members, pingByHost, homeId)),
+    [hosts, members, pingByHost, homeId]);
+
+  // A capability assignment is cluster state — versioned, gossiped, convergent — so any member
+  // serves it. The one this browser is demonstrably talking to is the member serving the panel.
+  const actingHostId = homeId;
+  const actingLabel = actingHostId ? nodeLabel(actingHostId, hosts) : null;
+  const canReassign = can("host.manage") && !!clusterAdmin && !!actingHostId;
+
+  const orphaned = (capabilities || []).filter(c => c.orphaned);
+  const hover = onHover || NOOP;
   const capabilityOf = (memberId) => {
     const held = (capabilities || []).find(c => c.held && c.memberId === memberId);
     return held ? held.capability : null;
   };
+
+  if (!anchors.length && !orphaned.length) return null;
 
   return (
     <BriefCard
@@ -120,6 +157,7 @@ function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, o
       title="Anchors"
       count={anchors.length}
       countTone="neutral"
+      pin={<PinButton type="cluster.anchors" label="the cluster's anchors" />}
       meta={canReassign && actingLabel
         ? <span className="cluster-cardmeta"><span className="cluster-cardmeta__acting">Managing · {actingLabel}</span></span>
         : null}
@@ -132,9 +170,9 @@ function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, o
             entry={entry}
             capability={capabilityOf(entry.fed.nodeId)}
             hovered={hovered}
-            onHover={onHover}
-            onOpenAnchor={onOpenAnchor}
-            hostId={hostId}
+            onHover={hover}
+            onOpenAnchor={(memberId) => nav.openHost(memberId)}
+            hostId={actingHostId}
             canManage={canReassign}
             onReassign={setAssigning}
           />
@@ -142,7 +180,7 @@ function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, o
       </div>
       {assigning && (
         <CapabilityAssignDialog
-          hostId={hostId}
+          hostId={actingHostId}
           capability={assigning.capability}
           currentMemberId={assigning.memberId}
           members={members}
@@ -154,3 +192,4 @@ function ClusterAnchorList({ anchors, capabilities, members, hovered, onHover, o
 }
 
 export { ClusterAnchorList };
+export default ClusterAnchorList;

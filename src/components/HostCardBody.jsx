@@ -8,12 +8,10 @@ import { hostCapacityMeters } from "./host-helpers.jsx";
 
 // HostCardBody — shared host-monitoring primitives.
 //
-// FleetHostCard (the Fleet grid card) and DashFleetStrip (the Dashboard
-// "Fleet capacity" rows) are two different LAYOUTS of the same underlying
-// thing: one host's live health. Each used to re-derive the worst-meter tone
-// and re-render the mini-meter bars by hand, so the two could silently drift
-// (e.g. one teaching about metrics-down hosts, the other not). These two
-// primitives are the single source of truth they both read from.
+// FleetHostCard (the Fleet grid card) and ClusterNodeList (the Nodes card's rows) are two
+// LAYOUTS of one underlying thing: a host's live health. The worst-meter tone and the
+// mini-meter bars are derived here, once, so a surface cannot quietly disagree with another
+// about whether a node's metrics are down.
 
 // hostHealth(host) → the health snapshot that drives a card/row's border,
 // status dot and meter area. Mirrors the capability checks the rest of the

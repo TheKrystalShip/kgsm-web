@@ -59,20 +59,41 @@ TILE("tile.oldestBackup", "Oldest backup", "database-backup", "Needs me", "TileO
 TILE("tile.scheduleFails", "Schedule fails", "calendar-x", "Needs me", "TileScheduleFails");
 TILE("tile.services", "Services", "boxes", "Needs me", "TileServices");
 
+// The Cluster page's two member cards. A cluster's members are nodes and anchors and the cards
+// are separate because the members are, so each is pinned on its own — a dashboard can carry the
+// capacity of the machines, the cluster's anchors, or both.
+//
+// Admin-only, and cluster-wide rather than per-member: each card renders EVERY member of its kind
+// at once, so the aggregate check is the right one — a viewer on one node has no business seeing
+// the rest.
+//
+// A row span is a MINIMUM (`grid-auto-rows: minmax(--widget-row, auto)`), so the smallest span is
+// what lets a card state its own height: one member or four, the cell is what the rows measure and
+// never a floor they have to fill.
 registerWidget({
-  type: "fleet.capacity",
-  label: "Node capacity",
-  icon: "gauge",
+  type: "cluster.nodes",
+  label: "Nodes",
+  icon: "server-cog",
   group: "Nodes",
-  // Admin-only, and fleet-wide rather than per-node: the strip renders EVERY node at once, so the
-  // aggregate check is the right one — a viewer on one node has no business seeing the rest.
   cap: "nav.cluster",
-  describe: () => "Node capacity",
-  // A row span is a MINIMUM (`grid-auto-rows: minmax(--widget-row, auto)`), so the
-  // smallest span is what lets the card state its own height: one node or four, the
-  // cell is what the rows measure and never a floor they have to fill.
+  describe: () => "Nodes",
   size: { w: 12, h: 1, minPx: 300, minH: 1 },
-  load: () => import("./widgets/CapacityStrip.jsx").then(m => m.CapacityStrip),
+  load: () => import("../diagnostics/ClusterNodeList.jsx").then(m => m.ClusterNodeList),
+});
+
+// Pinned from the Cluster page and not offered here. The card renders only where the cluster has
+// an anchor, so offering it from a list would put a permanently empty cell on the dashboard of the
+// single-machine install that has none — and there would be nowhere to press to get it back.
+registerWidget({
+  type: "cluster.anchors",
+  label: "Anchors",
+  icon: "anchor",
+  group: "Nodes",
+  cap: "nav.cluster",
+  hidden: true,
+  describe: () => "Anchors",
+  size: { w: 12, h: 1, minPx: 300, minH: 1 },
+  load: () => import("../diagnostics/ClusterAnchorList.jsx").then(m => m.ClusterAnchorList),
 });
 
 registerWidget({

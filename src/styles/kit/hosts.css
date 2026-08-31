@@ -1131,10 +1131,10 @@
 }
 
 /* ---- The node row idiom ----
-   One line per node — identity, meters in the middle, a chevron at the end — and
-   both surfaces that list nodes are built from it: the Cluster page's node list
-   (ClusterNodeList) and the dashboard's Cluster capacity card (DashFleetStrip),
-   which adds the `--counts` slot. Same row, same measurements, one place to change.
+   One line per member — identity, the middle slot, a chevron at the end. The Nodes
+   card (ClusterNodeList) fills the middle with meters and adds the `--counts` slot;
+   the Anchors card (ClusterAnchorList) fills it with the capability that member
+   holds. Same row, same measurements, one place to change.
 
    The container is queried rather than the viewport: a card's width is changed by
    collapsing the sidebar, opening the assistant dock, and resizing the widget it
@@ -1259,9 +1259,8 @@
   transition: color var(--d-fast) var(--ease-out);
 }
 
-/* ---- Ghost row: a federation peer with no connected host (Cluster node list
-   + the dashboard's Cluster capacity card). No capacity to show — the meter
-   area reads "discovered, not connected" instead, and the row itself is
+/* ---- Ghost row: a federation peer with no connected host. No capacity to show —
+   the meter area reads "discovered, not connected" instead, and the row itself is
    visibly secondary (dashed, dimmed) next to a connected node's solid row. ---- */
 .dash-fleet-row--ghost {
   opacity: 0.82;
@@ -1272,10 +1271,10 @@
   color: var(--fg-3);
 }
 
-/* ---- the dashboard's extra slot ----
-   The capacity card states what a node is CARRYING as well as how loaded it is,
-   between the meters and the chevron. The Cluster page's list omits it, so it is a
-   modifier rather than a fourth track everywhere. ---- */
+/* ---- the node's extra slot ----
+   A node row states what the machine is CARRYING as well as how loaded it is,
+   between the meters and the chevron. An anchor carries nothing and has no such
+   column, so it is a modifier rather than a fourth track everywhere. ---- */
 .dash-fleet-row--counts {
   grid-template-columns: 200px minmax(0, 1fr) auto 52px;
 }
