@@ -260,4 +260,17 @@ export async function clusterMembers(anchorUrl, token, { fetchImpl = fetch, sign
   }
 }
 
-export { ANCHOR_KEY, originOf, rememberDoor, rememberedDoor };
+// Whether the cluster's own authority names the fleet. When it does, the panel keeps NO list of
+// nodes between loads: the anchor is asked on every load and its answer is the whole of it, so a
+// node removed from the cluster is gone the next time somebody opens the panel and a stale address
+// cannot outlive the roster that named it. A standalone deployment has one node, chosen by hand,
+// and keeps it exactly as it always did.
+//
+// Read from storage rather than from the session layer so the modules that persist connections can
+// ask without importing it — they are underneath it, and an edge the other way is a cycle.
+function anchorNamesTheFleet() {
+  const d = rememberedDoor();
+  return !!(d && d.kind === "anchor");
+}
+
+export { ANCHOR_KEY, anchorNamesTheFleet, originOf, rememberDoor, rememberedDoor };

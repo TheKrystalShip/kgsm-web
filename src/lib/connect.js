@@ -10,6 +10,7 @@
 // backend token-handoff that isn't built (WIRING §6) — so we surface that
 // honestly ("needs_auth") rather than bounce into a flow that can't finish.
 
+import { anchorNamesTheFleet } from "./anchor.js";
 import { CONNECTIONS, REGISTRY_KEY, addConnections, removeConnections } from "./config.js";
 
 const AUTH_LS_KEY = "krystal:auth";   // app-shell identity (same key App.jsx / authRedirect use)
@@ -68,11 +69,21 @@ function readRegistry() {
 // driven immediately; addConnections dedupes, so re-registering a URL the app
 // already drives only rewrites the stored entry.
 export function addConnection(entry) {
-  const norm = normalizeHostUrl(entry.url);
-  const list = readRegistry().filter((h) => normalizeHostUrl(h.url) !== norm);
-  list.push(entry);
-  try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch {}
+  // Driven now, and remembered only where remembering is the design. In a cluster the anchor names
+  // the fleet on every load, so a stored copy is a second answer that can only ever be older.
+  if (!anchorNamesTheFleet()) {
+    const norm = normalizeHostUrl(entry.url);
+    const list = readRegistry().filter((h) => normalizeHostUrl(h.url) !== norm);
+    list.push(entry);
+    try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch {}
+  }
   addConnections([entry]);
+}
+
+// Drop anything a previous build kept. A browser that has driven this cluster before still holds a
+// node list, and leaving it would let one survive the roster that no longer names it.
+export function forgetStoredNodes() {
+  try { localStorage.removeItem(REGISTRY_KEY); } catch { /* private mode */ }
 }
 export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.stringify(user)); } catch {} }
 

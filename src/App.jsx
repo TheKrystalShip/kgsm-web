@@ -14,6 +14,8 @@ import { KRYSTAL_LABELS } from "./lib/labels.js";
 import { can, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { runServerAction } from "./lib/serverActions.js";
+import { CONNECTIONS, subscribeConnections } from "./lib/config.js";
+import { fleetStore, refreshFleetFromAnchor } from "./lib/fleet.js";
 import { sessionStore, TIER_LABEL } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
 import { hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
@@ -154,6 +156,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const servers = useStore(serversStore, s => s.list);
   const libraryList = useStore(libraryStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
+  const fleet = useStore(fleetStore, s => s);
   const session = useStore(sessionStore, s => s.session);
   const refusingNodes = useStore(sessionStore, s => s.nodes);
   // Read for the breadcrumb's leaf crumb only — the leaf page is what hydrates this board, so this
@@ -189,10 +192,28 @@ function AppInner({ user, setUser, route, setRoute }) {
   // browser sitting on the sign-in screen hydrated four stores and dialled one SSE stream
   // per connection on behalf of nobody — every call 401ing, every stream backing off
   // against a host that had not been chosen yet.
+  // A clustered panel keeps no node list, so at mount there is often nothing to hydrate against yet
+  // — the anchor has not answered. Starting anyway spends every store's first read on an empty
+  // connection set, and since the roster load happens once, the shell then waits forever for hosts
+  // that were never asked for. So it waits for the first node instead. A standalone deployment has
+  // its node from the moment somebody chose it and starts immediately.
+  // Who is in the cluster, asked before anything else and independently of the data layer — that
+  // waits for a node, and in a cluster the only thing that knows of any node is this call. A
+  // reload has a session and a door and nothing else, so without this the panel waits for a fleet
+  // nobody ever asked for. The discovery timer keeps it fresh afterwards; this is only the first.
+  React.useEffect(() => { refreshFleetFromAnchor().catch(() => {}); }, []);
+
+  const [wired, setWired] = React.useState(() => CONNECTIONS.length > 0);
   React.useEffect(() => {
+    if (wired) return undefined;
+    return subscribeConnections(() => { if (CONNECTIONS.length) setWired(true); });
+  }, [wired]);
+
+  React.useEffect(() => {
+    if (!wired) return undefined;
     startDataLayer();
     return () => stopDataLayer();
-  }, []);
+  }, [wired]);
 
   useRouteSync(route, setRoute, landingResolved);
 
@@ -361,6 +382,15 @@ function AppInner({ user, setUser, route, setRoute }) {
   const serverAlertsActive = anchoredAlerts(an => an.surface === "server");
   const serversCount = serverAlertsActive.length;
   const serversTone = alertsTone(serverAlertsActive);
+
+  // A clustered panel keeps no node list, so an empty connection set on a fresh load means the
+  // anchor has not answered yet — not that this account has no hosts. Offering to add one then is a
+  // confident wrong answer, and the node it would ask somebody to type is one the cluster already
+  // knows about. `unreachable` falls through deliberately: an anchor that cannot be asked is a
+  // cluster this browser cannot currently reach, and the connection banner is what says so.
+  if (!wired && fleet.state === "asking") {
+    return <BootLanding label="Finding your cluster…" />;
+  }
 
   if (route.kind === "addHost" || (hostsLoaded && hosts.length === 0)) {
     return <AddHostPage

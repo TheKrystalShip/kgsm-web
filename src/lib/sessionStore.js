@@ -1,5 +1,5 @@
-import { refreshSession, rememberDoor, rememberedDoor, signOut as anchorSignOut } from "./anchor.js";
-import { REGISTRY_KEY, homeConn, originOfHost } from "./config.js";
+import { anchorNamesTheFleet, refreshSession, rememberDoor, rememberedDoor, signOut as anchorSignOut } from "./anchor.js";
+import { CONNECTIONS, REGISTRY_KEY, homeConn, originOfHost } from "./config.js";
 import { createStore } from "./store.js";
 import { hostsStore } from "./stores.js";
 
@@ -150,13 +150,26 @@ import { hostsStore } from "./stores.js";
   function readRefresh() { try { return localStorage.getItem(REFRESH_KEY) || null; } catch { return null; } }
   function forgetRefresh() { writeRefresh(null); }
 
-  // ---- the node registry (URLs only) --------------------------------------
-  // Which addresses this browser reaches the cluster's nodes at. A cache of routes, not a statement
-  // about identity — one session is presented to all of them.
+  // ---- the nodes this browser drives --------------------------------------
+  // Addresses, never identity: one session is presented to all of them. WHERE the list comes from is
+  // the cluster's answer. Named by an anchor, it is held in memory for the life of the page and
+  // nowhere else — asked again on the next load, so a node the cluster no longer names cannot
+  // outlive the roster that named it. Held by a standalone deployment, it is the one address
+  // somebody typed, and storage is exactly where that belongs.
   function readRegistry() {
+    if (anchorNamesTheFleet()) {
+      return CONNECTIONS.filter(c => c && c.url).map(c => ({ id: c.id || null, url: c.url, name: c.name || c.id || c.url }));
+    }
     try { return JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]"); } catch { return []; }
   }
-  function writeRegistry(list) { try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(list)); } catch { /* private mode */ } }
+  // Not written at all where the anchor names the fleet — see anchorNamesTheFleet. Clearing still
+  // works, because forgetting is never the thing that goes stale.
+  function writeRegistry(list) {
+    try {
+      if (list.length && anchorNamesTheFleet()) return;
+      localStorage.setItem(REGISTRY_KEY, JSON.stringify(list));
+    } catch { /* private mode */ }
+  }
   function register(host) {
     const url = host.url || originOfHost(host.id);
     if (!url || !/^https?:\/\//i.test(url)) return;
@@ -205,6 +218,9 @@ import { hostsStore } from "./stores.js";
   function setDoor(next) {
     door = next && next.origin ? { origin: next.origin, kind: next.kind === "standalone" ? "standalone" : "anchor" } : null;
     rememberDoor(door);
+    // A browser that drove this cluster under an older build still holds a node list. Dropping it
+    // here is what stops one surviving the roster that no longer names it.
+    if (door && door.kind === "anchor") writeRegistry([]);
   }
   // Kept async: every caller already awaits it, and the answer is a stored fact rather than a
   // question anybody is asked.

@@ -1,6 +1,18 @@
 import { clusterMembers } from "./anchor.js";
 import { reconcileRosterToRegistry } from "./connect.js";
 import { sessionStore } from "./sessionStore.js";
+import { createStore } from "./store.js";
+
+// Whether the cluster has told us who is in it yet. The shell needs this to tell "you have no
+// hosts" apart from "nobody has been asked" — a fresh load concluding the first when it means the
+// second is a confident wrong answer, and it puts an add-a-host screen in front of somebody whose
+// cluster is fine.
+//
+//   idle         no anchor: a standalone deployment, and nothing here ever runs
+//   asking       a session exists and the anchor has not answered yet
+//   ready        the anchor answered; `count` is how many nodes it named
+//   unreachable  the anchor could not be asked. NOT an empty cluster
+const fleetStore = createStore({ state: "idle", count: 0 });
 
 // fleet.js — which nodes this panel drives, and where that answer comes from.
 //
@@ -18,14 +30,20 @@ import { sessionStore } from "./sessionStore.js";
 // node that reads as permanently down.
 async function refreshFleetFromAnchor() {
   const url = sessionStore.anchorOrigin();
-  if (!url) return { ok: false, reason: "no_anchor", added: 0, removed: 0 };
+  if (!url) { fleetStore.setState({ state: "idle" }); return { ok: false, reason: "no_anchor", added: 0, removed: 0 }; }
   if (!sessionStore.isLive()) return { ok: false, reason: "no_session", added: 0, removed: 0 };
 
+  if (fleetStore.getState().state === "idle") fleetStore.setState({ state: "asking" });
   const roster = await clusterMembers(url, sessionStore.tokenOf());
   // An anchor that could not be asked is not an empty cluster. Reconciling against nothing would
   // drop every node the panel is driving and leave somebody looking at a fleet that appears to have
   // gone, which is worse than a roster that is briefly stale.
-  if (!roster.ok) return { ok: false, reason: "unreachable", added: 0, removed: 0 };
+  if (!roster.ok) {
+    // Only the FIRST answer can leave the shell waiting. Once a roster has landed, a later failure
+    // must not throw the panel back to a connecting screen over a cluster it is already driving.
+    if (fleetStore.getState().state !== "ready") fleetStore.setState({ state: "unreachable" });
+    return { ok: false, reason: "unreachable", added: 0, removed: 0 };
+  }
 
   // Only NODES are driven. An anchor serves no servers and no metrics, so a connection to one would
   // be called by every fan-out and named in every banner forever; other anchors are the cluster's
@@ -43,7 +61,8 @@ async function refreshFleetFromAnchor() {
     }));
 
   const result = reconcileRosterToRegistry(nodes, {});
+  fleetStore.setState({ state: "ready", count: nodes.length });
   return { ok: true, cluster: roster.cluster, count: nodes.length, ...result };
 }
 
-export { refreshFleetFromAnchor };
+export { fleetStore, refreshFleetFromAnchor };

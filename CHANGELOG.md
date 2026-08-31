@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.202.0]
+
+### Changed — a clustered panel keeps no list of nodes
+
+The anchor is asked on every load and its answer is the whole of it. Nothing about the cluster
+survives a reload except the door, which is the one thing the anchor cannot tell you. So a node the
+cluster no longer names is gone the next time somebody opens the panel, and a stale address cannot
+outlive the roster that named it — the failure that had a healthy machine reported as one that
+didn't answer.
+
+Two things had to move for it. The shell can no longer read an empty connection set as "this account
+has no hosts": on a fresh load it means the anchor has not answered yet, and offering to add a host
+then is a confident wrong answer about a cluster that is fine. And the data layer waits for the
+first node rather than starting at mount, because in a cluster there is nothing to hydrate against
+until the roster lands — starting anyway spent every store's first read on an empty set and then
+waited forever for hosts nobody had asked for.
+
+The roster is fetched independently of all that, because the data layer waits for a node and the
+only thing that knows of any node is the roster. A reload carries a session and a door and nothing
+else; without that independence the panel waits for a fleet nobody ever asked for.
+
+A standalone deployment is untouched in every particular: one node, chosen by hand, kept exactly
+where it always was.
+
 ## [1.201.0]
 
 ### Changed — in a cluster, the fleet comes from the anchor

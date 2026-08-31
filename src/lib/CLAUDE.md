@@ -152,9 +152,12 @@ re-exports `stores/` — import from either.
   and announces nothing about its cluster, so it is refused, and the refusal can name the holder but
   never an address. `authFlow.identifyAddress` is the one place that decides which of those an
   address is.
-- `fleet.js` — which nodes the panel drives. In a cluster that answer is the ANCHOR's and nobody
-  else's; a member's own roster is read for health and capabilities and never to decide who is
-  driven. A standalone deployment never runs it.
+- `fleet.js` — which nodes the panel drives, and whether that has been asked yet. In a cluster the
+  answer is the ANCHOR's and nobody else's, asked on every load and kept nowhere: a node the cluster
+  no longer names is gone on the next one. `fleetStore` exists so the shell can tell "no hosts" from
+  "nobody has been asked", which are the same empty set and opposite answers. A member's own roster
+  is read for health and capabilities and never to decide who is driven. A standalone deployment
+  keeps its one node in storage and never runs any of this.
 - `sessionStore.js` — **ONE session.** Whichever door minted it renews it, and only that door:
   `doorOrigin()` is what renewal reads, `anchorOrigin()` is the narrower question of whether that
   door is an anchor, and the account surfaces key off the second. In a cluster the anchor mints, and
