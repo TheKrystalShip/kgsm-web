@@ -129,9 +129,10 @@
 }
 
 /* The catalog rail carries the Catalog page's own card, which states a blueprint's capacity, its
-   footprint and whether it fits. That card reads down to the 220px its grid tile is floored at
-   (`.game-grid`), so the rail's density is set to keep it above that at every width rather than to
-   fit as many as possible — measured in both engines by `catalog-rail.mjs`. */
+   footprint and whether it fits. Measured in both engines by `catalog-rail.mjs`: the card reads
+   clean down to about 165px and starts clipping the fit chip — the one thing on it a reader cannot
+   infer from the rest — at 136px. Density above that floor is a matter of how much of the shelf you
+   want to see at once. */
 .rail--catalog .rail__track {
   --rail-per-view: 5.4;
 }
