@@ -137,7 +137,8 @@ straight to the anchor, through `lib/anchor.js`, never through `apiClient`. A le
 journal are delivered by the node that runs it, and an anchor has no node above it — on the ordinary
 topology there is not even one beside it. Both reuse the panel's own components — `LeafConfigRow` and
 `ConsoleView` — because a component's settings and its log read the same whoever serves them; only
-the transport differs, and that is all these files add. Applying restarts the anchor, so the confirmation says what that costs rather than asking for a
+the transport differs, and that is all these files add. The journal is LIVE: scrollback over REST,
+then the anchor's own SSE follow, with the live pill following the stream rather than the fetch. Applying restarts the anchor, so the confirmation says what that costs rather than asking for a
 click: it holds every account in the cluster, and nothing restores the old values if it does not come
 back.
 

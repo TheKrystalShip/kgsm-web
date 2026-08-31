@@ -7,7 +7,10 @@
 //
 // Everything here is anonymous or carries a token the caller passes explicitly. None of it goes
 // through `apiClient` — that seam's whole job is attaching a node's bearer to a call for that node,
-// which is the opposite of what an anchor call is.
+// which is the opposite of what an anchor call is. The one import is the SSE reader, which is a leaf
+// util importing nothing itself, so the graph stays acyclic.
+
+import { readSseStream } from "./sse.js";
 
 const ANCHOR_KEY = "krystal:anchor";   // localStorage: where this browser last signed in
 
@@ -325,6 +328,29 @@ async function readLogs(anchorUrl, token, { lines = 300, fetchImpl = fetch, sign
   return (payload && payload.data) || [];
 }
 
+// The live tail of that journal. `fetch` rather than EventSource for the ordinary reason: EventSource
+// sends no Authorization header, and a daemon holding the cluster's accounts does not take its token
+// in a query string. Returns a stop function; calling it ends the follow, and the anchor stops its
+// own journalctl once the last watcher has left.
+//
+// Follow-only — the read above is the scrollback, and this carries lines from the next one on.
+function followLogs(anchorUrl, token, onLine, { fetchImpl = fetch } = {}) {
+  const control = new AbortController();
+  const run = async () => {
+    const res = await fetchImpl(originOf(anchorUrl) + "/auth/logs/stream", {
+      headers: { Accept: "text/event-stream", Authorization: "Bearer " + token },
+      signal: control.signal,
+    });
+    if (!res.ok) {
+      const err = new Error("stream_unavailable");
+      err.status = res.status;
+      throw err;
+    }
+    await readSseStream(res, (line) => { if (line) onLine(line); }, control.signal);
+  };
+  return { stopped: run(), stop: () => control.abort() };
+}
+
 // Apply a change. The anchor restarts itself to pick one up, and answers before it goes — so
 // `restarting` is part of the answer rather than something to infer from the connection closing.
 async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal } = {}) {
@@ -350,4 +376,4 @@ async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal }
   return payload;
 }
 
-export { ANCHOR_KEY, readConfig, applyConfig, readLogs, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };
+export { ANCHOR_KEY, readConfig, applyConfig, readLogs, followLogs, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };

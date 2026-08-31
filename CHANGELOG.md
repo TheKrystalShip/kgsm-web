@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.207.0]
+
+### Changed — the anchor's journal is live
+
+It hydrates its scrollback over REST and then follows the anchor's stream, which is how every other
+log console here works. The live pill follows the STREAM rather than the fetch: an idle journal and a
+dropped connection look identical on screen, and only one of them means what is shown is current.
+
+Scrollback first, then the follow — the other way round drops whatever arrives while the read is in
+flight, which is exactly the window somebody is watching when something has gone wrong.
+
 ## [1.206.0]
 
 ### Changed — an anchor is a member, and its page is shaped like one
