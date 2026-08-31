@@ -4,6 +4,7 @@ import { Modal } from "../components/Modal.jsx";
 import { Select } from "../components/Select.jsx";
 import { OAuthIcon, providerLabel } from "../components/host-helpers.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { useAccountHolder } from "../hooks/useAccountHolder.js";
 import { api } from "../lib/apiClient.js";
 import { takeLinkOutcome } from "../lib/oauthFragment.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
@@ -24,14 +25,19 @@ import { sessionStore } from "../lib/sessionStore.js";
 // a borrowed unlocked laptop. Signing in counts as proving it, so someone who has just arrived is
 // never asked twice.
 //
-// Per-host, like accounts and sessions: each host keeps its own, and a merged list would imply a
-// connection exists somewhere it does not.
+// Where the accounts are held decides what this screen is about. Held by an anchor, an account is
+// the cluster's and so is every credential on it — one card, nothing to choose. Held by each node,
+// they are that node's, and the node is named because a merged list would imply a connection exists
+// somewhere it does not.
 
 const label = providerLabel;
 
 function SettingsIdentities({ sessionProvider }) {
+  const { anchor, known } = useAccountHolder();
+
   // Every host this browser holds a live session on. Unlike the accounts screen this is not
-  // admin-only: it is the caller's own account on each of them.
+  // admin-only: it is the caller's own account on each of them. Under an anchor the list is still
+  // how a member gets named for the call, but which one it is changes nothing about the answer.
   const hosts = React.useMemo(
     () => sessionStore.readRegistry()
       .filter((h) => h && h.id && sessionStore.isLive())
@@ -98,7 +104,7 @@ function SettingsIdentities({ sessionProvider }) {
   return (
     <SettingsSection icon="key-round" title="Signing in"
       meta="Signing in proves who you are; what you may do is on your account.">
-      {hosts.length > 1 && (
+      {hosts.length > 1 && known && !anchor && (
         <SettingsRow icon="server" title="Host" sub="Each host keeps its own accounts and connections.">
           <Select value={hostId || ""} onChange={(e) => setHostId(e.target.value)}>
             {hosts.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
@@ -210,6 +216,7 @@ function SettingsIdentities({ sessionProvider }) {
       {confirming && (
         <ConfirmDisconnectDialog
           identity={confirming}
+          cluster={!!anchor}
           onClose={() => setConfirming(null)}
           onConfirm={() => guarded(() => disconnect(confirming))} />
       )}
@@ -362,14 +369,14 @@ function ProvePasswordDialog({ hostId, hasPassword, onClose, onProved }) {
 
 // Disconnecting also ends the sessions that account established, which is the point of it and is
 // worth saying before rather than after.
-function ConfirmDisconnectDialog({ identity, onClose, onConfirm }) {
+function ConfirmDisconnectDialog({ identity, cluster, onClose, onConfirm }) {
   return (
     <Modal onClose={onClose}>
       <div className="modal host-remove">
         <h2 className="host-remove__title">Disconnect {label(identity.provider)}?</h2>
         <p className="host-remove__text">
-          {identity.label || identity.handle} will no longer sign you in to this host, and any
-          session it started ends now. You can connect it again later.
+          {identity.label || identity.handle} will no longer sign you in{cluster ? "" : " to this host"}, and
+          any session it started ends now. You can connect it again later.
         </p>
         <div className="settings-users__actions">
           <span style={{ flex: 1 }} />

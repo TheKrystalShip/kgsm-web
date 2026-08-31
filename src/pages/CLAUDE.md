@@ -88,6 +88,16 @@ tabs, because it invalidates every door on the card rather than one of them. And
 check here is also the anchor's** — the client validates shape so somebody is told while
 typing, and the anchor decides.
 
+## Administering accounts — two screens, one question
+
+`leaf/ApiUsers.jsx` answers "who may do what" and `SettingsIdentities.jsx` answers "how do I prove
+who I am". Both ask `useAccountHolder()` first, because whose accounts these are is the cluster's
+answer rather than either screen's. Held by an anchor, an account is the cluster's: one list, no
+host picker, and the member the page is routed to is a routing detail that names nothing. Held by
+each node, they are that node's and the node is named — a list that did not name it would imply an
+account exists somewhere it does not. Neither screen decides where its calls go; `accountDoor` in
+`../lib/apiClient.js` does, once.
+
 ## The split-page folders — keep the entry thin
 
 Big screens live as folders: the entry file stays thin (state + layout) and the

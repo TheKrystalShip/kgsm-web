@@ -1,17 +1,19 @@
-// ApiUsers — the API leaf's Users tab: this node's KGSM accounts.
+// ApiUsers — the API leaf's Users tab: the KGSM accounts somebody may sign in with.
 //
 // An account is the primary identity object: it exists on its own, carries the tier, and an
 // external provider (Discord today, others later) is a credential attached to it rather than the
 // source of it. So this screen is where authority on a node is decided — the only place a tier ever
 // changes.
 //
-// It lives on the API leaf because kgsm-api is what holds the account store: the accounts are that
-// service's state, administered where the service is, alongside its logs and its configuration.
-// A person's own settings page answers "who am I and how do I sign in"; this answers "who may do
-// what here", which is a different question about a different subject.
+// It lives on the API leaf because that is where the account store is administered, alongside the
+// service's logs and its configuration. A person's own settings page answers "who am I and how do I
+// sign in"; this answers "who may do what", which is a different question about a different subject.
 //
-// Scoped to ONE node by the page's own route, and not rolled up across the cluster: accounts are
-// per-node, so a merged list would imply an account exists somewhere it does not.
+// WHOSE accounts these are is the cluster's answer, not this page's. Held by an anchor they are the
+// cluster's — one account, one tier, everywhere — and the member this page is routed to is a
+// routing detail that says nothing about them. Held by each node they are that node's, and the node
+// is named, because a list that did not name it would imply an account exists somewhere it does
+// not.
 //
 // Read straight from `api.users(host)` rather than through a store: accounts change only when
 // somebody changes them here, and a cached list is a list that can be stale about who may do what.
@@ -24,6 +26,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { SettingsSection } from "../../components/settings-primitives.jsx";
+import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { api } from "../../lib/apiClient.js";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { sessionStore } from "../../lib/sessionStore.js";
@@ -33,10 +36,10 @@ const TIER_LABEL = { none: "No access", viewer: "Viewer", operator: "Operator", 
 const STATUS_LABEL = { active: "Active", pending: "Awaiting approval", disabled: "Disabled" };
 
 function ApiUsers({ hostId }) {
-  // The leaf page's own gate is the aggregate one — admin on ANY node reaches it — so the tier that
-  // matters here is the one held on THIS node. Checked before asking, because a table that 403s
-  // tells the reader less than a sentence naming what they'd need.
+  // Checked before asking, because a table that 403s tells the reader less than a sentence naming
+  // what they would need.
   const admin = !!hostId && sessionStore.isLive() && sessionStore.tierOf() === "admin";
+  const { anchor } = useAccountHolder();
 
   const [rows, setRows] = React.useState(null);          // null = not loaded yet
   const [error, setError] = React.useState(null);
@@ -47,7 +50,7 @@ function ApiUsers({ hostId }) {
     setError(null);
     return api.users(hostId).list().then(
       (list) => setRows(list),
-      (e) => { setRows([]); setError(messageOf(e, "Couldn’t load the accounts on this node.")); });
+      (e) => { setRows([]); setError(messageOf(e, "Couldn’t load the accounts.")); });
   }, [hostId, admin]);
 
   React.useEffect(() => { reload(); }, [reload]);
@@ -69,7 +72,7 @@ function ApiUsers({ hostId }) {
         <div className="chat-brief__empty chat-brief__empty--neutral">
           <div className="chat-brief__empty-title">You don’t have access to this</div>
           <div className="chat-brief__empty-sub">
-            Managing accounts needs the administrator role on this node.
+            Managing accounts needs the administrator role.
           </div>
         </div>
       </div>
@@ -85,7 +88,8 @@ function ApiUsers({ hostId }) {
 
   return (
     <SettingsSection icon="users" title="Accounts"
-      meta="Who can sign in to this node, and what they may do.">
+      meta={anchor ? "Who can sign in to this cluster, and what they may do."
+                   : "Who can sign in to this node, and what they may do."}>
       {error && (
         <div className="login-card__error" role="alert">
           <Icon name="alert-triangle" size={14} />{error}
@@ -104,7 +108,7 @@ function ApiUsers({ hostId }) {
       {rows === null ? (
         <div className="settings-users__empty">Loading…</div>
       ) : rows.length === 0 && !error ? (
-        <div className="settings-users__empty">No accounts on this node yet.</div>
+        <div className="settings-users__empty">No accounts yet.</div>
       ) : (
         <div className="settings-users">
           {ordered.map((u) => (
@@ -164,6 +168,7 @@ function ApiUsers({ hostId }) {
 // Create or edit one account. One modal for both, because the fields are the same and a separate
 // "create" form is how the two drift apart.
 function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
+  const { anchor } = useAccountHolder();
   const creating = !user;
   const [form, setForm] = React.useState(() => ({
     username: user ? user.username : "",
@@ -227,8 +232,8 @@ function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
         {isLastActiveAdmin && (
           <div className="settings-users__note">
             <Icon name="info" size={14} />
-            This is the only active admin on this node. Give someone else the admin tier before
-            changing or removing it.
+            This is the only active admin{anchor ? " in this cluster" : " on this node"}. Give someone
+            else the admin tier before changing or removing it.
           </div>
         )}
 

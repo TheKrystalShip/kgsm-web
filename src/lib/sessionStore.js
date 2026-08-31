@@ -196,15 +196,25 @@ import { hostsStore } from "./stores.js";
   // member has answered. Not a credential: a stale one costs a failed renewal, never a wrong
   // session, because a token is only ever accepted on the strength of its signature.
   let anchorUrl = rememberedAnchor();
+  let anchorAnswer = null;
   const anchorOrigin = () => anchorUrl;
-  function setAnchor(url) { anchorUrl = url || ""; rememberAnchor(anchorUrl); }
+  function setAnchor(url) { anchorUrl = url || ""; rememberAnchor(anchorUrl); anchorAnswer = null; }
 
+  // A member that ANSWERS "nobody holds the accounts" has answered; a member that says nothing has
+  // not. The first is remembered for the life of the page, so a cluster administering its own
+  // accounts is not re-probed before every read; the second is asked again, because silence is not
+  // a fact about the cluster.
   async function resolveAnchor() {
     if (anchorUrl) return anchorUrl;
+    if (anchorAnswer) return anchorAnswer;
     const conn = homeConn();
-    const found = conn ? await discoverAnchor(conn.url) : { ok: false };
-    if (found.ok && found.held && found.url) setAnchor(found.url);
-    return anchorUrl;
+    if (!conn) return "";
+    anchorAnswer = discoverAnchor(conn.url).then((found) => {
+      if (found.ok && found.held && found.url) setAnchor(found.url);
+      else if (!found.ok) anchorAnswer = null;
+      return anchorUrl;
+    }, () => { anchorAnswer = null; return anchorUrl; });
+    return anchorAnswer;
   }
 
   // ---- adopt (a session minted out of band) -------------------------------

@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.194.0]
+
+### Fixed — administering accounts reaches whoever holds them
+
+A cluster whose accounts sit with an anchor administers them there. The panel's account surfaces
+were still addressing the node, which now refuses them: a write that landed in a member's read-only
+replica would be overwritten by the next thing the anchor published, so it would look like it worked
+and then quietly not have. Changing a password, connecting or disconnecting a provider account, and
+every admin action on the Accounts screen went nowhere as a result.
+
+`accountDoor` in `apiClient.js` is the one place that decides where an account call goes, resolved
+per call because the answer arrives from a member asynchronously. `api.users` and `api.identities`
+go through it; `api.sessions` and sign-out never do, because revoking takes authority away rather
+than granting it and the rows belong to whoever holds them. A cluster with no anchor is unchanged in
+every particular — its accounts are the node's, and every call goes where it always did.
+
+Three differences between the two doors are absorbed there rather than at any call site: the
+accounts sit under `/auth/cluster/users` at an anchor, a password change spells its fields
+`{current, password}` there and `{currentPassword, newPassword}` on a node, and a credential is
+named `credentialId` there and `id` on a node. A call to an anchor also leaves the connection signal
+alone — an anchor is not a member, and its reachability is not a node's.
+
+### Changed — the account screens say whose accounts they are
+
+Held by an anchor, an account is the cluster's: the Accounts screen and the connected-accounts card
+name no node and offer no host picker, because which member the page is routed to says nothing about
+the account. Held by each node, both name the node exactly as before — there the node is the
+subject, and a list that did not name it would imply an account exists somewhere it does not. One
+hook, `useAccountHolder`, answers the question for both.
+
+### Added — `npm run check:door`
+
+Where an account call goes, measured in both clusters, in the real modules. It runs offline and has
+to: the live smoke's backend is auth-disabled, which reports no anchor and exercises no account
+surface at all. The two clusters run as separate processes, because a module graph that has seen an
+anchor cannot be talked back into never having seen one. Every fetch is recorded with its origin, so
+"no account write reached a member" is a measured zero rather than an assertion about an absence.
+
 ## [1.193.0]
 
 ### Added — the screens in front of the app have addresses

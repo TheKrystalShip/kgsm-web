@@ -35,8 +35,13 @@ npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — verifies the wwwroot target exists and is yours
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the kgsm-api wwwroot, no API restart
 
+npm run check:door   # where an account call goes — anchor or node — in both clusters
+
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
+
+`check:door` runs offline, and has to: the smoke's backend is auth-disabled, which reports no
+anchor and exercises no account surface at all.
 
 **Frontend-only deploys never restart the API.** kgsm-api serves this SPA
 same-origin from its `wwwroot/` via ASP.NET `UseStaticFiles` (PhysicalFileProvider

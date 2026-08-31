@@ -224,7 +224,12 @@ import("./stores.js").then((m) => {
   // hostId routes the call to that host's base URL + bearer. It is the NODE the
   // call is for: routing is exact (config.connOf), so an id we don't hold fails
   // here rather than landing on another node.
-  async function liveFetch(method, path, body, hostId, bearerOverride, baseOverride) {
+  // `init` carries the two things a call to something that ISN'T a node needs: `track:false`, because
+  // an anchor's reachability is not a member's and must not move the connection signal, and
+  // `credentials`, because the identity-link ticket is a cookie a cross-origin fetch stores only when
+  // asked to.
+  async function liveFetch(method, path, body, hostId, bearerOverride, baseOverride, init) {
+    const opts = init || {};
     const headers = body != null
       ? { "Content-Type": "application/json", Accept: "application/json" }
       : { Accept: "application/json" };
@@ -248,9 +253,11 @@ import("./stores.js").then((m) => {
     const payload = body != null ? JSON.stringify(body) : undefined;
     let res;
     try {
-      res = await fetch(base + path, { method, headers, body: payload });
-    } catch { markFailure(hostId); throw netError(); }
-    markSuccess(hostId);             // the host answered → reachable
+      res = await fetch(base + path, opts.credentials
+        ? { method, headers, body: payload, credentials: opts.credentials }
+        : { method, headers, body: payload });
+    } catch { if (opts.track !== false) markFailure(hostId); throw netError(); }
+    if (opts.track !== false) markSuccess(hostId);   // the host answered → reachable
     if (res.status === 204) return null;
     let json = null;
     try { json = await res.json(); } catch { json = null; }
@@ -381,13 +388,39 @@ import("./stores.js").then((m) => {
     if (!CONNECTIONS.length) return Promise.reject(offlineError());
     return liveFetch("POST", path, body, hostId, undefined, apiOriginOf(hostId));
   }
-  async function rootPatch(path, body, hostId) {
-    if (!CONNECTIONS.length) return Promise.reject(offlineError());
-    return liveFetch("PATCH", path, body, hostId, undefined, apiOriginOf(hostId));
+
+  // ---- where account management goes --------------------------------------
+  // One question, asked once: are this cluster's accounts held by an anchor, or by the node in front
+  // of us? A cluster with an anchor administers them AT the anchor — a write that lands in a member's
+  // read-only replica is overwritten by the next thing the anchor publishes, so it appears to work
+  // and then quietly has not — and every member refuses those calls for exactly that reason. A
+  // cluster without one holds its own, and every call goes where it always did.
+  //
+  // Only the account surfaces resolve through here. Servers, metrics, audit, console and members are
+  // the node's and stay addressed to it. So do sessions and sign-out: revoking takes authority away
+  // rather than granting it, and the rows belong to whoever holds them.
+  //
+  // The door is resolved per call rather than captured once, because the answer arrives from a member
+  // asynchronously and a surface that captured it at mount would keep whatever was true then.
+  async function accountDoor(hostId) {
+    let url = "";
+    try {
+      if (!sessionStore) await sessionReady;
+      if (sessionStore && sessionStore.resolveAnchor) url = await sessionStore.resolveAnchor();
+    } catch { url = ""; }
+    return url
+      ? { anchor: true, origin: url, users: "/auth/cluster/users" }
+      : { anchor: false, origin: apiOriginOf(hostId), users: "/auth/users" };
   }
-  async function rootDel(path, hostId) {
-    if (!CONNECTIONS.length) return Promise.reject(offlineError());
-    return liveFetch("DELETE", path, null, hostId, undefined, apiOriginOf(hostId));
+
+  // `ticket` asks the browser to keep the anchor's one-time link cookie. Set on the link start and
+  // nowhere else: a credentialed cross-origin request needs the anchor to allow credentials, so
+  // sending it on every call would put every account read behind that same header.
+  function doorFetch(method, path, body, hostId, door, ticket) {
+    const init = door.anchor
+      ? (ticket ? { track: false, credentials: "include" } : { track: false })
+      : undefined;
+    return liveFetch(method, path, body, door.anchor ? null : hostId, undefined, door.origin, init);
   }
 
   // ---- realtime transport (SSE streams, one primary + dynamic per host) ------
@@ -783,9 +816,10 @@ import("./stores.js").then((m) => {
     };
   }
 
-  // api.users(id) — this host's KGSM accounts (/auth/users…, root-routed like the
-  // session endpoints, not under /api/v1). Admin-gated server-side throughout, with
-  // one exception: changePassword is the caller changing their own.
+  // api.users(id) — the KGSM accounts this cluster's identity holder keeps, through accountDoor:
+  // the anchor's when one holds them, otherwise the node's own. Root-routed either way (these live
+  // at the bare origin, not under /api/v1). Admin-gated server-side throughout, with one exception:
+  // changePassword is the caller changing their own.
   //
   // Deliberately NOT behind a reactive store. Every other domain here is polled or
   // streamed because something else changes it; accounts change only when an admin
@@ -797,29 +831,37 @@ import("./stores.js").then((m) => {
       sessionStore.expire();
       return call();
     });
-    const at = (userId) => "/auth/users/" + encodeURIComponent(userId);
+    const at = (method, suffix, body) =>
+      accountDoor(id).then((d) => doorFetch(method, d.users + suffix, body, id, d));
+    const one = (userId) => "/" + encodeURIComponent(userId);
     return {
-      list: () => withRetry(() => rootGet("/auth/users", id)).then((r) => (r && r.data) || []),
-      get: (userId) => withRetry(() => rootGet(at(userId), id)),
-      create: (body) => withRetry(() => rootPost("/auth/users", body || {}, id)),
-      update: (userId, body) => withRetry(() => rootPatch(at(userId), body || {}, id)),
-      remove: (userId) => withRetry(() => rootDel(at(userId), id)),
-      setPassword: (userId, password) => withRetry(() => rootPost(at(userId) + "/password", { password }, id)),
+      list: () => withRetry(() => at("GET", "")).then((r) => (r && r.data) || []),
+      create: (body) => withRetry(() => at("POST", "", body || {})),
+      update: (userId, body) => withRetry(() => at("PATCH", one(userId), body || {})),
+      remove: (userId) => withRetry(() => at("DELETE", one(userId))),
+      setPassword: (userId, password) => withRetry(() => at("POST", one(userId) + "/password", { password })),
       // Self-service. The current password is required even though the caller holds a
-      // live session — the backend refuses without it, and for the reason it should.
+      // live session — the backend refuses without it, and for the reason it should. The two doors
+      // spell the same two fields differently, which is the whole of the difference.
       changePassword: (currentPassword, newPassword) =>
-        withRetry(() => rootPost("/auth/password", { currentPassword, newPassword }, id)),
+        withRetry(() => accountDoor(id).then((d) => doorFetch("POST", "/auth/password",
+          d.anchor ? { current: currentPassword, password: newPassword }
+                   : { currentPassword, newPassword }, id, d))),
     };
   }
 
-  // api.identities(id) — the caller's OWN sign-in methods on this host (/auth/identities…,
-  // root-routed like the session and account endpoints). Self-service throughout: an account
-  // carries the tier, and only its holder changes what proves it.
+  // api.identities(id) — the caller's OWN sign-in methods, through accountDoor like the accounts
+  // above. Self-service throughout: an account carries the tier, and only its holder changes what
+  // proves it.
   //
-  // The link flow is SAME-ORIGIN. `startDiscord` sets a one-time HttpOnly ticket cookie the
-  // callback comes back with, and a cross-origin fetch does not store one — the deployed panel is
-  // served by the API it talks to, which is what makes this work. Against a separately-served dev
-  // API the start succeeds and the callback then honestly reports `invalid_state`.
+  // The link flow rides a one-time HttpOnly ticket cookie the callback comes back with. On a node
+  // that is same-origin and needs nothing said about it, because the deployed panel is served by the
+  // API it talks to. At an anchor it is cross-origin, so the start asks the browser to keep the
+  // cookie and the anchor has to allow credentials for that origin; where it does not, the start
+  // succeeds and the callback then honestly reports `invalid_state`.
+  //
+  // The two doors name a credential differently — `credentialId` at the anchor, `id` on a node —
+  // so the list normalises to one shape and the screen above reads a single field.
   function identitiesScoped(id) {
     if (!id) throw new Error("api.identities() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch((e) => {
@@ -827,18 +869,22 @@ import("./stores.js").then((m) => {
       sessionStore.expire();
       return call();
     });
+    const at = (method, path, body, ticket) =>
+      accountDoor(id).then((d) => doorFetch(method, path, body, id, d, ticket));
+    const named = (row) => (row && row.id === undefined && row.credentialId !== undefined
+      ? { ...row, id: row.credentialId } : row);
     return {
-      list: () => withRetry(() => rootGet("/auth/identities", id)),
+      list: () => withRetry(() => at("GET", "/auth/identities")).then((d) => (d && Array.isArray(d.identities)
+        ? { ...d, identities: d.identities.map(named) } : d)),
       // Prove the KGSM password again, opening the window both writes below need.
-      reauth: (password) => withRetry(() => rootPost("/auth/reauth", { password }, id)),
+      reauth: (password) => withRetry(() => at("POST", "/auth/reauth", { password })),
       // Returns the URL to send the browser to. Navigating is the caller's — a bearer does not
       // survive a top-level navigation, so the start has to be an XHR and the bounce a location set.
-      // The provider comes from the host's own list, never from a name written here.
+      // The provider comes from the door's own list, never from a name written here.
       startLink: (provider) =>
-        withRetry(() => rootPost(
-          "/auth/identities/" + encodeURIComponent(provider) + "/start", {}, id)),
+        withRetry(() => at("POST", "/auth/identities/" + encodeURIComponent(provider) + "/start", {}, true)),
       unlink: (credentialId) =>
-        withRetry(() => rootDel("/auth/identities/" + encodeURIComponent(credentialId), id)),
+        withRetry(() => at("DELETE", "/auth/identities/" + encodeURIComponent(credentialId))),
     };
   }
 
