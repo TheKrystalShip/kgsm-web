@@ -246,7 +246,9 @@ re-exports `stores/` — import from either.
 - `labels.js` / `art.js` / `servers.js` / `leaves.js` —
   display-label vocabulary (including `ROUTE_TABS`, every tabbed
   route's sub-tabs — read by the page that draws the strip AND by the breadcrumb
-  that names the tab in the URL, so the two cannot disagree), key-art helpers,
+  that names the tab in the URL, so the two cannot disagree; `anchorTabs`/`anchorOffersTab` pick a
+  member's subset from `ROUTE_TABS.anchor`, because an anchor's page is shaped by the capability it
+  holds and both readers have to agree about which tabs exist), key-art helpers,
   server-shape helpers,
   and the leaf vocabulary (run-state → tone+label, iconography, kind). `leaves.js`
   lives here rather than beside any one surface because the Services board, the

@@ -2,8 +2,13 @@
 //
 // A node's overview is capacity and health, because a node runs things. An anchor runs one thing for
 // everybody, so its overview answers the questions that follow from that: which capability it holds,
-// where the cluster reaches it, whether the cluster can currently see it, and how many accounts and
-// live sessions are behind the capability.
+// where the cluster reaches it, and whether the cluster can currently see it. All of that is the
+// ROSTER's answer about this member, so it renders for every anchor from any session.
+//
+// The account figures are the exception and `showsAccounts` is the gate. They are the accounts of
+// whichever member holds `auth`, read at the door this browser signed in through — so they belong on
+// that member's page and nowhere else. Drawn on another anchor's page they would report one member's
+// accounts under a second member's name, which is the one reading this page must never give.
 //
 // Every figure here is measured or absent. The counts come from the accounts the anchor lists, so a
 // browser that cannot read them shows no count rather than a zero — an anchor with no accounts and an
@@ -19,18 +24,18 @@ import { formatLatency } from "../../lib/nodeLabel.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
 
-function AnchorOverview({ anchor, member }) {
+function AnchorOverview({ member, address, showsAccounts }) {
   const [accounts, setAccounts] = React.useState(null);   // null = not read
   const [reachable, setReachable] = React.useState(true);
 
   React.useEffect(() => {
     let live = true;
-    if (!anchor) { setAccounts(null); return undefined; }
+    if (!showsAccounts) { setAccounts(null); return undefined; }
     api.users().list().then(
       (rows) => { if (live) { setAccounts(rows); setReachable(true); } },
       () => { if (live) { setAccounts(null); setReachable(false); } });
     return () => { live = false; };
-  }, [anchor]);
+  }, [showsAccounts]);
 
   const total = accounts ? accounts.length : null;
   const waiting = accounts ? accounts.filter(a => a.status === "pending").length : null;
@@ -42,30 +47,32 @@ function AnchorOverview({ anchor, member }) {
 
   return (
     <>
-      <div className="dash-summary">
-        <KPI icon="users" label="Accounts" value={n(total)}
-          sub={reachable ? "in this cluster" : "couldn’t read them"}
-          tone={reachable ? "muted" : "warn"} />
-        <KPI icon="hourglass" label="Awaiting approval" value={n(waiting)}
-          sub={waiting ? "they can sign in and see nothing" : null}
-          tone={waiting ? "warn" : "muted"} />
-        <KPI icon="shield" label="Administrators" value={n(admins)} sub="active"
-          tone={admins === 0 ? "danger" : "muted"} />
-      </div>
+      {showsAccounts && (
+        <div className="dash-summary">
+          <KPI icon="users" label="Accounts" value={n(total)}
+            sub={reachable ? "in this cluster" : "couldn’t read them"}
+            tone={reachable ? "muted" : "warn"} />
+          <KPI icon="hourglass" label="Awaiting approval" value={n(waiting)}
+            sub={waiting ? "they can sign in and see nothing" : null}
+            tone={waiting ? "warn" : "muted"} />
+          <KPI icon="shield" label="Administrators" value={n(admins)} sub="active"
+            tone={admins === 0 ? "danger" : "muted"} />
+        </div>
+      )}
 
       <BriefCard icon="anchor" title="Membership">
         <LeafFacts rows={[
           ["Holds", member && member.capability
             ? <>the cluster’s <b>{member.capability}</b></>
             : "no capability yet"],
-          ["Reached at", anchor || (member && member.clientUrl) || "—"],
+          ["Reached at", address || (member && member.clientUrl) || "—"],
           member && ["State", <MemberState key="s" membership={member.membership}
             status={member.status} enabled={member.enabled} />],
           ["Latency", formatLatency(member && member.latencyMs)],
         ]} />
       </BriefCard>
 
-      {!reachable && (
+      {showsAccounts && !reachable && (
         <div className="settings-users__note">
           <Icon name="alert-triangle" size={14} />
           This browser could not read the accounts. The figures above are blank rather than zero.

@@ -22,7 +22,7 @@
 
 import React from "react";
 import { can } from "../lib/persona.js";
-import { tabLabel } from "../lib/labels.js";
+import { anchorOffersTab, tabLabel } from "../lib/labels.js";
 
 function breadcrumbTrail(route, ctx) {
   const trail = [];
@@ -59,7 +59,11 @@ function breadcrumbTrail(route, ctx) {
                         trail.push(
                           { label: "Cluster", to: { kind: "cluster" } },
                           { label: ctx.hostName || route.hostId, to: { kind: "cluster", hostId: route.hostId } });
-                        tab(ctx.memberKind === "anchor" ? "anchor" : "cluster");
+                        // An anchor's strip is its CAPABILITY's, so a tab it does not serve
+                        // resolves back to the overview on the page — and a crumb naming it would
+                        // announce a place that is not on screen.
+                        tab(ctx.memberKind === "anchor" ? "anchor" : "cluster",
+                          ctx.memberKind !== "anchor" || anchorOffersTab(ctx.memberCapability, route.tab));
                       } else if (route.tab) {
                         // The cluster's own tabs. One crumb deeper than the bare page, and named
                         // from its own strip rather than a member's — the two share the URL word

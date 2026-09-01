@@ -126,6 +126,10 @@ function AppInner({ user, setUser, route, setRoute }) {
     review, exitReview } = dock;
   const hosts = useStore(hostsStore, s => s.list);
   const clusterMembers = useStore(clusterStore, s => s.nodes);
+  // Which member holds each of the cluster's capabilities. A capability belongs to the cluster
+  // rather than to a member, so it is not a field on a roster row — and an anchor's page is
+  // shaped by the one it holds.
+  const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
 
   // --- Auth ---
 
@@ -442,6 +446,11 @@ function AppInner({ user, setUser, route, setRoute }) {
     // different tabs, and naming one from the other's list silently drops the crumb.
     memberKind: route.hostId
       ? ((clusterMembers.find(m => m.nodeId === route.hostId) || {}).kind || "node")
+      : null,
+    // And which capability it holds, because an anchor's tabs are its capability's. Without it the
+    // trail would name a tab from the full anchor vocabulary while the page shows its overview.
+    memberCapability: route.hostId
+      ? ((clusterCapabilities.find(c => c.held && c.memberId === route.hostId) || {}).capability || null)
       : null,
     // The leaf's display name is the services board's to give, and that board is host-scoped — a row
     // read while it still holds another host's list would name the wrong machine's leaf.

@@ -127,10 +127,24 @@ No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` doe
 `accounts/AnchorPage.jsx` is a MEMBER page, not a route of its own. A cluster has members and a member
 is a node or an anchor, so both are reached at `#/cluster/member/<member>` and `DiagnosticsPage` picks the
 body by which kind the roster says it is — checked before the fall-through that would otherwise read
-"not a node I hold" as "no member named" and show the grid. The page carries `ROUTE_TABS.anchor`
-(Overview, Users, Logs, Configuration): each tab is a URL segment, `App.setRoute` moves it, and the
-breadcrumb names it from the anchor's strip because `ctx.memberKind` says which member this is —
-naming it from the node's would silently drop the crumb.
+"not a node I hold" as "no member named" and show the grid.
+
+**Its tabs are the member's CAPABILITY's, not its kind's** (`anchorTabs` in `../lib/labels.js`).
+Every anchor answers Overview and Settings, because both are read from the roster and from the
+cluster rather than from the machine — they render from a session opened anywhere. Everything past
+them belongs to a capability: Users, Logs and Configuration are the `auth` holder's own routes,
+reached at the door this browser signed in through, so an anchor holding a different capability
+carries none of them. `ROUTE_TABS.anchor` is the vocabulary those names come from; what is on screen
+is `anchorTabs(capability)`, and a capability earns a tab by gaining a row in that table once the
+member behind it serves one.
+
+The ADDRESS follows the same rule. The door's origin is this member's address only when this member
+is the door (`holder === member.nodeId`); otherwise it is the member's own, from the roster.
+
+Each tab is a URL segment and `App.setRoute` moves it. The breadcrumb names it from the anchor's
+strip, and asks `anchorOffersTab` before naming one at all: `ctx.memberKind` says which member this
+is and `ctx.memberCapability` says which tabs it has, so the trail cannot announce a tab the page
+resolved back to Overview.
 
 `accounts/AnchorConfiguration.jsx` and `accounts/AnchorLogs.jsx` go somewhere else again:
 straight to the anchor, through `lib/anchor.js`, never through `apiClient`. A leaf's settings and its

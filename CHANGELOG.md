@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.221.0]
+
+### Changed — an anchor's page is shaped by the capability it holds
+
+A cluster can hold several anchors and they are not interchangeable. `anchorTabs(capability)` picks
+what one offers: Overview and Settings for every member, because both are read from the roster and
+from the cluster rather than from the machine, and Users, Logs and Configuration only for the member
+holding `auth`, whose own routes they are.
+
+The address on the page is the member's. The door's origin stands in only when this member is the
+door, and the account figures on the overview render only there — they are the accounts holder's, and
+under a second anchor's name they would report one member's accounts as another's.
+
+`AnchorOverview` renders from any session: what a member is, what it holds, how far away it is and
+where it is come from the roster, so a browser signed in at a node reads them. Only the surfaces
+behind the door report themselves out of reach, and the sentence names which one.
+
+The breadcrumb asks `anchorOffersTab` before naming a tab, so the trail cannot announce a tab whose
+URL resolved back to the overview.
+
 ## [1.220.0]
 
 ### Changed — a server's connect address comes from the node, not from where the API was reached

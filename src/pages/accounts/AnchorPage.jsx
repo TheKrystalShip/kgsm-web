@@ -5,10 +5,16 @@
 // cluster. What differs is the body — a node runs game servers and reports capacity, an anchor
 // provides one capability to the whole cluster and reports what that capability holds.
 //
-// The tabs are the anchor's own (`ROUTE_TABS.anchor`) and each one is a URL:
-// `#/cluster/member/<member>` opens Overview, `#/cluster/member/<member>/users` opens the accounts,
-// and the trail above names whichever
-// is open. That is the node page's structure exactly, with different data in it.
+// THE TABS ARE THE MEMBER'S CAPABILITY'S, not the kind's (`anchorTabs`). Every anchor answers
+// Overview and Settings, because both are read from the roster and from the cluster rather than from
+// the machine. Everything past them belongs to a capability: the accounts, the journal and the
+// configuration are the auth anchor's own routes, and an anchor holding something else serves none
+// of them. A fixed strip offered all five to every anchor and pointed the last three at the door
+// this browser signed in through — which is a different member, rendering its journal and its
+// accounts under this one's name.
+//
+// The address is the member's, for the same reason. The door is this member's address only when this
+// member IS the door.
 //
 // Reached from the Anchors card on the Cluster page, which is where a person meets this member as a
 // member. The page repeats none of that card's columns — the trail says where it came from, and the
@@ -17,23 +23,34 @@
 import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
-import { ROUTE_TABS } from "../../lib/labels.js";
+import { anchorTabs } from "../../lib/labels.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
 import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
 import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
 import { AnchorLogs } from "./AnchorLogs.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
 
+// What a person is standing in front of when the door is somewhere else. The accounts, the journal
+// and the configuration are all the auth anchor's and all behind the same door, so the sentence names
+// the one they came for rather than the three together.
+const OUT_OF_REACH = {
+  users: "These accounts are",
+  logs: "This journal is",
+  config: "This configuration is",
+};
+
 function AnchorPage({ member, tab, onSelectTab }) {
-  const { anchor, anchored } = useAccountHolder();
+  const { anchor, holder } = useAccountHolder();
 
   const name = (member && (member.label || member.nodeId)) || "Anchor";
-  // The door first: it is the address this browser actually reaches. The roster's is what one member
-  // says about another, and where the two differ the working one is the one to show.
-  const address = anchor || (member && member.clientUrl) || "";
   const capability = member && member.capability;
 
-  const tabs = ROUTE_TABS.anchor;
+  // Whether this member is the door this browser signed in through. Only then is the door's origin
+  // this member's address, and only then are the accounts on screen its accounts.
+  const isDoor = !!anchor && !!member && holder === member.nodeId;
+  const address = (isDoor ? anchor : (member && member.clientUrl)) || "";
+
+  const tabs = anchorTabs(capability);
   const active = tabs.some(t => t.id === tab) ? tab : "overview";
 
   const head = (
@@ -59,23 +76,26 @@ function AnchorPage({ member, tab, onSelectTab }) {
     </div>
   );
 
-  // An anchor holding the accounts, reached by a browser signed in at a NODE. It can read nothing
-  // here and write nothing anywhere, and naming the holder is the whole of what this browser knows —
-  // a member gives out an anchor's name and never its address.
-  const elsewhere = anchored && !anchor;
-
   const body = () => {
-    // Settings is above the guard on purpose. What it offers — moving a capability, removing a
-    // member — are CLUSTER acts, addressed to whichever member answered the roster, and they work
-    // from a browser that has never signed in at this anchor. Only the ACCOUNTS need the door.
+    // Both of these are the cluster's rather than the member's: Overview is the roster's answer about
+    // this member, and Settings moves a capability or removes a member, addressed to whichever member
+    // answered the roster. Neither needs a session with the machine on screen.
     if (active === "settings") return <MemberSettings member={member} host={null} />;
-    if (elsewhere) {
+    if (active === "overview") {
+      return <AnchorOverview member={member} address={address} showsAccounts={isDoor} />;
+    }
+
+    // The rest are the auth anchor's own routes, and this browser reaches them at the door. A session
+    // opened at a node holds nothing for them: naming the holder is the whole of what it knows, since
+    // a member gives out an anchor's name and never its address. The sentence names WHICH surface is
+    // out of reach, because the three are behind the same door and a person is standing at one.
+    if (!anchor) {
       return (
         <div className="chat-brief">
           <div className="chat-brief__empty chat-brief__empty--neutral">
             <div className="chat-brief__empty-title">Signed in somewhere else</div>
             <div className="chat-brief__empty-sub">
-              These accounts are {name}’s. Sign in there to manage them.
+              {OUT_OF_REACH[active] || "This is"} {name}’s. Sign in there to reach them.
             </div>
           </div>
         </div>
@@ -83,8 +103,7 @@ function AnchorPage({ member, tab, onSelectTab }) {
     }
     if (active === "users") return <AccountsAdmin />;
     if (active === "logs") return <AnchorLogs anchor={anchor} />;
-    if (active === "config") return <AnchorConfiguration anchor={anchor} />;
-    return <AnchorOverview anchor={anchor} member={member} />;
+    return <AnchorConfiguration anchor={anchor} />;
   };
 
   return (

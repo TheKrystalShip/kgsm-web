@@ -29,7 +29,10 @@ export const ROUTE_TABS = {
   ],
   // An ANCHOR's tabs. A cluster member is a node or an anchor and both are reached at
   // #/cluster/member/<member>, so both name their tabs here — what differs is which set, because an anchor
-  // runs no game servers and has no capacity to report and holds the cluster's accounts instead.
+  // runs no game servers and has no capacity to report and serves one capability instead.
+  //
+  // This is the VOCABULARY, not what any one anchor offers: `anchorTabs` below picks the subset a
+  // member can actually answer, and the breadcrumb reads this list to name whichever the URL carries.
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
     { id: "users",    label: "Users",    icon: "users" },
@@ -98,6 +101,35 @@ const TAB_LABEL_FALLBACK = {
   windows: "Windows",
   commands: "Commands",
 };
+
+// Which of an anchor's tabs a given member offers.
+//
+// An anchor serves ONE capability, and everything past Overview and Settings belongs to it: the
+// accounts, the journal and the configuration are kgsm-auth's own routes, reached at the door this
+// browser signed in through. A member that does not hold `auth` answers none of them, so offering
+// them pointed its page at a different member.
+//
+// Overview and Settings are every member's. What a member is, what it holds, how far away it is and
+// where it is come from the roster; moving a capability and removing a member are the cluster's acts
+// rather than the member's, addressed to whoever answered the roster.
+//
+// A capability gains a tab by gaining a row here, once the member behind it actually serves one.
+const ANCHOR_CAPABILITY_TABS = {
+  auth: ["users", "logs", "config"],
+};
+const ANCHOR_TABS_ALWAYS = ["overview", "settings"];
+
+export function anchorTabs(capability) {
+  const held = ANCHOR_CAPABILITY_TABS[capability] || [];
+  return ROUTE_TABS.anchor.filter(t => ANCHOR_TABS_ALWAYS.includes(t.id) || held.includes(t.id));
+}
+
+// Whether one anchor tab is on screen for a member holding `capability`. The breadcrumb asks so it
+// names a tab the page is actually showing — a crumb for a tab that resolved back to Overview
+// announces a place that is not there.
+export function anchorOffersTab(capability, id) {
+  return !!id && anchorTabs(capability).some(t => t.id === id);
+}
 
 // The name of one tab, or null when the id belongs to no tab this route offers. Null is the
 // honest answer for a stale or mistyped segment: the page falls back to its default tab, so a
