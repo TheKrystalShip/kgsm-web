@@ -532,46 +532,6 @@
   gap: 10px;
 }
 
-.cluster-node-row__badges {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 16px 10px;
-}
-
-.cluster-node-row__spacer {
-  flex: 1;
-}
-
-/* A badge row is a line of facts about the member, and a control on it is one more item
-   in that line. The small-button base fills its container, which is right where a button
-   is the row — here it would take the whole width and push the address out of sight. */
-.cluster-node-row__cap {
-  flex: none;
-}
-
-.cluster-node-row__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* ---- ghost row (federation peer, no connected host): reads as secondary
-   next to the connected rows above it ---- */
-.cluster-node-row--ghost {
-  border-top-style: dashed;
-}
-
-.cluster-node-row__url {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-4);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
-}
 
 /* ---- what a member serves, on its row ----
    Teal because a capability is the cluster's business rather than the member's health, and the
@@ -1125,4 +1085,77 @@
 
 .cap-legend__sw--unknown {
   background: var(--veil-1);
+}
+
+/* ============================================================================
+   A member's Settings tab — what can be changed about it, and what can be done
+   to its place in the cluster. These controls used to sit on every member row.
+   ============================================================================ */
+.member-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.member-settings__form {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+/* The id is read-only, and it looks it: the same box as the fields beside it so the three line up,
+   without the border and focus of something you can type into. */
+.member-settings__id {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg-3);
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.member-settings__foot {
+  padding: 0 14px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.member-settings__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--success-fg);
+}
+
+.member-settings__row {
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.member-settings__value {
+  font-size: 13.5px;
+  color: var(--fg-1);
+}
+
+.member-settings__value--muted {
+  color: var(--fg-3);
+  max-width: 62ch;
+  line-height: 1.5;
+}
+
+.member-settings__hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-4);
+  margin-top: 3px;
 }

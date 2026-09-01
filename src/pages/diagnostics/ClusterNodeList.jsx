@@ -30,16 +30,12 @@ import { hostHealth, hostMetricsFreshness } from "../../components/HostCardBody.
 import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
-import { api } from "../../lib/apiClient.js";
 import { formatLatency } from "../../lib/nodeLabel.js";
-import { can } from "../../lib/persona.js";
 import { playerTally } from "../../lib/servers.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore, serversStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
-import { MemberRowActions } from "./clusterActions.jsx";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
-import { HostEditorModal, NodeEditButton } from "./diagComponents.jsx";
 import { buildClusterNodes, nodeEntries } from "./clusterNodes.js";
 
 // What a node is carrying, as chips beside what it holds — a count is a fact about the machine
@@ -100,7 +96,9 @@ function Reading({ ms }) {
   );
 }
 
-function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers }) {
+// `onSelect` takes no argument here: a ghost is opened by its member id, and the entry key it is
+// filed under carries a prefix that keeps it apart from a connected host in one list.
+function GhostNodeRow({ n, hovered, onHover, onSelect }) {
   const isHovered = hovered === n.key;
   const tone = membershipRowTone(n.fed.membership);
   return (
@@ -110,7 +108,7 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
       onMouseLeave={() => onHover(null)}
     >
       <button className={"dash-fleet-row dash-fleet-row--" + tone + " dash-fleet-row--ghost"}
-        onClick={() => onSelect(n.key)}>
+        onClick={() => onSelect()}>
         <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
         <span className="cluster-node-row__ident">
           <span className="cluster-node-row__top">
@@ -119,7 +117,10 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
           <span className="cluster-node-row__sub">{n.fed.nodeId}</span>
         </span>
         <span className="cluster-node-row__chips">
+          {/* A member the mesh knows and this browser holds no session with. A member that has left
+              is not in this list at all, so this never has to be qualified. */}
           <span className="cluster-chip cluster-chip--kind"><Icon name="radar" size={11} strokeWidth={2.2} />discovered</span>
+          <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />
         </span>
         <Reading ms={n.latencyMs} />
         <span className="cluster-node-row__meters">
@@ -129,11 +130,6 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
           <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />
         </span>
       </button>
-      <div className="cluster-node-row__badges">
-        <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />
-        {n.fed.clientUrl && <span className="cluster-node-row__url">{n.fed.clientUrl}</span>}
-        {canManagePeers && n.fed && <MemberRowActions hostId={hostId} member={n.fed} />}
-      </div>
     </div>
   );
 }
@@ -149,7 +145,7 @@ function identity(h) {
     .filter(Boolean).join(" · ");
 }
 
-function NodeRow({ n, servers, capability, hovered, onHover, onSelect, hostId, canManagePeers, onEdit }) {
+function NodeRow({ n, servers, capability, hovered, onHover, onSelect }) {
   const h = n.host;
   const alerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id);
   const { denied, metricsDown, meters, tone } = hostHealth(h);
@@ -187,6 +183,9 @@ function NodeRow({ n, servers, capability, hovered, onHover, onSelect, hostId, c
         <span className="cluster-node-row__chips">
           {capability && <span className="cluster-chip cluster-chip--cap">{capability}</span>}
           <NodeCountChips servers={mine} />
+          {/* What the CLUSTER says about this member, beside what the machine says about itself.
+              Silent while it is alive, reachable and enabled — the dot is already that colour. */}
+          {n.fed && <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />}
           {stale && (
             <span className="cluster-chip cluster-chip--warn" title="These are the last readings measured, not live">
               frozen{fresh.label ? " \u00b7 " + fresh.label.replace(/\s*ago$/, "") : ""}
@@ -228,12 +227,6 @@ function NodeRow({ n, servers, capability, hovered, onHover, onSelect, hostId, c
         </span>
       </button>
 
-      <div className="cluster-node-row__badges">
-        {n.fed && <MemberState membership={n.fed.membership} status={n.fed.status} enabled={n.fed.enabled} />}
-        {canManagePeers && n.fed && <MemberRowActions hostId={hostId} member={n.fed} />}
-        <span className="cluster-node-row__spacer" />
-        <NodeEditButton host={n.host} onEdit={onEdit} />
-      </div>
     </div>
   );
 }
@@ -246,21 +239,8 @@ function ClusterNodeList({ hovered, onHover }) {
   const servers = useStore(serversStore, s => s.list);
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const capabilities = useStore(clusterStore, s => s.capabilities);
-  const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterErrored = useStore(clusterStore, s => s.status === "error");
   const pingByHost = useStore(pingStore, s => s.byHost);
-  const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
-
-  // Renaming a node. The card owns the form because the row owns the control: one whose modal lived
-  // on the page would be dead the moment the card is pinned. Bringing a NEW node in is the page's
-  // "Add node" and goes through AddNodeModal, which federates and connects for real.
-  const [editing, setEditing] = React.useState(null);
-
-  // A membership write is addressed with `peerId` — an id in one member's own peer table, which
-  // means nothing anywhere else — so it goes back to whichever member answered the roster these
-  // rows came from. Nothing is selected: the panel belongs to no member and reaches every one of
-  // them across a network.
-  const canManagePeers = !!rosterFrom && can("host.manage") && !!clusterAdmin;
 
   const nodes = React.useMemo(
     () => nodeEntries(buildClusterNodes(hosts, clusterNodesRaw, pingByHost)),
@@ -275,18 +255,6 @@ function ClusterNodeList({ hovered, onHover }) {
     return held ? held.capability : null;
   };
 
-  const saveHost = (fields) => {
-    const id = editing && editing.id;
-    if (!id) { setEditing(null); return; }
-    hostsStore.update(id, { name: fields.label, region: fields.region || "—" });
-    setEditing(null);
-    const client = api.host ? api.host(id) : api;
-    Promise.resolve(client.patch("/hosts/" + id, { label: fields.label, region: fields.region }))
-      .then((updated) => {
-        if (updated && updated.id) hostsStore.update(id, { name: updated.name, region: updated.region });
-      })
-      .catch(() => {});
-  };
   return (
     <BriefCard
       icon="server-cog"
@@ -298,16 +266,14 @@ function ClusterNodeList({ hovered, onHover }) {
     >
       <div className="dash-fleet__rows">
         {nodes.map(n => (n.ghost
-          ? <GhostNodeRow key={n.key} n={n} hovered={hovered} onHover={hover} onSelect={select}
-              hostId={rosterFrom} canManagePeers={canManagePeers} />
+          ? <GhostNodeRow key={n.key} n={n} hovered={hovered} onHover={hover}
+              onSelect={() => select(n.fed.nodeId)} />
           : <NodeRow key={n.key} n={n} servers={servers} capability={capabilityOf(n.host.id)}
-              hovered={hovered} onHover={hover} onSelect={select}
-              hostId={rosterFrom} canManagePeers={canManagePeers} onEdit={setEditing} />))}
+              hovered={hovered} onHover={hover} onSelect={select} />))}
         {nodes.length === 0 && (
           <div className="chat-brief__empty chat-brief__empty--neutral">No nodes connected.</div>
         )}
       </div>
-      {editing && <HostEditorModal host={editing} onSave={saveHost} onClose={() => setEditing(null)} />}
     </BriefCard>
   );
 }

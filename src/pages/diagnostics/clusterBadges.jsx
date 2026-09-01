@@ -76,41 +76,28 @@ function StatusChip({ status, enabled }) {
   );
 }
 
-// A member that has LEFT is not a member having trouble — it is a tombstone the mesh is
-// still carrying so a removal is visible while it propagates, rather than a row that
-// disappears here and returns a minute later. It reads as its own thing for that reason:
-// "dead" invites someone to go and fix it, and there is nothing to fix.
-function DepartedChip({ membership }) {
-  if (membership !== "left") return null;
-  return (
-    <span className="cluster-chip cluster-chip--muted">
-      <Icon name="log-out" size={11} strokeWidth={2.2} />removed
-    </span>
-  );
-}
-
 // What state a member is in, as ONE statement, so no surface assembles its own.
 //
-// A member that is still one has two axes and both are worth showing: what the mesh converged on,
-// and what this node's own probe found. They answer different questions and a member can be alive
-// to the mesh while this node cannot reach it.
+// IT SPEAKS ONLY WHEN THERE IS SOMETHING TO SAY. A member that is alive, reachable and enabled is
+// the ordinary case, and on a card of members it is nearly every row — two green pills per row
+// saying nothing that the row's status dot does not already say in the same colour, on a line of
+// their own, on every row. The dot carries the ordinary case; this carries the exceptions.
 //
-// A member that has LEFT has no standing on either. It is unreachable because it went, and printing
-// that beside its departure describes a fault to go and fix — which is the reading the departed chip
-// exists to prevent, reintroduced by the chips beside it. So departure is the whole answer.
+// A member that is still one has two axes and both are worth showing when either departs from
+// ordinary: what the mesh converged on, and what this node's own probe found. They answer different
+// questions and a member can be alive to the mesh while this node cannot reach it.
 //
-// The one thing that still holds for a departed member is an admin's own off switch: the row keeps
-// it, so a member that is re-added comes back switched off, and that is a fact about the future
-// rather than about a member that is gone.
-function MemberState({ membership, status, enabled }) {
-  if (membership === "left") {
-    return (
-      <>
-        <DepartedChip membership={membership} />
-        {enabled === false && <StatusChip status={status} enabled={enabled} />}
-      </>
-    );
-  }
+// A member that has LEFT never reaches here: it is not shown at all (`clusterNodes.js`), because a
+// machine that is gone is not a member in a state worth reporting.
+//
+// `always` is for a surface with no dot beside it to lean on — the assignment dialog lists members
+// as candidates, where the ordinary case is exactly what has to be legible.
+function memberIsOrdinary(membership, status, enabled) {
+  return membership === "alive" && status === "reachable" && enabled !== false;
+}
+
+function MemberState({ membership, status, enabled, always = false }) {
+  if (!always && memberIsOrdinary(membership, status, enabled)) return null;
   return (
     <>
       <MembershipBadge membership={membership} />
@@ -119,4 +106,4 @@ function MemberState({ membership, status, enabled }) {
   );
 }
 
-export { MEMBERSHIP_META, membershipMeta, membershipRowTone, MemberState };
+export { MEMBERSHIP_META, memberIsOrdinary, membershipMeta, membershipRowTone, MemberState };

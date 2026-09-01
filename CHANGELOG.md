@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.219.0]
+
+### Changed — a member row is one line, and its controls moved to the member
+
+The row carried a second line under it for every member: two green pills saying what the status dot
+beside them was already saying in the same colour, plus a rename control, a remove control and, on
+an anchor, a capability control. A card of five members spent five lines on it, and the control
+somebody wanted was as far from the member as the four they did not.
+
+The dot carries the ordinary state. Membership and reachability are still stated in words the moment
+either stops being ordinary — unreachable, suspect, dead, disabled — because that is when they say
+something the colour cannot.
+
+### Added — a Settings tab on every member's page
+
+Renaming a node, moving a capability and removing a member from the cluster now live on the member
+they act on, and a pen beside the member's title leads there. All three are wired endpoints and none
+were dropped. An anchor is offered no name field: the cluster's member patch carries the enabled flag
+and nothing else, so there is no name to write.
+
+A member the roster names and no session reaches now has a page of its own — one tab, the same
+Settings. It had none before, so its row led nowhere, and it is the member most likely to be the one
+somebody came to remove.
+
+### Changed — a removed member is not shown
+
+A member that has left the cluster is absent from every surface rather than carried as a row that
+says so. The mesh keeps the departure above the member's last incarnation so the removal propagates
+and is reaped everywhere; that is the mesh's business, and a machine that is gone sitting in the
+cluster's member list is counted by everything that counts members. It is not offered as a
+destination for a capability either — it would take it and orphan it on the next read.
+
+Every other unhappy state stays. Unreachable, suspect and dead are members in trouble and the reason
+somebody opened the page; only a departure is final.
+
+
 ## [1.218.0]
 
 ### Changed — the member row says what a node is on the left and what was measured of it on the right

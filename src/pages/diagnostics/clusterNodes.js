@@ -58,8 +58,17 @@ function matchFederationNode(host, clusterNodes) {
 // connected ones arrive in the order `hostsStore` holds them, which is the order
 // every surface shows, and the ghosts follow in the same order — secondary, and
 // last, because there is nothing to drive behind one.
+// A member that has LEFT is not a member. The mesh carries the departure as a tombstone above the
+// member's last incarnation so the removal propagates and is reaped everywhere — that is the mesh's
+// business, not a row on a card. Showing it puts a machine that is gone in a list of the cluster's
+// members, where every count includes it and every surface has to explain why it is there.
+//
+// Every other unhappy state stays. Unreachable, suspect and dead are members in trouble and the
+// reason somebody opened this page; only a departure is final.
+const hasDeparted = (fed) => !!fed && fed.membership === "left";
+
 function buildClusterNodes(hosts, clusterNodes, pingByHost) {
-  const fedList = clusterNodes || [];
+  const fedList = (clusterNodes || []).filter(n => !hasDeparted(n));
   const matchedIds = new Set();
   const nodes = (hosts || []).map(host => {
     const fed = matchFederationNode(host, fedList);

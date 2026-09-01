@@ -22,7 +22,9 @@ import { membershipMeta } from "./clusterBadges.jsx";
 function answering(entry) {
   if (entry.fed) {
     if (entry.fed.enabled === false) return false;
-    if (entry.fed.membership === "left" || entry.fed.membership === "dead") return false;
+    // A member that has left is not in `entries` at all, so what is left to fail here is a member
+    // the mesh has declared dead.
+    if (entry.fed.membership === "dead") return false;
     if (entry.fed.status === "unreachable") return false;
     if (entry.fed.status === "reachable") return true;
   }

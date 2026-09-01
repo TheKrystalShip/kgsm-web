@@ -722,6 +722,13 @@
   cursor: not-allowed;
 }
 
+/* A destructive button that will not act says so by looking inert. Without this it stays fully
+   red — the loudest thing on the card, offering exactly what it is refusing. */
+.host-btn--danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .host-btn--ghost {
   background: var(--surface-2);
   border-color: var(--border-subtle);

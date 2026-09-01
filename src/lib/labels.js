@@ -35,6 +35,7 @@ export const ROUTE_TABS = {
     { id: "users",    label: "Users",    icon: "users" },
     { id: "logs",     label: "Logs",     icon: "scroll-text" },
     { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
+    { id: "settings", label: "Settings", icon: "settings" },
   ],
   // The CLUSTER page's own tabs, at #/cluster/<tab> — distinct from `cluster` below, which is one
   // MEMBER's tabs at #/cluster/member/<member>/<tab>. Both live under the same URL word because a
@@ -45,12 +46,19 @@ export const ROUTE_TABS = {
     { id: "reach",        label: "Reach",        icon: "waypoints" },
     { id: "capabilities", label: "Capabilities", icon: "grid-3x3" },
   ],
+  // A member the roster names and no session reaches. It measures nothing, so the only tab it can
+  // answer is the one about its place in the cluster — and a departed member is the one somebody
+  // most often came to act on.
+  member: [
+    { id: "settings", label: "Settings", icon: "settings" },
+  ],
   cluster: [
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
     { id: "resources", label: "Resources", icon: "activity" },
     { id: "services",  label: "Services",  icon: "server-cog" },
     { id: "jobs",      label: "Jobs",      icon: "list-checks" },
     { id: "logs",      label: "Logs",      icon: "scroll-text" },
+    { id: "settings",  label: "Settings",  icon: "settings" },
   ],
   // The leaf shell's own tabs. A leaf's extra tabs are registered with their bodies in
   // LeafPage and named by TAB_LABEL_FALLBACK below, since a body cannot live here.

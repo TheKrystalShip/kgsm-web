@@ -1,11 +1,11 @@
-// clusterActions.jsx — the admin controls a member row carries, and the two decisions
-// they open: whether a member is still in the cluster, and who holds a capability.
+// clusterActions.jsx — the two decisions an admin can make about a member, and the dialogs that
+// take them: whether a member is still in the cluster, and who holds a capability.
 //
 // Both are deliberate acts with no automatic equivalent. Nothing promotes itself — an
 // automatic failover during a partition produces two members issuing conflicting
 // statements about who may do what — and nothing removes a member on its behalf. So
-// this is where a person decides, on either card: nodes and anchors are different
-// things to look at and the same thing to manage.
+// this is where a person decides, on the member's own Settings tab: nodes and anchors are
+// different things to look at and the same thing to manage.
 //
 // Both are CLUSTER acts, which is the only kind this panel offers. Removing records a
 // departure that travels to every member and is reaped everywhere; assigning is
@@ -32,7 +32,10 @@ import { MemberState } from "./clusterBadges.jsx";
 // member currently answering for the roster is never removable: it just answered, so it is running.
 function memberRemoval(member) {
   const name = (member && (member.label || member.nodeId)) || "this member";
-  const gone = !!member && (member.membership === "left" || member.status === "unreachable");
+  // A member that announced its departure is not in any list this reaches — it is gone from the
+  // page entirely — so what remains removable is a member the mesh has given up on, or one nothing
+  // can reach. Both are members that are no longer gossiping, which is what makes the removal stick.
+  const gone = !!member && (member.membership === "dead" || member.status === "unreachable");
   if (!gone) {
     return {
       ok: false,
@@ -45,35 +48,6 @@ function memberRemoval(member) {
   if (!member.peerId)
     return { ok: false, reason: "No other member holds a record of " + name + " to clear" };
   return { ok: true };
-}
-
-// The one control on a member row. It opens a dialog rather than acting, because removal is the
-// choice that can be the wrong one and the dialog is where what it costs is stated.
-//
-// A member it would not remove keeps the control, disabled, carrying the reason — the same rule
-// every lifecycle button in the panel follows. Hiding it would leave an admin hunting for a control
-// that is on the row beside it.
-function MemberRowActions({ hostId, member }) {
-  const [removing, setRemoving] = React.useState(false);
-  const name = member.label || member.nodeId;
-  const guard = memberRemoval(member);
-
-  return (
-    <span className="cluster-node-row__actions">
-      <button
-        className="icon-btn"
-        title={guard.ok ? "Remove " + name + " from the cluster" : guard.reason}
-        aria-label={guard.ok ? "Remove " + name + " from the cluster" : guard.reason}
-        onClick={(e) => { e.stopPropagation(); setRemoving(true); }}
-        disabled={!guard.ok}
-      >
-        <Icon name="trash-2" size={13} />
-      </button>
-      {removing && (
-        <MemberRemoveDialog hostId={hostId} member={member} onClose={() => setRemoving(false)} />
-      )}
-    </span>
-  );
 }
 
 // Removing a member from the cluster. The dialog exists to say what that is: not a row deleted here,
@@ -89,7 +63,6 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState(null);
   const label = member.label || member.nodeId;
-  const departed = member.membership === "left";
 
   const run = () => {
     if (busy) return;
@@ -108,13 +81,8 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
         </div>
         <h2 className="host-remove__title">Remove {label} from the cluster?</h2>
         <p className="host-remove__text">
-          {departed ? (
-            <><b>{label}</b> has announced its departure. Removing it clears the record the cluster
-            is still carrying, and there is nothing running to come back.</>
-          ) : (
-            <><b>{label}</b> is not answering. Removing it tells the rest of the cluster it has gone,
-            and every member drops it once the record is reaped.</>
-          )}
+          <b>{label}</b> is not answering. Removing it tells the rest of the cluster it has gone, and
+          every member drops it once the record is reaped.
         </p>
         {err && (
           <p className="cluster-dialog__err"><Icon name="triangle-alert" size={13} />{err}</p>
@@ -146,7 +114,10 @@ function CapabilityAssignDialog({ hostId, capability, currentMemberId, members, 
   const [choice, setChoice] = React.useState(currentMemberId || "");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState(null);
-  const candidates = (members || []).filter(m => m.nodeId);
+  // A member that has LEFT is not a destination. The backend accepts an UNREACHABLE target on
+  // purpose — reassigning is exactly what an admin does when the holder cannot be reached — but a
+  // member that is gone would take the capability with it and orphan it on the next read.
+  const candidates = (members || []).filter(m => m.nodeId && m.membership !== "left");
 
   const submit = () => {
     if (busy || choice === (currentMemberId || "")) return;
@@ -176,7 +147,7 @@ function CapabilityAssignDialog({ hostId, capability, currentMemberId, members, 
               />
               <span className="cluster-assign__name">{m.label || m.nodeId}</span>
               <span className="cluster-assign__id">{m.nodeId}</span>
-              <MemberState membership={m.membership} status={m.status} enabled={m.enabled} />
+              <MemberState membership={m.membership} status={m.status} enabled={m.enabled} always />
             </label>
           ))}
           <label className={"cluster-assign__opt" + (choice === "" ? " cluster-assign__opt--on" : "")}>
@@ -210,4 +181,4 @@ function CapabilityAssignDialog({ hostId, capability, currentMemberId, members, 
   );
 }
 
-export { MemberRowActions, MemberRemoveDialog, CapabilityAssignDialog };
+export { CapabilityAssignDialog, MemberRemoveDialog, memberRemoval };

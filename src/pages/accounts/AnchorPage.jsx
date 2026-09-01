@@ -20,6 +20,7 @@ import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
 import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
+import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
 import { AnchorLogs } from "./AnchorLogs.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
 
@@ -38,7 +39,16 @@ function AnchorPage({ member, tab, onSelectTab }) {
   const head = (
     <div className="dash-head dash-head--actions">
       <div className="dash-head__titles">
-        <h1><Icon name="anchor" size={20} /> {name}</h1>
+        <h1>
+          <Icon name="anchor" size={20} /> {name}
+          {/* An anchor has no name to change — the cluster's member patch carries the enabled flag
+              and nothing else — so this leads to what CAN be changed about it: which capability it
+              holds, and whether it is still a member. */}
+          <button className="diag-head__edit" onClick={() => onSelectTab("settings")}
+            title={"Settings for " + name} aria-label={"Settings for " + name}>
+            <Icon name="settings" size={13} />
+          </button>
+        </h1>
         <div className="dash-head__sub">
           {capability
             ? <>Holds this cluster’s <b>{capability}</b></>
@@ -55,6 +65,10 @@ function AnchorPage({ member, tab, onSelectTab }) {
   const elsewhere = anchored && !anchor;
 
   const body = () => {
+    // Settings is above the guard on purpose. What it offers — moving a capability, removing a
+    // member — are CLUSTER acts, addressed to whichever member answered the roster, and they work
+    // from a browser that has never signed in at this anchor. Only the ACCOUNTS need the door.
+    if (active === "settings") return <MemberSettings member={member} host={null} />;
     if (elsewhere) {
       return (
         <div className="chat-brief">

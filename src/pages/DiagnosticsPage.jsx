@@ -27,6 +27,7 @@ import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
 import { DiagResources } from "./diagnostics/DiagResources.jsx";
 import { DiagServices } from "./diagnostics/DiagServices.jsx";
 import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
+import { MemberSettings } from "./diagnostics/MemberSettings.jsx";
 import { QueuedJobs, RunningJobs } from "./diagnostics/DiagJobs.jsx";
 
 // The map ships Europe's coastlines. That is worth a chunk of its own rather than a share of
@@ -125,6 +126,33 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
     );
   }
 
+  // A member the roster names that this browser holds no session with — discovered by gossip, or
+  // departed. It reports no telemetry, so there is no deep-dive to render; what it can still answer
+  // is what the cluster should do about it, and a departed member is precisely the one somebody
+  // came here to remove.
+  const rosterOnly = focusHostId && !hosts.find(h => h.id === focusHostId)
+    ? (clusterNodes.find(e => e.ghost && e.fed && e.fed.nodeId === focusHostId) || null)
+    : null;
+
+  if (rosterOnly) {
+    const fed = rosterOnly.fed;
+    return (
+      <>
+        <div className="diag-head">
+          <div className="diag-head__title">
+            <h1>{fed.label || fed.nodeId}</h1>
+            <div className="dash-head__sub">
+              {fed.nodeId}{fed.clientUrl ? " · " + fed.clientUrl : ""}
+            </div>
+          </div>
+        </div>
+        <SubTabs tabs={ROUTE_TABS.member} active="settings" onChange={() => {}} />
+        <MemberSettings host={null} member={fed} />
+        {modals}
+      </>
+    );
+  }
+
   if (!focusHostId || !hosts.find(h => h.id === focusHostId)) {
     // The cluster's own tabs. A member's tabs use the same `tab` prop one segment deeper, so the
     // page falls back to its own default rather than rendering a member's tab name here.
@@ -206,10 +234,19 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   }
 
   const ping = pingByHost[host.id];
+  const memberRow = clusterNodes.find(e => e.fed && e.fed.nodeId === host.id);
   const headerChrome = (
     <div className="diag-head">
       <div className="diag-head__title">
-        <h1>{host.name}</h1>
+        <h1>
+          {host.name}
+          {/* The way to the name, beside the name. It opens the tab that holds it rather than a
+              dialog of its own, so there is one place a member is renamed and one form doing it. */}
+          <button className="diag-head__edit" onClick={() => setTab("settings")}
+            title={"Rename " + host.name} aria-label={"Rename " + host.name}>
+            <Icon name="pencil" size={13} />
+          </button>
+        </h1>
         <div className="dash-head__sub">{host.hostname} · {host.region} — host machine health, distinct from per-game-server metrics.</div>
       </div>
       {host.online && (
@@ -264,6 +301,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
         </div>
       )}
       {tab === "logs"      && <DiagLogs host={host} />}
+      {tab === "settings"  && <MemberSettings host={host} member={memberRow ? memberRow.fed : null} />}
       {modals}
     </>
   );

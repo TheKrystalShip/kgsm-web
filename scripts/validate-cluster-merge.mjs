@@ -54,12 +54,21 @@ const hosts = [host("hotrod")];
 const roster = [
   member("hotrod-auth", { kind: "anchor" }),
   member("hotbox"),
+  member("stale-node", { membership: "dead", status: "unreachable" }),
   member("old-node", { membership: "left", status: "unreachable" }),
 ];
 const built = buildClusterNodes(hosts, roster, {}, "hotrod");
 
-check(built.length === 4, "every host and every member the roster names appears once", `got ${built.length}`);
+check(built.length === 4, "every host and every member still in the cluster appears once", `got ${built.length}`);
 check(built.filter(e => e.ghost).length === 3, "the three the browser holds no session for are ghosts");
+// A member that has LEFT is not a member. The mesh carries the departure so the removal propagates
+// and is reaped everywhere; a list of the cluster's members is not where that belongs, and a
+// machine that is gone sitting in one is counted by everything that counts members.
+check(!built.some(e => e.fed && e.fed.nodeId === "old-node"),
+  "and a member that has left appears nowhere", built.map(e => (e.fed || {}).nodeId || e.key).join());
+// Every other unhappy state is a member in trouble rather than a member that went, and stays.
+check(built.some(e => e.fed && e.fed.nodeId === "stale-node"),
+  "while an unreachable one is still listed");
 
 const anchors = anchorEntries(built);
 const nodes = nodeEntries(built);

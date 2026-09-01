@@ -997,6 +997,27 @@
 /* Deep-dive header: the title aligns with the rest of the page (breadcrumb, cards),
    and the header pushes the "Live" pill far right. Walking back up to the cluster is
    the breadcrumb's job, so nothing sits in the left gutter. */
+.diag-head__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 10px;
+  vertical-align: middle;
+  border: var(--edge);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-4);
+  cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+
+.diag-head__edit:hover {
+  color: var(--krystal-teal);
+  border-color: var(--border-accent);
+}
+
 .diag-head {
   display: flex;
   align-items: center;

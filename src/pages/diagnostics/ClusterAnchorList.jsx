@@ -28,7 +28,7 @@ import { can } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
-import { CapabilityAssignDialog, MemberRowActions } from "./clusterActions.jsx";
+import { CapabilityAssignDialog } from "./clusterActions.jsx";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
 import { anchorEntries, buildClusterNodes } from "./clusterNodes.js";
 
@@ -67,7 +67,7 @@ function OrphanedCapabilities({ capabilities, canReassign, onReassign }) {
 // Only the member holding `auth` opens: its page is the cluster's accounts, and that is the whole of
 // what there is to see behind an anchor. One holding nothing, or holding a capability with no page,
 // has no destination — so the row does not pretend to be a link to one.
-function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, canManage, onReassign }) {
+function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor }) {
   const fed = entry.fed;
   const isHovered = hovered === entry.key;
   const tone = membershipRowTone(fed.membership);
@@ -109,6 +109,9 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
               ? <>Holds the cluster&apos;s <b>{capability}</b></>
               : "Holds no capability yet"}
           </span>
+          {/* Silent while it is alive, reachable and enabled — the dot beside the name is already
+              that colour, and two green pills per row said it a second and third time. */}
+          <MemberState membership={fed.membership} status={fed.status} enabled={fed.enabled} />
         </span>
 
         <span className={"cluster-node-row__reading" + (entry.latencyMs == null ? " cluster-node-row__reading--none" : "")}>
@@ -119,19 +122,6 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
         <span className="dash-fleet-row__end">
           {opens && <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />}
         </span>
-      </div>
-      <div className="cluster-node-row__badges">
-        <MemberState membership={fed.membership} status={fed.status} enabled={fed.enabled} />
-        {fed.clientUrl && <span className="cluster-node-row__url">{fed.clientUrl}</span>}
-        {canManage && capability && (
-          <button
-            className="host-btn host-btn--sm cluster-node-row__cap"
-            onClick={(e) => { e.stopPropagation(); onReassign({ capability, memberId: fed.nodeId }); }}
-          >
-            Move {capability}
-          </button>
-        )}
-        {canManage && <MemberRowActions hostId={hostId} member={fed} />}
       </div>
     </div>
   );
@@ -186,9 +176,6 @@ function ClusterAnchorList({ hovered, onHover }) {
             hovered={hovered}
             onHover={hover}
             onOpenAnchor={(memberId) => nav.openHost(memberId)}
-            hostId={rosterFrom}
-            canManage={canReassign}
-            onReassign={setAssigning}
           />
         ))}
       </div>
