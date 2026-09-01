@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.221.1]
+
+### Fixed — the config page reports what it measured, not whose fault it is
+
+The note under a surface with no descriptor says this node's API holds none for the component. It
+holds one fact — the API is serving only the keys it already knew — and that is what it now states.
+Naming the component as the thing that shipped nothing is a second claim the panel cannot see, and it
+is wrong for a component whose descriptor is installed somewhere this API does not read.
+
 ## [1.221.0]
 
 ### Changed — an anchor's page is shaped by the capability it holds

@@ -335,8 +335,8 @@ function LeafConfigPage({ hostId, leafId, onSelectLeaf, onBackToHost, embedded =
         <div className="lcf-note lcf-note--info">
           <Icon name="info" size={15} />
           <span>
-            This leaf hasn’t shipped a configuration descriptor, so only the settings this API
-            already knew about are listed — it is not necessarily the leaf’s whole surface.
+            This node’s API holds no configuration descriptor for this component, so only the
+            settings it already knew about are listed — not necessarily the whole surface.
           </span>
         </div>
       )}
