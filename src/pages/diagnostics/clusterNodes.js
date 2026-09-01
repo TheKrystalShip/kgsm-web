@@ -1,7 +1,7 @@
 // clusterNodes.js — merges the connected-node roster (hostsStore.list — the
 // primitive with capacity meters + the per-node deep-dive) with federation
 // data (clusterStore.nodes — gossip membership/status/latency) into the ONE
-// node shape both the constellation and the node list render from.
+// node shape every Cluster-page surface renders from.
 //
 // The two lists have a shared key and the match is EXACT. A node's cluster identity
 // defaults to the same stable id its host card carries — kgsm-api resolves
@@ -40,13 +40,14 @@ function matchFederationNode(host, clusterNodes) {
 }
 
 // buildClusterNodes(hosts, clusterNodes, pingByHost) — one entry per connected
-// host: { key, host, fed, ping, latencyMs, ghost:false }, PLUS one "ghost"
+// host: { key, host, fed, ping, latencyMs, location, ghost:false }, PLUS one "ghost"
 // entry per federation node that matched no connected host:
 // { key: "fed:"+nodeId, host:null, fed, ping:null, latencyMs, ghost:true } —
 // a peer the backend gossips about that this browser has no live host session
 // for. A federation node is counted at most once: the same node that enriches
 // a connected host is never also emitted as a ghost (tracked by nodeId as each
-// host is matched). `latencyMs` is the ONE honest latency reading either side
+// host is matched). `location` is where the member says it is, or null — the merge below prefers
+// the machine's own word over a peer's. `latencyMs` is the ONE honest latency reading either side
 // of the merge exposes to the constellation: connected → the client-measured
 // ping (never the federation's own number, which measures a different link);
 // ghost → the federation-reported latency (the only number that exists for a
@@ -70,6 +71,11 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost) {
       fed: fed || null,
       ping,
       latencyMs: ping && ping.ms != null ? ping.ms : null,
+      // Two carriers, one answer. A connected host reports its own position on its identity
+      // block; a member reached only through the roster carries it there. The host's own word
+      // wins where both exist — the machine describing itself rather than a peer relaying what
+      // it was told — and null means unplaced, which every surface renders as such.
+      location: (host && host.location) || (fed && fed.location) || null,
       ghost: false,
     };
   });
@@ -81,6 +87,7 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost) {
       fed: n,
       ping: null,
       latencyMs: n.latencyMs != null ? n.latencyMs : null,
+      location: n.location || null,
       ghost: true,
     }))
     .sort((a, b) => compareNodeNames(a.fed.label || a.fed.nodeId, b.fed.label || b.fed.nodeId));
@@ -91,9 +98,9 @@ function buildClusterNodes(hosts, clusterNodes, pingByHost) {
 // A member is a node or an anchor, and the two are rendered by different cards because
 // they are different things: a node runs the engine and game servers, so its row is CPU,
 // memory and a live link; an anchor provides one capability to the whole cluster and has
-// none of those by design. Splitting a built list rather than building two keeps the
-// topology whole — the constellation plots every member, since latency is a fact about a
-// member and not about a kind.
+// none of those by design. Splitting a built list rather than building two keeps the roster
+// whole — the reach rail and the map plot every member, since latency and position are facts
+// about a member and not about a kind.
 const isAnchorEntry = (entry) => !!(entry.fed && entry.fed.kind === "anchor");
 
 function nodeEntries(entries) {

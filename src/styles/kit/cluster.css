@@ -308,174 +308,12 @@
 }
 
 /* ============================================================================
-   Cluster page — the constellation centerpiece over the two member cards.
-   Stacked BriefCards, hover-synced by the page (hoveredNode state); both member
-   lists render the dash-fleet-row* idiom from kit/hosts.css, extended here with
-   the federation badges/actions strip and the hover-highlight that pairs a row
-   with its dot on the map.
+   Cluster page — the member cards, the reach rail, the map and the capability
+   matrix. Stacked BriefCards across three tabs, all hover-synced by the page
+   (hoveredNode state), so pointing at a member on any of them lights it on the
+   others. The member lists render the dash-fleet-row* idiom from kit/hosts.css,
+   extended here with the federation badges/actions strip and that highlight.
    ============================================================================ */
-
-/* ---- constellation ---- */
-/* Capped so the card reads as a compact instrument, not a tall empty radar —
-   on a LAN every node pings within a few ms, so the dots cluster well inside
-   the box; a smaller box keeps that cluster looking intentional rather than
-   lost in a big empty band. preserveAspectRatio="xMidYMid meet" on the <svg>
-   means capping ITS box (not just the viewBox) is what actually shrinks the
-   rendered art — the viewBox stays 320×320 so hashAngle/latencyRadius math is
-   unaffected, only the on-screen scale changes. */
-.cluster-constellation {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0 4px;
-}
-
-.cluster-constellation__svg {
-  width: 100%;
-  max-width: 300px;
-  max-height: 300px;
-  aspect-ratio: 1 / 1;
-  display: block;
-  overflow: visible;
-}
-
-.cluster-constellation--empty {
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 0 10px;
-}
-
-.cluster-constellation--empty .cluster-constellation__svg {
-  max-width: 120px;
-}
-
-.cluster-constellation__empty-copy {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--fg-3);
-  font-size: 13px;
-}
-
-.cluster-constellation__empty-copy > svg {
-  color: var(--fg-4);
-}
-
-.cluster-constellation__ring {
-  fill: none;
-  stroke: var(--border-subtle);
-  stroke-width: 1;
-}
-
-.cluster-constellation__ring--unmeasured {
-  stroke: var(--fg-4);
-  stroke-dasharray: 3 5;
-  opacity: 0.7;
-}
-
-/* The ring scale, named once beneath the dial (see ClusterConstellation.jsx) —
-   replaces per-ring tick labels so nothing stacks against a node's own label. */
-.cluster-constellation__scale {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--fg-4);
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.cluster-constellation__scale-muted {
-  opacity: 0.75;
-}
-
-.cluster-constellation__origin-ring {
-  fill: none;
-  stroke: var(--krystal-teal);
-  stroke-width: 1.4;
-  opacity: 0.35;
-}
-
-.cluster-constellation__edge {
-  fill: none;
-  stroke-width: 1.3;
-  transition: x2 var(--d-slow, 480ms) var(--ease-out), y2 var(--d-slow, 480ms) var(--ease-out),
-    opacity var(--d-fast) var(--ease-out), stroke var(--d-base) var(--ease-out);
-}
-
-.cluster-constellation__node {
-  cursor: pointer;
-  outline: none;
-  transition: opacity var(--d-fast) var(--ease-out);
-}
-
-.cluster-constellation__node--dimmed {
-  opacity: 0.4;
-}
-
-.cluster-constellation__node:focus-visible .cluster-constellation__dot {
-  stroke: var(--krystal-teal);
-  stroke-width: 2;
-}
-
-.cluster-constellation__dot {
-  stroke: var(--surface-1);
-  stroke-width: 2;
-  transition: cx var(--d-slow, 480ms) var(--ease-out), cy var(--d-slow, 480ms) var(--ease-out),
-    r 150ms var(--ease-out), fill var(--d-base) var(--ease-out);
-}
-
-.cluster-constellation__dot--pulse {
-  animation: kr-pulse 1.4s ease-in-out infinite;
-}
-
-.cluster-constellation__label {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  font-weight: 600;
-  fill: var(--fg-2);
-  pointer-events: none;
-  transition: fill var(--d-fast) var(--ease-out);
-}
-
-.cluster-constellation__node--hovered .cluster-constellation__label {
-  fill: var(--fg-1);
-}
-
-.cluster-constellation__latency {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  fill: var(--fg-4);
-  pointer-events: none;
-  transition: fill var(--d-fast) var(--ease-out);
-}
-
-.cluster-constellation__latency--emphasis {
-  fill: var(--fg-1);
-  font-weight: 700;
-}
-
-@media (max-width: 720px) {
-  .cluster-constellation__svg {
-    max-width: 240px;
-    max-height: 240px;
-  }
-}
-
-/* ---- ghost peers: discovered by federation gossip, no connected host — the
-   dot itself goes hollow/dashed (see the inline stroke override in
-   ClusterConstellation.jsx, which needs the live membership color); the label
-   and latency text just dim slightly so a ghost reads as secondary next to a
-   connected node's solid dot. ---- */
-.cluster-constellation__dot--ghost {
-  stroke-width: 2;
-}
-
-.cluster-constellation__node--ghost .cluster-constellation__label,
-.cluster-constellation__node--ghost .cluster-constellation__latency {
-  opacity: 0.75;
-}
 
 /* ---- node list rows: wraps dash-fleet-row (kit/hosts.css) with a federation
    badge strip + hover-highlight; the wrapper (not the inner button) owns the
@@ -547,4 +385,558 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 220px;
+}
+
+/* ---- what a member serves, on its row ----
+   Teal because a capability is the cluster's business rather than the member's health, and the
+   status vocabulary beside it is already spending green/amber/red on that. */
+.cluster-chip--cap {
+  color: var(--krystal-teal);
+  background: var(--krystal-teal-dim);
+  border: 1px solid var(--border-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+}
+
+/* ---- a member row's identity block ----
+   Two lines where there was one: the display name a person reads, and under it the id they type,
+   with whatever the member reported about itself. The name line stays a flex row so the capability
+   chip and the round trip sit beside the name rather than under it. */
+.cluster-node-row__ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cluster-node-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cluster-node-row__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--fg-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The KPI band reads six across like the node deep-dive's, and wraps to three and then two
+   rather than shrinking a figure until its qualifier truncates. */
+.cluster-kpis {
+  margin-bottom: 14px;
+}
+
+@media (max-width: 1180px) {
+  .cluster-kpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .cluster-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================================================
+   Reach — the latency rail. One axis, cut into fixed bands, with every member
+   placed inside the band its round trip puts it in.
+   ============================================================================ */
+.cluster-rail {
+  padding: 6px 4px 0;
+}
+
+.cluster-rail__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.cluster-rail__axis {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.cluster-rail__axis--siding {
+  stroke-dasharray: 3 4;
+}
+
+/* The two numbers that split the bands, drawn heavier than the ticks inside them: the edge is a
+   decision and a tick is a reading. */
+.cluster-rail__edge {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.cluster-rail__band {
+  fill: var(--veil-1);
+}
+
+.cluster-rail__band--0 {
+  fill: var(--krystal-teal-dim);
+}
+
+.cluster-rail__band--2 {
+  fill: transparent;
+}
+
+.cluster-rail__ticks line {
+  stroke: var(--border-subtle);
+}
+
+.cluster-rail__ticks text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--fg-4);
+}
+
+.cluster-rail__bandnames text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  fill: var(--fg-4);
+}
+
+.cluster-rail__origin-ring {
+  fill: none;
+  stroke: var(--krystal-teal-ring);
+}
+
+.cluster-rail__origin-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  fill: var(--fg-3);
+}
+
+.cluster-rail__stem {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.cluster-rail__stem--none {
+  stroke: var(--danger);
+  stroke-opacity: 0.35;
+  stroke-dasharray: 2 3;
+}
+
+/* Transparent, not `none`: a shape with no fill is not a pointer target at all, which is the
+   difference between a pin you can point at and a pin you have to hit. */
+.cluster-rail__hit {
+  fill: transparent;
+}
+
+.cluster-rail__pin {
+  cursor: pointer;
+  transition: opacity var(--d-fast) var(--ease-out);
+}
+
+.cluster-rail__pin:focus-visible {
+  outline: none;
+}
+
+.cluster-rail__pin:focus-visible circle,
+.cluster-rail__pin:focus-visible rect {
+  stroke: var(--krystal-teal);
+  stroke-width: 2.5;
+}
+
+.cluster-rail__pin.is-dim {
+  opacity: 0.34;
+}
+
+.cluster-rail__name {
+  font-size: 12.5px;
+  font-weight: var(--w-semibold);
+  fill: var(--fg-1);
+}
+
+.cluster-rail__sub {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--fg-3);
+}
+
+.cluster-rail__sub--cap {
+  fill: var(--krystal-teal);
+  letter-spacing: 0.06em;
+}
+
+.cluster-rail__empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 4px;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+/* ---- the phone form: the bands become sections, the members become rows ---- */
+.cluster-rail-rows__band + .cluster-rail-rows__band {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cluster-rail-rows__head {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  color: var(--fg-4);
+  padding: 8px 14px 6px;
+  background: var(--surface-2);
+}
+
+.cluster-rail-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cluster-rail-rows__head + .cluster-rail-row {
+  border-top: none;
+}
+
+.cluster-rail-row.is-hovered {
+  background: var(--surface-2);
+}
+
+.cluster-rail-row__name {
+  font-size: 13px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-rail-row__ms {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   The map — real coastlines, and a pin only where a member reported a position.
+   ============================================================================ */
+.cluster-map {
+  position: relative;
+  padding: 4px;
+}
+
+/* The plate is 640 wide by design and the card is wider than that, so it is centred rather than
+   stretched: scaling a map to fill a container makes the continent as tall as the page. */
+.cluster-map__svg {
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.cluster-map__land path {
+  fill: var(--surface-3);
+  stroke: var(--border-strong);
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+}
+
+.cluster-map__halo {
+  fill: var(--krystal-teal-ring);
+  opacity: 0.28;
+  transition: opacity var(--d-fast) var(--ease-out);
+}
+
+.cluster-map__pin.is-hovered .cluster-map__halo {
+  opacity: 0.6;
+}
+
+.cluster-map__dot {
+  fill: var(--krystal-teal);
+  stroke: var(--canvas);
+  stroke-width: 1.5;
+}
+
+.cluster-map__count {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: var(--w-bold);
+  fill: var(--btn-accent-fg);
+}
+
+.cluster-map__leader {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+/* The callout sits over the plate, so it carries its own ground: a label laid straight on the
+   land is unreadable wherever a border runs under it. */
+.cluster-map__box {
+  fill: var(--surface-0);
+  fill-opacity: 0.92;
+  stroke: var(--border-strong);
+}
+
+.cluster-map__callout.is-hovered .cluster-map__box {
+  stroke: var(--border-accent);
+}
+
+.cluster-map__site {
+  font-size: 12px;
+  font-weight: var(--w-semibold);
+  fill: var(--fg-1);
+}
+
+.cluster-map__name {
+  font-size: 11.5px;
+  fill: var(--fg-2);
+}
+
+.cluster-map__ms {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--fg-4);
+}
+
+.cluster-map__memberhit {
+  fill: transparent;
+}
+
+.cluster-map__member {
+  cursor: pointer;
+}
+
+.cluster-map__member.is-hovered .cluster-map__memberhit {
+  fill: var(--veil-2);
+}
+
+.cluster-map__member.is-hovered .cluster-map__name {
+  fill: var(--fg-1);
+}
+
+.cluster-map__member:focus-visible {
+  outline: none;
+}
+
+.cluster-map__member:focus-visible .cluster-map__memberhit {
+  stroke: var(--krystal-teal);
+  stroke-width: 1.5;
+}
+
+/* Nothing to place yet is a real state and it stays a map, but a full-height continent with no pin
+   on it spends a screen saying so. It grows back the moment a member reports a position. */
+.cluster-map--empty .cluster-map__svg {
+  max-width: 400px;
+  opacity: 0.55;
+}
+
+.cluster-map__empty {
+  position: absolute;
+  inset: auto 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+/* ============================================================================
+   Capabilities — rows are capabilities, columns are members, and the only cell
+   that claims a member CAN do something is one the member itself reported.
+   ============================================================================ */
+.cap-matrix-scroll {
+  overflow-x: auto;
+}
+
+.cap-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--fg-1);
+}
+
+.cap-matrix th,
+.cap-matrix td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.cap-matrix thead th {
+  border-bottom: 1px solid var(--border-strong);
+  vertical-align: bottom;
+}
+
+.cap-matrix tbody tr:last-child th,
+.cap-matrix tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cap-matrix__rowhead {
+  width: 210px;
+  font-weight: var(--w-regular);
+}
+
+.cap-matrix__cap {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-1);
+}
+
+.cap-matrix__state {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-4);
+  margin-top: 2px;
+}
+
+.cap-matrix__col {
+  width: 112px;
+  padding: 7px 8px;
+}
+
+.cap-matrix__colbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.cap-matrix__colname {
+  font-size: 12px;
+  font-weight: var(--w-semibold);
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.cap-matrix__colkind {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+}
+
+.cap-matrix__col.is-hovered .cap-matrix__colname,
+.cap-matrix__cell.is-hovered {
+  color: var(--fg-1);
+}
+
+.cap-matrix__cell {
+  padding: 6px 8px;
+}
+
+.cap-matrix__cell.is-hovered,
+.cap-matrix__col.is-hovered {
+  background: var(--surface-2);
+}
+
+.cap-matrix__slack {
+  width: 100%;
+}
+
+.cap-matrix__act {
+  width: 44px;
+  text-align: right;
+}
+
+.cap-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: var(--w-bold);
+}
+
+.cap-cell--holder {
+  background: var(--krystal-teal);
+  color: var(--btn-accent-fg);
+}
+
+.cap-cell--offers {
+  border: 1px dashed var(--border-strong);
+  color: var(--fg-3);
+}
+
+.cap-cell--nobody {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  color: var(--warning-fg);
+}
+
+.cap-cell--no,
+.cap-cell--unknown {
+  color: var(--fg-4);
+}
+
+.cap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 14px 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cap-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--fg-4);
+}
+
+.cap-legend__sw {
+  display: block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.cap-legend__sw--holder {
+  background: var(--krystal-teal);
+}
+
+.cap-legend__sw--offers {
+  border: 1px dashed var(--border-strong);
+}
+
+.cap-legend__sw--nobody {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+}
+
+.cap-legend__sw--unknown {
+  background: var(--veil-1);
 }

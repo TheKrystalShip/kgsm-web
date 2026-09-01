@@ -23,6 +23,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
+import { formatLatency } from "../../lib/nodeLabel.js";
 import { can } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
@@ -70,7 +71,9 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
   const fed = entry.fed;
   const isHovered = hovered === entry.key;
   const tone = membershipRowTone(fed.membership);
-  const latencyLabel = entry.latencyMs != null ? Math.round(entry.latencyMs) + "ms" : "—";
+  const latencyLabel = formatLatency(entry.latencyMs);
+  const sub = [fed.label && fed.label !== fed.nodeId ? fed.nodeId : null, fed.apiVersion]
+    .filter(Boolean).join(" · ");
   const opens = capability === "auth";
 
   return (
@@ -85,7 +88,16 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
       >
         <span className="dash-fleet-row__id">
           <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
-          <span className="dash-fleet-row__name">{fed.label || fed.nodeId}</span>
+          <span className="cluster-node-row__ident">
+            <span className="cluster-node-row__top">
+              <span className="dash-fleet-row__name">{fed.label || fed.nodeId}</span>
+            </span>
+            {/* The id under the name, in the same place a node's sits, so the two cards read as one
+                family — and dropped when the anchor has not been renamed, because the id and the
+                name are then the same word. No capability chip here: the column beside it already
+                names what this member holds, at more length and in a sentence. */}
+            {sub && <span className="cluster-node-row__sub">{sub}</span>}
+          </span>
         </span>
         <span className="cluster-anchor-row__holds">
           <Icon name="anchor" size={13} />

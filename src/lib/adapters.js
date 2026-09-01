@@ -352,6 +352,31 @@ function mapHostTelemetry(be) {
   return { cpu, ram, disks, interfaces, sensors, fans, gpus, slice, boot_time, hostname };
 }
 
+// adaptLocation(raw) — where a member says it is, or null.
+//
+// A pin is a claim about a machine's position, so it is only ever drawn from two numbers the
+// member itself reported. Anything short of a finite latitude and longitude inside their real
+// ranges comes back null and the surfaces list the member as unplaced — a member near 0,0 is a
+// parse failure far more often than it is a member in the Gulf of Guinea, so the origin is
+// accepted only when both numbers are exactly zero and therefore deliberate.
+//
+// `city`/`country` are labels for the pin and never a substitute for the numbers: a member that
+// names a city without coordinates is still unplaced. `source` says how the member came by the
+// position, which is the difference between a figure somebody typed and one a lookup returned.
+export function adaptLocation(raw) {
+  if (!raw) return null;
+  const lat = typeof raw.lat === "number" ? raw.lat : Number.NaN;
+  const lon = typeof raw.lon === "number" ? raw.lon : Number.NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return {
+    lat, lon,
+    city: raw.city || null,
+    country: raw.country || null,
+    source: raw.source || null,
+  };
+}
+
 export function adaptHost(be) {
   if (!be) return be;
   const skel = telemetrySkeleton();
@@ -403,6 +428,9 @@ export function adaptHost(be) {
     // The managed runtime the API process is executing on (".NET 10.0.10"). Null when the host didn't
     // report it — a fact about the response, not a runtime worth guessing at.
     runtime: ident.runtime || null,
+    // Where this host says it is. null until it reports one, and the surfaces read that as
+    // "not placed" rather than dropping a pin somewhere plausible.
+    location: adaptLocation(ident.location),
     boot_time: tel.boot_time,
     online: be.status === "online",
     // capabilities pass straight through — the api shape already matches the

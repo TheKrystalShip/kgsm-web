@@ -12,6 +12,17 @@
 
 import { CONNECTIONS } from "./config.js";
 
+// formatLatency(ms) — a round trip, as a person reads it.
+//
+// Rounding to the nearest millisecond turns every sub-millisecond link into "0ms", which reads as no
+// time at all rather than as a link too fast for the unit. Under a millisecond it says so; a member
+// nothing has timed is "—", never a zero.
+export function formatLatency(ms) {
+  if (ms == null || !Number.isFinite(ms)) return "—";
+  if (ms < 1) return "<1ms";
+  return Math.round(ms) + "ms";
+}
+
 // The address without its scheme — "kgsm.thekrystalship.com", not "https://kgsm.thekrystalship.com/".
 // Long enough to identify, short enough to sit in a sentence.
 function addressOf(url) {

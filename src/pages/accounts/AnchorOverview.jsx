@@ -15,6 +15,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
+import { formatLatency } from "../../lib/nodeLabel.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
 
@@ -60,7 +61,7 @@ function AnchorOverview({ anchor, member }) {
           ["Reached at", anchor || (member && member.clientUrl) || "—"],
           member && ["State", <MemberState key="s" membership={member.membership}
             status={member.status} enabled={member.enabled} />],
-          ["Latency", member && member.latencyMs != null ? Math.round(member.latencyMs) + "ms" : "—"],
+          ["Latency", formatLatency(member && member.latencyMs)],
         ]} />
       </BriefCard>
 

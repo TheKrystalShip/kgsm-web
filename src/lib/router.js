@@ -22,7 +22,8 @@
 //   #/library/<id>/<tab>     game detail, a specific tab
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
-//   #/cluster                cluster grid
+//   #/cluster                the cluster — its members, at a glance
+//   #/cluster/<tab>          the cluster, a specific tab (reach, capabilities)
 //   #/cluster/<member>       one member of the cluster — a node's deep-dive, or an anchor's page
 //   #/cluster/<member>/<tab> that member, a specific tab
 //   #/cluster/<hostId>/services/<leaf>[/<tab>]
@@ -52,6 +53,10 @@
 
   const enc = encodeURIComponent;
   const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+
+  // The cluster page's own tab words, reserved in the first segment after /cluster.
+  // Mirrors ROUTE_TABS.clusterRoot in labels.js: a tab added there is added here.
+  const CLUSTER_ROOT_TABS = new Set(["overview", "reach", "capabilities"]);
 
   // route object  ->  "#/..."
   function routeToHash(route) {
@@ -160,6 +165,14 @@
       }
       case "cluster": {
         if (!segs[1]) return { kind: "cluster" };
+        // The cluster page's own tabs live in this segment, so those three words are not member
+        // ids. A member genuinely called "reach" or "capabilities" is shadowed here — the same
+        // trade the create route makes at /library/new, and accepted for the same reason: the tab
+        // is a fixed word, and the member is still reachable from every list that names it.
+        if (CLUSTER_ROOT_TABS.has(segs[1].toLowerCase()) && !segs[2]) {
+          const t = segs[1].toLowerCase();
+          return t === "overview" ? { kind: "cluster" } : { kind: "cluster", tab: t };
+        }
         // A leaf named under the Services tab is its own page, one level deeper. Bare
         // /services stays the node's tab, so the drill-in only happens once a leaf is named.
         if (segs[2] && segs[2].toLowerCase() === "services" && segs[3]) {

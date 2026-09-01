@@ -17,15 +17,21 @@ import { ROUTE_TABS } from "../lib/labels.js";
 // Imports from extracted modules
 import { AnchorPage } from "./accounts/AnchorPage.jsx";
 import { AddNodeModal } from "./diagnostics/AddNodeModal.jsx";
-import { ClusterConstellation } from "./diagnostics/ClusterConstellation.jsx";
 import { ClusterAnchorList } from "./diagnostics/ClusterAnchorList.jsx";
+import { ClusterCapabilities } from "./diagnostics/ClusterCapabilities.jsx";
+import { ClusterKpis } from "./diagnostics/ClusterKpis.jsx";
 import { ClusterNodeList } from "./diagnostics/ClusterNodeList.jsx";
+import { ClusterRail } from "./diagnostics/ClusterRail.jsx";
 import { anchorEntries, buildClusterNodes } from "./diagnostics/clusterNodes.js";
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
 import { DiagResources } from "./diagnostics/DiagResources.jsx";
 import { DiagServices } from "./diagnostics/DiagServices.jsx";
 import { DiagLogs } from "./diagnostics/DiagLogs.jsx";
 import { QueuedJobs, RunningJobs } from "./diagnostics/DiagJobs.jsx";
+
+// The map ships Europe's coastlines. That is worth a chunk of its own rather than a share of
+// every first paint, so it arrives with the tab that draws it.
+const ClusterMap = React.lazy(() => import("./diagnostics/ClusterMap.jsx"));
 
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
@@ -62,9 +68,9 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // The roster has ONE owner: cluster discovery keeps clusterStore current for
   // the whole app, at boot and on its own cadence. This page reads it.
   //
-  // The constellation plots every member, because latency is a fact about a member and not
-  // about a kind. The anchors are split back out here for one question the page alone asks —
-  // which kind of member a cluster route names — while the cards build their own lists.
+  // Every Cluster-page surface plots every member, because latency and position are facts about a
+  // member and not about a kind. The anchors are split back out here for one question the page
+  // alone asks — which kind of member a cluster route names — while the cards build their own lists.
   const clusterNodes = React.useMemo(
     () => buildClusterNodes(hosts, clusterNodesRaw, pingByHost),
     [hosts, clusterNodesRaw, pingByHost]);
@@ -120,6 +126,9 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   }
 
   if (!focusHostId || !hosts.find(h => h.id === focusHostId)) {
+    // The cluster's own tabs. A member's tabs use the same `tab` prop one segment deeper, so the
+    // page falls back to its own default rather than rendering a member's tab name here.
+    const rootTab = ROUTE_TABS.clusterRoot.some(t => t.id === tab) ? tab : "overview";
     return (
       <>
         <div className="dash-head">
@@ -129,19 +138,48 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
               <Icon name="plus" size={13} strokeWidth={2.4} />&nbsp;Add node
             </button>
           </div>
-          <div className="dash-head__sub">Every node this panel talks to — latency topology, capacity and federation health in one place.</div>
+          <div className="dash-head__sub">Every member of this cluster — what it holds, how far away it is, and where it is.</div>
+        </div>
+
+        <div className="subtabs-row">
+          <SubTabs tabs={ROUTE_TABS.clusterRoot} active={rootTab} onChange={setTab} />
         </div>
 
         {dataLoading ? <FleetSkeleton /> : (
           <>
-            <ClusterConstellation
-              nodes={clusterNodes}
-              hovered={hoveredNode}
-              onHover={setHoveredNode}
-              onSelect={selectNode}
-            />
-            <ClusterNodeList hovered={hoveredNode} onHover={setHoveredNode} />
-            <ClusterAnchorList hovered={hoveredNode} onHover={setHoveredNode} />
+            {rootTab === "overview" && (
+              <>
+                <ClusterKpis entries={clusterNodes} capabilityRows={clusterCapabilities} />
+                <ClusterNodeList hovered={hoveredNode} onHover={setHoveredNode} />
+                <ClusterAnchorList hovered={hoveredNode} onHover={setHoveredNode} />
+              </>
+            )}
+            {rootTab === "reach" && (
+              <>
+                <ClusterRail
+                  entries={clusterNodes}
+                  capabilityRows={clusterCapabilities}
+                  hovered={hoveredNode}
+                  onHover={setHoveredNode}
+                  onSelect={selectNode}
+                />
+                <React.Suspense fallback={null}>
+                  <ClusterMap
+                    entries={clusterNodes}
+                    hovered={hoveredNode}
+                    onHover={setHoveredNode}
+                    onSelect={selectNode}
+                  />
+                </React.Suspense>
+              </>
+            )}
+            {rootTab === "capabilities" && (
+              <ClusterCapabilities
+                hovered={hoveredNode}
+                onHover={setHoveredNode}
+                onSelect={selectNode}
+              />
+            )}
           </>
         )}
         {modals}

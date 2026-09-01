@@ -36,6 +36,15 @@ export const ROUTE_TABS = {
     { id: "logs",     label: "Logs",     icon: "scroll-text" },
     { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
   ],
+  // The CLUSTER page's own tabs, at #/cluster/<tab> — distinct from `cluster` below, which is one
+  // NODE's tabs at #/cluster/<member>/<tab>. Both live under the same URL word because a cluster and
+  // its members are the same subject at two depths; the ids here are reserved words in that first
+  // segment, so a member whose id is one of them is shadowed (see router.js).
+  clusterRoot: [
+    { id: "overview",     label: "Overview",     icon: "layout-grid" },
+    { id: "reach",        label: "Reach",        icon: "waypoints" },
+    { id: "capabilities", label: "Capabilities", icon: "grid-3x3" },
+  ],
   cluster: [
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
     { id: "resources", label: "Resources", icon: "activity" },
@@ -64,6 +73,7 @@ export const ROUTE_TABS = {
 // so it is also the one tab the breadcrumb has no crumb for.
 export const ROUTE_DEFAULT_TAB = {
   server: "overview",
+  clusterRoot: "overview",
   game: "overview",
   cluster: "overview",
   leaf: "overview",

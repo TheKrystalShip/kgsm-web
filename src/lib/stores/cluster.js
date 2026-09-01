@@ -6,6 +6,7 @@
 // falls back to the viewer roster on a 403 — the store never fabricates a
 // value either code path doesn't provide (honest null/"unknown").
 
+import { adaptLocation } from "../adapters.js";
 import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
 import { reconcileRosterToRegistry } from "../connect.js";
@@ -48,6 +49,9 @@ function fromPeerRow(row) {
     lastSeen: row.lastSeen || null,
     enabled: row.enabled !== false,
     apiVersion: row.apiVersion || null,
+    // Where the member says it is. A member this browser holds no session with has no identity
+    // block to read, so the roster is the only carrier a map has for it — an anchor above all.
+    location: adaptLocation(row.location),
     peerId: row.id,
     isAdmin: true,
   };
@@ -66,6 +70,7 @@ function fromClusterNodeRow(row) {
     lastSeen: null,
     enabled: true,
     apiVersion: null,
+    location: adaptLocation(row.location),
     peerId: null,
     isAdmin: false,
   };
@@ -145,6 +150,7 @@ function withAnchorRoster(rows) {
       lastSeen: null,
       enabled: true,
       apiVersion: null,
+      location: said.location || null,
       peerId: null,
       isAdmin: false,
     });

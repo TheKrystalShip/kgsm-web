@@ -151,7 +151,7 @@ pieces live beside it.
 | Entry | Folder | Holds |
 |---|---|---|
 | `ChatPage.jsx` | `../chat/` (shared by both surfaces) | thread/message/parts, evidence cards, context meter, host picker, `chatUtils`/`chatConstants` |
-| `DiagnosticsPage.jsx` | `diagnostics/` | `ClusterConstellation` + the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
+| `DiagnosticsPage.jsx` | `diagnostics/` | the cluster's own tabs — `ClusterKpis` (over `clusterKpis.js`), the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `ClusterRail`, `ClusterMap` (over the generated `euMap.js`) and `ClusterCapabilities` — plus one member's: `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
 | `accounts/AnchorPage.jsx` | `accounts/` | the member page's tab strip over `AnchorOverview`, `AccountsAdmin` (the roster, the create/edit modal and its sessions half), `AnchorLogs` and `AnchorConfiguration` — the last three read from the anchor itself |
@@ -161,6 +161,24 @@ pieces live beside it.
 
 Rule of thumb: **a page pushing ~400 lines gets its own `pages/<name>/`
 folder** rather than another append.
+
+## The cluster page has tabs of its own, one URL word deep
+
+`#/cluster` is two tabbed surfaces sharing a word, and which one a URL names is decided by whether
+its first segment is a MEMBER: `#/cluster/reach` is the cluster's Reach tab, `#/cluster/hotrod` is
+that member's page, and `#/cluster/hotrod/services` is a tab on it. The two strips are separate
+tables — `ROUTE_TABS.clusterRoot` and `ROUTE_TABS.cluster` — because a cluster and a machine offer
+different tabs, and the breadcrumb picks the strip the same way the page does.
+
+**The three cluster tab words are reserved in that segment**, so a member whose id is `overview`,
+`reach` or `capabilities` is shadowed — the same trade `/library/new` makes, and accepted for the
+same reason: the tab is a fixed word and the member is still reachable from every list that names
+it. `router.js` holds the set; add a tab to both it and `labels.js` or the URL will not resolve.
+
+**Hover on that page belongs to the PAGE, not to the cards.** `hoveredNode` lives in `ClusterPage`
+and every surface takes it as a prop, which is what lets a member pointed at in the reach rail light
+up in the map's callout beside it and in the Nodes card on the tab before. A card holding its own
+hover state would look identical and silently stop agreeing.
 
 ## Server, host & game detail = tabbed pages
 

@@ -31,6 +31,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { api } from "../../lib/apiClient.js";
+import { formatLatency } from "../../lib/nodeLabel.js";
 import { can } from "../../lib/persona.js";
 import { playerTally } from "../../lib/servers.js";
 import { useStore } from "../../lib/store.js";
@@ -97,7 +98,18 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
   );
 }
 
-function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeers, onEdit }) {
+// The line under the name: the id first, because it is the one a person types, then whatever the
+// node reported about itself. A field the node did not report is left out rather than dashed — this
+// is a subtitle, and a row of em-dashes in one reads as a fault. The id goes too when nobody has
+// renamed the node, since printing the same word twice says nothing about it.
+function identity(h) {
+  return [h.id === h.name ? null : h.id,
+    h.region && h.region !== "—" ? h.region : null,
+    h.panel_version && h.panel_version !== "—" ? h.panel_version : null]
+    .filter(Boolean).join(" · ");
+}
+
+function NodeRow({ n, servers, capability, hovered, onHover, onSelect, hostId, canManagePeers, onEdit }) {
   const h = n.host;
   const alerts = anchoredAlerts(an => an.surface === "diagnostics" && an.hostId === h.id);
   const { denied, metricsDown, meters, tone } = hostHealth(h);
@@ -119,15 +131,22 @@ function NodeRow({ n, servers, hovered, onHover, onSelect, hostId, canManagePeer
         onClick={() => onSelect(n.key)}>
         <span className="dash-fleet-row__id">
           <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
-          <span className="dash-fleet-row__name">{h.name}</span>
-          {h.region && h.region !== "—" && <span className="dash-fleet-row__region">{h.region}</span>}
-          {/* Readings we HAVE but that stopped updating are worse than none shown: say
-              they are frozen, in place of a round trip that is equally stale. */}
-          {stale
-            ? <span className="dash-fleet-row__latency dash-fleet-row__latency--stale" title="These are the last readings measured, not live">
-                frozen{fresh.label ? " · " + fresh.label.replace(/\s*ago$/, "") : ""}
-              </span>
-            : n.latencyMs != null && <span className="dash-fleet-row__latency">{Math.round(n.latencyMs)}ms</span>}
+          <span className="cluster-node-row__ident">
+            <span className="cluster-node-row__top">
+              <span className="dash-fleet-row__name">{h.name}</span>
+              {capability && <span className="cluster-chip cluster-chip--cap">{capability}</span>}
+              {/* Readings we HAVE but that stopped updating are worse than none shown: say
+                  they are frozen, in place of a round trip that is equally stale. */}
+              {stale
+                ? <span className="dash-fleet-row__latency dash-fleet-row__latency--stale" title="These are the last readings measured, not live">
+                    frozen{fresh.label ? " · " + fresh.label.replace(/\s*ago$/, "") : ""}
+                  </span>
+                : n.latencyMs != null && <span className="dash-fleet-row__latency">{formatLatency(n.latencyMs)}</span>}
+            </span>
+            {/* The id under the name, because a machine has two names and only one of them is the
+                one you type. Whatever else the node reported about itself rides the same line. */}
+            <span className="cluster-node-row__sub">{identity(h)}</span>
+          </span>
         </span>
 
         {meters.length ? (
@@ -178,6 +197,7 @@ function ClusterNodeList({ hovered, onHover }) {
   const hosts = useStore(hostsStore, s => s.list);
   const servers = useStore(serversStore, s => s.list);
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
+  const capabilities = useStore(clusterStore, s => s.capabilities);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterErrored = useStore(clusterStore, s => s.status === "error");
   const pingByHost = useStore(pingStore, s => s.byHost);
@@ -200,6 +220,12 @@ function ClusterNodeList({ hovered, onHover }) {
 
   const hover = onHover || NOOP;
   const select = (key) => nav.openHost(key);
+  // What a node serves the whole cluster, stated on its own row. A node holds at most one
+  // assignment, so this is a lookup and not a list.
+  const capabilityOf = (memberId) => {
+    const held = (capabilities || []).find(c => c.held && !c.orphaned && c.memberId === memberId);
+    return held ? held.capability : null;
+  };
 
   const saveHost = (fields) => {
     const id = editing && editing.id;
@@ -226,7 +252,8 @@ function ClusterNodeList({ hovered, onHover }) {
         {nodes.map(n => (n.ghost
           ? <GhostNodeRow key={n.key} n={n} hovered={hovered} onHover={hover} onSelect={select}
               hostId={rosterFrom} canManagePeers={canManagePeers} />
-          : <NodeRow key={n.key} n={n} servers={servers} hovered={hovered} onHover={hover} onSelect={select}
+          : <NodeRow key={n.key} n={n} servers={servers} capability={capabilityOf(n.host.id)}
+              hovered={hovered} onHover={hover} onSelect={select}
               hostId={rosterFrom} canManagePeers={canManagePeers} onEdit={setEditing} />))}
         {nodes.length === 0 && (
           <div className="chat-brief__empty chat-brief__empty--neutral">No nodes connected.</div>

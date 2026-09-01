@@ -55,6 +55,12 @@ function breadcrumbTrail(route, ctx) {
                           { label: "Cluster", to: { kind: "cluster" } },
                           { label: ctx.hostName || route.hostId, to: { kind: "cluster", hostId: route.hostId } });
                         tab(ctx.memberKind === "anchor" ? "anchor" : "cluster");
+                      } else if (route.tab) {
+                        // The cluster's own tabs. One crumb deeper than the bare page, and named
+                        // from its own strip rather than a member's — the two share the URL word
+                        // and nothing else.
+                        trail.push({ label: "Cluster", to: { kind: "cluster" } });
+                        tab("clusterRoot");
                       } else {
                         trail.push({ label: "Cluster" });
                       }

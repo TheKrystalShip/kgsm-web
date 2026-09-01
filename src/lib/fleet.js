@@ -1,3 +1,4 @@
+import { adaptLocation } from "./adapters.js";
 import { clusterMembers } from "./anchor.js";
 import { reconcileRosterToRegistry } from "./connect.js";
 import { sessionStore } from "./sessionStore.js";
@@ -72,6 +73,7 @@ async function refreshFleetFromAnchor() {
     enabled: true,
     membership: m.membership,
     status: m.status,
+    location: adaptLocation(m.location),
   }));
 
   // Only NODES are driven. An anchor serves no servers and no metrics, so a connection to one would
