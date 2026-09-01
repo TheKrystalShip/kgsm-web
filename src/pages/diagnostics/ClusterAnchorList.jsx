@@ -78,7 +78,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
 
   return (
     <div
-      className={"cluster-node-row" + (isHovered ? " cluster-node-row--hovered" : "")}
+      className={"cluster-node-row cluster-node-row--anchor" + (isHovered ? " cluster-node-row--hovered" : "")}
       onMouseEnter={() => onHover(entry.key)}
       onMouseLeave={() => onHover(null)}
     >
@@ -86,30 +86,37 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor, hostId, 
         className={"dash-fleet-row dash-fleet-row--" + tone + (opens ? "" : " dash-fleet-row--static")}
         onClick={opens ? () => onOpenAnchor(fed.nodeId) : undefined}
       >
-        <span className="dash-fleet-row__id">
-          <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
-          <span className="cluster-node-row__ident">
-            <span className="cluster-node-row__top">
-              <span className="dash-fleet-row__name">{fed.label || fed.nodeId}</span>
-            </span>
-            {/* The id under the name, in the same place a node's sits, so the two cards read as one
-                family — and dropped when the anchor has not been renamed, because the id and the
-                name are then the same word. No capability chip here: the column beside it already
-                names what this member holds, at more length and in a sentence. */}
-            {sub && <span className="cluster-node-row__sub">{sub}</span>}
+        <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
+
+        {/* The id under the name, in the same place a node's sits, so the two cards read as one
+            family — and dropped when the anchor has not been renamed, because the id and the name
+            are then the same word. */}
+        <span className="cluster-node-row__ident">
+          <span className="cluster-node-row__top">
+            <span className="dash-fleet-row__name">{fed.label || fed.nodeId}</span>
+          </span>
+          {sub && <span className="cluster-node-row__sub">{sub}</span>}
+        </span>
+
+        {/* What it holds, never what it is. "Anchor" is the card's own heading; the row's job is to
+            say WHICH capability, because a cluster can have more than one and an anchor holding
+            none is a promotion candidate rather than a broken member. It sits where a node's chips
+            sit, because it is the same question answered about a different kind of member. */}
+        <span className="cluster-node-row__chips">
+          <span className="cluster-anchor-row__holds">
+            <Icon name="anchor" size={13} />
+            {capability
+              ? <>Holds the cluster&apos;s <b>{capability}</b></>
+              : "Holds no capability yet"}
           </span>
         </span>
-        <span className="cluster-anchor-row__holds">
-          <Icon name="anchor" size={13} />
-          {/* What it holds, never what it is. "Anchor" is the card's own heading; the row's
-              job is to say WHICH capability, because a cluster can have more than one and an
-              anchor holding none is a promotion candidate rather than a broken member. */}
-          {capability
-            ? <>Holds the cluster&apos;s <b>{capability}</b></>
-            : "Holds no capability yet"}
+
+        <span className={"cluster-node-row__reading" + (entry.latencyMs == null ? " cluster-node-row__reading--none" : "")}>
+          {latencyLabel.endsWith("ms") ? latencyLabel.slice(0, -2) : latencyLabel}
+          {latencyLabel.endsWith("ms") && <small>ms</small>}
         </span>
+
         <span className="dash-fleet-row__end">
-          <span className="dash-fleet-row__latency">{latencyLabel}</span>
           {opens && <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />}
         </span>
       </div>

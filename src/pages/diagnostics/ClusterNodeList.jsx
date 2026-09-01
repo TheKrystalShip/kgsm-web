@@ -26,7 +26,7 @@ import React from "react";
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { alertsTone, anchoredAlerts } from "../../components/ContextualAlerts.jsx";
-import { HostMeters, hostHealth, hostMetricsFreshness } from "../../components/HostCardBody.jsx";
+import { hostHealth, hostMetricsFreshness } from "../../components/HostCardBody.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
@@ -42,18 +42,42 @@ import { MemberState, membershipRowTone } from "./clusterBadges.jsx";
 import { HostEditorModal, NodeEditButton } from "./diagComponents.jsx";
 import { buildClusterNodes, nodeEntries } from "./clusterNodes.js";
 
-// What a node is carrying. `unseen` counts servers that cannot report a roster —
-// their players are not zero, they are unknown, so the tally says "+" and names
-// how many in its tooltip rather than absorbing them into the number.
-function NodeCounts({ servers }) {
+// What a node is carrying, as chips beside what it holds — a count is a fact about the machine
+// in the same way its capability is, and the two read as one answer to "what is this node doing".
+//
+// `unseen` counts servers that cannot report a roster — their players are not zero, they are
+// unknown, so the tally says "+" and names how many in its tooltip rather than absorbing them
+// into the number.
+function NodeCountChips({ servers }) {
   const running = servers.filter(s => s.status === "online").length;
   const { total: players, unseen } = playerTally(servers);
   return (
-    <span className="dash-fleet-row__counts">
-      <b>{running} / {servers.length} running</b>
-      <span title={unseen ? unseen + (unseen === 1 ? " server can't report who's on" : " servers can't report who's on") : undefined}>
-        {players}{unseen ? "+" : ""} {players === 1 && !unseen ? "player" : "players"} connected
-      </span>
+    <>
+      <span className="cluster-chip cluster-chip--kind">{running} / {servers.length} running</span>
+      {(players > 0 || unseen > 0) && (
+        <span className="cluster-chip cluster-chip--kind"
+          title={unseen ? unseen + (unseen === 1 ? " server can't report who's on" : " servers can't report who's on") : undefined}>
+          {players}{unseen ? "+" : ""} {players === 1 && !unseen ? "player" : "players"}
+        </span>
+      )}
+    </>
+  );
+}
+
+// One capacity meter, in the narrow column a fleet row can spare for three of them.
+//
+// The label is abbreviated because the column is 136px and "Memory" spends a third of it on a
+// word the bar beside it already identifies; the absolute reading the meter carries — the number
+// an operator actually reasons with — moves to the row's tooltip rather than to a line of its
+// own, because a fleet row is scanned and the node's own page is where it is read.
+const METER_SHORT = { cpu: "CPU", ram: "RAM", disk: "DISK" };
+function MeterLine({ meter }) {
+  const detail = [meter.detail, meter.flag].filter(Boolean).join(" · ");
+  return (
+    <span className={"nrm nrm--" + meter.tone} title={meter.label + " " + meter.value + (detail ? " · " + detail : "")}>
+      <span className="nrm__k">{METER_SHORT[meter.key] || meter.label}</span>
+      <i className="nrm__bar"><b style={{ width: Math.max(2, Math.min(100, meter.pct)) + "%" }}></b></i>
+      <span className="nrm__v">{meter.value}</span>
     </span>
   );
 }
@@ -62,6 +86,20 @@ function NodeCounts({ servers }) {
 // a connected node, but the meter slot is replaced by an honest "discovered, not
 // connected" state (never fabricated capacity) and the dot's tone comes from
 // federation membership, the only axis a ghost has.
+// The round trip, given a column of its own. It is the one number on a member row that is about
+// the LINK rather than about the machine, and it is what a fleet is read for: which of these is
+// far away. `formatLatency` still owns the wording — the unit is only split back off it so the
+// figure can carry the size and the unit can stay quiet beside it.
+function Reading({ ms }) {
+  const text = formatLatency(ms);
+  const unit = text.endsWith("ms") ? "ms" : null;
+  return (
+    <span className={"cluster-node-row__reading" + (unit ? "" : " cluster-node-row__reading--none")}>
+      {unit ? text.slice(0, -2) : text}{unit && <small>{unit}</small>}
+    </span>
+  );
+}
+
 function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers }) {
   const isHovered = hovered === n.key;
   const tone = membershipRowTone(n.fed.membership);
@@ -71,19 +109,21 @@ function GhostNodeRow({ n, hovered, onHover, onSelect, hostId, canManagePeers })
       onMouseEnter={() => onHover(n.key)}
       onMouseLeave={() => onHover(null)}
     >
-      <button className={"dash-fleet-row dash-fleet-row--" + tone + " dash-fleet-row--ghost dash-fleet-row--counts"}
+      <button className={"dash-fleet-row dash-fleet-row--" + tone + " dash-fleet-row--ghost"}
         onClick={() => onSelect(n.key)}>
-        <span className="dash-fleet-row__id">
-          <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
-          <span className="dash-fleet-row__name">{n.fed.label}</span>
-          {n.latencyMs != null && <span className="dash-fleet-row__latency">{Math.round(n.latencyMs)}ms</span>}
+        <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
+        <span className="cluster-node-row__ident">
+          <span className="cluster-node-row__top">
+            <span className="dash-fleet-row__name">{n.fed.label}</span>
+          </span>
+          <span className="cluster-node-row__sub">{n.fed.nodeId}</span>
         </span>
-        <span className="dash-fleet-row__offline dash-fleet-row__offline--ghost">
-          <Icon name="radar" size={13} /> Discovered · not connected
+        <span className="cluster-node-row__chips">
+          <span className="cluster-chip cluster-chip--kind"><Icon name="radar" size={11} strokeWidth={2.2} />discovered</span>
         </span>
-        <span className="dash-fleet-row__counts">
-          <b>—</b>
-          <span>not connected</span>
+        <Reading ms={n.latencyMs} />
+        <span className="cluster-node-row__meters">
+          <span className="cluster-node-row__nometers">Not connected — no capacity to read</span>
         </span>
         <span className="dash-fleet-row__end">
           <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />
@@ -123,52 +163,60 @@ function NodeRow({ n, servers, capability, hovered, onHover, onSelect, hostId, c
 
   return (
     <div
-      className={"cluster-node-row" + (isHovered ? " cluster-node-row--hovered" : "")}
+      className={"cluster-node-row" + (isHovered ? " cluster-node-row--hovered" : "")
+        + (!h.online && !h._pending ? " cluster-node-row--down" : "")}
       onMouseEnter={() => onHover(n.key)}
       onMouseLeave={() => onHover(null)}
     >
-      <button className={"dash-fleet-row dash-fleet-row--" + tone + " dash-fleet-row--counts" + (stale ? " is-frozen" : "")}
+      <button className={"dash-fleet-row dash-fleet-row--" + tone + (stale ? " is-frozen" : "")}
         onClick={() => onSelect(n.key)}>
-        <span className="dash-fleet-row__id">
-          <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
-          <span className="cluster-node-row__ident">
-            <span className="cluster-node-row__top">
-              <span className="dash-fleet-row__name">{h.name}</span>
-              {capability && <span className="cluster-chip cluster-chip--cap">{capability}</span>}
-              {/* Readings we HAVE but that stopped updating are worse than none shown: say
-                  they are frozen, in place of a round trip that is equally stale. */}
-              {stale
-                ? <span className="dash-fleet-row__latency dash-fleet-row__latency--stale" title="These are the last readings measured, not live">
-                    frozen{fresh.label ? " · " + fresh.label.replace(/\s*ago$/, "") : ""}
-                  </span>
-                : n.latencyMs != null && <span className="dash-fleet-row__latency">{formatLatency(n.latencyMs)}</span>}
-            </span>
-            {/* The id under the name, because a machine has two names and only one of them is the
-                one you type. Whatever else the node reported about itself rides the same line. */}
-            <span className="cluster-node-row__sub">{identity(h)}</span>
+        <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
+
+        {/* The id under the name, because a machine has two names and only one of them is the one
+            you type. Whatever else the node reported about itself rides the same line. */}
+        <span className="cluster-node-row__ident">
+          <span className="cluster-node-row__top">
+            <span className="dash-fleet-row__name">{h.name}</span>
           </span>
+          <span className="cluster-node-row__sub">{identity(h)}</span>
         </span>
 
-        {meters.length ? (
-          <span className="dash-fleet-row__meters">
-            <HostMeters meters={meters} detail />
-          </span>
-        ) : denied ? (
-          <span className="dash-fleet-row__offline dash-fleet-row__offline--denied">
-            <Icon name="lock" size={13} /> No access on this node
-          </span>
-        ) : metricsDown ? (
-          <span className="dash-fleet-row__offline dash-fleet-row__offline--metrics">
-            <Icon name="activity" size={13} /> Metrics unavailable — capacity unknown
-          </span>
-        ) : (
-          <span className="dash-fleet-row__offline">
-            <Icon name={h._pending ? "loader-2" : "moon"} size={13} className={h._pending ? "is-spinning" : ""} />
-            {h._pending ? "Awaiting telemetry" : "Disconnected"}
-          </span>
-        )}
+        {/* What the node holds and what it is carrying, then whatever is wrong with it. Readings we
+            HAVE but that stopped updating are worse than none shown, so a frozen feed says so among
+            the chips rather than being left to look like live capacity. */}
+        <span className="cluster-node-row__chips">
+          {capability && <span className="cluster-chip cluster-chip--cap">{capability}</span>}
+          <NodeCountChips servers={mine} />
+          {stale && (
+            <span className="cluster-chip cluster-chip--warn" title="These are the last readings measured, not live">
+              frozen{fresh.label ? " \u00b7 " + fresh.label.replace(/\s*ago$/, "") : ""}
+            </span>
+          )}
+          {denied && <span className="cluster-chip cluster-chip--danger"><Icon name="lock" size={11} strokeWidth={2.2} />no access</span>}
+          {!denied && metricsDown && <span className="cluster-chip cluster-chip--warn"><Icon name="activity" size={11} strokeWidth={2.2} />no metrics</span>}
+          {!denied && !h.online && (
+            <span className="cluster-chip cluster-chip--muted">
+              <Icon name={h._pending ? "loader-2" : "moon"} size={11} strokeWidth={2.2} className={h._pending ? "is-spinning" : ""} />
+              {h._pending ? "connecting" : "disconnected"}
+            </span>
+          )}
+        </span>
 
-        <NodeCounts servers={mine} />
+        <Reading ms={n.latencyMs} />
+
+        {/* Capacity, or the reason there is none. A node that cannot be measured says WHICH of the
+            three reasons it is, because they need different things done about them. */}
+        <span className="cluster-node-row__meters">
+          {meters.length ? meters.map(m => <MeterLine key={m.key} meter={m} />) : (
+            <span className="cluster-node-row__nometers">
+              {denied ? "No access on this node"
+                : metricsDown ? "Metrics unavailable \u2014 capacity unknown"
+                : h._pending ? "Awaiting telemetry"
+                : "Disconnected \u2014 no capacity to read"}
+            </span>
+          )}
+        </span>
+
 
         <span className="dash-fleet-row__end">
           {alerts.length > 0 && (

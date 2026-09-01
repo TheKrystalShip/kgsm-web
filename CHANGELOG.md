@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.218.0]
+
+### Changed — the member row says what a node is on the left and what was measured of it on the right
+
+Six columns: status, the name with its id under it, what the node holds and is carrying, the round
+trip, capacity, and the way in. The Anchors card takes the same rhythm minus the meter column,
+because an anchor reports no capacity by design and the track could only ever hold dashes.
+
+The round trip has a column now. It is the one number on a member row that is about the LINK rather
+than the machine, and it is what a fleet is scanned for — as a small pill inside the name it read as
+a suffix on the label. Capacity went the other way: three meters laid across the row left nowhere
+for either, so they stack in a narrow column and each one's absolute reading moves to the row's
+tooltip.
+
+What a node holds, how many servers are running on it and how many people are on them are chips
+beside its name, in the same place as the reason it cannot be read when it cannot be — a frozen
+feed, a refused node, a missing metrics leaf, a disconnected one. A node that is not answering is
+hatched across the whole row rather than flagged at one end of it.
+
+The fourth column is empty on purpose: without a gap between them a wide card spreads five facts
+evenly across a metre of screen and none reads as related to its neighbour. Below 1100px the row
+folds instead of shrinking — identity and the round trip stay on the first line, the chips and the
+meters wrap under them.
+
+
 ## [1.217.0]
 
 ### Changed — a cluster member is named under `member/`
