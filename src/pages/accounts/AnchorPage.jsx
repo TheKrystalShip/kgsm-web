@@ -1,12 +1,13 @@
 // AnchorPage — one anchor of the cluster, with its own sub-tabs.
 //
 // A cluster has members, and a member is a node or an anchor. Both are reached at
-// `#/cluster/<member>`, because both are the same kind of thing to a URL: one machine's role in one
+// `#/cluster/member/<member>`, because both are the same kind of thing to a URL: one machine's role in one
 // cluster. What differs is the body — a node runs game servers and reports capacity, an anchor
 // provides one capability to the whole cluster and reports what that capability holds.
 //
-// The tabs are the anchor's own (`ROUTE_TABS.anchor`) and each one is a URL: `#/cluster/<member>`
-// opens Overview, `#/cluster/<member>/users` opens the accounts, and the trail above names whichever
+// The tabs are the anchor's own (`ROUTE_TABS.anchor`) and each one is a URL:
+// `#/cluster/member/<member>` opens Overview, `#/cluster/member/<member>/users` opens the accounts,
+// and the trail above names whichever
 // is open. That is the node page's structure exactly, with different data in it.
 //
 // Reached from the Anchors card on the Cluster page, which is where a person meets this member as a

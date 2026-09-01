@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.217.0]
+
+### Changed — a cluster member is named under `member/`
+
+`#/cluster/member/hotrod`, and everything about that member below it —
+`#/cluster/member/hotrod/services/api/logs`. The segment after `/cluster` previously had to be read
+as either a member id or one of the cluster's own tab names, which meant reserving every tab word
+out of the id space forever and shadowing any member unlucky enough to be called one. A member
+called `reach` now resolves. It also leaves `#/cluster/members` free for a list of them.
+
+The older unprefixed shape still resolves, so bookmarks keep working, and is never emitted — the
+route sync rewrites it on arrival. The breadcrumb follows: every crumb carries a route rather than a
+string, so the trail's links moved with it, and the `member` word itself carries no crumb because it
+is a namespace rather than a place.
+
+
 ## [1.216.0]
 
 ### Added — the Cluster page is three tabs, and each one answers a different question

@@ -28,7 +28,7 @@ export const ROUTE_TABS = {
     { id: "file",      label: "File",      icon: "file-code" },
   ],
   // An ANCHOR's tabs. A cluster member is a node or an anchor and both are reached at
-  // #/cluster/<member>, so both name their tabs here — what differs is which set, because an anchor
+  // #/cluster/member/<member>, so both name their tabs here — what differs is which set, because an anchor
   // runs no game servers and has no capacity to report and holds the cluster's accounts instead.
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
@@ -37,9 +37,9 @@ export const ROUTE_TABS = {
     { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
   ],
   // The CLUSTER page's own tabs, at #/cluster/<tab> — distinct from `cluster` below, which is one
-  // NODE's tabs at #/cluster/<member>/<tab>. Both live under the same URL word because a cluster and
-  // its members are the same subject at two depths; the ids here are reserved words in that first
-  // segment, so a member whose id is one of them is shadowed (see router.js).
+  // MEMBER's tabs at #/cluster/member/<member>/<tab>. Both live under the same URL word because a
+  // cluster and its members are the same subject at two depths; the `member` word between them is
+  // what keeps a member id out of this table's vocabulary (see router.js).
   clusterRoot: [
     { id: "overview",     label: "Overview",     icon: "layout-grid" },
     { id: "reach",        label: "Reach",        icon: "waypoints" },

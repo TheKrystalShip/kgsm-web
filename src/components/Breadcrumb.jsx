@@ -9,11 +9,16 @@
 // place (a node, then that node's Services tab) — which is what makes it able to mirror a nested URL
 // rather than approximate it.
 //
-// The trail follows the URL segment for segment, sub-tabs included: #/cluster/hotrod/services reads
-// "Home / Cluster / Hotrod / Services", and every crumb but the last opens the prefix of the URL it
-// sits at. A tab crumb appears only for a tab the URL actually names — a route's default tab is
-// omitted from the hash and so has no crumb, and a stale or mistyped segment (which the page
+// The trail follows the URL segment for segment, sub-tabs included: #/cluster/member/hotrod/services
+// reads "Home / Cluster / Hotrod / Services", and every crumb but the last opens the prefix of the
+// URL it sits at. A tab crumb appears only for a tab the URL actually names — a route's default tab
+// is omitted from the hash and so has no crumb, and a stale or mistyped segment (which the page
 // resolves back to its default) is left off rather than announced.
+//
+// One segment is deliberately silent: the `member` word that names a member. It is a namespace
+// rather than a place — there is nothing at #/cluster/member — and today the list of members IS the
+// Cluster page, so a crumb there would repeat the link beside it. It earns one the day
+// #/cluster/members becomes a page of its own.
 
 import React from "react";
 import { can } from "../lib/persona.js";

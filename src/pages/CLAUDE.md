@@ -125,7 +125,7 @@ says. Both of those follow the DOOR, never `anchored` — they describe where th
 No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 
 `accounts/AnchorPage.jsx` is a MEMBER page, not a route of its own. A cluster has members and a member
-is a node or an anchor, so both are reached at `#/cluster/<member>` and `DiagnosticsPage` picks the
+is a node or an anchor, so both are reached at `#/cluster/member/<member>` and `DiagnosticsPage` picks the
 body by which kind the roster says it is — checked before the fall-through that would otherwise read
 "not a node I hold" as "no member named" and show the grid. The page carries `ROUTE_TABS.anchor`
 (Overview, Users, Logs, Configuration): each tab is a URL segment, `App.setRoute` moves it, and the
@@ -162,18 +162,26 @@ pieces live beside it.
 Rule of thumb: **a page pushing ~400 lines gets its own `pages/<name>/`
 folder** rather than another append.
 
-## The cluster page has tabs of its own, one URL word deep
+## The cluster page has tabs of its own, and a member is named under `member/`
 
-`#/cluster` is two tabbed surfaces sharing a word, and which one a URL names is decided by whether
-its first segment is a MEMBER: `#/cluster/reach` is the cluster's Reach tab, `#/cluster/hotrod` is
-that member's page, and `#/cluster/hotrod/services` is a tab on it. The two strips are separate
-tables — `ROUTE_TABS.clusterRoot` and `ROUTE_TABS.cluster` — because a cluster and a machine offer
-different tabs, and the breadcrumb picks the strip the same way the page does.
+`#/cluster` is two tabbed surfaces sharing a word, at two depths. The cluster's own tabs sit
+directly under it — `#/cluster/reach` — and a MEMBER is named under an explicit word:
+`#/cluster/member/hotrod`, `#/cluster/member/hotrod/services`,
+`#/cluster/member/hotrod/services/api`. The two strips are separate tables —
+`ROUTE_TABS.clusterRoot` and `ROUTE_TABS.cluster` — because a cluster and a machine offer different
+tabs, and the breadcrumb picks the strip the same way the page does.
 
-**The three cluster tab words are reserved in that segment**, so a member whose id is `overview`,
-`reach` or `capabilities` is shadowed — the same trade `/library/new` makes, and accepted for the
-same reason: the tab is a fixed word and the member is still reachable from every list that names
-it. `router.js` holds the set; add a tab to both it and `labels.js` or the URL will not resolve.
+**That word is what keeps the two vocabularies apart.** Without it the segment after `/cluster`
+would have to be read as either a member id or a tab name, which means reserving every tab word out
+of the id space forever and shadowing any member unlucky enough to be called one. A member called
+`reach` resolves correctly. It also leaves `#/cluster/members` free for a list of them.
+
+The older unprefixed shape still **resolves** so bookmarks keep working, and is never **emitted** —
+`useRouteSync` rewrites it to the canonical form on arrival. A tab word wins over it, because a link
+made today says `member/` and one that does not is older than the tabs.
+
+**The `member` segment carries no crumb.** It is a namespace rather than a place, and today the list
+of members *is* the Cluster page — a crumb there would repeat the link beside it.
 
 **Hover on that page belongs to the PAGE, not to the cards.** `hoveredNode` lives in `ClusterPage`
 and every surface takes it as a prop, which is what lets a member pointed at in the reach rail light

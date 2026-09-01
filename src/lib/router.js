@@ -22,12 +22,12 @@
 //   #/library/<id>/<tab>     game detail, a specific tab
 //   #/alerts                 alerts board
 //   #/audit                  audit log             (?severity=danger entry filter)
-//   #/cluster                the cluster — its members, at a glance
-//   #/cluster/<tab>          the cluster, a specific tab (reach, capabilities)
-//   #/cluster/<member>       one member of the cluster — a node's deep-dive, or an anchor's page
-//   #/cluster/<member>/<tab> that member, a specific tab
-//   #/cluster/<hostId>/services/<leaf>[/<tab>]
-//                            one leaf on that node — the Services tab drilled in
+//   #/cluster                       the cluster — its members, at a glance
+//   #/cluster/<tab>                 the cluster, a specific tab (reach, capabilities)
+//   #/cluster/member/<member>       one member — a node's deep-dive, or an anchor's page
+//   #/cluster/member/<member>/<tab> that member, a specific tab
+//   #/cluster/member/<hostId>/services/<leaf>[/<tab>]
+//                                   one leaf on that node — the Services tab drilled in
 //   #/config/<hostId>        a node's leaf configuration (first configurable leaf)
 //   #/config/<hostId>/<leaf> one leaf's configuration surface
 //   #/settings               account settings (Profile)
@@ -43,9 +43,17 @@
 // you reach it from: the URL keeps descending instead of jumping to a sibling
 // top-level word, so the path reads as the trail you walked.
 //
+// A MEMBER is named under an explicit `member` word. A cluster and its members are the same
+// subject at two depths, and without that word the segment after /cluster would have to be read
+// as either a member id or one of the cluster's own tab names — which means reserving every tab
+// word out of the id space, forever, and shadowing any member unlucky enough to be called one.
+// The word costs a segment and removes the question. It also leaves `#/cluster/members` free for
+// a list of them.
+//
 // The URL words #/diagnostics and #/hosts are aliases that resolve to #/cluster,
-// and #/leaf/<hostId>/<leaf> resolves to the nested leaf path, so old links and
-// bookmarks keep working.
+// #/leaf/<hostId>/<leaf> resolves to the nested leaf path, and the member route's older
+// unprefixed shape still resolves — so old links and bookmarks keep working. None of those is
+// ever emitted.
 //
 // Internal route.kind names differ from a couple of URL words on purpose
 // (kind "attention" ↔ /alerts) — the URL speaks the user's language, the code
@@ -54,9 +62,26 @@
   const enc = encodeURIComponent;
   const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
 
-  // The cluster page's own tab words, reserved in the first segment after /cluster.
+  // The cluster page's own tab words. A member is named under `member/`, so these collide with
+  // nothing a link made today can carry — they are read here to resolve the tab, and they win over
+  // the unprefixed legacy member shape below.
   // Mirrors ROUTE_TABS.clusterRoot in labels.js: a tab added there is added here.
   const CLUSTER_ROOT_TABS = new Set(["overview", "reach", "capabilities"]);
+
+  // clusterMember(rest) — one member's route, from the segments after whatever named it.
+  // `rest[0]` is the member; a `services/<leaf>` pair below it is a page of its own rather than a
+  // tab, because that is exactly where it is opened from. Bare `/services` stays the member's tab,
+  // so the drill-in only happens once a leaf is named.
+  function clusterMember(rest) {
+    if (rest[1] && rest[1].toLowerCase() === "services" && rest[2]) {
+      const l = { kind: "leaf", hostId: dec(rest[0]), leaf: dec(rest[2]) };
+      if (rest[3]) l.tab = dec(rest[3]);
+      return l;
+    }
+    const r = { kind: "cluster", hostId: dec(rest[0]) };
+    if (rest[1]) r.tab = dec(rest[1]);
+    return r;
+  }
 
   // route object  ->  "#/..."
   function routeToHash(route) {
@@ -88,7 +113,9 @@
         return "#/audit" + (p.length ? "?" + p.join("&") : "");
       }
       case "cluster": {
-        let h = "#/cluster" + (route.hostId ? "/" + enc(route.hostId) : "");
+        // Without a member this is the cluster itself and its tab is the cluster's; with one it is
+        // that member and the tab is the member's. Same route kind, two depths, one word between.
+        let h = "#/cluster" + (route.hostId ? "/member/" + enc(route.hostId) : "");
         if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
         return h;
       }
@@ -100,7 +127,7 @@
       // settings). The shape is the same for every leaf, so a new leaf needs no new route — only a
       // body. It hangs off the node's Services tab, the one place it is opened from.
       case "leaf": {
-        let h = "#/cluster/" + enc(route.hostId || "") + "/services/" + enc(route.leaf || "");
+        let h = "#/cluster/member/" + enc(route.hostId || "") + "/services/" + enc(route.leaf || "");
         if (route.tab && route.tab !== "overview") h += "/" + enc(route.tab);
         return h;
       }
@@ -165,24 +192,18 @@
       }
       case "cluster": {
         if (!segs[1]) return { kind: "cluster" };
-        // The cluster page's own tabs live in this segment, so those three words are not member
-        // ids. A member genuinely called "reach" or "capabilities" is shadowed here — the same
-        // trade the create route makes at /library/new, and accepted for the same reason: the tab
-        // is a fixed word, and the member is still reachable from every list that names it.
+        // A member, named under its own word: everything after it belongs to that member and
+        // nothing about it can collide with the cluster's own vocabulary.
+        if (segs[1].toLowerCase() === "member" && segs[2]) return clusterMember(segs.slice(2));
+        // The cluster's own tabs.
         if (CLUSTER_ROOT_TABS.has(segs[1].toLowerCase()) && !segs[2]) {
           const t = segs[1].toLowerCase();
           return t === "overview" ? { kind: "cluster" } : { kind: "cluster", tab: t };
         }
-        // A leaf named under the Services tab is its own page, one level deeper. Bare
-        // /services stays the node's tab, so the drill-in only happens once a leaf is named.
-        if (segs[2] && segs[2].toLowerCase() === "services" && segs[3]) {
-          const l = { kind: "leaf", hostId: dec(segs[1]), leaf: dec(segs[3]) };
-          if (segs[4]) l.tab = dec(segs[4]);
-          return l;
-        }
-        const r = { kind: "cluster", hostId: dec(segs[1]) };
-        if (segs[2]) r.tab = dec(segs[2]);
-        return r;
+        // The member route before it was named. Never emitted, so this is what a bookmark lands
+        // on and nothing else — which is why a tab word wins above: a link made today says
+        // `/member/`, and one that does not is older than the tabs.
+        return clusterMember(segs.slice(1));
       }
       case "config": {
         // A host is required — without one there is nothing to configure, so fall back to the grid.

@@ -453,7 +453,7 @@ try {
   const FAB = /0 cores|load 0\.0|CPU 0%/;          // fabricated zero readouts must NOT appear
   const GATED = [
     { hash: "#/cluster",       label: "Cluster (admin)",      must: ["Cluster"] },
-    { hash: "#/cluster/hotrod",  label: "Node deep-dive (admin)", must: ["hotrod"], noFab: true },
+    { hash: "#/cluster/member/hotrod",  label: "Node deep-dive (admin)", must: ["hotrod"], noFab: true },
     { hash: "#/library",       label: "Library (admin, live)", must: ["Catalog"] },
     { hash: "#/audit",         label: "Audit (admin, live)", must: [] },
     { hash: "#/alerts",        label: "Alerts (admin, live)", must: [] },
@@ -498,7 +498,7 @@ try {
   // Diagnostics: the htop-style Processes tab (which never had an honest source) was replaced by the
   // Services leaf control center. The deep-dive must now surface the "Services" tab/summary and NO LONGER
   // the old fabricated-zeros guard text ("expose a process list") — proving the swap landed cleanly.
-  const deepHtml = await nav("#/cluster/hotrod");
+  const deepHtml = await nav("#/cluster/member/hotrod");
   assert(deepHtml.includes("Services") && !deepHtml.includes("expose a process list"),
     "host deep-dive: the Overview surfaces the new Services tab/summary (the old htop process card is gone)");
 
@@ -836,7 +836,7 @@ try {
   // then push a tick through the dispatch seam. It merges ONLY if the deep-dive's effect
   // subscribed hosts/{id}/metrics (there is no module-level listener for this topic). The
   // value read is synchronous (race-free vs the real monitor's own ~1s ticks).
-  await nav("#/cluster/" + hmId);
+  await nav("#/cluster/member/" + hmId);
   st.hostsStore.clearMetricsStamp(hmId);
   api.__dispatch({ topic: "hosts/" + hmId + "/metrics", type: "host.metrics", data: synthSnap(91) });
   const tick = st.hostsStore.find(hmId);
@@ -1276,7 +1276,7 @@ try {
   // else: no sentence explaining where history lives, what the registry is made of, or how a batch
   // is paced. Asserted as an ABSENCE because that is the only way the rule holds under a later edit.
   const JQ_HOST = PROBE.hostId;
-  const jqEmpty = await nav("#/cluster/" + JQ_HOST + "/jobs");
+  const jqEmpty = await nav("#/cluster/member/" + JQ_HOST + "/jobs");
   assert(jqEmpty.includes("Queued") && jqEmpty.includes("Running") && !jqEmpty.includes("Recently settled"),
     "the Jobs sub-tab renders both cards and shows no settled work");
   assert(jqEmpty.includes("Nothing queued") && jqEmpty.includes("Nothing running"),
@@ -1293,14 +1293,14 @@ try {
   const jqName = (st.serversStore.find(PROBE.id) || {}).name || PROBE.id;
   st.batchesStore.upsert("jq_batch", { counts: { total: 8 } });
   st.serversStore.patch(PROBE.id, { job: { verb: "stop", state: "queued", batchId: "jq_batch", queuedPosition: 3 } });
-  const jqQueued = await nav("#/cluster/" + JQ_HOST + "/jobs");
+  const jqQueued = await nav("#/cluster/member/" + JQ_HOST + "/jobs");
   assert(jqQueued.includes("3rd of 8") && jqQueued.includes(jqName) && !jqQueued.includes("Nothing queued"),
     "a queued member names its server and its place in the batch's line — a count, never a predicted time");
   assert(jqQueued.includes("part of a batch"),
     "a row that belongs to a batch says so; a hand-issued command does not");
 
   st.serversStore.patch(PROBE.id, { job: { verb: "update", state: "running" } });
-  const jqRunning = await nav("#/cluster/" + JQ_HOST + "/jobs");
+  const jqRunning = await nav("#/cluster/member/" + JQ_HOST + "/jobs");
   assert(jqRunning.includes("Updating…") && jqRunning.includes("act-spin") && jqRunning.includes("Nothing queued"),
     "running work is its own lane, with a spinner because something IS spinning — and queued is empty again");
   st.serversStore.patch(PROBE.id, { job: null });
@@ -2997,15 +2997,15 @@ try {
 
   // ---- One leaf's page: the nested route + its own journal ----------------------------------------
   // A leaf page hangs off the node's Services tab, which is the only place it is opened from, so the
-  // URL keeps descending: #/cluster/<host>/services/<leaf>[/<tab>]. Assert the round trip and that the
+  // URL keeps descending: #/cluster/member/<host>/services/<leaf>[/<tab>]. Assert the round trip and that the
   // flat word a link may still carry resolves to the same place.
   const rt = await vite.ssrLoadModule("/src/lib/router.js");
   const leafHash = rt.KrystalRouter.routeToHash({ kind: "leaf", hostId: hmId, leaf: "monitor", tab: "logs" });
   const leafRoute = rt.KrystalRouter.parseHash(leafHash);
-  assert(leafHash === `#/cluster/${hmId}/services/monitor/logs`
+  assert(leafHash === `#/cluster/member/${hmId}/services/monitor/logs`
     && leafRoute.kind === "leaf" && leafRoute.leaf === "monitor" && leafRoute.tab === "logs",
     `leaf route: nests under the node's Services tab (${leafHash}) and parses back to the same leaf + tab`);
-  const bareServices = rt.KrystalRouter.parseHash(`#/cluster/${hmId}/services`);
+  const bareServices = rt.KrystalRouter.parseHash(`#/cluster/member/${hmId}/services`);
   assert(bareServices.kind === "cluster" && bareServices.tab === "services",
     "leaf route: /services with no leaf named stays the NODE's Services tab (the drill-in needs a leaf)");
   const legacyLeaf = rt.KrystalRouter.parseHash(`#/leaf/${hmId}/monitor`);
@@ -3021,40 +3021,40 @@ try {
       .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return { rows, text };
   };
-  const leafCrumb = crumbsOf(await nav(`#/cluster/${hmId}/services/monitor/logs`));
+  const leafCrumb = crumbsOf(await nav(`#/cluster/member/${hmId}/services/monitor/logs`));
   assert(leafCrumb.rows === 1 && /Cluster \/ .+ \/ Services \/ Monitor \/ Logs$/.test(leafCrumb.text),
     `leaf breadcrumb: exactly one trail, and it walks the URL down to the tab ("${leafCrumb.text}")`);
 
   // The node's own tabs are segments too, which is the case the trail used to stop short of.
-  const nodeTabCrumb = crumbsOf(await nav(`#/cluster/${hmId}/services`));
+  const nodeTabCrumb = crumbsOf(await nav(`#/cluster/member/${hmId}/services`));
   assert(nodeTabCrumb.rows === 1 && /Cluster \/ .+ \/ Services$/.test(nodeTabCrumb.text),
     `node breadcrumb: a node's sub-tab is a crumb ("${nodeTabCrumb.text}")`);
 
   // The default tab is left OUT of the hash, so it gets no crumb — the trail says exactly what the
   // URL says and no more.
-  const nodeCrumb = crumbsOf(await nav(`#/cluster/${hmId}`));
+  const nodeCrumb = crumbsOf(await nav(`#/cluster/member/${hmId}`));
   assert(nodeCrumb.rows === 1 && /Cluster \/ [^/]+$/.test(nodeCrumb.text),
     `node breadcrumb: the default tab is unnamed in the URL and uncrumbed in the trail ("${nodeCrumb.text}")`);
 
   // A segment no tab answers to resolves back to the default tab, so naming it would announce a place
   // that is not on screen.
-  const bogusCrumb = crumbsOf(await nav(`#/cluster/${hmId}/not-a-tab`));
+  const bogusCrumb = crumbsOf(await nav(`#/cluster/member/${hmId}/not-a-tab`));
   assert(bogusCrumb.rows === 1 && !/not-a-tab/i.test(bogusCrumb.text),
     `node breadcrumb: an unknown tab segment is left off rather than announced ("${bogusCrumb.text}")`);
 
   // The node header carries no back control of its own — walking back up the cluster is the trail's job,
   // and a second affordance for it was one the page had to keep in step with the URL.
-  const nodeHtml = await nav(`#/cluster/${hmId}`);
+  const nodeHtml = await nav(`#/cluster/member/${hmId}`);
   assert(!nodeHtml.includes("diag-back-btn") && !nodeHtml.includes("Back to all hosts"),
     "node header: no back arrow beside the title (the breadcrumb is the way back up)");
 
   // The unit's facts live on the System tab and ONLY there. They used to be rendered three times over
   // — a strip above every tab, a card on the generic Overview, the config page's identity block — so
   // assert both halves: System carries them, and the tab you were on a moment ago no longer repeats.
-  const sysHtml = await nav(`#/cluster/${hmId}/services/monitor/system`);
+  const sysHtml = await nav(`#/cluster/member/${hmId}/services/monitor/system`);
   assert(sysHtml.includes("leaf-facts") && sysHtml.includes("Enabled at boot") && sysHtml.includes("kgsm-monitor.service"),
     "leaf System tab: carries the unit's systemd facts (unit, activation, enabled-at-boot, runtime)");
-  const ovHtml = await nav(`#/cluster/${hmId}/services/monitor`);
+  const ovHtml = await nav(`#/cluster/member/${hmId}/services/monitor`);
   assert(!ovHtml.includes("svc-summary") && !ovHtml.includes("Enabled at boot"),
     "leaf Overview: no longer repeats the unit strip — the header's status chip is what stays visible");
 
@@ -3069,7 +3069,7 @@ try {
     // bucket's contents — a reader that knew only one bucket would print a partial list.
     const all = Object.values(botCmds.gates || {}).flat();
     const acts = all.filter(c => c.mutates);
-    const cmdHtml = await nav(`#/cluster/${hmId}/services/bot/commands`);
+    const cmdHtml = await nav(`#/cluster/member/${hmId}/services/bot/commands`);
     assert(cmdHtml.includes("leaf-cmd__usage") && all.every(c => cmdHtml.includes("/" + c.name)),
       `leaf Commands tab: every command the bot's manifest declares is rendered (${all.length}, ${acts.length} of them acting)`);
     assert(acts.length > 0 && cmdHtml.includes("acts") && Object.keys(botCmds.gates).every(g => cmdHtml.toLowerCase().includes(g)),
@@ -3084,7 +3084,7 @@ try {
   const botStatus = await fetch(API + "/api/v1/hosts/" + hmId + "/services/bot/status")
     .then(r => (r.ok ? r.json() : null));
   if (botStatus) {
-    const botHtml = await nav(`#/cluster/${hmId}/services/bot`);
+    const botHtml = await nav(`#/cluster/member/${hmId}/services/bot`);
     const guilds = botStatus.guilds || [];
     const bindings = guilds.flatMap(g => g.channels || []);
     assert(guilds.every(g => botHtml.includes(g.guildId) && (!g.name || botHtml.includes(g.name))),
@@ -3101,11 +3101,11 @@ try {
   // carries — both live reads, asserted against what the backend actually said.
   const engineInfo = await fetch(API + "/api/v1/hosts/" + hmId + "/engine").then(r => (r.ok ? r.json() : null));
   if (engineInfo) {
-    const engHtml = await nav(`#/cluster/${hmId}/services/kgsm`);
+    const engHtml = await nav(`#/cluster/member/${hmId}/services/kgsm`);
     assert(engHtml.includes(engineInfo.version) && engHtml.includes(engineInfo.path),
       `leaf Overview (kgsm): the engine's own version (${engineInfo.version}) and entrypoint render`);
     const engLibs = (st.hostsStore.find(hmId) || {}).libraries || [];
-    const libHtml = await nav(`#/cluster/${hmId}/services/kgsm/library`);
+    const libHtml = await nav(`#/cluster/member/${hmId}/services/kgsm/library`);
     assert(engLibs.every(l => libHtml.includes(l.name) && libHtml.includes(l.path)),
       `leaf Library (kgsm): every placement root the host reports renders with its path (${engLibs.length})`);
     assert(!engHtml.includes(">System<") && !engHtml.includes(">Logs<"),
@@ -3116,7 +3116,7 @@ try {
 
   let cmds404 = 0;
   await fetch(API + "/api/v1/hosts/" + hmId + "/services/monitor/commands").then(r => { cmds404 = r.status; });
-  const monitorCmdHtml = await nav(`#/cluster/${hmId}/services/monitor`);
+  const monitorCmdHtml = await nav(`#/cluster/member/${hmId}/services/monitor`);
   assert(cmds404 === 404 && !monitorCmdHtml.includes(">Commands<"),
     "leaf Commands tab: a leaf that ships no manifest is a 404 and gets no tab (most leaves take no commands)");
 
@@ -3125,7 +3125,7 @@ try {
   // actually down rather than naming one, since which leaves run is the host's business, not ours.
   const downLeaf = svc.find(s => s.unit && s.state !== "active");
   if (downLeaf) {
-    const downHtml = await nav(`#/cluster/${hmId}/services/${downLeaf.id}/system`);
+    const downHtml = await nav(`#/cluster/member/${hmId}/services/${downLeaf.id}/system`);
     assert(downHtml.includes("Last started") && !downHtml.includes(">Uptime<") && downHtml.includes("not running"),
       `leaf System tab: a stopped unit (${downLeaf.id}) reports when it LAST started and no uptime, and its absent pid/memory read "not running" — never 0`);
   } else {
@@ -3167,7 +3167,7 @@ try {
     const idleHist = await fetch(API + "/api/v1/hosts/" + hmId + "/services/" + onDemandLeaf.id + "/metrics/history?range=1h")
       .then(r => (r.ok ? r.json() : { series: {} }));
     const idlePoints = Object.values(idleHist.series || {}).reduce((n, s) => Math.max(n, (s || []).length), 0);
-    const idleHtml = await nav(`#/cluster/${hmId}/services/${onDemandLeaf.id}/system`);
+    const idleHtml = await nav(`#/cluster/member/${hmId}/services/${onDemandLeaf.id}/system`);
     assert(!idleHtml.includes("A stopped leaf has no"),
       `leaf resource history: an idle socket-activated leaf (${onDemandLeaf.id}) never reads as stopped`);
     assert(idlePoints > 0 ? idleHtml.includes("leaf-res") : idleHtml.includes("Idle — nothing to record"),
