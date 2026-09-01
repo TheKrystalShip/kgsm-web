@@ -141,6 +141,16 @@ member behind it serves one.
 The ADDRESS follows the same rule. The door's origin is this member's address only when this member
 is the door (`holder === member.nodeId`); otherwise it is the member's own, from the roster.
 
+**Two kinds of capability surface, and they are reached differently.** The `auth` holder's three are
+reached at the DOOR, so they are guarded on holding a session with it and say which of the three is
+out of reach when there is none. Everything in `CAPABILITY_BODIES` is reached at THIS member's own
+origin with the cluster's credential — an anchor holding anything else has its sign-in shut, so it
+verifies the session this browser already carries and there is nothing to sign in to. The assistant's
+bodies are therefore the leaf page's own components, unchanged and taking the same single id: what
+differs is which machine answers. Its `overview` renders UNDER the membership card rather than
+instead of it, because the two answer different questions — what this member is, and what the
+capability it holds is doing.
+
 Each tab is a URL segment and `App.setRoute` moves it. The breadcrumb names it from the anchor's
 strip, and asks `anchorOffersTab` before naming one at all: `ctx.memberKind` says which member this
 is and `ctx.memberCapability` says which tabs it has, so the trail cannot announce a tab the page
@@ -168,7 +178,7 @@ pieces live beside it.
 | `DiagnosticsPage.jsx` | `diagnostics/` | the cluster's own tabs — `ClusterKpis` (over `clusterKpis.js`), the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `ClusterRail`, `ClusterMap` (over the generated `euMap.js`) and `ClusterCapabilities` — plus one member's: `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
-| `accounts/AnchorPage.jsx` | `accounts/` | the member page's tab strip over `AnchorOverview`, `AccountsAdmin` (the roster, the create/edit modal and its sessions half), `AnchorLogs` and `AnchorConfiguration` — the last three read from the anchor itself |
+| `accounts/AnchorPage.jsx` | `accounts/` | the member page's capability-scoped tab strip over `AnchorOverview`, the `auth` holder's own screens (`AccountsAdmin` — the roster, the create/edit modal and its sessions half — `AnchorLogs`, `AnchorConfiguration`, all read from the anchor itself), and `CAPABILITY_BODIES`, which mounts the holder's own surfaces against its member id (the assistant's `AssistantOverview` and `AssistantConversations`, from `leaf/`) |
 | `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `AddWidgetSheet`, `DashboardEmpty` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
 | `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |

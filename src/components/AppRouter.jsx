@@ -90,6 +90,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
       onViewAudit={() => setRoute({ kind: "audit" })}
       onOpenLeaf={(hostId, leaf, leafTab) => setRoute({ kind: "leaf", hostId, leaf, tab: leafTab })}
       onOpenAnchor={(memberId) => setRoute({ kind: "cluster", hostId: memberId })}
+      onReviewConversation={(c) => openReview(route.hostId, c)}
     />}
     {route.kind === "leafConfig" && <LeafConfigPage
       hostId={route.hostId}

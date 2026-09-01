@@ -29,6 +29,28 @@ import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
 import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
 import { AnchorLogs } from "./AnchorLogs.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
+import { AssistantConversations } from "../leaf/AssistantConversations.jsx";
+import { AssistantOverview } from "../leaf/AssistantOverview.jsx";
+
+// What a capability adds to its holder's page, addressed at THIS member's own origin.
+//
+// These need no door. An anchor holding something other than `auth` has its sign-in shut — another
+// member holds the accounts — so it verifies the cluster session this browser is already carrying,
+// and the seam that reaches it (`assistantSession`) resolves an anchored target by member id and
+// sends that credential. So the bodies are the ones the leaf page mounts, unchanged and taking the
+// same single id: what differs is which machine answers, which is the whole point of an anchor.
+//
+// `overview` renders UNDER the member's own membership card rather than instead of it, because the
+// two answer different questions — what this member is, and what the capability it holds is doing.
+//
+// The tab ids match ANCHOR_CAPABILITY_TABS in lib/labels.js. A capability with an entry there and
+// none here gets the tab and nothing in it, which is why they are added together.
+const CAPABILITY_BODIES = {
+  assistant: {
+    overview: (p) => <AssistantOverview {...p} />,
+    conversations: (p) => <AssistantConversations {...p} />,
+  },
+};
 
 // What a person is standing in front of when the door is somewhere else. The accounts, the journal
 // and the configuration are all the auth anchor's and all behind the same door, so the sentence names
@@ -39,7 +61,7 @@ const OUT_OF_REACH = {
   config: "This configuration is",
 };
 
-function AnchorPage({ member, tab, onSelectTab }) {
+function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
   const { anchor, holder } = useAccountHolder();
 
   const name = (member && (member.label || member.nodeId)) || "Anchor";
@@ -81,9 +103,19 @@ function AnchorPage({ member, tab, onSelectTab }) {
     // this member, and Settings moves a capability or removes a member, addressed to whichever member
     // answered the roster. Neither needs a session with the machine on screen.
     if (active === "settings") return <MemberSettings member={member} host={null} />;
+
+    const own = CAPABILITY_BODIES[capability] || {};
+    const ownProps = { hostId: member && member.nodeId, onReviewConversation };
+
     if (active === "overview") {
-      return <AnchorOverview member={member} address={address} showsAccounts={isDoor} />;
+      return (
+        <>
+          <AnchorOverview member={member} address={address} showsAccounts={isDoor} />
+          {own.overview ? own.overview(ownProps) : null}
+        </>
+      );
     }
+    if (own[active]) return own[active](ownProps);
 
     // The rest are the auth anchor's own routes, and this browser reaches them at the door. A session
     // opened at a node holds nothing for them: naming the holder is the whole of what it knows, since

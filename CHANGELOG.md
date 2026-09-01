@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.222.0]
+
+### Added — the assistant's page is the assistant anchor's
+
+The member holding the cluster's `assistant` capability carries Overview and Conversations, mounted
+against its member id and reached at its own origin with the cluster's credential. Its sign-in doors
+are shut because another member holds the accounts, so it verifies the session this browser already
+carries and there is nothing to sign in to — the bodies are the ones a node's leaf page mounts,
+unchanged, and what differs is which machine answers.
+
+`CAPABILITY_BODIES` in `AnchorPage` is where a capability's own surfaces are declared, beside the
+`ANCHOR_CAPABILITY_TABS` row that puts them on screen. The two are added together, because an entry
+in one without the other is a tab with nothing in it.
+
+The capability's overview renders under the member's Membership card rather than instead of it: what
+this member is and what its capability is doing are different questions, and a page that answered
+only the second would be the leaf page at a new address.
+
+### Fixed — a review row joins to the account, not to a provider
+
+`adaptAssistantReviewUser` documents `userId` as the KGSM account id (`usr_…`), which is what the
+assistant derives it from — the conversation id, whose owner is the account. The instruction not to
+derive a name from it stands; the id it describes is the one a surface would join on.
+
 ## [1.221.1]
 
 ### Fixed — the config page reports what it measured, not whose fault it is

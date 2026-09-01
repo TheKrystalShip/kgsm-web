@@ -35,6 +35,7 @@ export const ROUTE_TABS = {
   // member can actually answer, and the breadcrumb reads this list to name whichever the URL carries.
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
+    { id: "conversations", label: "Conversations", icon: "messages-square" },
     { id: "users",    label: "Users",    icon: "users" },
     { id: "logs",     label: "Logs",     icon: "scroll-text" },
     { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
@@ -116,6 +117,7 @@ const TAB_LABEL_FALLBACK = {
 // A capability gains a tab by gaining a row here, once the member behind it actually serves one.
 const ANCHOR_CAPABILITY_TABS = {
   auth: ["users", "logs", "config"],
+  assistant: ["conversations"],
 };
 const ANCHOR_TABS_ALWAYS = ["overview", "settings"];
 

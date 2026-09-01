@@ -965,9 +965,13 @@ export function adaptAssistantStats(be) {
   };
 }
 
-// One row per person who has talked to this assistant. `displayName` is null for conversations
-// recorded before names were captured — the surface shows the raw id then. NEVER derive a name from
-// an id: the id is a Discord snowflake and any "name" made from it would be fabricated.
+// One row per person who has talked to this assistant. `userId` is the KGSM ACCOUNT id (`usr_…`) —
+// the assistant derives it from the conversation id, whose owner is the account — so it is the id to
+// join a review row to an account with, and a provider's own id would match nothing.
+//
+// `displayName` is null for conversations recorded before names were captured, and the surface shows
+// the raw id then. NEVER derive a name from an id: an account id carries no name, and any "name"
+// made from one would be fabricated.
 export function adaptAssistantReviewUser(be) {
   if (!be || !be.userId) return null;
   return {

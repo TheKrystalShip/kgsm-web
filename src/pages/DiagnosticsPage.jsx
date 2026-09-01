@@ -37,7 +37,7 @@ const ClusterMap = React.lazy(() => import("./diagnostics/ClusterMap.jsx"));
 // Re-export from shared modules so existing consumers don't break.
 export { CapacityMeter, HostCapacityStrip, hostCapacityMeters } from "../components/host-helpers.jsx";
 
-function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onRunAlertAction, onOpenServer, onViewAlerts, onViewAudit, onOpenLeaf, onOpenAnchor }) {
+function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAsk, onRunAlertAction, onOpenServer, onViewAlerts, onViewAudit, onOpenLeaf, onOpenAnchor, onReviewConversation }) {
   useAlerts();
   const hosts = useStore(hostsStore, s => s.list);
   const dataLoading = useStore(hostsStore, s => s.status === "loading" && !s.everLoaded);
@@ -120,7 +120,8 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
         <AnchorPage
           member={{ ...anchorMember.fed, capability: held ? held.capability : null }}
           tab={tab}
-          onSelectTab={setTab} />
+          onSelectTab={setTab}
+          onReviewConversation={onReviewConversation} />
         {modals}
       </>
     );
