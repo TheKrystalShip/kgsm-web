@@ -2935,17 +2935,17 @@ try {
 
   // Leaf config manifest — the typed runtime-override form. A SECRET field's value is NEVER on the wire
   // (write-only): the adapter forces value:null and surfaces `set` + last-4 `fingerprint` instead.
-  const lc = adapt.adaptLeafConfig({ leaf: "assistant", displayName: "Assistant", unit: "kgsm-assistant.service", fields: [
+  const lc = adapt.adaptLeafConfig({ id: "assistant", displayName: "Assistant", unit: "kgsm-assistant.service", fields: [
     { key: "model", envName: "Assistant__Model", label: "Model", type: "string", value: "gemma4:12b", default: "gemma4:12b", overridden: false },
     { key: "tavily", envName: "WebSearch__ApiKey", label: "Tavily key", type: "secret", value: "SHOULD_NOT_LEAK", set: true, fingerprint: "ab12", overridden: true },
   ] });
   const lcf = Object.fromEntries(lc.fields.map(x => [x.key, x]));
-  assert(lc.leaf === "assistant" && lc.fields.length === 2 && lcf.model.value === "gemma4:12b" && lcf.model.overridden === false,
-    "adaptLeafConfig: { leaf, fields } envelope; a non-secret field carries value/default/overridden honestly");
+  assert(lc.id === "assistant" && lc.fields.length === 2 && lcf.model.value === "gemma4:12b" && lcf.model.overridden === false,
+    "adaptLeafConfig: { id, fields } envelope; a non-secret field carries value/default/overridden honestly");
   assert(lcf.tavily.isSecret === true && lcf.tavily.value === null && lcf.tavily.set === true && lcf.tavily.fingerprint === "ab12",
     "adaptLeafConfigField: a secret is WRITE-ONLY — value forced null on the wire; set + fingerprint surfaced instead");
-  const lap = adapt.adaptLeafConfigApply({ outcome: "rolled_back", health: { status: "down", message: "unhealthy" }, message: "reverted", config: { leaf: "assistant", fields: [] } });
-  assert(lap.outcome === "rolled_back" && lap.config && lap.config.leaf === "assistant",
+  const lap = adapt.adaptLeafConfigApply({ outcome: "rolled_back", health: { status: "down", message: "unhealthy" }, message: "reverted", config: { id: "assistant", fields: [] } });
+  assert(lap.outcome === "rolled_back" && lap.config && lap.config.id === "assistant",
     "adaptLeafConfigApply: outcome + nested fresh config (a rolled_back is surfaced honestly, not as a success)");
 
   // The real OPERATOR-gated endpoint, through the REAL adapter (same direct-fetch reasoning as logs — the
