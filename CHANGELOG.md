@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.220.0]
+
+### Changed — a server's connect address comes from the node, not from where the API was reached
+
+`serverJoin` reads the `connectHost` a node declares, and falls back to the origin the SPA reached that
+host's API at only when the node declares none.
+
+The fallback holds whenever the panel and the games sit on one address, and is wrong when they do not:
+it names where the control plane is reached, which is a different question from where the game is. A
+node behind a gateway answers the second question itself, and the address a player copies is the one
+that node says to use.
+
 ## [1.219.0]
 
 ### Changed — a member row is one line, and its controls moved to the member
