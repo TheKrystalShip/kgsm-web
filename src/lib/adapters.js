@@ -651,8 +651,9 @@ export function adaptLeafConfigField(f) {
 export function adaptLeafConfig(be) {
   if (!be) return null;
   return {
-    leaf: be.leaf || null,
-    displayName: be.displayName || be.leaf || null,
+    // The component's own short id, the same one its descriptor declares.
+    id: be.id || null,
+    displayName: be.displayName || be.id || null,
     unit: be.unit || null,
     // Sections, ascending by order. Empty for a leaf whose surface renders flat.
     groups: Array.isArray(be.groups)

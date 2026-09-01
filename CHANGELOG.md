@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.222.1]
+
+### Changed — a component's config surface names its id
+
+`adaptLeafConfig` reads `id`, which is what the API now calls the component's own short id and what
+its descriptor already called the same field.
+
 ## [1.222.0]
 
 ### Added — the assistant's page is the assistant anchor's
