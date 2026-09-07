@@ -16,7 +16,7 @@ globalThis.localStorage = dom.window.localStorage;
 
 localStorage.setItem("krystal:hosts:registry", JSON.stringify([
   { id: "hotrod", url: "https://kgsm.thekrystalship.com", name: "Hotrod", via: "manual" },
-  { id: "hotbox", url: "https://hotbox.thekrystalship.com", name: null, via: "roster" },
+  { id: "node-b", url: "https://node-b.thekrystalship.com", name: null, via: "roster" },
 ]));
 
 const { nodeLabel, isNamedNode } = await import("../src/lib/nodeLabel.js");
@@ -31,8 +31,8 @@ const assert = (c, label, extra = "") => {
 const hosts = [{ id: "hotrod", name: "Hotrod" }];
 
 assert(nodeLabel("hotrod", hosts) === "Hotrod", "a host that reports a name is called that");
-assert(nodeLabel("hotbox", hosts) === "hotbox.thekrystalship.com",
-  "a node with no reported name falls back to its address, not its id", nodeLabel("hotbox", hosts));
+assert(nodeLabel("node-b", hosts) === "node-b.thekrystalship.com",
+  "a node with no reported name falls back to its address, not its id", nodeLabel("node-b", hosts));
 assert(nodeLabel("_cold-boot", hosts) === "this host",
   "the realtime store's placeholder is never printed as a name", nodeLabel("_cold-boot", hosts));
 assert(nodeLabel(null, hosts) === "this host",

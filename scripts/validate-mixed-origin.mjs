@@ -37,21 +37,21 @@ const member = (id, url) => ({
 });
 
 // 1. A healthy member the page cannot address does not become a connection.
-let r = reconcileRosterToRegistry([member("hotbox", "http://192.168.1.129:8080")], { localHostId: "hotrod" });
+let r = reconcileRosterToRegistry([member("node-b", "http://192.168.1.200:8080")], { localHostId: "hotrod" });
 assert(r.added === 0, "a plaintext member is not registered from a secure page", `added=${r.added}`);
 assert(ids() === "hotrod", "so nothing is driven that cannot be reached", ids());
 
 // 2. The same member on an address the page CAN use joins normally — the rule is about the
 //    address, never about the member.
-r = reconcileRosterToRegistry([member("hotbox", "https://hotbox.kgsm.test")], { localHostId: "hotrod" });
-assert(r.added === 1 && ids() === "hotrod,hotbox", "the same member joins on a usable address", ids());
+r = reconcileRosterToRegistry([member("node-b", "https://node-b.kgsm.test")], { localHostId: "hotrod" });
+assert(r.added === 1 && ids() === "hotrod,node-b", "the same member joins on a usable address", ids());
 
 // 3. One stored before the rule existed is dropped on the next reconcile, not left for somebody to
 //    clear by hand — the same treatment an anchor registered by an older build gets.
-config.removeConnections(["hotbox"]);
-config.addConnections([{ id: "hotbox", url: "http://192.168.1.129:8080", name: "hotbox", via: "roster" }]);
-assert(ids() === "hotrod,hotbox", "a stored plaintext member is present to begin with", ids());
-r = reconcileRosterToRegistry([member("hotbox", "http://192.168.1.129:8080")], { localHostId: "hotrod" });
+config.removeConnections(["node-b"]);
+config.addConnections([{ id: "node-b", url: "http://192.168.1.200:8080", name: "node-b", via: "roster" }]);
+assert(ids() === "hotrod,node-b", "a stored plaintext member is present to begin with", ids());
+r = reconcileRosterToRegistry([member("node-b", "http://192.168.1.200:8080")], { localHostId: "hotrod" });
 assert(r.removed === 1, "reconciling drops it", `removed=${r.removed}`);
 assert(ids() === "hotrod", "so the banner it was stuck in clears itself", ids());
 
@@ -60,20 +60,20 @@ assert(ids() === "hotrod", "so the banner it was stuck in clears itself", ids())
 //    the next time the roster is read. Two passes, because the drop and the join are the same
 //    member and removing by id would take the new row with the old — and the roster is re-read on a
 //    timer, so nobody has to reload for it.
-config.removeConnections(["hotbox", "typed"]);
-config.addConnections([{ id: "hotbox", url: "http://192.168.1.129:8080", name: "hotbox", via: "roster" }]);
-const usable = [member("hotbox", "https://hotbox.kgsm.test")];
+config.removeConnections(["node-b", "typed"]);
+config.addConnections([{ id: "node-b", url: "http://192.168.1.200:8080", name: "node-b", via: "roster" }]);
+const usable = [member("node-b", "https://node-b.kgsm.test")];
 r = reconcileRosterToRegistry(usable, { localHostId: "hotrod" });
 assert(r.removed === 1 && ids() === "hotrod", "the stale address goes on the first pass", ids());
 r = reconcileRosterToRegistry(usable, { localHostId: "hotrod" });
-assert(r.added === 1 && ids() === "hotrod,hotbox", "and the member returns on the usable one", ids());
-assert(config.CONNECTIONS.filter((c) => c.id === "hotbox").length === 1,
+assert(r.added === 1 && ids() === "hotrod,node-b", "and the member returns on the usable one", ids());
+assert(config.CONNECTIONS.filter((c) => c.id === "node-b").length === 1,
   "exactly once — a heal that leaves both is a fan-out over one node twice");
 
 // 5. An address a PERSON typed is theirs. The cluster taught us the ones above; it has said nothing
 //    about this one, and a rule about roster addresses is not licence to remove somebody's own.
 config.addConnections([{ id: "typed", url: "http://192.168.1.50:8080", name: "Typed by hand" }]);
-r = reconcileRosterToRegistry([member("hotbox", "https://hotbox.kgsm.test")], { localHostId: "hotrod" });
+r = reconcileRosterToRegistry([member("node-b", "https://node-b.kgsm.test")], { localHostId: "hotrod" });
 assert(config.CONNECTIONS.some((c) => c.id === "typed"), "an address a person typed is left alone", ids());
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");

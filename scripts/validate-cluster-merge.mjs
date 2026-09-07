@@ -53,7 +53,7 @@ check(matchFederationNode({ name: "hotrod", hostname: "hotrod" }, [member("hotro
 const hosts = [host("hotrod")];
 const roster = [
   member("hotrod-auth", { kind: "anchor" }),
-  member("hotbox"),
+  member("node-b"),
   member("stale-node", { membership: "dead", status: "unreachable" }),
   member("old-node", { membership: "left", status: "unreachable" }),
 ];
@@ -79,7 +79,7 @@ check(nodes.length === 3 && !nodes.some(n => n.fed && n.fed.kind === "anchor"),
 
 // 6. A member the roster carries with the same id as a connected host enriches it rather than
 //    being listed twice — the whole reason the join exists.
-const joined = buildClusterNodes([host("hotbox")], [member("hotbox")], {}, "hotrod");
+const joined = buildClusterNodes([host("node-b")], [member("node-b")], {}, "hotrod");
 check(joined.length === 1 && !joined[0].ghost && joined[0].fed?.membership === "alive",
   "a matched member enriches its host instead of doubling it", `${joined.length} entries`);
 

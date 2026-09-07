@@ -21,7 +21,7 @@ const ANCHOR = "https://auth.kgsm.test";
 localStorage.setItem("krystal:anchor", JSON.stringify({ origin: ANCHOR, kind: "anchor" }));
 localStorage.setItem("krystal:hosts:registry", JSON.stringify([
   { id: "hotrod", url: "https://kgsm.test", name: "hotrod" },
-  { id: "hotbox", url: "https://hotbox.test", name: "hotbox" },
+  { id: "node-b", url: "https://node-b.test", name: "node-b" },
 ]));
 
 const calls = [];
@@ -94,17 +94,17 @@ check(sessionStore.tierOf() === "operator", "the tier the anchor answered with i
 // 5. A member refusing is a fact about THAT MEMBER and leaves the session alone. This is the one
 //    that does not follow from a per-node model: a member verifies the signature offline but can
 //    only say what somebody may do once its replica carries their account.
-sessionStore.markNode("hotbox", "refusing", "unknown_here");
+sessionStore.markNode("node-b", "refusing", "unknown_here");
 check(sessionStore.isLive(), "a member refusing does not end the session");
-check(sessionStore.nodeAccepts("hotrod") && !sessionStore.nodeAccepts("hotbox"),
+check(sessionStore.nodeAccepts("hotrod") && !sessionStore.nodeAccepts("node-b"),
   "it is recorded against that member and no other");
-check(sessionStore.nodeRefusal("hotbox").reason === "unknown_here",
+check(sessionStore.nodeRefusal("node-b").reason === "unknown_here",
   "carrying WHICH refusal, since the two resolve differently");
 
 // 6. A renewed session is re-offered to every member that was refusing it — none of those refusals
 //    were about the session, so none of them survive a new one.
 await sessionStore.rotate();
-check(sessionStore.nodeAccepts("hotbox"), "renewing clears every member's refusal");
+check(sessionStore.nodeAccepts("node-b"), "renewing clears every member's refusal");
 
 // 7. An anchor that cannot be reached is an OUTAGE, not a session that ended. Different states,
 //    because one is waited out and the other is signed in again.
