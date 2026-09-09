@@ -26,6 +26,7 @@ localStorage.setItem("krystal:hosts:registry", JSON.stringify([
 
 const calls = [];
 let refuseRefresh = false;
+let refuseMembers = false;
 let anchorDown = false;
 
 globalThis.fetch = async (url, opts) => {
@@ -46,6 +47,20 @@ globalThis.fetch = async (url, opts) => {
       return json({ token: "access.1", refresh: "refresh.1", tier: "admin", userId: "usr_1", status: "active" });
     }
     if (u.endsWith("/auth/session/sign-out")) return json({});
+    if (u.endsWith("/auth/cluster/members")) {
+      // Who is in a cluster is not something an unauthenticated caller learns, so this door refuses
+      // a bearer it does not know exactly the way the anchor does — with one answer for a lapsed
+      // token, a forged one and a revoked session alike.
+      const headers = (opts && opts.headers) || {};
+      const bearer = headers.Authorization || headers.authorization || "";
+      if (refuseMembers || bearer !== "Bearer access.2")
+        return json({ error: { code: "unauthenticated", message: "Sign in to continue." } }, 401);
+      return json({
+        cluster: "kgsm-cluster",
+        members: [{ memberId: "hotrod", kind: "node", url: "https://kgsm.test",
+                    status: "reachable", membership: "alive" }],
+      });
+    }
   }
   return json({});
 };
@@ -133,6 +148,37 @@ const outs = calls.slice(beforeOut).filter(c => c.u.endsWith("/auth/session/sign
 check(outs.length === 1 && outs[0].u.startsWith(ANCHOR), "signing out reaches the anchor");
 check(sessionStore.statusOf() === "none" && localStorage.getItem("krystal:refresh") === null,
   "and nothing is left behind locally");
+
+// 10. A reload restores a session whose bearer has already lapsed. It reads as live — the status is
+//     what was persisted, and nothing predicts expiry — and the roster is the ONLY authenticated
+//     call a clustered panel makes, so there is no other refusal to heal from. It renews itself
+//     before asking, or the panel spends a dead bearer with nothing left to spend a live one.
+const { fleetStore, refreshFleetFromAnchor } = await import("../src/lib/fleet.js");
+const lapsedBearer = "h." + Buffer.from(JSON.stringify({ exp: Math.floor((Date.now() - 60000) / 1000) })).toString("base64url") + ".s";
+
+sessionStore.adoptSession({ token: lapsedBearer, refresh: "refresh.9", tier: "admin", account: "active" });
+check(sessionStore.isLive(), "a restored session reads as live, lapsed bearer and all");
+
+let mark = calls.length;
+const fleet = await refreshFleetFromAnchor();
+let spent = calls.slice(mark).filter(c => c.u.endsWith("/auth/session/refresh"));
+check(spent.length === 1 && spent[0].u.startsWith(ANCHOR), "so it is renewed at the anchor before the roster is asked", String(spent.length));
+check(fleet.ok && fleetStore.getState().state === "ready", "and the cluster answers", fleetStore.getState().state);
+check(sessionStore.tokenOf() === "access.2", "on the bearer the renewal minted", String(sessionStore.tokenOf()));
+
+// 11. A refusal the bearer's own expiry did not predict — a session revoked elsewhere, a key the
+//     anchor has rotated — is renewed once and asked again. ONCE: a second refusal is the anchor
+//     describing the session rather than the bearer, and asking a third time is a loop.
+refuseMembers = true;
+mark = calls.length;
+await refreshFleetFromAnchor();
+const asked = calls.slice(mark).filter(c => c.u.endsWith("/auth/cluster/members"));
+spent = calls.slice(mark).filter(c => c.u.endsWith("/auth/session/refresh"));
+check(asked.length === 2, "a refused roster is asked exactly twice", String(asked.length));
+check(spent.length === 1, "with exactly one renewal between", String(spent.length));
+check(fleetStore.getState().state === "ready", "and a roster already landed is not thrown away over it",
+  fleetStore.getState().state);
+refuseMembers = false;
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

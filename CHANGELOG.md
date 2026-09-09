@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.222.2]
+
+### Fixed — the roster call renews a bearer that has already lapsed
+
+The anchor's roster is the only authenticated call a clustered panel makes: it keeps no node list
+between loads, so until the anchor answers there is nothing else to call. Nothing else is refused,
+so the reactive renewal that heals every other seam has nothing to fire on, and a session restored
+from a reload reads as live whatever its bearer's `exp` says.
+
+`refreshFleetFromAnchor` renews expiry-aware, ahead of asking, the way the two non-replayable calls
+already do. A refusal expiry could not predict — a session revoked elsewhere, a key the anchor has
+rotated — renews once and asks again; a second refusal is the anchor describing the session rather
+than the bearer, and stands.
+
+`npm run check:session` covers both, and that a roster already in hand is not thrown away over a
+later failure.
+
 ## [1.222.1]
 
 ### Changed — a component's config surface names its id
