@@ -2,7 +2,7 @@ import React from "react";
 import { establishClusterSession } from "../lib/authRedirect.js";
 import { writeStoredUser } from "../lib/authStorage.js";
 import {
-  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress,
+  adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, pendingCredential,
   lastMemberOrigin, readPendingSession, rememberMember, stashPendingSession,
 } from "../lib/authFlow.js";
 import { CONNECTIONS, homeConn } from "../lib/config.js";
@@ -170,7 +170,11 @@ function AuthGate({ user, onUser }) {
   const recheck = React.useCallback(async () => {
     const held = pending || readPendingSession();
     if (!held || !pendingOrigin) { onUser(); return; }
-    const me = await fetchMe(pendingOrigin, held.token);
+    const me = await fetchMe(pendingOrigin, pendingCredential());
+    // Re-read: the poll authorizes itself, so a bearer that lapsed while somebody waited has been
+    // renewed and the pair stashed above is dead. Adopting a spent refresh token would mint a
+    // session whose first renewal reads as a replay, which ends it.
+    const current = readPendingSession() || held;
     if (!me.ok) {
       // A token that no longer authenticates is not a pending account — it is a session that ended.
       if (me.status === 401) {
@@ -184,15 +188,15 @@ function AuthGate({ user, onUser }) {
     }
     if ((me.tier || "none") !== "none") {
       clearPendingSession();
-      try { await establishClusterSession({ access: held.token, refresh: held.refresh, tier: me.tier, status: me.status }); }
+      try { await establishClusterSession({ access: current.token, refresh: current.refresh, tier: me.tier, status: me.status }); }
       catch { /* approved; the data layer heals what did not load */ }
       setPending(null);
       onUser();
       return;
     }
     // `pending` and `unknown` are different sentences and an account can move between them.
-    if (me.status !== held.status) {
-      const next = { ...held, status: me.status };
+    if (me.status !== current.status) {
+      const next = { ...current, status: me.status };
       stashPendingSession(next);
       setPending(next);
     }

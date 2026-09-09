@@ -452,4 +452,18 @@ import { hostsStore } from "./stores.js";
     unsubscribeMe = null;
   };
 
-export { TIER_LABEL, sessionStore };
+// ---- the cluster session, as something a call can be authorized BY ---------
+// The pair `authorizedFetch` spends. It is exported instead of the token because a token cannot be
+// replaced by whoever holds it: a function handed one can only spend it and report the refusal,
+// which is how a call comes to be made with a bearer that died while a tab sat idle. Handed this,
+// the same function renews and asks again without knowing anything about sessions.
+//
+// `rotate` collapses onto the one in-flight renewal, which is what lets a fan-out of refused calls
+// share a single spend of the refresh token — spending it twice is a replay, and the anchor refuses
+// a replay for the same reason it refuses a stolen one.
+const clusterCredential = {
+  get: () => sessionStore.tokenOf(),
+  rotate: async () => ((await sessionStore.rotate()) === "live" ? sessionStore.tokenOf() : null),
+};
+
+export { TIER_LABEL, clusterCredential, sessionStore };

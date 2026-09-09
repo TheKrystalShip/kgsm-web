@@ -21,7 +21,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { SettingsSection } from "../../components/settings-primitives.jsx";
 import { applyConfig, readConfig } from "../../lib/anchor.js";
-import { sessionStore } from "../../lib/sessionStore.js";
+import { clusterCredential, sessionStore } from "../../lib/sessionStore.js";
 import { LeafConfigRow } from "../leafConfig/LeafConfigRow.jsx";
 import { buildPayload, currentOf, dirtyFields, groupFields } from "../leafConfig/leafConfigHelpers.js";
 
@@ -37,10 +37,9 @@ function AnchorConfiguration({ anchor }) {
   const [copyState, setCopyState] = React.useState(null);
 
   const load = React.useCallback(() => {
-    const token = sessionStore.tokenOf();
-    if (!anchor || !token) { setState("error"); setError("This browser holds no session for the anchor."); return; }
+    if (!anchor || !sessionStore.isLive()) { setState("error"); setError("This browser holds no session for the anchor."); return; }
     setError(null);
-    return readConfig(anchor, token).then(
+    return readConfig(anchor, clusterCredential).then(
       (c) => { setConfig(c); setState("ready"); },
       (e) => {
         // 404 is the ordinary answer for an anchor that has shipped no descriptor, and it is a
@@ -72,8 +71,7 @@ function AnchorConfiguration({ anchor }) {
   const apply = () => {
     setBusy(true);
     setError(null);
-    const token = sessionStore.tokenOf();
-    applyConfig(anchor, token, buildPayload(fields, drafts, resets)).then(
+    applyConfig(anchor, clusterCredential, buildPayload(fields, drafts, resets)).then(
       (res) => {
         setBusy(false);
         setConfirming(false);

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.223.0]
+
+### Added — one seam a bearer is attached at, and two rules that keep it the only one
+
+`lib/authorizedFetch.js` authorizes a call by a CREDENTIAL — `{ get, rotate }` — and never by a
+token. That signature is the design: a function handed a token can only spend it and report the
+refusal, so a call made with a bearer that died while a tab sat idle had nowhere to go. Handed a
+credential, the same call renews and asks again knowing nothing about sessions.
+
+Three modes, chosen by what the REQUEST costs rather than by how the token looks. `json` may be sent
+twice, so a 401 renews once and replays it — a refused request was refused before it was handled, so
+the replay is the first time it happens. `once` may not, and reports the refusal as it stands.
+`stream` resolves the bearer at each dial and re-dials once through a renewal. A bearer whose own
+`exp` has passed renews ahead of every mode, which spends no request; a refusal is still the
+authority, because a token can be refused for reasons its `exp` knows nothing about. The answer is
+`{ ok, status, body }` and nothing throws, so an unreachable host and a session that has ended stay
+different sentences.
+
+`sessionStore` exports `clusterCredential`. `anchor.js`'s authenticated calls — the roster, the
+anchor's configuration, its journal and the live tail of it — take one, which is also what keeps that
+module underneath the session layer while leaving every call able to renew itself.
+
+The ESLint gate carries the two absences that make a second implementation unwritable: outside the
+modules that own a credential, nothing may attach an `Authorization` header and nothing may read a
+bearer through `tokenOf`. Both are errors. `npm run check:egress` covers every mode of the seam.
+
+### Fixed — waiting for approval outlasts an access bearer
+
+The gate polls a member while an account waits for an administrator, and that wait routinely runs
+past fifteen minutes. The poll authorizes itself now, and a renewal there is written back to the
+stash the gate adopts from — adopting a spent refresh token mints a session whose first renewal reads
+as a replay, which ends it.
+
 ## [1.222.2]
 
 ### Fixed — the roster call renews a bearer that has already lapsed

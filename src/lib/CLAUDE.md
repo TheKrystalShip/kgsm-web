@@ -17,6 +17,19 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 ## File map
 
 **Backend seam & realtime**
+- `authorizedFetch.js` — the **one place a bearer is attached to a request**, and the reason no other
+  module has to remember to renew one. `authorized(cred)` takes a CREDENTIAL — `{ get, rotate }` —
+  never a token, and that signature is the whole design: a function handed a token can only spend it
+  and report the refusal, which is how a call comes to be made with a bearer that died while a tab
+  sat idle. Three modes, and the choice is about the REQUEST rather than the token: `json` may be
+  sent twice, so a 401 renews once and replays it; `once` may not, so the refusal stands; `stream`
+  resolves the bearer at each dial and re-dials once through a renewal. A lapsed `exp` renews ahead
+  of every mode — that spends no request — and a refusal is still the authority, since a token can be
+  refused for reasons its own `exp` knows nothing about. Answers `{ ok, status, body }` and throws
+  nothing, so an unreachable host (`status: 0`) and a session that has ended (`unauthenticated`) stay
+  different sentences. **Imports nothing but `sse.js`**, which is what lets the standalone assistant
+  use it. `npm run check:egress` covers every mode; the ESLint egress rules are what stop a second
+  implementation appearing beside it.
 - `apiClient.js` — the **single** kgsm-api seam. `api.get/post/patch`, per-host
   `api.host(id)` (401-retry / silent renew), `api.fanOut` (multi-host roll-up),
   `api.stream` (subscribe). Owns `connectionStore`
@@ -167,8 +180,11 @@ re-exports `stores/` — import from either.
   sign-out, **the anchor's own configuration surface and journal** (`readConfig`/`applyConfig`/`readLogs`/`followLogs` —
   a leaf's settings and its log come from the node that runs it, and an anchor has none above it; the
   follow is `fetch`-read SSE because `EventSource` sends no `Authorization` header), and THE DOOR — the one stored fact about where this browser signs in, carrying its
-  `kind`. It does not go through `apiClient`: every call is anonymous or carries a token passed
-  explicitly, which is the opposite of what that seam is for.
+  `kind`. It does not go through `apiClient`, whose seam addresses nodes: every call here is either
+  anonymous or authorized by a **credential the caller passes in**. The credential rather than a
+  token is what keeps this module underneath the session layer — importing `sessionStore` from here
+  would close a cycle — while still leaving every call able to renew itself. `clusterCredential`
+  (exported by `sessionStore.js`) is the one every panel caller hands it.
 - **Two entry paths, and nothing is discovered through a node.** An auth anchor holds a cluster's
   accounts; a standalone node holds its own. Both mint and renew their own sessions and neither is
   above the other. A node that belongs to a cluster is not an entry path at all — it serves no auth
@@ -181,7 +197,8 @@ re-exports `stores/` — import from either.
   "nobody has been asked", which are the same empty set and opposite answers. A member's own roster
   is read for health and capabilities and never to decide who is driven. A standalone deployment
   keeps its one node in storage and never runs any of this.
-- `sessionStore.js` — **ONE session.** Whichever door minted it renews it, and only that door:
+- `sessionStore.js` — **ONE session**, and `clusterCredential`, which is that session as something a
+  call can be authorized BY. Whichever door minted it renews it, and only that door:
   `doorOrigin()` is what renewal reads, `anchorOrigin()` is the narrower question of whether that
   door is an anchor, and the account surfaces key off the second. In a cluster the anchor mints, and
   every member accepts by verifying the anchor's signature against the published key and resolves

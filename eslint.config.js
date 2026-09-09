@@ -45,9 +45,53 @@ export default [
       // Helps the vestigial-guard sweep (#6) by flagging dead imports.
       "no-unused-vars": ["warn", { args: "none", ignoreRestSiblings: true, varsIgnorePattern: "^_" }],
 
+      // ---- the egress rules: a call cannot authorize itself ----------------
+      // Two absences, and together they are the whole of it. To make an authenticated request a
+      // module has to attach a bearer AND get hold of one; both are refused here, so the only way
+      // to reach a KGSM surface with a session is through a module that renews and retries.
+      //
+      // This is a lint rule because the failure it prevents is silent: a hand-rolled call with a
+      // bearer works perfectly for as long as something ELSE keeps the token fresh, and fails only
+      // where nothing does — a first load, an idle tab, a screen nobody visits often. Nothing about
+      // it looks wrong in review, and no test that runs against a warm session can see it.
+      //
+      // Every file on the allowlist below is there because it OWNS a credential. Adding another is
+      // the decision this rule exists to make deliberate; the answer is nearly always to take a
+      // credential instead — `{ get, rotate }`, never a token.
+      "no-restricted-syntax": ["error",
+        {
+          selector: "Property[key.name='Authorization'], Property[key.value='Authorization']",
+          message: "Don't attach a bearer here. Authorize the call through authorizedFetch.js, which takes a CREDENTIAL and renews it — a token attached by hand cannot be renewed when it lapses.",
+        },
+        {
+          selector: "MemberExpression[property.name='Authorization'], MemberExpression[property.value='Authorization']",
+          message: "Don't attach a bearer here. Authorize the call through authorizedFetch.js, which takes a CREDENTIAL and renews it — a token attached by hand cannot be renewed when it lapses.",
+        },
+        {
+          selector: "MemberExpression[property.name='tokenOf']",
+          message: "Don't read a raw bearer. Pass the credential (clusterCredential, or the leaf's) to authorizedFetch.js — a function handed a token can only spend it and report the refusal.",
+        },
+      ],
+
       // Intentional patterns in this codebase — don't fight them:
       "no-empty": ["warn", { allowEmptyCatch: true }],   // `catch (e) {}` around storage access is deliberate
     },
+  },
+
+  // The modules that OWN a credential, and the only ones that may attach a bearer or read one.
+  // `authorizedFetch` is the seam every other module reaches a KGSM surface through; the session
+  // stores hold the pairs it spends; `apiClient`, `assistantClient` and `liveStream` are the three
+  // funnels that renew and replay for their own transport. Everything else in `src/` is a caller.
+  {
+    files: [
+      "src/lib/authorizedFetch.js",
+      "src/lib/sessionStore.js",
+      "src/lib/assistantSession.js",
+      "src/lib/apiClient.js",
+      "src/lib/assistantClient.js",
+      "src/lib/liveStream.js",
+    ],
+    rules: { "no-restricted-syntax": "off" },
   },
 
   // Node-side scripts / config run in Node, not the browser.

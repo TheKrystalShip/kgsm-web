@@ -62,6 +62,18 @@ globalThis.fetch = async (url, opts) => {
       });
     }
   }
+  // A MEMBER, and one with auth switched on. Every node here refuses an unauthenticated caller,
+  // which is the deployment this file is about: a cluster with an anchor holding its accounts.
+  //
+  // Load-bearing, and not obvious. `alertsApi` reads the fleet's alerts when it is imported, and
+  // that read runs through the egress funnel before anything below has signed in — so a node
+  // answering `/me` 200 tells the session layer this is an auth-DISABLED deployment, and it adopts
+  // an `open` session. An open session has nothing to rotate, so every renewal below then returns
+  // "live" without asking the anchor anything, and the checks pass or fail on the timing of an
+  // import rather than on what they are about.
+  if (u.endsWith("/api/v1/me")) {
+    return json({ error: { code: "unauthenticated", message: "Sign in to continue." } }, 401);
+  }
   return json({});
 };
 const json = (body, status = 200) =>

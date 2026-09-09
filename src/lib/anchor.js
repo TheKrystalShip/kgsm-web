@@ -10,7 +10,7 @@
 // which is the opposite of what an anchor call is. The one import is the SSE reader, which is a leaf
 // util importing nothing itself, so the graph stays acyclic.
 
-import { readSseStream } from "./sse.js";
+import { authorized } from "./authorizedFetch.js";
 
 const ANCHOR_KEY = "krystal:anchor";   // localStorage: where this browser last signed in
 
@@ -241,8 +241,8 @@ export const signOut = (door, refresh, opts) =>
   post(doorOf(door).origin, doorOf(door).paths.signOut, { refresh }, opts);
 
 // The cluster's members, as the anchor knows them — nodes and other anchors, each with `kind`.
-// Authenticated, so it is asked with the session the anchor just minted rather than anonymously: who
-// is in a cluster is not something an unauthenticated caller learns.
+// Authenticated, so it is asked with the session the anchor minted rather than anonymously: who is
+// in a cluster is not something an unauthenticated caller learns.
 //
 // This is where the panel's fleet comes from. A clustered node announces nothing about its cluster,
 // so there is no second source to reconcile against and none to disagree with. Every address in the
@@ -250,34 +250,31 @@ export const signOut = (door, refresh, opts) =>
 // falling back to the address its peers use, which would turn "not reachable from here" into
 // "reachable, and permanently down".
 //
-// The token is passed explicitly, like every other call in this module: none of this goes through
-// apiClient, whose seam exists to address nodes.
-export async function clusterMembers(anchorUrl, token, { fetchImpl = fetch, signal } = {}) {
+// It is also the FIRST call a clustered panel makes and, until it answers, the only one: the panel
+// keeps no node list between loads, so there is no other request whose refusal could renew a lapsed
+// bearer on its behalf. That is precisely why it takes a CREDENTIAL and not a token — see
+// `authorizedFetch.js`. Nothing in this module goes through apiClient, whose seam addresses nodes.
+export async function clusterMembers(anchorUrl, cred, { fetchImpl = fetch, signal } = {}) {
   const base = originOf(anchorUrl);
   if (!base) return { ok: false, members: [] };
-  try {
-    const res = await fetchImpl(base + "/auth/cluster/members", {
-      headers: token ? { Accept: "application/json", Authorization: "Bearer " + token } : { Accept: "application/json" },
-      signal,
-    });
-    if (!res.ok) return { ok: false, status: res.status, members: [] };
-    const body = await res.json();
-    const rows = Array.isArray(body && body.members) ? body.members : [];
-    return {
-      ok: true,
-      cluster: (body && body.cluster) || "",
-      members: rows.map((m) => ({
-        memberId: m.memberId || "",
-        kind: m.kind || "node",
-        url: originOf(m.url) || "",
-        nickname: m.nickname || null,
-        status: m.status || "unknown",
-        membership: m.membership || "unknown",
-      })).filter((m) => m.memberId && m.url),
-    };
-  } catch {
-    return { ok: false, members: [] };
-  }
+
+  const res = await authorized(cred, { fetchImpl })
+    .json(base + "/auth/cluster/members", { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) return { ok: false, status: res.status, members: [] };
+
+  const rows = Array.isArray(res.body && res.body.members) ? res.body.members : [];
+  return {
+    ok: true,
+    cluster: (res.body && res.body.cluster) || "",
+    members: rows.map((m) => ({
+      memberId: m.memberId || "",
+      kind: m.kind || "node",
+      url: originOf(m.url) || "",
+      nickname: m.nickname || null,
+      status: m.status || "unknown",
+      membership: m.membership || "unknown",
+    })).filter((m) => m.memberId && m.url),
+  };
 }
 
 // Whether the cluster's own authority names the fleet. When it does, the panel keeps NO list of
@@ -299,81 +296,62 @@ function anchorNamesTheFleet() {
 //
 // The shape is kgsm-api's leaf config, key for key, so the panel renders both through one set of
 // components. What differs is who answers.
-async function readConfig(anchorUrl, token, { fetchImpl = fetch, signal } = {}) {
-  const res = await fetchImpl(originOf(anchorUrl) + "/auth/config", {
-    headers: { Accept: "application/json", Authorization: "Bearer " + token },
-    signal,
-  });
-  if (!res.ok) {
-    const err = new Error("config_unavailable");
-    err.status = res.status;
-    throw err;
-  }
-  return res.json();
-}
-
-// This anchor's own journal. A node's is read by the API on that node; an anchor has no node above
-// it, so it reads its own and serves it in the same shape every KGSM log surface renders.
-async function readLogs(anchorUrl, token, { lines = 300, fetchImpl = fetch, signal } = {}) {
-  const res = await fetchImpl(originOf(anchorUrl) + "/auth/logs?lines=" + encodeURIComponent(lines), {
-    headers: { Accept: "application/json", Authorization: "Bearer " + token },
-    signal,
-  });
-  if (!res.ok) {
-    const err = new Error("logs_unavailable");
-    err.status = res.status;
-    throw err;
-  }
-  const payload = await res.json();
-  return (payload && payload.data) || [];
-}
-
-// The live tail of that journal. `fetch` rather than EventSource for the ordinary reason: EventSource
-// sends no Authorization header, and a daemon holding the cluster's accounts does not take its token
-// in a query string. Returns a stop function; calling it ends the follow, and the anchor stops its
-// own journalctl once the last watcher has left.
-//
-// Follow-only — the read above is the scrollback, and this carries lines from the next one on.
-function followLogs(anchorUrl, token, onLine, { fetchImpl = fetch } = {}) {
-  const control = new AbortController();
-  const run = async () => {
-    const res = await fetchImpl(originOf(anchorUrl) + "/auth/logs/stream", {
-      headers: { Accept: "text/event-stream", Authorization: "Bearer " + token },
-      signal: control.signal,
-    });
-    if (!res.ok) {
-      const err = new Error("stream_unavailable");
-      err.status = res.status;
-      throw err;
-    }
-    await readSseStream(res, (line) => { if (line) onLine(line); }, control.signal);
-  };
-  return { stopped: run(), stop: () => control.abort() };
+async function readConfig(anchorUrl, cred, { fetchImpl = fetch, signal } = {}) {
+  const res = await authorized(cred, { fetchImpl })
+    .json(originOf(anchorUrl) + "/auth/config", { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) throw refusal("config_unavailable", res);
+  return res.body;
 }
 
 // Apply a change. The anchor restarts itself to pick one up, and answers before it goes — so
 // `restarting` is part of the answer rather than something to infer from the connection closing.
-async function applyConfig(anchorUrl, token, body, { fetchImpl = fetch, signal } = {}) {
-  const res = await fetchImpl(originOf(anchorUrl) + "/auth/config", {
+//
+// Replayable, like every read here: a refused request was refused before it was handled, so a
+// renewal and a second send is the first time the change is applied rather than a second time.
+async function applyConfig(anchorUrl, cred, body, { fetchImpl = fetch, signal } = {}) {
+  const res = await authorized(cred, { fetchImpl }).json(originOf(anchorUrl) + "/auth/config", {
     method: "PUT",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + token,
-    },
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
-  const payload = await res.json().catch(() => null);
-  if (!res.ok) {
-    const err = new Error("apply_failed");
-    err.status = res.status;
-    // The anchor's own words, which name the key and the rule it broke. Nothing here keeps a second
-    // copy of those rules to stand beside them.
-    err.userMessage = (payload && payload.error && payload.error.message) || null;
-    throw err;
-  }
-  return payload;
+  if (!res.ok) throw refusal("apply_failed", res);
+  return res.body;
+}
+
+// This anchor's own journal. A node's is read by the API on that node; an anchor has no node above
+// it, so it reads its own and serves it in the same shape every KGSM log surface renders.
+async function readLogs(anchorUrl, cred, { lines = 300, fetchImpl = fetch, signal } = {}) {
+  const url = originOf(anchorUrl) + "/auth/logs?lines=" + encodeURIComponent(lines);
+  const res = await authorized(cred, { fetchImpl })
+    .json(url, { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) throw refusal("logs_unavailable", res);
+  return (res.body && res.body.data) || [];
+}
+
+// The live tail of that journal. Returns a stop function; calling it ends the follow, and the anchor
+// stops its own journalctl once the last watcher has left.
+//
+// Follow-only — the read above is the scrollback, and this carries lines from the next one on.
+function followLogs(anchorUrl, cred, onLine, { fetchImpl = fetch } = {}) {
+  const follow = authorized(cred, { fetchImpl })
+    .stream(originOf(anchorUrl) + "/auth/logs/stream", {
+      onEvent: (line) => { if (line) onLine(line); },
+    });
+  return {
+    stopped: follow.stopped.then((res) => { if (!res.ok) throw refusal("stream_unavailable", res); }),
+    stop: follow.stop,
+  };
+}
+
+// One shape for every refusal here: the code a caller keys on, the status it renders, and the
+// anchor's OWN words where it gave any. Nothing in this module keeps a second copy of the rules the
+// anchor applied to stand beside what it said.
+function refusal(code, res) {
+  const err = new Error(code);
+  err.status = res.status;
+  err.userMessage = (res.body && res.body.error && res.body.error.message) || null;
+  return err;
 }
 
 export { ANCHOR_KEY, readConfig, applyConfig, readLogs, followLogs, anchorNamesTheFleet, configuredAnchor, originOf, rememberDoor, rememberedDoor };

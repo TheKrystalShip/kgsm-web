@@ -1,9 +1,9 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.222.2",
+  "version": "1.223.0",
   "type": "module",
-  "description": "Krystal Control Panel \u2014 production React app (migrated from the no-build UI-kit prototype).",
+  "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -21,6 +21,7 @@
     "check:labels": "node scripts/validate-node-labels.mjs",
     "check:session": "node scripts/validate-cluster-session.mjs",
     "check:door": "node scripts/validate-account-door.mjs",
+    "check:egress": "node scripts/validate-authorized-fetch.mjs",
     "check:origin": "node scripts/validate-mixed-origin.mjs",
     "check:reset": "node scripts/validate-local-reset.mjs",
     "check:entry": "node scripts/validate-entry-paths.mjs",

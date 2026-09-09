@@ -1,7 +1,7 @@
 import { adaptLocation } from "./adapters.js";
 import { clusterMembers } from "./anchor.js";
 import { reconcileRosterToRegistry } from "./connect.js";
-import { sessionStore } from "./sessionStore.js";
+import { clusterCredential, sessionStore } from "./sessionStore.js";
 import { createStore } from "./store.js";
 
 // Whether the cluster has told us who is in it yet. The shell needs this to tell "you have no
@@ -47,10 +47,10 @@ async function refreshFleetFromAnchor() {
   // answers there is no node to call and nothing else in the app makes a request. Waiting for
   // somebody else's call to authorize would be waiting for a call nobody makes.
   //
-  // EXPIRY-AWARE, like the two calls that cannot be replayed, and for the mirror-image reason: the
-  // reactive path elsewhere heals a lapsed token because something else is refused first, and here
-  // nothing else is ever called. A restored session whose bearer has lapsed reads as live, so the
-  // reactive rule alone would spend it, be refused, and leave no node to ever be refused again.
+  // Establishing a SESSION and keeping a BEARER fresh are two jobs, and this is the first: whether
+  // this browser holds anything to ask with at all, which is what separates "nobody has been asked"
+  // from the door. The bearer is the credential's own business — `clusterMembers` takes one rather
+  // than a token, so a lapsed bearer renews inside the call and a refusal renews and asks again.
   await sessionStore.authorizeFresh();
   if (!sessionStore.isLive()) {
     // Not an empty cluster and not a stale roster: this browser could not ask. The session layer has
@@ -58,18 +58,7 @@ async function refreshFleetFromAnchor() {
     if (fleetStore.getState().state !== "ready") fleetStore.setState({ state: "unreachable" });
     return { ok: false, reason: "no_session", added: 0, removed: 0 };
   }
-  let roster = await clusterMembers(url, sessionStore.tokenOf());
-
-  // A refused roster is renewed once and asked again. The expiry check above covers a bearer that
-  // says it has lapsed; this covers the refusals it cannot predict — a session revoked elsewhere, a
-  // key the anchor has rotated — and it is the backstop that keeps this call from being the one
-  // authenticated call in the panel that a 401 is terminal for. Replay is free: it is a GET, and
-  // rotate() collapses concurrent callers onto one spend of the refresh token.
-  //
-  // Once only. A second refusal after a renewal is the anchor describing the session rather than the
-  // bearer, and retrying it again is a loop that ends where the first one did.
-  if (!roster.ok && roster.status === 401 && await sessionStore.reauthorize() === "live")
-    roster = await clusterMembers(url, sessionStore.tokenOf());
+  const roster = await clusterMembers(url, clusterCredential);
 
   // An anchor that could not be asked is not an empty cluster. Reconciling against nothing would
   // drop every node the panel is driving and leave somebody looking at a fleet that appears to have

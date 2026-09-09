@@ -10,6 +10,7 @@
 // by verifying its signature — so the return leg adopts the session first and only then asks a
 // member anything, rather than resolving a node in order to know what the tokens are worth.
 
+import { authorized } from "./authorizedFetch.js";
 import { homeConn, reconcileConnectionId } from "./config.js";
 // The fragment parser is its own module (both surfaces boot with it, and the standalone assistant
 // must not import the node connection model). Re-exported so the panel keeps one import site.
@@ -77,7 +78,7 @@ export async function completeOAuthLogin(captured) {
 // which member the panel is talking to, and the data behind the first paint — and a member being
 // slow or unreachable leaves somebody signed in with an empty panel, never half signed in.
 export async function establishClusterSession(captured) {
-  const { sessionStore } = await import("./sessionStore.js");
+  const { clusterCredential, sessionStore } = await import("./sessionStore.js");
   sessionStore.adoptSession({
     token: captured.access,
     refresh: captured.refresh || null,
@@ -96,12 +97,15 @@ export async function establishClusterSession(captured) {
   const conn = homeConn();
   if (!conn) return;
   const apiV1 = conn.url + "/api/v1";
-  const authHeaders = { Authorization: "Bearer " + captured.access, Accept: "application/json" };
-
+  // Authorized by the session just adopted rather than by the token that arrived in the fragment.
+  // They are the same string this instant and stop being one the moment anything renews, and a
+  // hydrate is not worth a second rule about which of the two to spend.
   try {
-    const res = await fetch(apiV1 + "/me", { headers: authHeaders });
+    const res = await authorized(clusterCredential).json(apiV1 + "/me", {
+      headers: { Accept: "application/json" },
+    });
     if (!res.ok) throw new Error("me " + res.status);
-    const me = await res.json();
+    const me = res.body;
     const u = (me && me.user) || {};
     // The provider is read off the id the backend returned (`provider:subject`), never assumed: a
     // password sign-in and a provider one both land here, and stamping "discord" on a local account
@@ -121,9 +125,11 @@ export async function establishClusterSession(captured) {
   // reload re-derives the connection with that id, and hydrate the surfaces the first paint needs.
   let hostRow = null, hostId = null, hostName = null;
   try {
-    const hr = await fetch(apiV1 + "/hosts", { headers: authHeaders });
+    const hr = await authorized(clusterCredential).json(apiV1 + "/hosts", {
+      headers: { Accept: "application/json" },
+    });
     if (hr.ok) {
-      const arr = await hr.json();
+      const arr = hr.body;
       const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]);
       hostRow = h || null;
       hostId = (h && h.id) || null;

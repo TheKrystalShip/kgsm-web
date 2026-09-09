@@ -100,8 +100,11 @@ an upward edge (a store importing a page, a component reaching into a page).
 
 ## Guardrails (the ESLint gate — see root `../CLAUDE.md`)
 
-`npm run lint`: `no-undef` and `react-hooks/rules-of-hooks` are **errors**, keep
-them at zero. `react-hooks/exhaustive-deps` + `no-unused-vars` are warnings.
+`npm run lint`: `no-undef`, `react-hooks/rules-of-hooks` and the **egress rules**
+(`no-restricted-syntax` — no `Authorization` header and no `tokenOf` outside the modules that own a
+credential) are **errors**, keep them at zero. The egress pair is what makes an authenticated call
+that cannot renew itself unwritable: reach a KGSM surface through `lib/authorizedFetch.js`, handing
+it a credential rather than a token. `react-hooks/exhaustive-deps` + `no-unused-vars` are warnings.
 Several intentional dep-array exceptions carry an inline
 `// eslint-disable-next-line react-hooks/exhaustive-deps -- <reason>` — keep the
 reason when you touch them. After any change here: `npm run lint` (0 errors),

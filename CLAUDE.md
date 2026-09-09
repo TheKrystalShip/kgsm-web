@@ -40,6 +40,7 @@ npm run check:door   # where an account call goes — anchor or node — in both
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
 npm run check:assistants # which assistants exist: a node's leaf, the cluster's anchor, or both
+npm run check:egress # the one seam a bearer is attached at: renewal, replay, and what it refuses
 
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
@@ -77,7 +78,12 @@ three files in `deploy/` are self-contained, so a standalone clone deploys.
 don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)
 is deliberately NARROW: `no-undef` and `react-hooks/rules-of-hooks` are **errors**
 (these are static bug classes the build itself cannot catch — a component
-used-but-not-imported, a hook called after an early return);
+used-but-not-imported, a hook called after an early return), and so are the **egress rules**
+(`no-restricted-syntax`): a module outside the credential owners may neither attach an
+`Authorization` header nor read a bearer with `tokenOf`, so every authenticated call reaches a KGSM
+surface through `lib/authorizedFetch.js` and renews itself. That one is a lint rule because the
+failure it prevents is invisible in review and in any test with a warm session — a hand-rolled call
+works for as long as something else keeps the token fresh, and fails only where nothing does;
 `react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a real backlog
 to work down, not a wall). Keep errors at zero. The other automated check is
 `scripts/smoke-live.mjs` (`npm run smoke`): it boots the real Vite module graph in jsdom

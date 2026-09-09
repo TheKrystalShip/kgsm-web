@@ -17,7 +17,7 @@ import React from "react";
 
 import { ConsoleView } from "../../components/ConsoleView.jsx";
 import { followLogs, readLogs } from "../../lib/anchor.js";
-import { sessionStore } from "../../lib/sessionStore.js";
+import { clusterCredential, sessionStore } from "../../lib/sessionStore.js";
 
 // What one console holds. The journal on disk is the durable record — a viewer that has been open
 // for a day does not need a day of lines in memory, and a reload re-reads the scrollback anyway.
@@ -29,8 +29,7 @@ function AnchorLogs({ anchor }) {
   const [live, setLive] = React.useState(false);
 
   React.useEffect(() => {
-    const token = sessionStore.tokenOf();
-    if (!anchor || !token) { setError("This browser holds no session for the anchor."); return undefined; }
+    if (!anchor || !sessionStore.isLive()) { setError("This browser holds no session for the anchor."); return undefined; }
 
     let alive = true;
     let follow = null;
@@ -38,11 +37,11 @@ function AnchorLogs({ anchor }) {
 
     // Scrollback first, then the follow. The other way round drops whatever arrives while the read
     // is in flight, which is exactly the window a person is watching when something goes wrong.
-    readLogs(anchor, token).then(
+    readLogs(anchor, clusterCredential).then(
       (rows) => {
         if (!alive) return;
         setLines(rows);
-        follow = followLogs(anchor, token, (line) => {
+        follow = followLogs(anchor, clusterCredential, (line) => {
           if (!alive) return;
           setLines((prev) => {
             const next = [...(prev || []), line];

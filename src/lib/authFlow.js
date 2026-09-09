@@ -8,7 +8,8 @@
 // Everything here talks to a host directly rather than through `apiClient`: every call is anonymous
 // by definition, and the seam's whole job is attaching a session to a call for a member.
 
-import { anchorIdentity, authDoors } from "./anchor.js";
+import { anchorIdentity, authDoors, refreshSession, rememberedDoor } from "./anchor.js";
+import { authorized } from "./authorizedFetch.js";
 import { CONNECTIONS } from "./config.js";
 import { addConnection, normalizeHostUrl, registryEntry } from "./connect.js";
 
@@ -155,19 +156,44 @@ function clearPendingSession() {
   try { sessionStorage.removeItem(PENDING_KEY); } catch { /* private mode */ }
 }
 
+// The pending session, as something a call can be authorized BY. It holds a refresh token like any
+// other, so it renews like any other — and it has to: waiting on an administrator routinely outlasts
+// an access bearer, and a poll that could only spend the one it was given would refuse itself after
+// fifteen minutes and read as an account that had been signed out.
+//
+// The rotation is written straight back to the stash, because a refresh token is spent by using it
+// and the one that has been rotated away is dead.
+function pendingCredential() {
+  return {
+    get: () => { const held = readPendingSession(); return held ? held.token : null; },
+    rotate: async () => {
+      const held = readPendingSession();
+      const door = rememberedDoor();
+      if (!held || !held.refresh || !door || !door.origin) return null;
+
+      const res = await refreshSession(door.origin, held.refresh);
+      if (!res.ok) return null;
+
+      const next = res.session || {};
+      if (!next.token) return null;
+      stashPendingSession({ token: next.token, refresh: next.refresh || held.refresh, status: held.status });
+      return next.token;
+    },
+  };
+}
+
 // What a member says about the caller right now. Bare-authorized precisely so a tierless caller can
 // ask what they are waiting for, which makes it the one thing a pending browser can poll.
-async function fetchMe(origin, token) {
-  try {
-    const res = await fetch(origin + "/api/v1/me", {
-      headers: { Accept: "application/json", Authorization: "Bearer " + token },
-    });
-    if (!res.ok) return { ok: false, status: res.status };
-    const body = await res.json();
-    return { ok: true, tier: body.tier || "none", status: body.status || "unknown", user: body.user || null };
-  } catch {
-    return { ok: false, status: 0 };
-  }
+//
+// A 401 here means the renewal failed too, so it is a session that has genuinely ended rather than a
+// bearer that ran out while somebody waited.
+async function fetchMe(origin, cred) {
+  const res = await authorized(cred).json(origin + "/api/v1/me", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) return { ok: false, status: res.status };
+  const body = res.body || {};
+  return { ok: true, tier: body.tier || "none", status: body.status || "unknown", user: body.user || null };
 }
 
 // ---- What a client may check before spending a round trip -------------------------
@@ -216,6 +242,7 @@ const passwordOk = (password) => (password || "").length >= PASSWORD_MIN;
 export {
   LAST_MEMBER_KEY, PASSWORD_MIN, USERNAME_MAX, USERNAME_MIN,
   adoptMember, clearPendingSession, fetchMe, forgetMember, identifyAddress, lastMemberOrigin,
+  pendingCredential,
   passwordOk, passwordStrength, probeMember, readPendingSession, rememberMember,
   stashPendingSession, usernameOk, usernameProblem,
 };
