@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.223.1]
+
+### Added — glyphs for a service's own fault report
+
+The notification settings list draws `leaf_degraded` with `triangle-alert` and `leaf_recovered` with
+`shield-check`, the two events kgsm-api 0.188.0 adds to its catalog. Without them both rows fell back
+to the bell.
+
 ## [1.223.0]
 
 ### Added — one seam a bearer is attached at, and two rules that keep it the only one

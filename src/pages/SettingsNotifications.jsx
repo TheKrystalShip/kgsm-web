@@ -213,6 +213,8 @@ const EVENT_ICON = {
   server_empty: "moon",
   leaf_down: "unplug",
   leaf_up: "plug",
+  leaf_degraded: "triangle-alert",
+  leaf_recovered: "shield-check",
   restart_soon: "calendar-clock",
   awaiting_approval: "user-check",
 };
