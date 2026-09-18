@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.224.0]
+
+### Added — a server is joined through its cluster name
+
+Where the cluster's DNS anchor has published a name for a server (`factorio.play.<zone>`), every
+connect surface — the server page's address, the copy button, the palette — shows that name with the
+server's port. The host a player connects to is the published name, then the node's declared connect
+host, then the origin the panel reached the node at.
+
+### Fixed — a node's declared connect host reaches the connect surfaces
+
+The server adapter carried the connect port and dropped `connectHost`, so every address was composed
+from the origin the panel reached the node at, even on a node declaring where it is played. Both
+`publishedHost` and `connectHost` now ride the adapted server on the list, the detail and the stream.
+
 ## [1.223.1]
 
 ### Added — glyphs for a service's own fault report

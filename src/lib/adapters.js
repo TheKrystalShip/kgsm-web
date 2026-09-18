@@ -120,6 +120,12 @@ export function adaptServer(be) {
     // rides the list, the stream AND the detail, so a card can render host:port without a detail fetch.
     // Honest null when the instance declares no ports.
     connectPort: be.connectPort ?? null,
+    // The host half of the same address, both riding the list, the stream and the detail. publishedHost
+    // is the name the cluster's DNS anchor published for this server (present only once it resolves);
+    // connectHost is the node's own declared player-facing host. serverJoin takes the first present,
+    // then the origin the panel reached the node at. Honest null for either when the API sends none.
+    publishedHost: be.publishedHost ?? null,
+    connectHost: be.connectHost ?? null,
     // RAWG art for this server's blueprint, self-hosted by kgsm-api (absolute, directly-renderable
     // URLs, or null). DETAIL-ONLY — the list/stream omit them, so they're null here until
     // serversStore.fetchDetail merges the detail body in. hero = landscape banner (the detail-page
@@ -797,6 +803,8 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId, 
     metrics: null,
     network: null,
     connectPort: null,
+    publishedHost: null,
+    connectHost: null,
     steamAppId: null,
     clientSteamAppId: null,
     isSteamAccountRequired: false,

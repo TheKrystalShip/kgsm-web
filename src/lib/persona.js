@@ -165,14 +165,15 @@ import { sessionStore } from "./sessionStore.js";
   }
 
   // serverJoin — everything the Play/connect UI needs. `address` is the
-  // player-facing host:port. The port is the instance's connect port; the host is the
-  // node's OWN declared connect host (`connectHost`) when it declares one, and
-  // otherwise the origin the SPA reached that host's api at. That fallback is a
-  // coincidence worth naming: the api origin is where the CONTROL PLANE is reached,
-  // which matches where the game is only while both sit on one address — so a node
-  // reached differently than it is played on declares `connectHost`, and the two stop
-  // being conflated. Either part unknown → address is null (honest "—", never the
-  // string "null").
+  // player-facing host:port. The port is the instance's connect port; the host is, in
+  // order: the name the cluster's DNS anchor published for this server
+  // (`publishedHost`, e.g. factorio.play.<zone> — present only once it resolves), the
+  // node's OWN declared connect host (`connectHost`), and otherwise the origin the SPA
+  // reached that host's api at. That last fallback is a coincidence worth naming: the
+  // api origin is where the CONTROL PLANE is reached, which matches where the game is
+  // only while both sit on one address — so a node reached differently than it is
+  // played on declares `connectHost`, and the two stop being conflated. Either part
+  // unknown → address is null (honest "—", never the string "null").
   //
   // launchUrl LAUNCHES THE GAME; it does not join the server. `steam://run/<appid>`
   // asks Steam to start a title the player owns, which every Steam game supports —
@@ -186,7 +187,7 @@ import { sessionStore } from "./sessionStore.js";
     // clientSteamAppId arrives as a string ("0" = not Steam) from the API; coerce.
     var appId = server ? (Number(server.clientSteamAppId) || 0) : 0;
     var isSteam = appId > 0;
-    var host = server ? (server.connectHost || hostAddressOf(server.hostId)) : "";
+    var host = server ? (server.publishedHost || server.connectHost || hostAddressOf(server.hostId)) : "";
     var port = serverPort(server);
     var address = (host && port) ? (host + ":" + port) : null;
     return {
