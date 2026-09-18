@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.225.0]
+
+### Added — servers that want one port behind one router
+
+A server carries `portCollisions` from its node: other members' game servers at the same public address
+declaring one of its ports on the same protocol, as the cluster's DNS anchor measured them. The Cluster
+page's overview gains a **Port collisions** card listing every colliding pair once — this server, the
+port, the other server and its member — with the named servers nobody could check counted in the card's
+meta; the card is absent when there is nothing to say. A server's own address carries a warning marker
+whose tooltip names the port, the other server and its member. A server with no answer is never shown as
+clear.
+
 ## [1.224.0]
 
 ### Added — a server is joined through its cluster name

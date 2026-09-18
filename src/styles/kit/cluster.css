@@ -186,6 +186,91 @@
   flex: none;
 }
 
+/* ---- port collisions ----
+   One row per pair of game servers wanting one port behind one router: this side, the port, the
+   other side. The row opens this side's server. */
+.cluster-collisions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cluster-collision {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: var(--edge);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  color: var(--fg-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cluster-collision:hover {
+  background: var(--surface-2);
+}
+
+.cluster-collision__side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cluster-collision__side--other {
+  text-align: right;
+}
+
+.cluster-collision__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-collision__name--host,
+.cluster-collision__port {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cluster-collision__where {
+  color: var(--fg-3);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cluster-collision__port {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+@media (max-width: 560px) {
+  .cluster-collision {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cluster-collision__side--other {
+    text-align: left;
+  }
+
+  .cluster-collision__port {
+    justify-self: start;
+  }
+}
+
 /* ---- capability assignment ---- */
 .cluster-assign {
   width: min(460px, 92vw);

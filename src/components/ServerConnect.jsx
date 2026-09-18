@@ -38,6 +38,20 @@ function joinRefusal(server, join) {
   return null;
 }
 
+// Other members' servers behind the same public address wanting this server's ports. Only one of each
+// pair can be reached on that port, so the address beside it may reach the other one — which is why the
+// marker sits on the address rather than anywhere else on the page.
+function CollisionMarker({ server, size }) {
+  const collisions = server && server.portCollisions;
+  if (!collisions || !collisions.length) return null;
+  const lines = collisions.map(c => `${c.port} is also declared by ${c.name} on ${c.member}`);
+  return (
+    <span className="connect__collision" role="img" aria-label={lines.join("; ")} title={lines.join("\n")}>
+      <Icon name="alert-triangle" size={size} />
+    </span>
+  );
+}
+
 function ServerConnect({ server, variant }) {
   const join = serverJoin(server);
   const [copied, setCopied] = React.useState(null); // null | "ok" | "fail"
@@ -124,6 +138,7 @@ function ServerConnect({ server, variant }) {
   if (variant === "hero-bar") {
     return (
       <div className="connect connect--bar">
+        <CollisionMarker server={server} size={15} />
         <code
           className="connect__addr connect__addr--glass"
           title={join.isSteam ? undefined : `${server.game} isn’t on Steam — copy the address and connect from the game’s own menu.`}>
@@ -164,6 +179,7 @@ function ServerConnect({ server, variant }) {
             {online ? "Play on Steam" : (starting ? "Server starting…" : stopping ? "Server stopping…" : restarting ? "Server restarting…" : "Server offline")}
           </a>
         )}
+        <CollisionMarker server={server} size={14} />
         <code className="connect__addr">{join.address || "—"}</code>
         <button
           className="connect__copy"

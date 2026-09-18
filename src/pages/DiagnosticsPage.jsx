@@ -21,6 +21,7 @@ import { ClusterAnchorList } from "./diagnostics/ClusterAnchorList.jsx";
 import { ClusterCapabilities } from "./diagnostics/ClusterCapabilities.jsx";
 import { ClusterKpis } from "./diagnostics/ClusterKpis.jsx";
 import { ClusterNodeList } from "./diagnostics/ClusterNodeList.jsx";
+import { ClusterPortCollisions } from "./diagnostics/ClusterPortCollisions.jsx";
 import { ClusterRail } from "./diagnostics/ClusterRail.jsx";
 import { anchorEntries, buildClusterNodes } from "./diagnostics/clusterNodes.js";
 import { DiagOverview } from "./diagnostics/DiagOverview.jsx";
@@ -181,6 +182,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
                 <ClusterKpis entries={clusterNodes} capabilityRows={clusterCapabilities} />
                 <ClusterNodeList hovered={hoveredNode} onHover={setHoveredNode} />
                 <ClusterAnchorList hovered={hoveredNode} onHover={setHoveredNode} />
+                <ClusterPortCollisions onOpenServer={onOpenServer} />
               </>
             )}
             {rootTab === "reach" && (

@@ -126,6 +126,10 @@ export function adaptServer(be) {
     // then the origin the panel reached the node at. Honest null for either when the API sends none.
     publishedHost: be.publishedHost ?? null,
     connectHost: be.connectHost ?? null,
+    // Other members' game servers at the same public address wanting one of this server's ports, as the
+    // cluster's DNS anchor measured them: [{ name, member, port }]. [] is a measured "none"; null is "not
+    // told" (standing alone, or the anchor could not resolve a host involved) and must not read as clear.
+    portCollisions: Array.isArray(be.portCollisions) ? be.portCollisions : null,
     // RAWG art for this server's blueprint, self-hosted by kgsm-api (absolute, directly-renderable
     // URLs, or null). DETAIL-ONLY — the list/stream omit them, so they're null here until
     // serversStore.fetchDetail merges the detail body in. hero = landscape banner (the detail-page
@@ -805,6 +809,7 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId, 
     connectPort: null,
     publishedHost: null,
     connectHost: null,
+    portCollisions: null,
     steamAppId: null,
     clientSteamAppId: null,
     isSteamAccountRequired: false,

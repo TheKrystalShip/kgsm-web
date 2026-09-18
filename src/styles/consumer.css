@@ -156,6 +156,22 @@
   padding: 0 11px;
 }
 
+/* Another member behind the same public address wants one of this server's ports. A marker rather than
+   a message: the tooltip carries which server and which port, and the address beside it stays the
+   thing a person copies. */
+.connect__collision {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--warning);
+  cursor: help;
+}
+
+.connect--bar .connect__collision {
+  height: var(--connect-bar-h);
+}
+
 .connect__copy--icon {
   width: var(--connect-bar-h);
   height: var(--connect-bar-h);
