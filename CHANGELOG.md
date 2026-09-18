@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.226.0]
+
+### Changed — a door that no longer answers falls back to the panel's own anchor
+
+A browser remembers where it last signed in. When that address stops answering — a cluster whose
+accounts are reached at a different name — the sign-in screen asks the anchor this build was
+configured with before offering the address box, and remembers it once it answers. A build with no
+configured anchor, or one whose anchor is the address that failed, asks for an address as before.
+
 ## [1.225.0]
 
 ### Added — servers that want one port behind one router

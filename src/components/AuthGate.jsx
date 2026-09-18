@@ -107,10 +107,6 @@ function AuthGate({ user, onUser }) {
   React.useEffect(() => {
     if (pending || cluster || inFlight.current) return;
     if (kind !== "signin" && kind !== "register") return;
-    // The DOOR first, and it is the only one of these that is a door. The other two are nodes this
-    // browser drives, and a node that belongs to a cluster is not somewhere anybody signs in — so
-    // preferring one would send a returning person to a refusal instead of to the sign-in they used
-    // yesterday. They stay as the fallback for a browser that has a node and has never signed in.
     // The DOOR first — chosen by a person, and the only one of these that is a door. Then the
     // deployment's own anchor, if this build names one: a panel hosted for one cluster should open on
     // its sign-in rather than asking somebody who is already there where they are. The last two are
@@ -120,15 +116,23 @@ function AuthGate({ user, onUser }) {
     const preferred = sessionStore.doorOrigin() || configuredAnchor()
       || lastMemberOrigin() || (homeConn() && homeConn().url) || "";
     if (!preferred) { setKind("connect"); return; }
+    // A remembered door that no longer answers is a cluster that moved its sign-in. The build's own
+    // anchor is the next thing worth asking before handing a person the address box.
+    const fallback = configuredAnchor() && configuredAnchor() !== preferred ? configuredAnchor() : "";
+    const dead = (found) => found.kind === "unreachable" || found.kind === "invalid";
     inFlight.current = true;
-    identifyAddress(preferred).then((found) => {
-      inFlight.current = false;
-      if (!mounted.current) return;
-      // Nothing answered, so there is nothing to sign in to yet — back to the one question.
-      if (found.kind === "unreachable" || found.kind === "invalid") { setKind("connect"); return; }
-      rememberMember(preferred);
-      applyDoor(found);
-    });
+    identifyAddress(preferred)
+      .then((found) => (dead(found) && fallback
+        ? identifyAddress(fallback).then((next) => ({ found: next, origin: fallback }))
+        : { found, origin: preferred }))
+      .then(({ found, origin }) => {
+        inFlight.current = false;
+        if (!mounted.current) return;
+        // Nothing answered, so there is nothing to sign in to yet — back to the one question.
+        if (dead(found)) { setKind("connect"); return; }
+        rememberMember(origin);
+        applyDoor(found);
+      });
   }, [kind, cluster, pending, applyDoor]);
 
   const pendingOrigin = React.useMemo(
