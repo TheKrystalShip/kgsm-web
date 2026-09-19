@@ -26,6 +26,10 @@ import { sortByAccessor } from "../lib/sorting.js";
 //   rows:    array of records. Pass getKey(row) for a stable React key
 //            (falls back to row.id, then the index).
 //   defaultSort: { key, dir } — initial ordering ("asc" | "desc").
+//   action:  custom header-right node, in the same slot "View all" would use — wins over
+//            onViewAll when both are given, matching BriefCard's own `action` prop. For a
+//            table whose header offers something other than "see the rest of this list"
+//            (Names' Servers table puts "Add alias" here).
 //   rowClass(row): optional — extra className appended to that row's element
 //                  (e.g. tint a "stuck" process row). Purely additive.
 //   onRowClick(row): optional — makes rows selectable. The handler receives the
@@ -36,11 +40,14 @@ import { sortByAccessor } from "../lib/sorting.js";
 //                  clickable affordance only appears when it is supplied.
 //   max:     cap the number of rows shown AFTER sorting (so "show the top N by
 //            whatever column is active" works); omit to show every row.
+//   className: extra class(es) on the card root — for a page-specific phone
+//            column-collapse rule that has to target this ONE table's grid template
+//            with `!important` (CardTable sets it inline, see kit CLAUDE.md).
 //
 // The card header (title / count / "View all") is only rendered when at least
 // one of title, count, or onViewAll is given — pass none to get a bare table
 // (just column heads + rows) that can sit under an external toolbar.
-function CardTable({ icon, title, count, pin, onViewAll, viewAllLabel = "View all", columns, rows = [], getKey, max, defaultSort = null, rowClass, onRowClick, empty = "Nothing to show" }) {
+function CardTable({ icon, title, count, pin, onViewAll, viewAllLabel = "View all", action, columns, rows = [], getKey, max, defaultSort = null, rowClass, onRowClick, empty = "Nothing to show", className }) {
   const [sort, setSort] = React.useState(defaultSort);
   const template = columns.map(c => c.width || "1fr").join(" ");
   const keyFor = (row, i) => (getKey ? getKey(row) : (row.id != null ? row.id : i));
@@ -63,19 +70,19 @@ function CardTable({ icon, title, count, pin, onViewAll, viewAllLabel = "View al
   }, [rows, sort, columns, max]);
 
   return (
-    <div className="chat-brief card-table">
-      {(title != null || count != null || onViewAll || pin) && (
+    <div className={"chat-brief card-table" + (className ? " " + className : "")}>
+      {(title != null || count != null || onViewAll || action !== undefined || pin) && (
         <div className="chat-brief__head">
           <span className="chat-brief__title">
             {icon && <Icon name={icon} size={13} />}{title}
             {count != null && <span className="chat-brief__count chat-brief__count--neutral">{count}</span>}
           </span>
           {pin}
-          {onViewAll && (
+          {action !== undefined ? action : (onViewAll && (
             <button className="dash-section__more" onClick={onViewAll}>
               {viewAllLabel} <Icon name="arrow-right" size={11} strokeWidth={2.2} />
             </button>
-          )}
+          ))}
         </div>
       )}
       <div className="card-table__head" style={{ gridTemplateColumns: template }}>

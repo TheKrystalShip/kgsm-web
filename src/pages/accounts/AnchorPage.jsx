@@ -31,6 +31,9 @@ import { AnchorLogs } from "./AnchorLogs.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
 import { AssistantConversations } from "../leaf/AssistantConversations.jsx";
 import { AssistantOverview } from "../leaf/AssistantOverview.jsx";
+import { DnsCertificates } from "./dns/DnsCertificates.jsx";
+import { DnsNames } from "./dns/DnsNames.jsx";
+import { DnsOverview } from "./dns/DnsOverview.jsx";
 
 // What a capability adds to its holder's page, addressed at THIS member's own origin.
 //
@@ -49,6 +52,14 @@ const CAPABILITY_BODIES = {
   assistant: {
     overview: (p) => <AssistantOverview {...p} />,
     conversations: (p) => <AssistantConversations {...p} />,
+  },
+  // Every dns.* body reads through `dnsKit.useDnsStatus`, keyed on the CAPABILITY rather than this
+  // member's id — the same document a pinned dns.* widget reads, so the page and a pin never fetch
+  // it twice and a failover moves the data without anyone re-pinning anything.
+  dns: {
+    overview: () => <DnsOverview />,
+    names: () => <DnsNames />,
+    certificates: () => <DnsCertificates />,
   },
 };
 

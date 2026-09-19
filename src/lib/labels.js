@@ -39,6 +39,8 @@ export const ROUTE_TABS = {
     { id: "users",    label: "Users",    icon: "users" },
     { id: "logs",     label: "Logs",     icon: "scroll-text" },
     { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
+    { id: "names",        label: "Names",        icon: "globe" },
+    { id: "certificates", label: "Certificates", icon: "badge-check" },
     { id: "settings", label: "Settings", icon: "settings" },
   ],
   // The CLUSTER page's own tabs, at #/cluster/<tab> — distinct from `cluster` below, which is one
@@ -118,6 +120,7 @@ const TAB_LABEL_FALLBACK = {
 const ANCHOR_CAPABILITY_TABS = {
   auth: ["users", "logs", "config"],
   assistant: ["conversations"],
+  dns: ["names", "certificates"],
 };
 const ANCHOR_TABS_ALWAYS = ["overview", "settings"];
 

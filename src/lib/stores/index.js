@@ -17,6 +17,7 @@ export { favoritesStore, useIsFavorite, pingStore, startPingLoop, stopPingLoop }
 export { selectionStore, useIsSelected, useSelectionIds } from "./selection.js";
 export { batchesStore, runsFrom } from "./batches.js";
 export { clusterStore } from "./cluster.js";
+export { DNS_KEY, dnsStore } from "./dns.js";
 export { PREF_KEYS, prefsStore } from "./prefs.js";
 export { AVAILABILITY_WINDOW, fleetOpsStore, startFleetOps, stopFleetOps } from "./fleet.js";
 

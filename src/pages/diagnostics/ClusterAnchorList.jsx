@@ -64,9 +64,9 @@ function OrphanedCapabilities({ capabilities, canReassign, onReassign }) {
   );
 }
 
-// Only the member holding `auth` opens: its page is the cluster's accounts, and that is the whole of
-// what there is to see behind an anchor. One holding nothing, or holding a capability with no page,
-// has no destination — so the row does not pretend to be a link to one.
+// Every anchor's row opens: Overview and Settings are every member's, read from the roster rather
+// than from the machine, so there is always a destination behind the click even for a capability
+// with no tab of its own past those two.
 function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor }) {
   const fed = entry.fed;
   const isHovered = hovered === entry.key;
@@ -74,7 +74,6 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor }) {
   const latencyLabel = formatLatency(entry.latencyMs);
   const sub = [fed.label && fed.label !== fed.nodeId ? fed.nodeId : null, fed.apiVersion]
     .filter(Boolean).join(" · ");
-  const opens = capability === "auth";
 
   return (
     <div
@@ -83,8 +82,8 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor }) {
       onMouseLeave={() => onHover(null)}
     >
       <div
-        className={"dash-fleet-row dash-fleet-row--" + tone + (opens ? "" : " dash-fleet-row--static")}
-        onClick={opens ? () => onOpenAnchor(fed.nodeId) : undefined}
+        className={"dash-fleet-row dash-fleet-row--" + tone}
+        onClick={() => onOpenAnchor(fed.nodeId)}
       >
         <span className={"dash-fleet-row__dot dash-fleet-row__dot--" + tone}></span>
 
@@ -120,7 +119,7 @@ function AnchorRow({ entry, capability, hovered, onHover, onOpenAnchor }) {
         </span>
 
         <span className="dash-fleet-row__end">
-          {opens && <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />}
+          <Icon name="chevron-right" size={16} className="dash-fleet-row__go" />
         </span>
       </div>
     </div>

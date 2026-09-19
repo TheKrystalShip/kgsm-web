@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.227.0]
+
+### Added — the DNS anchor's own page
+
+An anchor holding the `dns` capability gains Names and Certificates tabs beside the Overview every
+anchor already has. Overview carries four KPIs (names published, zone, certificates this week,
+port collisions), a "DNS · needs a look" lane surfacing an unreachable zone, a contested or blocked
+name and a failed certificate order, and a Publishing card naming the zone, who is writing it and
+its issuer, with a "Check zone now" action. Names lists every claimed name in three tables — Nodes,
+Anchors, Servers (with same-node port-collision hints this browser derives from each server's own
+ports, and an Add alias action) — plus a Public addresses table grouping members by the address
+their host resolves to. Certificates lists every order this anchor has made, sortable by expiry,
+with a Renew now action. Every card is its own pinnable dashboard widget, keyed by the `dns`
+capability rather than a member id, so a pin follows a failover. The Anchors card on the Cluster
+page now opens every anchor's page, not only the accounts holder's.
+
 ## [1.226.0]
 
 ### Changed — a door that no longer answers falls back to the panel's own anchor

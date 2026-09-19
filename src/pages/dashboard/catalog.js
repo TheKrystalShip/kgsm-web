@@ -319,3 +319,100 @@ const SERVER_WIDGET = (type, label, icon, comp, size) => registerWidget({
 SERVER_WIDGET("server.card", "Server", "server", "ServerCardWidget", { w: 3, h: 4, minW: 2, minH: 3 });
 SERVER_WIDGET("server.players", "Players", "users", "ServerPlayersWidget", { w: 6, h: 4, minPx: 380, minH: 3 });
 SERVER_WIDGET("server.performance", "Performance", "activity", "ServerPerformanceWidget", { w: 12, h: 5, minPx: 380, minH: 4 });
+
+// ---- The dns anchor's cards ------------------------------------------------
+// Every one of these is keyed by the CAPABILITY (empty params, never repeatable), not by which
+// member currently holds it — a pin follows a failover instead of pointing at a member that has
+// stopped answering for the capability. Admin-only, the same gate the Cluster page's own member
+// cards use: reaching the anchor's page at all already needs `nav.cluster`.
+const DNS_TILE = (type, label, icon, comp) => registerWidget({
+  type, label, icon, group: "Nodes", cap: "nav.cluster",
+  describe: () => label,
+  size: { w: 2, h: 1, minW: 2, minH: 1 },
+  load: () => import("../accounts/dns/dnsKpis.jsx").then(m => m[comp]),
+});
+
+DNS_TILE("dns.kpi.names", "Names published", "globe", "DnsKpiNames");
+DNS_TILE("dns.kpi.zone", "Zone", "refresh-cw", "DnsKpiZone");
+DNS_TILE("dns.kpi.certWeek", "Certificates this week", "badge-check", "DnsKpiCertWeek");
+DNS_TILE("dns.kpi.collisions", "Port collisions", "shuffle", "DnsKpiCollisions");
+DNS_TILE("dns.kpi.certExpiry", "Next to expire", "timer", "DnsKpiCertExpiry");
+DNS_TILE("dns.kpi.certFailed", "Failed orders", "circle-x", "DnsKpiCertFailed");
+DNS_TILE("dns.kpi.certInFlight", "In flight", "timer", "DnsKpiCertInFlight");
+
+registerWidget({
+  type: "dns.attention",
+  label: "DNS · needs a look",
+  icon: "triangle-alert",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · needs a look",
+  size: { w: 6, h: 4, minPx: 380, minH: 3 },
+  load: () => import("../accounts/dns/DnsAttention.jsx").then(m => m.DnsAttention),
+});
+
+registerWidget({
+  type: "dns.publishing",
+  label: "Publishing",
+  icon: "globe",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · publishing",
+  size: { w: 6, h: 3, minPx: 340, minH: 2 },
+  load: () => import("../accounts/dns/DnsPublishing.jsx").then(m => m.DnsPublishing),
+});
+
+registerWidget({
+  type: "dns.nodes",
+  label: "DNS · nodes",
+  icon: "server-cog",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · node names",
+  size: { w: 12, h: 2, minPx: 460, minH: 2 },
+  load: () => import("../accounts/dns/DnsNames.jsx").then(m => m.DnsNodesTable),
+});
+
+registerWidget({
+  type: "dns.anchors",
+  label: "DNS · anchors",
+  icon: "anchor",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · anchor names",
+  size: { w: 12, h: 2, minPx: 460, minH: 2 },
+  load: () => import("../accounts/dns/DnsNames.jsx").then(m => m.DnsAnchorsTable),
+});
+
+registerWidget({
+  type: "dns.servers",
+  label: "DNS · servers",
+  icon: "server",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · server names",
+  size: { w: 12, h: 3, minPx: 480, minH: 2 },
+  load: () => import("../accounts/dns/DnsNames.jsx").then(m => m.DnsServersTable),
+});
+
+registerWidget({
+  type: "dns.addresses",
+  label: "DNS · public addresses",
+  icon: "wifi",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · public addresses",
+  size: { w: 12, h: 2, minPx: 420, minH: 2 },
+  load: () => import("../accounts/dns/DnsNames.jsx").then(m => m.DnsAddressesTable),
+});
+
+registerWidget({
+  type: "dns.certificates",
+  label: "DNS · certificates",
+  icon: "badge-check",
+  group: "Nodes",
+  cap: "nav.cluster",
+  describe: () => "DNS · certificates",
+  size: { w: 12, h: 4, minPx: 480, minH: 3 },
+  load: () => import("../accounts/dns/DnsCertificates.jsx").then(m => m.DnsCertificatesTable),
+});
