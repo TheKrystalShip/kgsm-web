@@ -75,7 +75,10 @@
   function clusterMember(rest) {
     if (rest[1] && rest[1].toLowerCase() === "services" && rest[2]) {
       const l = { kind: "leaf", hostId: dec(rest[0]), leaf: dec(rest[2]) };
-      if (rest[3]) l.tab = dec(rest[3]);
+      // `settings` is a member's place in the cluster, which a component does not have; what a
+      // component has is a configuration. A link carrying the older word still resolves to it, and
+      // is never emitted.
+      if (rest[3]) l.tab = rest[3].toLowerCase() === "settings" ? "config" : dec(rest[3]);
       return l;
     }
     const r = { kind: "cluster", hostId: dec(rest[0]) };

@@ -177,14 +177,22 @@ re-exports `stores/` — import from either.
   an anchor because it says so, never because something was inferred from it), `authDoors`
   (`GET /auth/providers`, read on an anchor and a node alike, and which reports a clustered node's
   503 as the holder's NAME), the interactive provider bounce, sign-in / register / refresh /
-  sign-out, **the anchor's own configuration surface and journal** (`readConfig`/`applyConfig`/`readLogs`/`followLogs` —
-  a leaf's settings and its log come from the node that runs it, and an anchor has none above it; the
-  follow is `fetch`-read SSE because `EventSource` sends no `Authorization` header), and THE DOOR — the one stored fact about where this browser signs in, carrying its
+  sign-out, and THE DOOR — the one stored fact about where this browser signs in, carrying its
   `kind`. It does not go through `apiClient`, whose seam addresses nodes: every call here is either
   anonymous or authorized by a **credential the caller passes in**. The credential rather than a
   token is what keeps this module underneath the session layer — importing `sessionStore` from here
   would close a cycle — while still leaving every call able to renew itself. `clusterCredential`
   (exported by `sessionStore.js`) is the one every panel caller hands it.
+- `componentSurface.js` — a COMPONENT's own configuration, unit, journal and command manifest,
+  behind one shape whichever transport reaches it. A component owns all of that wherever it runs;
+  what differs is only how a browser gets to it, and this is the whole of that difference.
+  `anchorSurface({address, capability})` calls the member's own origin with `clusterCredential`,
+  under the route prefix that capability serves — a capability with no entry there has no
+  browser-reachable surface, and the page says so rather than guessing a path that would 404 on
+  every tab. `leafSurface({hostId, leafId})` goes through the node running it. The journal is
+  deliberately absent from the leaf surface: a leaf's comes off the keyed log store so a page and a
+  pinned widget share one hydrate and one subscription, and a second reader here would fetch it
+  again beside that one. The pages that mount it are `pages/component/`.
 - **Two entry paths, and nothing is discovered through a node.** An auth anchor holds a cluster's
   accounts; a standalone node holds its own. Both mint and renew their own sessions and neither is
   above the other. A node that belongs to a cluster is not an entry path at all — it serves no auth

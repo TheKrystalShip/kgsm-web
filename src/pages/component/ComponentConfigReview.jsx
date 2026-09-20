@@ -1,11 +1,16 @@
-// LeafConfigReview — the confirm step. Shows every staged change as from → to, names any paired
+// ComponentConfigReview — the confirm step. Shows every staged change as from → to, names any paired
 // API key that moves with it, and requires an explicit acknowledgement when something staged is
 // `wiring` or `destructive`. One apply, one restart.
+//
+// `warning` is what THIS component going down costs, which only its page knows: the cluster's auth
+// anchor holds every account and nobody can sign in while it restarts, and a leaf restarting takes
+// the one machine's surface with it. Stated rather than softened, because it is the whole of what a
+// person is being asked to accept.
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
-import { RiskBadge } from "./LeafConfigRow.jsx";
+import { RiskBadge } from "./ComponentConfigRow.jsx";
 
 function shownValue(f, drafts) {
   if (f.isSecret) return "a new secret";
@@ -17,15 +22,15 @@ function shownCurrent(f) {
   if (f.effective == null) return "unset";
   return f.effective === "" ? "empty" : String(f.effective);
 }
-// What a reset lands on: the leaf's own configured value, or its coded default when its config
+// What a reset lands on: the component's own configured value, or its coded default when its config
 // doesn't set one. Never guessed — when neither is known, say so.
 function resetTarget(f) {
-  if (f.floor != null) return (f.floor === "" ? "empty" : f.floor) + " (the leaf's own value)";
-  if (f.default != null) return f.default + " (the leaf's default)";
+  if (f.floor != null) return (f.floor === "" ? "empty" : f.floor) + " (the component's own value)";
+  if (f.default != null) return f.default + " (the component's default)";
   return "unset";
 }
 
-function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onApply }) {
+function ComponentConfigReview({ config, staged, drafts, resets, busy, warning, onCancel, onApply }) {
   const [ack, setAck] = React.useState(false);
   const risky = staged.filter(f => f.risk === "wiring" || f.risk === "destructive");
   const paired = staged.filter(f => f.pairedApiKey);
@@ -41,7 +46,7 @@ function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onAp
               Apply {staged.length} change{staged.length === 1 ? "" : "s"} to {config.displayName}
             </h2>
             <p className="host-editor__sub">
-              Written as one override file, then <code>{config.unit}</code> is restarted <b>once</b> and probed.
+              Written as one override file, then <code>{config.unit}</code> is restarted <b>once</b>.
             </p>
           </div>
           {!busy && (
@@ -52,6 +57,13 @@ function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onAp
         </div>
 
         <div className="host-editor__body lcf-review__body">
+          {warning && (
+            <div className="lcf-note lcf-note--warn">
+              <Icon name="triangle-alert" size={14} />
+              <span>{warning}</span>
+            </div>
+          )}
+
           {staged.map(f => {
             const isReset = resets.has(f.key);
             return (
@@ -72,7 +84,7 @@ function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onAp
                     <Icon name="git-branch" size={12} />
                     <span>
                       Moves <code>{f.pairedApiKey}</code> with it, in the same apply, so the panel
-                      does not lose the leaf.
+                      does not lose the component.
                     </span>
                   </div>
                 )}
@@ -86,7 +98,7 @@ function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onAp
               <span>
                 <b>{risky.length} of these can break something.</b>{" "}
                 {risky.some(f => f.risk === "wiring") && (
-                  "A wiring change restarts the leaf perfectly and can still leave this panel unable to reach it — "
+                  "A wiring change restarts the component perfectly and can still leave this panel unable to reach it — "
                   + "the result says so rather than silently reverting. "
                 )}
                 {risky.some(f => f.risk === "destructive") && "A data change can drop or orphan what is already stored. "}
@@ -118,4 +130,4 @@ function LeafConfigReview({ config, staged, drafts, resets, busy, onCancel, onAp
   );
 }
 
-export { LeafConfigReview };
+export { ComponentConfigReview };

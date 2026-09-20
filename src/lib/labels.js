@@ -31,16 +31,22 @@ export const ROUTE_TABS = {
   // #/cluster/member/<member>, so both name their tabs here — what differs is which set, because an anchor
   // runs no game servers and has no capacity to report and serves one capability instead.
   //
+  // The order is what a person reads down: what this member is, then what the capability it holds is
+  // doing, then the component's own shape — its commands, its unit, its journal, its configuration —
+  // and finally its place in the cluster.
+  //
   // This is the VOCABULARY, not what any one anchor offers: `anchorTabs` below picks the subset a
   // member can actually answer, and the breadcrumb reads this list to name whichever the URL carries.
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
     { id: "conversations", label: "Conversations", icon: "messages-square" },
     { id: "users",    label: "Users",    icon: "users" },
-    { id: "logs",     label: "Logs",     icon: "scroll-text" },
-    { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
     { id: "names",        label: "Names",        icon: "globe" },
     { id: "certificates", label: "Certificates", icon: "badge-check" },
+    { id: "commands", label: "Commands", icon: "terminal" },
+    { id: "system",   label: "System",   icon: "server-cog" },
+    { id: "logs",     label: "Logs",     icon: "scroll-text" },
+    { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
     { id: "settings", label: "Settings", icon: "settings" },
   ],
   // The CLUSTER page's own tabs, at #/cluster/<tab> — distinct from `cluster` below, which is one
@@ -68,11 +74,15 @@ export const ROUTE_TABS = {
   ],
   // The leaf shell's own tabs. A leaf's extra tabs are registered with their bodies in
   // LeafPage and named by TAB_LABEL_FALLBACK below, since a body cannot live here.
+  //
+  // `config` is the COMPONENT's configuration and is spelled the same on an anchor's strip, because
+  // it is the same tab reading the same descriptor — only the transport that reached it differs. The
+  // word `settings` is reserved for a member's place in the cluster, which a leaf does not have.
   leaf: [
     { id: "overview", label: "Overview", icon: "layout-dashboard" },
     { id: "system",   label: "System",   icon: "server-cog" },
     { id: "logs",     label: "Logs",     icon: "scroll-text" },
-    { id: "settings", label: "Settings", icon: "sliders-horizontal" },
+    { id: "config",   label: "Configuration", icon: "sliders-horizontal" },
   ],
   settings: [
     { id: "profile",       label: "Profile",       icon: "user" },
@@ -103,26 +113,31 @@ const TAB_LABEL_FALLBACK = {
   thresholds: "Thresholds",
   windows: "Windows",
   commands: "Commands",
+  config: "Configuration",
+  system: "System",
 };
 
 // Which of an anchor's tabs a given member offers.
 //
-// An anchor serves ONE capability, and everything past Overview and Settings belongs to it: the
-// accounts, the journal and the configuration are kgsm-auth's own routes, reached at the door this
-// browser signed in through. A member that does not hold `auth` answers none of them, so offering
-// them pointed its page at a different member.
+// Two different questions decide this, and they are not the same one.
 //
-// Overview and Settings are every member's. What a member is, what it holds, how far away it is and
-// where it is come from the roster; moving a capability and removing a member are the cluster's acts
-// rather than the member's, addressed to whoever answered the roster.
+// **What every anchor answers** is what it is as a COMPONENT plus what it is as a MEMBER. A
+// component owns its own configuration, its unit and its journal wherever it runs and serves them at
+// its own address, so System, Logs and Configuration are every anchor's and are read from the member
+// on screen. Overview and Settings are the roster's and the cluster's answers about that member —
+// what it is, what it holds, how far away it is, and whether it is still one — so they render from a
+// session opened anywhere.
 //
-// A capability gains a tab by gaining a row here, once the member behind it actually serves one.
+// **What one capability adds** is the surface that capability IS: the cluster's accounts belong to
+// the `auth` holder and to nobody else, a conversation corpus to the assistant, names and
+// certificates to DNS. A capability gains a tab by gaining a row here, once the member behind it
+// actually serves one.
 const ANCHOR_CAPABILITY_TABS = {
-  auth: ["users", "logs", "config"],
-  assistant: ["conversations"],
+  auth: ["users"],
+  assistant: ["conversations", "commands"],
   dns: ["names", "certificates"],
 };
-const ANCHOR_TABS_ALWAYS = ["overview", "settings"];
+const ANCHOR_TABS_ALWAYS = ["overview", "system", "logs", "config", "settings"];
 
 export function anchorTabs(capability) {
   const held = ANCHOR_CAPABILITY_TABS[capability] || [];

@@ -1,20 +1,23 @@
-// leafConfigHelpers — pure derivations for the leaf configuration page: the draft/reset
+// componentConfigHelpers — pure derivations for a component's configuration page: the draft/reset
 // bookkeeping, the provenance vocabulary, and the filter predicates. No React, no API.
+//
+// Shared by every component's page whichever transport reached it, because a descriptor's rules are
+// the component's own and do not change with who relayed them.
 
 // ---- Provenance ---------------------------------------------------------
 // Which tier a field's effective value came from. `unknown` is a state of its own: the host
-// could not read the source that would supply the value, so what the leaf is running with is
+// could not read the source that would supply the value, so what the component is running with is
 // genuinely not known. It is never presented as the default.
 const SOURCE_TITLE = {
   override: "Set here, in the Control Panel's override layer",
-  floor: "Comes from the leaf's own deploy config — its unit, env file or settings file",
-  default: "The leaf's coded default; nothing on this host sets it",
-  unknown: "This host could not read the source that would supply this value, so what the leaf is running with is unknown",
+  floor: "Comes from the component's own deploy config — its unit, env file or settings file",
+  default: "The component's coded default; nothing on this host sets it",
+  unknown: "This host could not read the source that would supply this value, so what the component is running with is unknown",
 };
 
 // ---- Value display ------------------------------------------------------
 // "unset" and "empty" are different facts and the page says which: nothing supplies a value at
-// all, versus the leaf's own config supplying an empty one (several settings read that as "fall
+// all, versus the component's own config supplying an empty one (several settings read that as "fall
 // back to the machine name"). Neither is coerced into the other.
 function valueText(f, effective) {
   if (f.isSecret) return f.set ? "•••••• set" : "not set";
@@ -24,9 +27,9 @@ function valueText(f, effective) {
 }
 // Whether a bool field's wire value reads as on. Deliberately permissive on READ and canonical on
 // WRITE: the value can come from a settings file, a unit's Environment= line or a hand-edited env
-// file — three different authors — and a leaf's own parser accepts more spellings than one of them
-// happens to use. A live value the leaf reads as on must render as on; the alternative is a switch
-// that says Disabled about a leaf that has it enabled, which is the panel misreporting what is
+// file — three different authors — and a component's own parser accepts more spellings than one of
+// them happens to use. A live value it reads as on must render as on; the alternative is a switch
+// that says Disabled about a component that has it enabled, which is the panel misreporting what is
 // running. Anything else, including a blank or absent value, is off.
 function boolish(v) {
   if (typeof v === "boolean") return v;
@@ -40,7 +43,7 @@ function isBlank(f, effective) {
 }
 
 // ---- Draft bookkeeping --------------------------------------------------
-// A draft is only a change when it differs from what the leaf is running with. Comparison is on
+// A draft is only a change when it differs from what the component is running with. Comparison is on
 // strings because that is what the wire carries and what every control produces.
 function currentOf(f) {
   return f.effective == null ? "" : String(f.effective);
@@ -54,9 +57,9 @@ function isDirty(f, drafts, resets) {
   if (f.isSecret) return typeof drafts[f.key] === "string" && drafts[f.key] !== "";
   const d = drafts[f.key];
   if (d === undefined) return false;
-  // A bool compares on MEANING, not spelling. The leaf may be running with a value spelled
+  // A bool compares on MEANING, not spelling. The component may be running with a value spelled
   // differently from the canonical one the toggle produces, and calling that a change would stage an
-  // override that alters nothing — then restart the leaf to apply it.
+  // override that alters nothing — then restart it to apply it.
   if (f.type === "bool") return boolish(d) !== boolish(currentOf(f));
   return String(d) !== currentOf(f);
 }
@@ -67,7 +70,7 @@ function isOverridden(f) {
   return f.overridden || f.source === "override";
 }
 
-// The PUT body: everything staged, in one request, so the leaf restarts once. A key being reset
+// The PUT body: everything staged, in one request, so the component restarts once. A key being reset
 // is never also sent as a value — reset wins, and clearing the draft when reset is toggled keeps
 // the two from disagreeing.
 function buildPayload(fields, drafts, resets) {
@@ -103,7 +106,7 @@ function filterFields(fields, { query, filter, drafts, resets }) {
 
 // Fields bucketed into their descriptor groups, in declared order. A field whose group is absent
 // from the descriptor (or that has none) falls into a trailing "Other" bucket rather than
-// vanishing — the page must never silently drop a setting the leaf declares.
+// vanishing — the page must never silently drop a setting the component declares.
 function groupFields(config, fields) {
   const groups = (config && config.groups) || [];
   const out = [];

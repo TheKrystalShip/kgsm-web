@@ -1,18 +1,18 @@
-// LeafCommands — the commands a leaf answers to, as the leaf itself declares them. The list comes
-// from the manifest the leaf's deploy ships (kgsm-api reads the file and passes it through), so it is
+// ComponentCommands — the commands a component answers to, as the component itself declares them.
+// The list comes from the manifest its deploy ships, passed through by whoever served it, so it is
 // the command set the running build registers rather than a list written here that would rot the
 // moment one was renamed. Nothing on this page is typed here: everything an operator reads —
-// the name, what it does, its options, and whether it acts — is the leaf's own word.
+// the name, what it does, its options, and whether it acts — is the component's own word.
 //
 // Split into what READS and what ACTS, because that is the question someone opens the list with. The
-// acting half carries what the leaf checks before running one, which is a fact about the leaf and not
+// acting half carries what the component checks before running one, which is a fact about it and not
 // about this panel: it is stated, never softened.
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 
 // Where a person types these. The subject differs per surface — the bot is spoken to in Discord, the
-// assistant in its chat box — so each is stated whole rather than assembled from the leaf id.
+// assistant in its chat box — so each is stated whole rather than assembled from the component id.
 const SURFACE_WHERE = {
   discord: "Typed at the bot in Discord.",
   chat: "Typed at the assistant in chat.",
@@ -33,9 +33,9 @@ function usage(cmd) {
   return "/" + cmd.name + (options ? " " + options : "");
 }
 
-// What the leaf requires of whoever runs the commands in a gate bucket. `none` is not "unknown" — it
-// is the leaf stating that it checks nothing, which is worth saying plainly rather than leaving
-// blank. Every other value is a tier from the ecosystem's shared role map, printed as the leaf's own
+// What the component requires of whoever runs the commands in a gate bucket. `none` is not "unknown"
+// — it is the component stating that it checks nothing, which is worth saying plainly rather than
+// leaving blank. Every other value is a tier from the ecosystem's shared role map, printed as its own
 // claim: this panel cannot verify a check it does not implement, so it states it and softens nothing.
 function gateNote(gate, surface) {
   if (gate === "none") {
@@ -43,7 +43,7 @@ function gateNote(gate, surface) {
       ? "The bot states the gate none — it checks no role before running these, so anyone Discord lets "
         + "use the command can. Restrict them per-command in the server’s Integrations settings if that "
         + "is not what you want."
-      : "The leaf states the gate none — it checks nothing before running these.";
+      : "The component states the gate none — it checks nothing before running these.";
   }
   if (gate === "viewer") return "Anyone with a KGSM account on this host can run these.";
   if (gate === "operator") return "Only an operator or an admin can run these.";
@@ -57,7 +57,7 @@ const GATE_ORDER = ["none", "viewer", "operator", "admin"];
 
 // The heading for a bucket: the tier itself, spelled the way the Users admin spells it, so the
 // bucket a command sits in and the tier somebody holds are visibly the same word. A tier this build
-// does not know keeps the leaf's own word as its heading, because printing an unfamiliar tier is
+// does not know keeps the component's own word as its heading, because printing an unfamiliar tier is
 // better than hiding the commands under it.
 const GATE_TITLE = {
   none: "Unrestricted",
@@ -69,7 +69,7 @@ const GATE_TITLE = {
 function orderedGates(gates) {
   return Object.keys(gates || {}).sort((a, b) => {
     const ai = GATE_ORDER.indexOf(a), bi = GATE_ORDER.indexOf(b);
-    // A tier this build does not know sorts last rather than being dropped — the leaf said it, and
+    // A tier this build does not know sorts last rather than being dropped — the component said it, and
     // hiding a command because its gate is unfamiliar would be worse than printing the word.
     return (ai < 0 ? GATE_ORDER.length : ai) - (bi < 0 ? GATE_ORDER.length : bi) || a.localeCompare(b);
   });
@@ -108,8 +108,8 @@ function CommandRow({ cmd }) {
 
 // The manifest arrives from the page rather than being fetched here: the same read decides whether
 // this tab exists at all, so there is no state in which it is open without one, and no way for the
-// tab and its contents to disagree about what the leaf takes.
-function LeafCommands({ commands: manifest }) {
+// tab and its contents to disagree about what the component takes.
+function ComponentCommands({ commands: manifest }) {
   const gates = (manifest && manifest.gates) || {};
   const surface = (manifest && manifest.surface) || null;
   const where = (surface && SURFACE_WHERE[surface]) || null;
@@ -138,11 +138,12 @@ function LeafCommands({ commands: manifest }) {
       {total === 0 && (
         <div className="chat-brief__empty chat-brief__empty--neutral">
           <div className="chat-brief__empty-title">Nothing registered</div>
-          <div className="chat-brief__empty-sub">The leaf ships a command list and it is empty.</div>
+          <div className="chat-brief__empty-sub">The component ships a command list and it is empty.</div>
         </div>
       )}
     </div>
   );
 }
 
-export { LeafCommands };
+export { ComponentCommands };
+export default ComponentCommands;

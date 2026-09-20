@@ -5,13 +5,16 @@
 // cluster. What differs is the body — a node runs game servers and reports capacity, an anchor
 // provides one capability to the whole cluster and reports what that capability holds.
 //
-// THE TABS ARE THE MEMBER'S CAPABILITY'S, not the kind's (`anchorTabs`). Every anchor answers
-// Overview and Settings, because both are read from the roster and from the cluster rather than from
-// the machine. Everything past them belongs to a capability: the accounts, the journal and the
-// configuration are the auth anchor's own routes, and an anchor holding something else serves none
-// of them. A fixed strip offered all five to every anchor and pointed the last three at the door
-// this browser signed in through — which is a different member, rendering its journal and its
-// accounts under this one's name.
+// **The component's own surface is served by the member on screen.** A component owns its
+// configuration, its unit and its journal wherever it runs, and an anchor is a peer of every node
+// rather than something one of them hosts — so System, Logs and Configuration are read at THIS
+// member's address with the cluster's credential, and they are the same bodies a node's leaf page
+// mounts. Only the transport differs, which is the whole of what `componentSurface` decides.
+//
+// **The capability's surface is the capability's.** The cluster's accounts belong to the `auth`
+// holder and are reached at the door this browser signed in through; a conversation corpus belongs
+// to the assistant; names and certificates to DNS. `anchorTabs` picks which of those this member
+// offers, so a strip can never point one member's page at another member's data.
 //
 // The address is the member's, for the same reason. The door is this member's address only when this
 // member IS the door.
@@ -20,15 +23,20 @@
 // member. The page repeats none of that card's columns — the trail says where it came from, and the
 // same row twice is the one thing it has to avoid to be worth having.
 
+import React from "react";
+
 import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
+import { anchorSurface } from "../../lib/componentSurface.js";
 import { anchorTabs } from "../../lib/labels.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
-import { AnchorConfiguration } from "./AnchorConfiguration.jsx";
-import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
-import { AnchorLogs } from "./AnchorLogs.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
+import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
+import { ComponentCommands } from "../component/ComponentCommands.jsx";
+import { ComponentConfiguration } from "../component/ComponentConfiguration.jsx";
+import { ComponentJournal, useServedJournal } from "../component/ComponentJournal.jsx";
+import { ComponentSystem } from "../component/ComponentSystem.jsx";
 import { AssistantConversations } from "../leaf/AssistantConversations.jsx";
 import { AssistantOverview } from "../leaf/AssistantOverview.jsx";
 import { DnsCertificates } from "./dns/DnsCertificates.jsx";
@@ -63,14 +71,71 @@ const CAPABILITY_BODIES = {
   },
 };
 
-// What a person is standing in front of when the door is somewhere else. The accounts, the journal
-// and the configuration are all the auth anchor's and all behind the same door, so the sentence names
-// the one they came for rather than the three together.
-const OUT_OF_REACH = {
-  users: "These accounts are",
-  logs: "This journal is",
-  config: "This configuration is",
+// What this member going down costs, said in the review before a change restarts it. Only the holder
+// of a capability knows: the `auth` anchor holds every account in the cluster, so nobody can sign in
+// anywhere while it is down, and the assistant takes every surface's chat with it.
+const RESTART_COST = {
+  auth: "It holds every account in the cluster, so nobody can sign in anywhere while it restarts — "
+    + "and nothing puts these values back on its behalf if it does not come back.",
+  assistant: "Every surface's chat goes quiet while it restarts, and a turn in flight ends where it "
+    + "is — nothing puts these values back on its behalf if it does not come back.",
+  dns: "It holds this cluster's names and the account that renews their certificates, so no name is "
+    + "issued or renewed while it restarts.",
 };
+
+// A component's journal, read at this member's own address. Its own component so the read is a hook
+// at the top of one, rather than a hook the page runs on every tab.
+function AnchorJournal({ surface, label }) {
+  const { lines, status, error, live } = useServedJournal(surface);
+  return <ComponentJournal label={label} lines={lines} status={status} error={error} live={live} />;
+}
+
+// What systemd reports about this member's unit, read the same way.
+function AnchorSystem({ surface, capability }) {
+  const [row, setRow] = React.useState(null);
+  const key = surface ? surface.key : null;
+  const ref = React.useRef(surface);
+  ref.current = surface;
+
+  React.useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+    setRow(null);
+    ref.current.readSystem().then(
+      (r) => { if (!cancelled) setRow(r); },
+      // An unreadable row stays null, which the body renders as "nothing is shown until it answers"
+      // rather than as a unit that is down.
+      () => {},
+    );
+    return () => { cancelled = true; };
+  }, [key]);
+
+  // No resources below the facts: kgsm-monitor records a machine's history, and a component serving
+  // its own row has none to offer.
+  return <ComponentSystem svc={row} componentId={capability} selfServed />;
+}
+
+// The commands it declares, from its own manifest. Null until one is in hand, and null is also the
+// answer for a component that ships none — the body says so rather than claiming an empty set.
+function AnchorCommands({ surface }) {
+  const [manifest, setManifest] = React.useState(null);
+  const key = surface ? surface.key : null;
+  const ref = React.useRef(surface);
+  ref.current = surface;
+
+  React.useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+    setManifest(null);
+    ref.current.readCommands().then(
+      (m) => { if (!cancelled) setManifest(m); },
+      () => {},
+    );
+    return () => { cancelled = true; };
+  }, [key]);
+
+  return <ComponentCommands commands={manifest} />;
+}
 
 function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
   const { anchor, holder } = useAccountHolder();
@@ -82,6 +147,12 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
   // this member's address, and only then are the accounts on screen its accounts.
   const isDoor = !!anchor && !!member && holder === member.nodeId;
   const address = (isDoor ? anchor : (member && member.clientUrl)) || "";
+
+  // What reaches the component this member IS. Keyed on the address and the capability, which is
+  // everything it resolves — a re-render rebuilds the object and nothing re-reads.
+  const surface = React.useMemo(
+    () => anchorSurface({ address, capability, label: name }),
+    [address, capability, name]);
 
   const tabs = anchorTabs(capability);
   const active = tabs.some(t => t.id === tab) ? tab : "overview";
@@ -110,9 +181,9 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
   );
 
   const body = () => {
-    // Both of these are the cluster's rather than the member's: Overview is the roster's answer about
-    // this member, and Settings moves a capability or removes a member, addressed to whichever member
-    // answered the roster. Neither needs a session with the machine on screen.
+    // The cluster's rather than the member's: Settings moves a capability or removes a member,
+    // addressed to whichever member answered the roster. It needs no session with the machine on
+    // screen, which is what makes it the one tab a departed member can still answer.
     if (active === "settings") return <MemberSettings member={member} host={null} />;
 
     const own = CAPABILITY_BODIES[capability] || {};
@@ -126,27 +197,55 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
         </>
       );
     }
+
+    // The cluster's accounts, which are the `auth` holder's and behind the door this browser signed
+    // in through. A session opened at a node holds nothing for them: naming the holder is the whole
+    // of what it knows, since a member gives out an anchor's name and never its address.
+    if (active === "users") {
+      if (!anchor) {
+        return (
+          <div className="chat-brief">
+            <div className="chat-brief__empty chat-brief__empty--neutral">
+              <div className="chat-brief__empty-title">Signed in somewhere else</div>
+              <div className="chat-brief__empty-sub">
+                These accounts are {name}’s. Sign in there to reach them.
+              </div>
+            </div>
+          </div>
+        );
+      }
+      return <AccountsAdmin />;
+    }
+
     if (own[active]) return own[active](ownProps);
 
-    // The rest are the auth anchor's own routes, and this browser reaches them at the door. A session
-    // opened at a node holds nothing for them: naming the holder is the whole of what it knows, since
-    // a member gives out an anchor's name and never its address. The sentence names WHICH surface is
-    // out of reach, because the three are behind the same door and a person is standing at one.
-    if (!anchor) {
+    // Everything below is the COMPONENT's own, served by this member at its own address. A
+    // capability the panel has no route prefix for has no such surface, and that is said plainly
+    // rather than rendered as a component answering nothing.
+    if (!surface) {
       return (
         <div className="chat-brief">
           <div className="chat-brief__empty chat-brief__empty--neutral">
-            <div className="chat-brief__empty-title">Signed in somewhere else</div>
+            <div className="chat-brief__empty-title">No surface here</div>
             <div className="chat-brief__empty-sub">
-              {OUT_OF_REACH[active] || "This is"} {name}’s. Sign in there to reach them.
+              {address
+                ? name + " serves no configuration, journal or unit facts this panel can read."
+                : "The roster gives no address for " + name + ", so there is nothing to ask."}
             </div>
           </div>
         </div>
       );
     }
-    if (active === "users") return <AccountsAdmin />;
-    if (active === "logs") return <AnchorLogs anchor={anchor} />;
-    return <AnchorConfiguration anchor={anchor} />;
+
+    if (active === "system") return <AnchorSystem surface={surface} capability={capability} />;
+    if (active === "logs") return <AnchorJournal surface={surface} label={name} />;
+    if (active === "commands") return <AnchorCommands surface={surface} />;
+
+    return (
+      <ComponentConfiguration
+        surface={surface}
+        restartWarning={RESTART_COST[capability]} />
+    );
   };
 
   return (

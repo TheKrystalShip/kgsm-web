@@ -1,7 +1,13 @@
 // LeafPage — one leaf on one node, with its own sub-tabs. The shell here is deliberately generic:
-// identity header, the tab switcher, System, Logs and Settings are IDENTICAL for every leaf, because
-// all of that comes from the services row and the leaf config descriptor the leaf already ships. Only
-// the middle differs.
+// identity header, the tab switcher, System, Logs and Configuration are IDENTICAL for every leaf,
+// because all of that comes from the services row and the config descriptor the component already
+// ships. Only the middle differs.
+//
+// Those three are the same bodies an anchor's page mounts, against the same descriptor: a component
+// owns its configuration, its unit and its journal wherever it runs, and what differs is only that a
+// leaf is reached through the node running it. So this page is the node's half — which leaves it
+// has, their service rows, the activity the audit attributes to them — and the component's own half
+// is rendered by `pages/component/`.
 //
 // The header carries the leaf's name and its status chip and nothing else. Uptime, memory and pid are
 // System's; repeating them above every tab put the same row on the page two and three times over.
@@ -10,7 +16,7 @@
 // renders for every route — this page names its place there rather than drawing a second one.
 //
 // Adding a leaf's own tabs is therefore a body, not a page: register it in LEAF_TABS below. A leaf
-// with nothing special still gets Overview + System + Logs + Settings and needs no code at all. The
+// with nothing special still gets Overview + System + Logs + Configuration and needs no code at all. The
 // Commands tab is the one that registers itself — it follows the manifest a leaf ships rather than a
 // list of leaves kept here, so it arrives with the file.
 //
@@ -22,9 +28,10 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
+import { useNav } from "../../components/NavContext.jsx";
 import { useStore } from "../../lib/store.js";
 import { useKeyedResource } from "../../lib/keyedResource.js";
-import { fetchLeafCommands, fetchLeafReactorProposals, hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
+import { clusterStore, fetchLeafCommands, fetchLeafReactorProposals, hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { AssistantOverview } from "./AssistantOverview.jsx";
@@ -44,16 +51,17 @@ import { SchedulerWindows } from "./SchedulerWindows.jsx";
 import { SpeechOverview } from "./SpeechOverview.jsx";
 import { WatchdogOverview } from "./WatchdogOverview.jsx";
 import { LeafActivity } from "./LeafActivity.jsx";
-import { LeafCommands } from "./LeafCommands.jsx";
 import { LeafLogs } from "./LeafLogs.jsx";
 import { LeafOverview } from "./LeafOverview.jsx";
-import { LeafSettingsTab } from "./LeafSettingsTab.jsx";
-import { LeafSystem } from "./LeafSystem.jsx";
+import { LeafResources } from "./LeafResources.jsx";
+import { ComponentCommands } from "../component/ComponentCommands.jsx";
+import { ComponentSystem } from "../component/ComponentSystem.jsx";
+import { LeafConfigPage } from "../leafConfig/LeafConfigPage.jsx";
 import { KgsmOverview } from "./KgsmOverview.jsx";
 import { KgsmLibraries } from "./KgsmLibraries.jsx";
 
-// Per-leaf tabs, inserted between the always-present Overview and Settings. A leaf absent from this
-// map simply has none — which is the correct answer for most of them today.
+// Per-leaf tabs, inserted between the always-present Overview and the shell's own. A leaf absent
+// from this map simply has none — which is the correct answer for most of them today.
 const LEAF_TABS = {
   // The engine's pseudo-leaf page. Library management sits here because a placement root is engine
   // domain — a root somebody declared to kgsm, not a filesystem the monitor found.
@@ -122,12 +130,30 @@ const LEAF_OVERVIEW = {
 };
 
 function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAudit }) {
+  const nav = useNav();
   const hosts = useStore(hostsStore, s => s.list);
   // Whose accounts this node's API leaf answers for, which decides whether it offers the tab at all.
   // Read live: a node that joins a cluster with an auth anchor loses it where the reader stands,
   // with no reload and nothing redeployed.
   const { anchored } = useAccountHolder();
   const svcEntry = useStore(servicesStore, s => (hostId ? s.byHost[hostId] : null));
+  const capabilities = useStore(clusterStore, s => s.capabilities);
+
+  // A component that is this cluster's ANCHOR is not one of this node's leaves, whichever machine it
+  // happens to share. The node's API subtracts it from the services board, so this page would mount a
+  // shell with no service row behind it and every tab would read as a component answering nothing —
+  // when in fact it is answering, at its own address, one route over.
+  //
+  // The tab rides along because the strips share their vocabulary: Overview, Commands, System, Logs
+  // and Configuration mean the same thing on either page, which is what makes them one page reached
+  // two ways rather than two pages.
+  const anchoredAt = leafId && capabilities.some(c => c.held && c.capability === leafId)
+    ? clusterStore.holderOf(leafId)
+    : null;
+
+  React.useEffect(() => {
+    if (anchoredAt) nav.openHost(anchoredAt, tab);
+  }, [anchoredAt, tab, nav]);
 
   useKeyedResource(
     hostId ? "host-services/" + hostId : null,
@@ -183,12 +209,15 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAu
     // is worse than one that appears a moment late.
     ...(commands ? [{
       id: "commands", label: "Commands", icon: "terminal",
-      render: (p) => <LeafCommands {...p} />,
+      render: (p) => <ComponentCommands {...p} />,
     }] : []),
   ];
-  // System, Logs and Settings are here for every leaf, not per-leaf like the map above: each one is a
-  // systemd unit, so each one has both a unit to report on and a journal. The shell's four come from
-  // the shared table the breadcrumb reads (lib/labels.js); a leaf's own tabs slot in after Overview.
+  // System, Logs and Configuration are here for every leaf, not per-leaf like the map above: each one
+  // is a systemd unit, so each has a unit to report on, a journal, and a descriptor saying what it
+  // can be configured with. They are the same three tabs an anchor's strip carries, rendered by the
+  // same bodies — a component owns all of it wherever it runs, and only the transport differs. The
+  // shell's four come from the shared table the breadcrumb reads (lib/labels.js); a leaf's own tabs
+  // slot in after Overview.
   // The engine is the exception — a stateless CLI with no unit, no journal and no config descriptor,
   // so its page is Overview plus its own tabs and none of the unit-vocabulary ones.
   const shell = leafId === "kgsm" ? [ROUTE_TABS.leaf[0]] : ROUTE_TABS.leaf;
@@ -208,9 +237,26 @@ function LeafPage({ hostId, leafId, tab, onSelectTab, onReviewConversation, onAu
   const bodyProps = { hostId, leafId, svc, host, onReviewConversation, commands };
 
   const renderBody = () => {
-    if (active === "system") return <LeafSystem hostId={hostId} leafId={leafId} svc={svc} />;
+    if (active === "system") {
+      return (
+        <ComponentSystem
+          svc={svc}
+          componentId={leafId}
+          // What the unit has BEEN, which only a node can answer: kgsm-monitor records this
+          // machine's history, and the API that serves the row above also serves that.
+          resources={svc
+            ? <LeafResources hostId={hostId} leafId={leafId}
+                running={svc.state === "active"} onDemand={svc.onDemand} />
+            : null} />
+      );
+    }
     if (active === "logs") return <LeafLogs hostId={hostId} leafId={leafId} svc={svc} />;
-    if (active === "settings") return <LeafSettingsTab hostId={hostId} leafId={leafId} />;
+    // The leaf's own configuration, mounted body-only: this page already names the host and the
+    // leaf, carries its own tabs, and its System tab owns the unit facts.
+    if (active === "config") {
+      return <LeafConfigPage hostId={hostId} leafId={leafId} embedded
+        onSelectLeaf={() => {}} onBackToHost={() => {}} />;
+    }
     const extra = extraTabs.find(t => t.id === active);
     if (extra) return extra.render(bodyProps);
     // The activity lane sits under whichever Overview a leaf has, rather than inside each of them: the

@@ -1,22 +1,21 @@
-// LeafSystem — everything systemd reports about this leaf's unit, in the one place that owns it.
+// ComponentSystem — everything systemd reports about this component's unit, in the one place that
+// owns it.
 //
-// These facts used to be scattered: a strip repeated on every tab, a "Service" card on the generic
-// Overview, and the config page's identity block — three renderings of the same row, none of them
-// complete, and a leaf with a bespoke Overview (the assistant) got none of the middle one. They live
-// here now. What stays visible everywhere is the page header's status chip, which answers the only
-// question worth interrupting another tab for: is this thing up.
+// One body wherever the component runs. A node's API reads the row for each of its leaves; a
+// component with no node above it reads its own and serves it in the same shape, so the two are the
+// same render against the same fields and cannot drift into disagreeing about what a unit is doing.
 //
 // Every fact is the services row's, rendered or admitted. An absent one is never a zero.
 //
-// The facts are what the unit IS right now; the charts below them are what it has BEEN, read from
-// kgsm-monitor's recorded history. Two sources, two cadences, kept visibly apart.
+// The facts are what the unit IS right now; `resources` below them is what it has BEEN, which only a
+// node can answer — kgsm-monitor records that history per machine, and a component serving its own
+// row has none to offer. Two sources, two cadences, kept visibly apart.
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { fmtBytes, uptimeShort } from "../../lib/formatting.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
-import { LeafFacts } from "./leafOverviewKit.jsx";
-import { LeafResources } from "./LeafResources.jsx";
+import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
 
 // A runtime fact (pid, memory, start time) is absent for two different reasons, and the difference is
 // measured rather than guessed: a unit that isn't running HAS no pid, whereas a running unit whose pid
@@ -31,14 +30,23 @@ function startedAt(since) {
   return isNaN(d.getTime()) ? "unknown" : d.toLocaleString();
 }
 
-function LeafSystem({ hostId, leafId, svc }) {
+/**
+ * @param svc         the component's services row — `ComponentService` on the wire, whoever read it.
+ * @param componentId what to call it before the row arrives, and which icon to draw.
+ * @param selfServed  whether the component read this row about ITSELF, which changes what some of
+ *                    the absences mean rather than how they are rendered.
+ * @param resources   the recorded history below the facts, where something records it.
+ */
+function ComponentSystem({ svc, componentId, selfServed = false, resources = null }) {
   if (!svc) {
     return (
       <div className="proc-unavailable">
         <span className="proc-unavailable__icon"><Icon name="server-cog" size={26} strokeWidth={1.9} /></span>
-        <div className="proc-unavailable__title">Reading this leaf’s unit…</div>
+        <div className="proc-unavailable__title">Reading this component’s unit…</div>
         <div className="proc-unavailable__sub">
-          The host’s services board is the authority on what systemd reports; nothing is shown until it answers.
+          {selfServed
+            ? "The component reports on its own unit; nothing is shown until it answers."
+            : "The host’s services board is the authority on what systemd reports; nothing is shown until it answers."}
         </div>
       </div>
     );
@@ -67,13 +75,21 @@ function LeafSystem({ hostId, leafId, svc }) {
     ["Memory", runtimeFact(svc.memoryBytes, running, fmtBytes)],
     ["Main PID", runtimeFact(svc.mainPid, running, String)],
   ];
+  // A null health is not a failing health: it means no deep probe is run for this component, which
+  // is a fact about who is looking, not about the service.
+  //
+  // The link row is a question only something holding a CONNECTION to the component can answer. A
+  // component that read this row about itself holds none — it is the thing being reached — so null
+  // there is "does not apply" rather than "not known", and saying "unknown" would invite somebody
+  // to go looking for a link that was never meant to exist.
   const reach = [
-    // A null health is not a failing health: it means this API runs no deep probe for this leaf, which
-    // is a fact about the panel, not about the service.
-    ["Health probe", svc.health ? svc.health.status : "none for this leaf",
+    ["Health probe", svc.health ? svc.health.status : "none for this component",
       svc.health && svc.health.message ? svc.health.message
         : svc.health ? null : "systemd liveness is still measured; only the deep check is absent."],
-    ["Reachable from this API", svc.provisioned == null ? "unknown" : svc.provisioned ? "yes" : "no"],
+    selfServed && svc.provisioned == null
+      ? ["Reached", "directly, at its own address",
+        "It answers for itself, so there is no relay between this panel and the facts above."]
+      : ["Reachable from this API", svc.provisioned == null ? "unknown" : svc.provisioned ? "yes" : "no"],
   ];
 
   const facts = (rows) => <LeafFacts rows={rows} />;
@@ -81,21 +97,21 @@ function LeafSystem({ hostId, leafId, svc }) {
   return (
     <>
       <div className="lcf-leaf">
-        <div className="lcf-leaf__icon"><Icon name={leafIcon(leafId)} size={18} /></div>
+        <div className="lcf-leaf__icon"><Icon name={leafIcon(componentId)} size={18} /></div>
         <div className="lcf-leaf__id">
           <div className="lcf-leaf__name">
-            {svc.displayName || leafId}
+            {svc.displayName || componentId}
             <span className={"svc-dot svc-dot--" + status.tone}></span>
             <span className="lcf-leaf__state">{status.label}{status.note ? " · " + status.note : ""}</span>
           </div>
           <div className="lcf-leaf__meta">{svc.role || " "}</div>
         </div>
         <div className="lcf-leaf__acts">
-          {/* Restarting a leaf on its own has no endpoint yet — it arrives with leaf lifecycle actions.
+          {/* Restarting a component on its own has no endpoint — it arrives with lifecycle actions.
               Shown disabled rather than hidden so the affordance's place is settled, and never wired to
               an empty config PUT, which returns `unchanged` and restarts nothing. */}
           <button className="lcf-btn lcf-btn--ghost" disabled
-            title="Restarting a leaf on its own isn’t available yet — applying a settings change restarts it.">
+            title="Restarting this on its own isn’t available yet — applying a settings change restarts it.">
             <Icon name="refresh-cw" size={13} /> Restart
           </button>
         </div>
@@ -108,14 +124,15 @@ function LeafSystem({ hostId, leafId, svc }) {
         <BriefCard icon="activity" title="Runtime" meta="What systemd reports for it right now.">
           {facts(runtime)}
         </BriefCard>
-        <BriefCard icon="plug" title="This panel’s view" meta="How the Control Panel API reaches the leaf.">
+        <BriefCard icon="plug" title="This panel’s view" meta="How the Control Panel reaches it.">
           {facts(reach)}
         </BriefCard>
       </div>
 
-      <LeafResources hostId={hostId} leafId={leafId} running={running} onDemand={svc.onDemand} />
+      {resources}
     </>
   );
 }
 
-export { LeafSystem };
+export { ComponentSystem };
+export default ComponentSystem;

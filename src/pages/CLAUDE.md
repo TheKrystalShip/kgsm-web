@@ -129,42 +129,66 @@ is a node or an anchor, so both are reached at `#/cluster/member/<member>` and `
 body by which kind the roster says it is — checked before the fall-through that would otherwise read
 "not a node I hold" as "no member named" and show the grid.
 
-**Its tabs are the member's CAPABILITY's, not its kind's** (`anchorTabs` in `../lib/labels.js`).
-Every anchor answers Overview and Settings, because both are read from the roster and from the
-cluster rather than from the machine — they render from a session opened anywhere. Everything past
-them belongs to a capability: Users, Logs and Configuration are the `auth` holder's own routes,
-reached at the door this browser signed in through, so an anchor holding a different capability
-carries none of them. `ROUTE_TABS.anchor` is the vocabulary those names come from; what is on screen
-is `anchorTabs(capability)`, and a capability earns a tab by gaining a row in that table once the
-member behind it serves one.
+**Its tabs answer two different questions** (`anchorTabs` in `../lib/labels.js`), and they must not
+be confused for one.
 
-The ADDRESS follows the same rule. The door's origin is this member's address only when this member
-is the door (`holder === member.nodeId`); otherwise it is the member's own, from the roster.
+What EVERY anchor answers is what it is as a component plus what it is as a member. System, Logs and
+Configuration are the component's own, served by the member on screen at its own address. Overview
+and Settings are the roster's and the cluster's answers about that member — what it is, what it
+holds, how far away it is, and whether it is still one — so they render from a session opened
+anywhere.
 
-**Two kinds of capability surface, and they are reached differently.** The `auth` holder's three are
-reached at the DOOR, so they are guarded on holding a session with it and say which of the three is
-out of reach when there is none. Everything in `CAPABILITY_BODIES` is reached at THIS member's own
-origin with the cluster's credential — an anchor holding anything else has its sign-in shut, so it
-verifies the session this browser already carries and there is nothing to sign in to. The assistant's
-bodies are therefore the leaf page's own components, unchanged and taking the same single id: what
-differs is which machine answers. Its `overview` renders UNDER the membership card rather than
-instead of it, because the two answer different questions — what this member is, and what the
-capability it holds is doing.
+What ONE capability adds is the surface that capability IS: the cluster's accounts belong to the
+`auth` holder and to nobody else, a conversation corpus and its command list to the assistant, names
+and certificates to DNS. `ROUTE_TABS.anchor` is the vocabulary those names come from; what is on
+screen is `anchorTabs(capability)`, and a capability earns a tab by gaining a row in
+`ANCHOR_CAPABILITY_TABS` once the member behind it serves one.
+
+**The ADDRESS follows the same rule.** The door's origin is this member's address only when this
+member is the door (`holder === member.nodeId`); otherwise it is the member's own, from the roster.
+
+**One place is reached at the DOOR, and only one.** The cluster's accounts belong to the `auth`
+holder, so Users is guarded on holding a session with it and says so when there is none. Everything
+else on the page is reached at THIS member's own origin with the cluster's credential — an anchor
+holding anything other than `auth` has its sign-in shut, so it verifies the session this browser
+already carries and there is nothing to sign in to. The assistant's bodies are therefore the leaf
+page's own components, unchanged and taking the same single id: what differs is which machine
+answers. `CAPABILITY_BODIES`' `overview` renders UNDER the membership card rather than instead of it,
+because the two answer different questions — what this member is, and what the capability it holds is
+doing.
 
 Each tab is a URL segment and `App.setRoute` moves it. The breadcrumb names it from the anchor's
 strip, and asks `anchorOffersTab` before naming one at all: `ctx.memberKind` says which member this
 is and `ctx.memberCapability` says which tabs it has, so the trail cannot announce a tab the page
 resolved back to Overview.
 
-`accounts/AnchorConfiguration.jsx` and `accounts/AnchorLogs.jsx` go somewhere else again:
-straight to the anchor, through `lib/anchor.js`, never through `apiClient`. A leaf's settings and its
-journal are delivered by the node that runs it, and an anchor has no node above it — on the ordinary
-topology there is not even one beside it. Both reuse the panel's own components — `LeafConfigRow` and
-`ConsoleView` — because a component's settings and its log read the same whoever serves them; only
-the transport differs, and that is all these files add. The journal is LIVE: scrollback over REST,
-then the anchor's own SSE follow, with the live pill following the stream rather than the fetch. Applying restarts the anchor, so the confirmation says what that costs rather than asking for a
-click: it holds every account in the cluster, and nothing restores the old values if it does not come
-back.
+## A component's own page is one page, reached two ways
+
+**A component owns its configuration, its unit, its journal and the commands it declares wherever it
+runs, and only the transport differs.** `pages/component/` holds those bodies and nothing else holds
+them: `ComponentConfiguration`, `ComponentSystem`, `ComponentJournal`, `ComponentCommands`, over
+`ComponentConfigRow` / `ComponentConfigReview` / `componentConfigHelpers`. A node's leaf page and an
+anchor's member page mount the same four.
+
+`lib/componentSurface.js` is the whole of what separates them. It hands a page a `surface` — a read,
+an apply, a unit row, a manifest, a journal — and a body cannot tell which kind it was given, which
+is what stops the two from drifting into two implementations of one page. `anchorSurface` calls the
+member's own origin with the cluster's credential under the prefix that capability serves (a
+capability with no entry there has no browser-reachable surface, and the page says so rather than
+guessing a path). `leafSurface` goes through the node that runs it. The journal is deliberately not
+on the leaf surface: a leaf's comes off the KEYED log store so a page and a pinned widget share one
+hydrate and one subscription, and a second reader here would fetch it again beside that one.
+
+**The tab vocabulary carries the distinction.** `Configuration` is the component's own and is spelled
+the same on both strips, because it is the same tab reading the same descriptor. `Settings` is a
+member's place in the cluster — moving a capability, removing a member — which only a member has, so
+it is on the anchor's strip and never a leaf's. A leaf link carrying the older `settings` word
+resolves to `config` in `lib/router.js` and is never emitted.
+
+**A component that is this cluster's anchor is not one of the node's leaves.** kgsm-api subtracts it
+from the services board, so `LeafPage` would mount a shell with no service row behind it; it reads
+the capability assignment and sends the person to the member route instead, carrying the tab, which
+the shared vocabulary makes meaningful on either page.
 
 ## The split-page folders — keep the entry thin
 
@@ -178,9 +202,10 @@ pieces live beside it.
 | `DiagnosticsPage.jsx` | `diagnostics/` | the cluster's own tabs — `ClusterKpis` (over `clusterKpis.js`), the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `ClusterRail`, `ClusterMap` (over the generated `euMap.js`) and `ClusterCapabilities` — plus one member's: `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
-| `accounts/AnchorPage.jsx` | `accounts/` | the member page's capability-scoped tab strip over `AnchorOverview`, the `auth` holder's own screens (`AccountsAdmin` — the roster, the create/edit modal and its sessions half — `AnchorLogs`, `AnchorConfiguration`, all read from the anchor itself), and `CAPABILITY_BODIES`, which mounts the holder's own surfaces against its member id (the assistant's `AssistantOverview` and `AssistantConversations`, from `leaf/`) |
+| `accounts/AnchorPage.jsx` | `accounts/` | the member page's capability-scoped tab strip over `AnchorOverview`, the `auth` holder's accounts (`AccountsAdmin` — the roster, the create/edit modal and its sessions half), the component's own four from `component/` read at this member's address, and `CAPABILITY_BODIES`, which mounts the holder's own surfaces against its member id (the assistant's `AssistantOverview` and `AssistantConversations`, from `leaf/`) |
 | `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `AddWidgetSheet`, `DashboardEmpty` |
-| `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | `LeafConfigRow`, `LeafConfigReview`, `leafConfigHelpers` |
+| `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | the node's half — which of its leaves publish a surface, which is open, that leaf's unit facts and the host journal beside them; the settings themselves are `component/ComponentConfiguration` |
+| — | `component/` | a component's own bodies, mounted by both the leaf page and the anchor page: `ComponentConfiguration`, `ComponentSystem`, `ComponentJournal`, `ComponentCommands`, `ComponentConfigRow`, `ComponentConfigReview`, `componentConfigHelpers` |
 | `GamePage.jsx` | `library/` | `GameOverview`, `GamePlacement`, `GameBlueprintTab`, `GameServersTab`, `BlueprintFileCard`, `BlueprintHostPicker`, `LibraryCreatePage` |
 
 Rule of thumb: **a page pushing ~400 lines gets its own `pages/<name>/`

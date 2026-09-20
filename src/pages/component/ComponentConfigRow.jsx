@@ -1,18 +1,21 @@
-// LeafConfigRow — one setting: what it is, what it risks, where its value comes from, and the
+// ComponentConfigRow — one setting: what it is, what it risks, where its value comes from, and the
 // control that changes it. Rendered inside a group's BriefCard list, so it inherits the card
 // family's surface and separators.
+//
+// One row for every component, whichever transport its page was reached over: a descriptor's field
+// means the same thing wherever the component runs.
 
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Select } from "../../components/Select.jsx";
 import { Toggle } from "../../components/settings-primitives.jsx";
-import { SOURCE_TITLE, boolish, draftOf, isBlank, isDirty, isOverridden, valueText } from "./leafConfigHelpers.js";
+import { SOURCE_TITLE, boolish, draftOf, isBlank, isDirty, isOverridden, valueText } from "./componentConfigHelpers.js";
 
 const RISK = {
   wiring: {
     icon: "triangle-alert",
     label: "wiring",
-    title: "Changing this can sever the link between this leaf and something else. The leaf restarts "
+    title: "Changing this can sever the link between this component and something else. It restarts "
       + "cleanly either way — the panel simply may not find it again.",
   },
   destructive: {
@@ -33,8 +36,8 @@ function RiskBadge({ risk }) {
 }
 
 // The provenance chain on one line: override → floor → default, with the tier actually in effect
-// lit. A leaf whose deploy file merely restates the coded default is the common case, so those two
-// collapse into one entry instead of printing the same value twice.
+// lit. A component whose deploy file merely restates the coded default is the common case, so those
+// two collapse into one entry instead of printing the same value twice.
 function Chain({ f }) {
   if (f.isSecret) {
     return (
@@ -77,9 +80,9 @@ function Chain({ f }) {
   );
 }
 
-// The control. On a leaf that cannot be edited here the value is TEXT with a copy-the-env-line
+// The control. On a component that cannot be edited here the value is TEXT with a copy-the-env-line
 // affordance rather than a disabled input — a dead box invites a click that can never work.
-// `draft` is the display value (falls back to what the leaf runs with); `rawDraft` is the staged
+// `draft` is the display value (falls back to what it runs with); `rawDraft` is the staged
 // entry itself, which is what tells a secret apart: undefined = masked, "" = the user opened the
 // replace field but has not typed yet.
 function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, copied }) {
@@ -130,9 +133,9 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
   }
 
   if (f.type === "bool") {
-    // Read the value the way a leaf's own parser does, not the way one tier happens to spell it. A
-    // settings file, a unit's Environment= line and an operator's env file are three different authors,
-    // and a value that reads as on to the leaf must read as on here — rendering a live "True" as
+    // Read the value the way the component's own parser does, not the way one tier happens to spell
+    // it. A settings file, a unit's Environment= line and an operator's env file are three different
+    // authors, and a value that reads as on to the component must read as on here — a live "True" as
     // Disabled is the panel lying about what is running. We still WRITE the canonical "true"/"false".
     const on = boolish(draft);
     return (
@@ -170,7 +173,7 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
   );
 }
 
-function LeafConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, onCopy, copyState }) {
+function ComponentConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, onCopy, copyState }) {
   const willReset = resets.has(f.key);
   const dirty = isDirty(f, drafts, resets);
   const cls = "lcf-row" + (willReset ? " is-reset" : dirty ? " is-dirty" : "");
@@ -209,4 +212,4 @@ function LeafConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, o
   );
 }
 
-export { LeafConfigRow, RiskBadge };
+export { ComponentConfigRow, RiskBadge };
