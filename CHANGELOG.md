@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.229.0]
+
+### Changed — health check ping interval increased to 5 seconds
+
+`PING_INTERVAL_MS` in the UI store is raised from 1s to 5s. The 1s cadence fired a `/health`
+request to every connected host every second, producing ~240 requests per 82-second window —
+more than any other single source of traffic.
+
+## [1.228.0]
+
+### Added — the cluster's names and certificates read as themselves in the audit
+
+`dns` is a namespace in the icon trie, so what happened to a name draws with its own glyph: a globe for
+a published name, an arrow pair for one that moved, a locked globe for one withdrawn, a badge for a
+certificate and a struck one for an order that failed, a cloud for the zone and a broken cloud for it
+not answering, a link for an alias. The nodes below it are namespaces like every other, so a `dns.`
+event added later lands on one that already exists. The category filter spells `dns` as DNS.
+
 ## [1.227.0]
 
 ### Added — the DNS anchor's own page

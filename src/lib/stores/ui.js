@@ -132,7 +132,7 @@ const pingStore = createStore({ byHost: {} });
 pingStore.record = (hostId, ms) =>
   pingStore.setState(s => ({ byHost: { ...s.byHost, [hostId]: { ms, at: Date.now() } } }));
 
-const PING_INTERVAL_MS = 1000;
+const PING_INTERVAL_MS = 5000;
 let _pingTimer = null;
 function pingTick() {
   if (typeof document !== "undefined" && document.hidden) return;

@@ -152,6 +152,29 @@ const ICON_TRIE = ns("circle-dot", {
     }),
     upnp:  ns("router"),
   }),
+  // The cluster's own names and the certificates behind them. Deliberately not a branch of
+  // `network`: that is one instance's ports on one host's hardware, and these are what a whole
+  // cluster is reached by — a name outlives the server it points at and moves between machines.
+  dns: ns("signpost", {
+    name: ns("globe", {
+      move:     ns("arrow-right-left"),
+      withdraw: ns("globe-lock"),
+      contest:  ns("triangle-alert"),
+      recover:  ns("rotate-ccw"),
+    }),
+    certificate: ns("badge-check", {
+      fail:   ns("badge-x"),
+      refuse: ns("ban"),
+      renew:  ns("refresh-cw"),
+    }),
+    // The zone is the provider answering at all, which is a different kind of fact from what any
+    // one name is doing — every name in the cluster is stuck behind it.
+    zone: ns("cloud", {
+      unreachable: ns("cloud-off"),
+      check:       ns("refresh-cw"),
+    }),
+    alias: ns("link", { remove: ns("link-2-off") }),
+  }),
   player: ns("users", {
     join:  ns("log-in"),
     leave: ns("log-out"),
@@ -231,6 +254,7 @@ const CATEGORY_LABEL = {
   host:      "Hosts",
   user:      "Accounts",
   identity:  "Identities",
+  dns:       "DNS",
 };
 
 function categoryLabel(category) {

@@ -95,8 +95,7 @@ function ServerListItem({ server, active, unknown, tip, onClick, onForget }) {
       <span
         className={"server-row__dot" + (unknown ? " server-row__dot--unknown" : "")}
         style={unknown ? undefined : {
-          background: dotColor,
-          animation: BUSY_STATUS[server.status] ? "kr-pulse 1.8s ease-in-out infinite" : "none",
+          background: dotColor
         }}></span>
     </div>
   );
