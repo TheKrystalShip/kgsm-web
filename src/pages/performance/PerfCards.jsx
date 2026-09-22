@@ -159,7 +159,7 @@ function RangeSelector({ range, setRange, ranges = RANGES }) {
 function EmptyPerf({ icon, title, sub, spin }) {
   return (
     <div style={{ textAlign: "center", padding: "40px 0", color: "var(--fg-3)" }}>
-      <span style={spin ? { display: "inline-block", animation: "act-spin 1.4s linear infinite" } : undefined}>
+      <span style={spin ? { display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", animation: "act-spin 1.4s linear infinite" } : undefined}>
         <Icon name={icon} size={26} strokeWidth={1.6} />
       </span>
       <div style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", fontWeight: 600 }}>{title}</div>

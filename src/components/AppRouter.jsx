@@ -36,7 +36,7 @@ function AppRouter({ route, setRoute, user, activeGame, serverForRender,
     <ErrorBoundary
       resetKey={KrystalRouter.routeToHash(route)}
       fallback={(reset, error) => <ContentError error={error} onRetry={reset} onHome={() => setRoute({ kind: "home" })} />}>
-    <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{"Loading\u2026"}</div></div>}>
+    <React.Suspense fallback={<div style={{ textAlign: "center", padding: "64px 0", color: "var(--fg-3)" }}><span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", animation: "act-spin 1.4s linear infinite" }}><Icon name="loader-2" size={26} strokeWidth={1.7} /></span><div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{"Loading\u2026"}</div></div>}>
     <div className="page" key={KrystalRouter.routeToHash(route)}>
     {/* The dashboard takes no navigation props: every card on it is a widget, and a widget reaches
         the router through NavContext rather than through whatever the page above it was handed. */}

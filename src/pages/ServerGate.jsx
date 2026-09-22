@@ -33,7 +33,7 @@ function ServerGate({ id, onBack, onRetry }) {
   if (!everLoaded) {
     return (
       <div style={wrap}>
-        <span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", animation: "act-spin 1.4s linear infinite" }}>
           <Icon name="loader-2" size={26} strokeWidth={1.7} />
         </span>
         <div style={title}>Loading server…</div>

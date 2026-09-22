@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.229.1]
+
+### Fixed — loading throbbers spin around their own centres
+
+The boot holds ("Finding your cluster…", "Signing you in…"), the route-level "Loading…" and the
+server gate animate their icon through a wrapper that is the line box around it, so the rotation
+orbits a point below the glyph and the glyph rides high in its box; the wrappers centre the glyph
+first, which makes the box and the glyph the same box. `.oauth-spinner` and the chat's two ring
+spinners are empty spans that size, centre and rotate on their own rather than depending on a flex
+parent to blockify them, and the blueprint's verifying row aligns its spinner and text as a flex row
+like the rows beside it.
+
 ## [1.229.0]
 
 ### Changed — health check ping interval increased to 5 seconds

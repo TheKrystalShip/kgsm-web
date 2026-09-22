@@ -509,12 +509,15 @@
 }
 
 .oauth-spinner {
+  display: inline-block;
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-top-color: currentColor;
   border-radius: var(--r-pill);
   animation: oauth-spin 700ms linear infinite;
+  vertical-align: middle;
+  transform-origin: center;
   flex-shrink: 0;
 }
 

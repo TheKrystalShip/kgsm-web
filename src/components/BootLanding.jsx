@@ -19,7 +19,7 @@ function BootLanding({ label }) {
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       textAlign: "center", background: "var(--canvas)", color: "var(--fg-3)",
     }}>
-      <span style={{ display: "inline-block", animation: "act-spin 1.4s linear infinite" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", animation: "act-spin 1.4s linear infinite" }}>
         <Icon name="loader-2" size={26} strokeWidth={1.7} />
       </span>
       <div style={{ marginTop: 12, fontSize: 13, fontWeight: 600, color: "var(--fg-2)" }}>{label || "Signing you in\u2026"}</div>
