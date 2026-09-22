@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.230.0]
+
+### Added — the composer highlights its raw markdown as you type
+
+The assistant's message box — one component for the dock and the standalone page — now paints the
+markdown a person is typing behind itself: teal chips for inline code, one tinted slab for a
+fenced block, dimmed heading hashes, teal list markers, while the field underneath remains a
+plain textarea, so Enter-to-send, the slash-command menu, selection, IME and mobile keyboards are
+untouched. Delimiters swallow once there is content to show in their place — a held fence hides
+its fence ticks and an inline span its backticks, and each returns when the content is deleted —
+by hiding their pixels rather than dropping them, so the space and the caret's mapping survive.
+
+Two invariants are the whole design: every character of the input is emitted exactly once —
+asserted as exact equality by `npm run check:markdown` — and nothing in the layer changes a
+glyph's advance width — color and background only, no weight, family, size or text transform —
+because
+the caret is placed from the textarea's metrics and any width difference walks it off the text it
+is showing. Code is therefore recognized by its teal material rather than a monospace face. A code
+block is one element around its lines with its background painted once, so per-line bands cannot
+gap, overlap or hairline, and every input line is its own block box, which is what lets that
+wrapper exist while staying line-for-line with the textarea at any width. Both surfaces now also
+reserve the scrollbar's width (scrollbar-gutter), so past the composer's 200px cap the textarea
+and the layer still wrap at the same points.
+
+Verified by an exact input-to-output invariant test over 28 edge cases and a headless-Chromium
+geometry harness (heights, first-line offset, wrap parity and element widths across eight
+inputs). Lint clean (0 errors).
+
 ## [1.229.1]
 
 ### Fixed — loading throbbers spin around their own centres

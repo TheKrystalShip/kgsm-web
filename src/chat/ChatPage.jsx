@@ -21,6 +21,7 @@ import {
 // message-role dispatch that used it now lives in ChatThread.
 import { ChatCommand } from "./ChatMessageParts.jsx";
 import { ChatCommandMenu } from "./ChatCommandMenu.jsx";
+import { MarkdownTextarea } from "./MarkdownTextarea.jsx";
 import { resolveCommand, suggestFor } from "./chatCommands.js";
 import { ChatContextMeter } from "./ChatContextMeter.jsx";
 import { ChatHistory } from "./ChatHistory.jsx";
@@ -1384,7 +1385,7 @@ function ChatPage({
                   saying it addresses a cluster, so on the panel this reads "Message hotrod's
                   assistant\u2026" and stays useful; a surface with one leaf has no node to
                   disambiguate and would just be restating its own name back at itself. */}
-              <textarea
+              <MarkdownTextarea
                 ref={taRef}
                 rows={1}
                 value={input}

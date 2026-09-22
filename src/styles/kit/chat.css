@@ -3053,7 +3053,13 @@ a.ev-search__src:hover {
   box-shadow: var(--ring-input);
 }
 
-.chat-composer__box textarea {
+/* The composer's input is TWO layers — the real textarea and the highlight layer painted behind
+   it (MarkdownTextarea) — so they share ONE selector list. Declaring the box metrics anywhere
+   twice is how the two drift: whatever changes here (font, size, padding, wrapping) must land on
+   both at once, because it is the identity of those metrics that keeps the styled copy aligned
+   with the text being typed, character for character. */
+.chat-composer__box textarea,
+.chat-composer__hl {
   width: 100%;
   resize: none;
   background: transparent;
@@ -3065,6 +3071,152 @@ a.ev-search__src:hover {
   line-height: 1.5;
   max-height: 200px;
   padding: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  /* Both elements reserve the scrollbar's width whether or not one is showing. Past the 200px
+     cap the scrollbar takes width from the textarea's text while the layer, which shows none,
+     keeps all of it — with the gutter on one selector only, the two wrap at different points and
+     every line below the first wrap drifts. */
+  scrollbar-gutter: stable;
+}
+
+/* The textarea sits above the layer and paints no text of its own — the layer is what the caret
+   rides over. `caret-color` is what remains visible of the text color, so the caret reads at the
+   same tone the field always did; IME composition brings the real color back (see .is-composing). */
+.chat-composer__box textarea {
+  position: relative;
+  z-index: 1;
+  color: transparent;
+  caret-color: var(--fg-1);
+}
+
+/* During an IME composition the browser draws the pre-edit text in the element's own color, and
+   that color is transparent here — so the textarea shows its text and the layer stands down. */
+.chat-composer__box textarea.is-composing {
+  color: var(--fg-1);
+}
+
+/* Translucent on purpose: the selection background is painted by the textarea, which is ABOVE the
+   layer, so an opaque one would hide the very text it is highlighting. */
+.chat-composer__box textarea::selection {
+  background: color-mix(in srgb, var(--krystal-teal) 45%, transparent);
+}
+
+/* The field wraps the two layers. Relative so the layer can fill it, and block so the textarea
+   inside doesn't sit on a baseline strut (which would make the field taller than the textarea the
+   layer is supposed to mirror). */
+.chat-composer__field {
+  position: relative;
+  display: block;
+}
+
+.chat-composer__field textarea {
+  display: block;
+}
+
+/* The highlight layer: absolutely positioned over the field's exact box (the shared rule above
+   gives it the textarea's font, padding and wrapping), out of the pointer's way, and clipping
+   rather than scrolling — syncScroll() moves its scrollTop with the textarea's past the 200px cap. */
+.chat-composer__hl {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* The code tint, OPAQUE — mixed against the box's own background rather than against
+     transparency. The block is a single painted element (see .md-codeblock), so its interior has
+     no seams by construction; opacity still matters at its edges and for the inline chips, where
+     a translucent tint composites against whatever it meets and can show a step. Painted opaque
+     over surface-3 the tint is exactly the colour a 14% alpha composites to. One definition, one
+     place to retune. */
+  --code-tint: color-mix(in srgb, var(--krystal-teal) 14%, var(--surface-3));
+}
+
+.chat-composer__hl--off {
+  visibility: hidden;
+}
+
+/* ---- composer markdown tokens ----
+   Color and background ONLY — never weight, style or family, which would shift glyph widths and
+   break the alignment the shared rule above exists to hold. Palette is existing tokens, so every
+   theme (dark, tribute light, the monospace ones) comes along without a second definition. */
+.chat-composer__hl .md-delim {
+  color: var(--fg-4);
+}
+
+.chat-composer__hl .md-fence-lang {
+  color: var(--info-fg);
+  /* No uppercase here, unlike the transcript's fence labels: every text transform makes the
+     displayed width differ from what the textarea holds, and the caret is placed from the
+     textarea's metrics — showing exactly what was typed is both honest to the raw markdown and
+     the only caret-safe choice. */
+}
+
+.chat-composer__hl .md-list-marker {
+  color: var(--krystal-teal);
+}
+
+/* ONE code material: the inline chip and the ``` chip of an emptied block sit on the same teal
+   tint at the same radius as a full block's slab — same thing typed at different sizes, so they
+   have to read as the same thing. No ring around the chips: a spread box-shadow only fakes a
+   border, and a fake border reads as odd and over-rounded on a small pill. Padding is vertical
+   only — an inline box's HORIZONTAL padding would push the glyphs after it, the one thing this
+   whole arrangement forbids; vertical padding paints outside the line box without moving a glyph,
+   and at 1px it can't reach the neighbouring line's chip. */
+.chat-composer__hl .md-fence,
+.chat-composer__hl .md-code-inline {
+  background: var(--code-tint);
+  border-radius: var(--r-sm);
+  padding: 1px 0;
+}
+
+.chat-composer__hl .md-code-inline {
+  color: var(--krystal-teal);
+}
+
+/* Code keeps the body font — deliberately, and not to be "improved" in passing. The caret is
+   placed from the TEXTAREA's metrics, so any font, size or transform that differs anywhere in
+   this layer walks the caret off the text it is showing: a fixed mono advance runs wider than
+   Inter's character by character, until a click inside code lands mid-run and a click past its
+   displayed end maps to the end of the line. Code is recognized by its teal material instead —
+   chip, pill, slab. The one caret-safe route to real monospace is setting the WHOLE composer
+   (textarea included) to one family at one size, which is a look decision, not a CSS tweak. */
+
+/* A code block is ONE element around its lines, background painted once across its content box —
+   inter-line space included, because that's how a block box paints. No per-line paint exists, so
+   there is nothing that could gap, overlap or hairline against a neighbour: the seam has no
+   origin. Opaque --code-tint (see .chat-composer__hl); the block carries its lines' colour too. */
+.chat-composer__hl .md-codeblock {
+  background: var(--code-tint);
+  color: var(--fg-2);
+  border-radius: var(--r-sm);
+}
+
+/* An emptied block shows its ticks instead of sitting on an empty slab. */
+.chat-composer__hl .md-codeblock--empty {
+  background: transparent;
+}
+
+/* Every input line is its own block box: height = exactly one line box (1.5em of the same 14px
+   font = the same 21px the textarea's rows are), blank lines held open by the same min-height,
+   wrapped lines growing in whole line-box steps. Stacked, they total what the textarea's rows
+   total — line for line, at any width — with no dependence on how a browser treats a forced
+   break at a block edge. It is also what lets .md-codeblock wrap its lines in a single background
+   without touching the flow. */
+.chat-composer__hl .md-line {
+  min-height: 1.5em;
+}
+
+/* Delimiters swallowed once there is content to show in their place (markdownHighlight decides
+   which): kept in the flow — they still occupy their width, so the caret lands where the text
+   really is — with only their pixels removed. The fence wrapper hides as a whole, chip
+   background included: a tinted chip around hidden ticks would be a chip of nothing. */
+.chat-composer__hl .md-delim--hidden,
+.chat-composer__hl .md-fence--hidden {
+  visibility: hidden;
 }
 
 /* The inner textarea never carries its own highlight — the box owns the focus
