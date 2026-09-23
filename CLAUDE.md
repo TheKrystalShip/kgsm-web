@@ -2,12 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel** and the
-**standalone assistant** served by the kgsm-assistant leaf. Two Vite builds over one source tree,
-sharing `src/chat/` — the conversation is the same code in both, because a divergence between the
-dock and the standalone page would be a bug, not a variant. Everything that differs is a prop.
-The standalone surface must not reach the panel's data layer; `npm run check:assistant` enforces
-it (see `src/CLAUDE.md`). The Control Panel is a standard
+`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel**, the
+**standalone assistant** served by the kgsm-assistant leaf, and the **auth anchor's own pages** —
+sign-in, registration, the wait for approval and the account page — shipped as `kgsm-web-auth`.
+Three Vite builds over one source tree. The panel and the assistant share `src/chat/` — the
+conversation is the same code in both, because a divergence between the dock and the standalone page
+would be a bug, not a variant. The anchor's pages share the panel's sign-in card
+(`pages/auth/SignInCard.jsx`), so the two sign-ins are one card by construction. Everything that
+differs is a prop. Neither of the other two surfaces may reach the panel's data layer;
+`npm run check:assistant` and `npm run check:auth` enforce it (see `src/CLAUDE.md`). The Control Panel is a standard
 Vite + React 18 (JSX) single-page app. It is a **runtime multi-host client**: it reads a localStorage
 registry of `kgsm-api` hosts and talks to them over `fetch` + SSE. The
 `README.md` covers quick-start and the file layout; this file covers the
@@ -31,6 +34,9 @@ npm run dev:assistant     # http://localhost:5174 — the STANDALONE assistant s
 npm run build:assistant   # → dist-assistant/
 npm run check:assistant   # the standalone bundle contains no Control Panel, and is fully styled
 npm run deploy:assistant  # = deploy/deploy-assistant.sh — publish it into the leaf's wwwroot
+npm run build:auth        # → dist-auth/ — the auth anchor's pages, under base /ui/
+npm run check:auth        # they reach no data layer, and every document is within the anchor's CSP
+npm run deploy:auth       # = deploy/deploy-auth.sh — publish them where the anchor's Anchor__UiPath points
 npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — creates the web root and hands it to you (sudo once)
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the web root, nothing restarts

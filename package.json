@@ -1,7 +1,7 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.230.0",
+  "version": "1.231.0",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
@@ -15,6 +15,10 @@
     "dev:assistant": "vite --config vite.assistant.config.js",
     "deploy:assistant": "deploy/deploy-assistant.sh",
     "check:assistant": "node scripts/check-assistant-bundle.mjs",
+    "build:auth": "vite build --config vite.auth.config.js",
+    "dev:auth": "vite --config vite.auth.config.js",
+    "deploy:auth": "deploy/deploy-auth.sh",
+    "check:auth": "node scripts/check-auth-bundle.mjs",
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:departure": "node scripts/validate-cluster-departure.mjs",
     "check:merge": "node scripts/validate-cluster-merge.mjs",

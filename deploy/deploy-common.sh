@@ -47,6 +47,12 @@ AUTH_ANCHOR="${KGSM_AUTH_ANCHOR:-}"
 # content root. This repo builds BOTH surfaces from one source tree (src/chat/ is shared), so it
 # publishes to both; they are separate builds, and each host gets only its own bundle.
 ASSISTANT_WWWROOT="${KGSM_ASSISTANT_WWWROOT:-/opt/kgsm-assistant/service/wwwroot}"
+
+# The auth anchor's own pages — sign-in, registration, the wait and the account page. The anchor
+# serves them from wherever its Anchor__UiPath names; a package installs them at
+# /usr/share/kgsm-web-auth, and a development host publishes them here and points the anchor at it.
+# Outside every other deploy's prefix, because each of those syncs with --delete.
+AUTH_UI_ROOT="${KGSM_WEB_AUTH_ROOT:-/srv/kgsm-web-auth}"
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 
 SUDO="${SUDO:-sudo}"
@@ -67,13 +73,14 @@ refuse_root() {
 # here would need privilege deploy.sh must never ask for, and would hide that the host is not
 # provisioned.
 require_setup() {
+    local root="${1:-$WEBROOT}"
     local problem=0
 
-    if [[ ! -d "$WEBROOT" ]]; then
-        err "web root not found: ${WEBROOT}"
+    if [[ ! -d "$root" ]]; then
+        err "web root not found: ${root}"
         problem=1
-    elif [[ ! -w "$WEBROOT" ]]; then
-        err "${WEBROOT} is not writable by $(id -un)."
+    elif [[ ! -w "$root" ]]; then
+        err "${root} is not writable by $(id -un)."
         problem=1
     fi
 

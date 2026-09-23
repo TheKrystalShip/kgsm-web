@@ -30,31 +30,36 @@ log "checking ${PROJECT} deploy target"
 command -v npm    >/dev/null || { err "npm is required to build the SPA"; exit 1; }
 command -v rsync  >/dev/null || { err "rsync is required"; exit 1; }
 
-if [[ ! -d "$WEBROOT" ]]; then
-    log "creating ${WEBROOT} (needs sudo once)"
-    $SUDO install -d -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" -m 755 "$WEBROOT"
-fi
+# One directory a deploy publishes into: created, handed to the deploying user, and verified the way
+# a deploy will use it rather than assumed from the mode bits.
+provision() {
+    local root="$1"
 
-if [[ ! -w "$WEBROOT" ]]; then
-    log "handing ${WEBROOT} to ${DEPLOY_USER} (needs sudo once)"
-    $SUDO chown -R "$DEPLOY_USER:$DEPLOY_GROUP" "$WEBROOT"
-fi
+    if [[ ! -d "$root" ]]; then
+        log "creating ${root} (needs sudo once)"
+        $SUDO install -d -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" -m 755 "$root"
+    fi
 
-if [[ ! -w "$WEBROOT" ]]; then
-    err "${WEBROOT} is still not writable by $(id -un)."
-    exit 1
-fi
+    if [[ ! -w "$root" ]]; then
+        log "handing ${root} to ${DEPLOY_USER} (needs sudo once)"
+        $SUDO chown -R "$DEPLOY_USER:$DEPLOY_GROUP" "$root"
+    fi
 
-# Verified the way deploy.sh will use it, rather than assumed from the mode bits.
-probe="${WEBROOT}/.kgsm-web-setup-probe"
-if ! touch "$probe" 2>/dev/null; then
-    err "cannot write into ${WEBROOT} as $(id -un)."
-    exit 1
-fi
-rm -f "$probe"
+    local probe="${root}/.kgsm-web-setup-probe"
+    if ! touch "$probe" 2>/dev/null; then
+        err "cannot write into ${root} as $(id -un)."
+        exit 1
+    fi
+    rm -f "$probe"
+}
+
+# The panel, and the auth anchor's own pages.
+provision "$WEBROOT"
+provision "$AUTH_UI_ROOT"
 
 printf '\n\033[1;32m✓ %s is provisioned\033[0m\n' "$PROJECT"
-printf '   web root: %s (writable by %s)\n' "$WEBROOT" "$DEPLOY_USER"
+printf '   web root:   %s (writable by %s)\n' "$WEBROOT" "$DEPLOY_USER"
+printf '   auth pages: %s — point the anchor at it with Anchor__UiPath\n' "$AUTH_UI_ROOT"
 if [[ -n "$AUTH_ANCHOR" ]]; then
     printf '   opens on: %s\n' "$AUTH_ANCHOR"
 else

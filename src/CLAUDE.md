@@ -5,11 +5,22 @@ architecture narrative (connection model, data layer, auth/RBAC, styling,
 where-truth-lives) — read it first. **This file owns the *structure*:** what
 lives where, and the module boundaries to keep.
 
-## Two surfaces, one source tree
+## Three surfaces, one source tree
 
-This repo builds **two** SPAs. `index.html` → the Control Panel; `assistant.html` → the standalone
-assistant served by the kgsm-assistant leaf. Separate Vite configs, separate `dist/`s, separate
-deploy scripts — so each host serves only its own bundle — over one source tree.
+This repo builds **three**. `index.html` → the Control Panel; `assistant.html` → the standalone
+assistant served by the kgsm-assistant leaf; `auth-sign-in.html`, `auth-wait.html` and
+`auth-account.html` → the auth anchor's own pages (`src/authui/`), built under `base: "/ui/"` and
+shipped as `kgsm-web-auth`. Separate Vite configs, separate `dist*/`s, separate deploy scripts — so
+each host serves only its own bundle — over one source tree.
+
+**The anchor's pages hold no credential.** They are served by the anchor on its own origin, every
+call they make is same-origin and authenticated by the anchor's cookie, and nothing they hold can call
+a member — so they may reach none of the panel's session or data layer (`npm run check:auth`, which
+also holds each built document to the anchor's content security policy: no inline script, no inline
+style). They reuse the panel's sign-in card and settings furniture, which is why
+`pages/auth/SignInCard.jsx`, `components/oauth-icons.jsx` and `lib/credentialRules.js` import nothing
+from that layer. Each page's document carries its own **floor** — a sign-in form that posts without
+script, a wait that refreshes only under `<noscript>` — and the application removes it on mount.
 
 `src/chat/` is the conversation, shared by both. A divergence between the dock and the standalone
 page would be a **bug, not a variant**, so there is nowhere for one to drift from the other:

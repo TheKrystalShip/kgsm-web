@@ -2,31 +2,33 @@
 #
 # Build from this directory:  cd packaging && makepkg
 #
-# The Control Panel SPA — a built bundle of static files. Nothing here executes on the host; it is
-# served by kgsm-api, same-origin, so the panel and the API it talks to are one address.
+# Two built bundles of static files from one checkout, as two packages. Nothing here executes on the
+# host.
 #
-# It is its own package rather than part of kgsm-api so the panel upgrades without rebuilding the
-# API, each repo's version means what it says, and a node can run the API headless by simply not
-# installing this.
+#   kgsm-web       the Control Panel, served by kgsm-api same-origin, so the panel and the API it
+#                  talks to are one address.
+#   kgsm-web-auth  the auth anchor's own pages — sign-in, registration, the wait for approval and the
+#                  account page — which kgsm-auth-anchor serves at /ui/ from /usr/share/kgsm-web-auth,
+#                  the path it reads by default.
 #
-# The API's web root is pointed here (/usr/share/kgsm-web) by a systemd drop-in this package ships
-# for kgsm-api's unit. Installing these files into the API's own prefix instead would mean two
-# packages owning one path, which pacman refuses.
+# Each is its own package rather than part of the daemon serving it, so a page upgrades without
+# rebuilding the daemon, each repo's version means what it says, and a host can run either daemon
+# without its pages by simply not installing them.
 
-pkgname=kgsm-web
-pkgver=1.181.0
+pkgbase=kgsm-web
+pkgname=('kgsm-web' 'kgsm-web-auth')
+# A placeholder: pkgver() below replaces it with what deploy/version.sh reports, so the number is
+# declared in exactly one place and this file never carries a copy that can fall behind.
+pkgver=1.230.0
 pkgrel=1
-pkgdesc="KGSM Control Panel — the web UI served by kgsm-api"
+pkgdesc="KGSM web surfaces"
 arch=('any')
 url="https://github.com/TheKrystalShip/kgsm-web"
 license=('GPL-3.0-or-later')
-groups=('kgsm-node')
 # No separate debug package: these are shipped to a private fleet, not a distro archive.
 options=('!debug')
-depends=()
-optdepends=('kgsm-api: serves this bundle and answers every call it makes')
 
-_stage() { printf '%s' "${KGSM_STAGE:-${startdir}/../dist}"; }
+_stage() { printf '%s' "${KGSM_STAGE:-${startdir}/..}"; }
 
 pkgver() {
     "${startdir}/../deploy/version.sh" --pkgver
@@ -34,24 +36,32 @@ pkgver() {
 
 build() {
     local stage; stage="$(_stage)"
-    [[ -f "${stage}/index.html" ]] || {
-        printf '\n  no built bundle at %s\n' "$stage" >&2
-        printf '  build it first:  VITE_API_BASE=self npm run build\n' >&2
-        printf '  or point KGSM_STAGE at an existing dist/.\n\n' >&2
+    [[ -f "${stage}/dist/index.html" && -f "${stage}/dist-auth/auth-sign-in.html" ]] || {
+        printf '\n  no built bundles under %s\n' "$stage" >&2
+        printf '  build them first:  VITE_API_BASE=self npm run build && npm run build:auth\n' >&2
+        printf '  or point KGSM_STAGE at a directory holding dist/ and dist-auth/.\n\n' >&2
         return 1
     }
 }
 
-package() {
-    local stage; stage="$(_stage)"
-    local root="${pkgdir}/usr/share/${pkgname}"
+# Copy a built tree into the package with the modes a static file tree wants, whatever the build left.
+_install_tree() {
+    local from="$1" to="$2"
+    install -dm755 "$to"
+    cp -a "${from}/." "${to}/"
+    find "$to" -type f -exec chmod 0644 {} +
+    find "$to" -type d -exec chmod 0755 {} +
+}
+
+package_kgsm-web() {
+    pkgdesc="KGSM Control Panel — the web UI served by kgsm-api"
+    groups=('kgsm-node')
+    depends=()
+    optdepends=('kgsm-api: serves this bundle and answers every call it makes')
 
     # VITE_API_BASE=self is what makes the bundle talk to whatever origin served it, so one build
     # works on every host and no domain is baked in.
-    install -dm755 "$root"
-    cp -a "${stage}/." "${root}/"
-    find "$root" -type f -exec chmod 0644 {} +
-    find "$root" -type d -exec chmod 0755 {} +
+    _install_tree "$(_stage)/dist" "${pkgdir}/usr/share/kgsm-web"
 
     # Point kgsm-api's web root at this bundle. ASPNETCORE_WEBROOT is the standard host-configuration
     # key behind IWebHostEnvironment.WebRootPath, which is what the API's same-origin SPA delivery
@@ -61,10 +71,23 @@ package() {
     # creates a missing web root at startup, which the service user could not do under /usr/share, so
     # a drop-in outliving the bundle would take the API down rather than merely serve no panel.
     install -Dm644 /dev/stdin \
-        "${pkgdir}/usr/lib/systemd/system/kgsm-api.service.d/50-${pkgname}.conf" <<DROPIN
+        "${pkgdir}/usr/lib/systemd/system/kgsm-api.service.d/50-kgsm-web.conf" <<DROPIN
 [Service]
-Environment=ASPNETCORE_WEBROOT=/usr/share/${pkgname}
+Environment=ASPNETCORE_WEBROOT=/usr/share/kgsm-web
 DROPIN
 
-    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web/LICENSE"
+}
+
+package_kgsm-web-auth() {
+    pkgdesc="KGSM sign-in pages — the auth anchor's sign-in, registration and account pages"
+    groups=('kgsm-node')
+    depends=()
+    optdepends=('kgsm-auth-anchor: serves these pages at /ui/')
+
+    # At the anchor's default Anchor__UiPath, so installing this needs no configuration and no
+    # restart: the anchor reads the documents from disk on every request.
+    _install_tree "$(_stage)/dist-auth" "${pkgdir}/usr/share/kgsm-web-auth"
+
+    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web-auth/LICENSE"
 }

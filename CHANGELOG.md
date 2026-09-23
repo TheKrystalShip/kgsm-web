@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.231.0]
+
+### Added — the auth anchor's own pages, as `kgsm-web-auth`
+
+A third build (`npm run build:auth`, `vite.auth.config.js`, `base: "/ui/"`) of the pages the auth anchor
+serves: sign-in, registration, the wait for approval and the account page. The sign-in is the panel's
+own card — `SignInCard` is now the one component both draw — and the wait is the panel's pending screen.
+Each document carries a floor that works with scripting off. The account page changes a password,
+attaches and detaches provider accounts and ends sessions, asking for the password again when the
+last proof is older than the anchor's window.
+
+`npm run check:auth` fails when the pages reach the panel's data or session layer, or when a built
+document carries anything the anchor's content security policy refuses. The PKGBUILD is split into
+`kgsm-web` and `kgsm-web-auth` (installed at `/usr/share/kgsm-web-auth`), and the release builds both;
+`deploy/deploy-auth.sh` publishes them to `/srv/kgsm-web-auth` on a development host, which
+`deploy/setup.sh` provisions.
+
+The provider marks and names moved to `components/oauth-icons.jsx` and the credential rules to
+`lib/credentialRules.js`, both import-free, so the pages can share them.
+
 ## [1.230.0]
 
 ### Added — the composer highlights its raw markdown as you type

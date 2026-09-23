@@ -1,6 +1,6 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
-import { OAuthIcon, providerLabel } from "../../components/host-helpers.jsx";
+import { OAuthIcon, providerLabel } from "../../components/oauth-icons.jsx";
 
 // The furniture the three auth screens share — the shell, the brand, the provider
 // buttons and the doorway chip. Kept here rather than duplicated per screen, because
@@ -11,7 +11,7 @@ function AuthShell({ tagline, children }) {
     <div className="login-shell">
       <div className="login-shell__inner">
         <div className="login-shell__brand">
-          <img src="/assets/tks-mark.png" alt="" />
+          <img src={import.meta.env.BASE_URL + "assets/tks-mark.png"} alt="" />
           <div className="login-shell__brand-name">The Krystal Ship</div>
           {tagline ? <div className="login-shell__tagline">{tagline}</div> : null}
         </div>

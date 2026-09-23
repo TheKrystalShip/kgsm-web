@@ -47,8 +47,15 @@ jobs:
           VITE_API_BASE=self npm run build
           test -f dist/index.html
 
+      # The auth anchor's pages, packaged as kgsm-web-auth from the same checkout. The check refuses a
+      # page the anchor's content security policy would break and one reaching the panel's sessions.
+      - name: Build the auth anchor's pages
+        run: |
+          npm run build:auth
+          npm run check:auth
+
       - name: Pack the stage, modes included
-        run: tar -C dist -cf stage.tar .
+        run: tar -cf stage.tar dist dist-auth
 
       - uses: actions/upload-artifact@v7
         with:
@@ -72,7 +79,7 @@ jobs:
           name: stage
 
       - name: Unpack the stage
-        run: mkdir -p dist && tar -C dist -xf stage.tar
+        run: tar -xf stage.tar
       # makepkg refuses to run as root, and root-owned sources are unreadable to the build user.
       - name: Create the build user
         run: |
