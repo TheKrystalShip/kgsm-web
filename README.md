@@ -37,9 +37,13 @@ cluster and asks for an address, which is what lets one deployment serve any of 
 opens on that cluster's sign-in. A default, never a lock — a door somebody has already chosen wins,
 and "Another address" still reaches the address box.
 
-Run `./deploy/setup.sh` once on a new host first. It creates the web root and hands it to you, which
-is the one thing here that needs privilege and the only time you are asked for sudo; `deploy.sh`
-refuses until it has run.
+Run `./deploy/setup.sh` once on a new host first. It creates the web root and the auth pages' root and
+hands them to you; `deploy.sh` refuses until it has run. With `KGSM_PANEL_HOST` in the untracked
+`deploy/deploy.local.env`, it also serves the panel at that name through nginx — the machine's `:80`
+ACME webroot and https upgrade, the panel's vhost (`deploy/nginx/`), its Let's Encrypt certificate and
+the renewal hook — and, where the auth anchor runs on the machine, points the anchor at the pages and
+declares the panel's origin a client of its sign-in. Everything it writes comes from this repo and that
+file, and re-running it changes nothing that already matches. It asks for sudo once.
 
 For an **API code change**, use the full `kgsm-api/deploy/deploy.sh` instead — it
 publishes the API and re-bundles the SPA, swapping the systemd service.

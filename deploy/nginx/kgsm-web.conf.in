@@ -1,0 +1,58 @@
+# kgsm-web — the Control Panel SPA, served as static files and nothing else.
+#
+# Rendered by deploy/setup.sh from KGSM_PANEL_HOST into /etc/nginx/conf.d/kgsm-web.conf. The panel is
+# not part of the cluster: it belongs to no node, holds no cluster state of its own, and reaches whichever
+# cluster it is pointed at over that cluster's public addresses. This vhost is what makes the separation
+# real rather than described.
+#
+# Nothing is proxied here. There is no /api on this name: the API answers on the node's own address, the
+# accounts answer at the anchor's, and this name answers with a bundle. Anything asking this origin for
+# data is asking the wrong party.
+
+server {
+    listen      443 ssl;
+    listen      [::]:443 ssl;
+    http2       on;
+    server_name @PANEL_HOST@;
+
+    ssl_certificate     /etc/letsencrypt/live/@PANEL_HOST@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@PANEL_HOST@/privkey.pem;
+
+    root  @WEBROOT@;
+    index index.html;
+
+    # The SPA routes on the hash, so a deep link is only ever a request for "/" as far as this server is
+    # concerned. try_files still matters for the paths a browser asks for directly — the manifest, the
+    # service worker, icons, and the address the sign-in provider sends a browser back to — and for
+    # anything a future build adds: a miss must land on index.html rather than a 404 the app never gets
+    # to answer.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Refused rather than swallowed by the fallback. Without this, anything asking this origin for data
+    # gets 200 and an HTML page — a client checking status codes reads that as success and a person reads
+    # it as the API being up here, which it is not and never will be. 404 says the one true thing: this
+    # origin serves no API.
+    location /api/ { return 404; }
+
+    # The same for the question every browser surface asks the origin that served it: who signs people in
+    # here. No member stands behind this name, so it names no provider — and a 404 is what tells the panel
+    # to ask the person for a member's address instead. The fallback's HTML would read as an answer that
+    # fails to parse.
+    location /.well-known/ { return 404; }
+
+    # Content-hashed filenames, so a given URL's bytes never change. Cached hard and immutably; the only
+    # file that must not be is the one that names them.
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # The entry point, the worker and the manifest decide which build a browser is running. Cached, they
+    # would pin somebody to an old bundle until they cleared their browser — which on an installed app is
+    # not a thing they can easily do.
+    location = /index.html            { add_header Cache-Control "no-cache"; }
+    location = /sw.js                 { add_header Cache-Control "no-cache"; }
+    location = /manifest.webmanifest  { add_header Cache-Control "no-cache"; }
+}

@@ -53,6 +53,12 @@ ASSISTANT_WWWROOT="${KGSM_ASSISTANT_WWWROOT:-/opt/kgsm-assistant/service/wwwroot
 # /usr/share/kgsm-web-auth, and a development host publishes them here and points the anchor at it.
 # Outside every other deploy's prefix, because each of those syncs with --delete.
 AUTH_UI_ROOT="${KGSM_WEB_AUTH_ROOT:-/srv/kgsm-web-auth}"
+
+# OPTIONAL: the public name this host serves the panel at, e.g. kgsm.example.com. Set, setup.sh serves
+# the web root there through nginx on a Let's Encrypt certificate and tells the auth anchor on this
+# machine that a panel lives at that origin. A name only the operator can choose, so it lives in
+# deploy.local.env with the anchor's address and never in the repo; blank serves nothing.
+PANEL_HOST="${KGSM_PANEL_HOST:-}"
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 
 SUDO="${SUDO:-sudo}"

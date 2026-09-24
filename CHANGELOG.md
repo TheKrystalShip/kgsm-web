@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.232.0]
+
+### Added — setup.sh serves the panel, so a host needs nothing written by hand
+
+With `KGSM_PANEL_HOST` in `deploy/deploy.local.env`, `deploy/setup.sh` serves the web root at that name:
+the machine's `:80` ACME webroot and https upgrade (`deploy/nginx/00-acme.conf`), the panel's vhost
+rendered from `deploy/nginx/kgsm-web.conf.in` — which answers `/api/` and `/.well-known/` with `404` —
+its Let's Encrypt certificate issued over the webroot, the renewal hook that reloads nginx, and the
+`conf.d` include in `nginx.conf` when it is missing. Where the auth anchor runs on the machine, it writes
+the anchor's `50-kgsm-web.conf` drop-in: `Anchor__UiPath` at the published pages and
+`Anchor__PanelOrigins` at the panel. Each file is compared before it is written, so a re-run changes
+nothing that already matches.
+
 ## [1.231.0]
 
 ### Added — the auth anchor's own pages, as `kgsm-web-auth`

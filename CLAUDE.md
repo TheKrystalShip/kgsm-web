@@ -38,7 +38,7 @@ npm run build:auth        # → dist-auth/ — the auth anchor's pages, under ba
 npm run check:auth        # they reach no data layer, and every document is within the anchor's CSP
 npm run deploy:auth       # = deploy/deploy-auth.sh — publish them where the anchor's Anchor__UiPath points
 npm run preview      # serve the built dist/
-./deploy/setup.sh    # ONCE per host — creates the web root and hands it to you (sudo once)
+./deploy/setup.sh    # ONCE per host — the web roots; with KGSM_PANEL_HOST, nginx + certificate + anchor drop-in (sudo once)
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the web root, nothing restarts
 
 npm run check:entry  # what an address is: anchor, standalone node, or a node inside a cluster
@@ -72,11 +72,15 @@ is a DEFAULT and never a lock: a door somebody has already chosen wins, "Another
 reaches the address box, and the value is classified like any other address rather than trusted.
 
 This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
-`kgsm-*` repo uses. It owns no systemd unit and runs no process of its own, so
-`setup.sh` installs nothing and needs no polkit grant: it creates the web root and hands it to you,
-which is the one thing that needs privilege and the reason it asks for sudo once. It verifies the
-target is writable the way `deploy.sh` will use it, since a mode bit is not a
-guarantee. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
+`kgsm-*` repo uses. It owns no systemd unit and runs no process of its own. `setup.sh` creates the web
+roots and hands them to you, verifying each is writable the way `deploy.sh` will use it, since a mode
+bit is not a guarantee. **Everything the host needs to serve the panel is produced by it, from this repo
+and the operator's values in the untracked `deploy/deploy.local.env`** — never written by hand: with
+`KGSM_PANEL_HOST` set it installs `deploy/nginx/`'s `:80` ACME server and the panel's rendered vhost,
+issues the certificate over the webroot, installs the renewal hook, and makes sure `nginx.conf` reads
+`conf.d`. Where the anchor runs here it writes `kgsm-auth-anchor.service.d/50-kgsm-web.conf` with
+`Anchor__UiPath` and `Anchor__PanelOrigins`, the way this repo's package tells kgsm-api where the panel
+is. Every file is compared before it is written, so a re-run changes nothing that already matches. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
 refuses up front with *"run `deploy/setup.sh`"* when the target isn't there. The
 three files in `deploy/` are self-contained, so a standalone clone deploys.
 
