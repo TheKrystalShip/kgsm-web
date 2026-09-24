@@ -7,7 +7,7 @@
 // IT DIFFERS FROM THE PANEL'S IN THE ONE WAY THAT MATTERS, and the difference is not stylistic.
 // The panel is served by kgsm-api, whose API lives under /api/ and /auth/, so a DENYLIST of those
 // two prefixes is exhaustive. This surface is served BY THE LEAF IT TALKS TO, and the leaf's routes
-// are UNPREFIXED AT THE ROOT — /turn, /confirm, /conversations, /tools, /health, /auth/*, /admin/*.
+// are UNPREFIXED AT THE ROOT — /turn, /confirm, /conversations, /tools, /health, /me, /admin/*.
 // A denylist there is wrong by default: every route the leaf grows is cached until someone
 // remembers to add it, and a stale authenticated 200 both masks token expiry from the session layer
 // and serves one person's conversation out of another's cache.
@@ -20,7 +20,7 @@
 // because their URL changes when their content does); the shell is network-first so a deploy lands
 // on the next online load.
 
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = `krystal-assistant-shell-${VERSION}`;
 
 // The bare shell, available offline immediately after install. Hashed build assets are NOT listed
@@ -70,20 +70,24 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Only same-origin GETs. A turn, a confirmation and a sign-out are POSTs and a conversation
-  // delete is a DELETE, so they never reach the branches below — but the allowlist is what
-  // actually keeps the leaf's GET routes (/conversations, /tools, /auth/me) out of the cache.
+  // Only same-origin GETs. A turn and a confirmation are POSTs and a conversation delete is a
+  // DELETE, so they never reach the branches below — but the allowlist is what actually keeps the
+  // leaf's GET routes (/conversations, /tools, /me) out of the cache.
   if (req.method !== "GET" || url.origin !== self.location.origin) return;
 
   // App-shell navigations: network-first so deploys land on the next load; fall back to the
-  // cached shell when offline so the installed app still opens. A sign-in returns here as a
-  // navigation carrying its session in the fragment, which is never part of a cache key.
+  // cached shell when offline so the installed app still opens. Only the shell document itself
+  // becomes the offline copy: a navigation that lands on an error, or on a route answering JSON,
+  // stored under "/" would be what the installed app opens as whenever the host is unreachable.
+  // A sign-in returns here with its code in the query, which the fixed "/" key never carries.
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("/", copy));
+          if (isShell(res)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("/", copy));
+          }
           return res;
         })
         .catch(() => caches.match("/").then((m) => m || caches.match("/index.html")))
@@ -111,6 +115,13 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// A successful same-origin HTML document: the SPA's shell, which the server answers for every route
+// the app draws.
+function isShell(res) {
+  return !!res && res.status === 200 && res.type === "basic"
+    && (res.headers.get("content-type") || "").startsWith("text/html");
+}
 
 // --- Web Push -----------------------------------------------------------------------------------
 //

@@ -17,7 +17,7 @@
 // index.html is network-first so a deploy is picked up on the next online load.
 // A full precache (`vite-plugin-pwa`) remains a separate future enhancement.
 
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = `krystal-shell-${VERSION}`;
 
 // The bare shell we want available offline immediately after install. Hashed
@@ -75,12 +75,17 @@ self.addEventListener("fetch", (event) => {
 
   // App-shell navigations: network-first so deploys land on next load; fall
   // back to the cached shell when offline so the installed app still opens.
+  // Only the shell document itself becomes the offline copy: an error page
+  // stored under "/" would be what the installed app opens as whenever the
+  // host is unreachable.
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("/", copy));
+          if (isShell(res)) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put("/", copy));
+          }
           return res;
         })
         .catch(() => caches.match("/").then((m) => m || caches.match("/index.html")))
@@ -105,6 +110,13 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// A successful same-origin HTML document: the SPA's shell, which the server
+// answers for every route the app draws.
+function isShell(res) {
+  return !!res && res.status === 200 && res.type === "basic"
+    && (res.headers.get("content-type") || "").startsWith("text/html");
+}
 
 // ---------------------------------------------------------------------------
 // Web Push

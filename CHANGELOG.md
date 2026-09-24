@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.0.1]
+
+### Fixed
+
+- **The offline shell is only ever the app.** Both service workers stored every navigation's
+  response as the shell they open with when the host is unreachable, whatever its path or status, so
+  a last navigation that landed on a JSON refusal became what the installed app showed offline. Only
+  a successful same-origin HTML document is stored now, and the cache versions move so a worker
+  holding a poisoned shell discards it on activation.
+- **The standalone assistant registers its service worker.** Registration waited for the window's
+  `load` event, which has already fired by the time the assistant finishes settling its session, so
+  a fresh browser never installed the worker. A caller arriving after `load` registers at once.
+
 ## [2.0.0]
 
 ### Changed — both surfaces are clients of the cluster's sign-in provider
