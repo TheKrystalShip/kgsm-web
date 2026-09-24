@@ -1,6 +1,7 @@
 # kgsm-web — the Control Panel SPA, served as static files and nothing else.
 #
-# Rendered by deploy/setup.sh from KGSM_PANEL_HOST into /etc/nginx/conf.d/kgsm-web.conf. The panel is
+# Rendered by kgsm-web-static's serve-panel from KGSM_PANEL_HOST in /etc/kgsm-web/panel.env into
+# /var/lib/kgsm-web-static/panel.conf, once the name's certificate exists. The panel is
 # not part of the cluster: it belongs to no node, holds no cluster state of its own, and reaches whichever
 # cluster it is pointed at over that cluster's public addresses. This vhost is what makes the separation
 # real rather than described.

@@ -1,12 +1,13 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "1.232.0",
+  "version": "1.233.0",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:static": "VITE_API_BASE= VITE_AUTH_ANCHOR= vite build --outDir dist-static",
     "lint": "eslint src",
     "preview": "vite preview",
     "deploy:prod": "bash deploy/deploy.sh",

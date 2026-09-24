@@ -1,0 +1,43 @@
+# The preset policy in kgsm-base decides whether the static panel's unit runs; applying it is symlink
+# manipulation on disk, so it works during the transaction and in a chroot alike. The node's
+# post-transaction hook starts it once /etc/kgsm-web/panel.env names a host, and not before.
+#
+# post_install only. An administrator who disabled this unit keeps it disabled across every later
+# version — re-presetting on upgrade would quietly undo that.
+
+post_install() {
+    systemctl preset kgsm-web-static.service >/dev/null 2>&1 || true
+
+    cat <<'MSG'
+
+  kgsm-web-static serves the Control Panel as a static site at one public name, with a Let's Encrypt
+  certificate, and declares that origin to the auth anchor on this machine as a client of its sign-in.
+  It serves nothing until the name is set:
+
+    /etc/kgsm-web/panel.env      KGSM_PANEL_HOST=kgsm.example.com
+    systemctl restart kgsm-web-static
+
+  The name must point at this machine with ports 80 and 443 reaching it: the certificate is issued
+  over nginx's webroot on port 80.
+
+MSG
+}
+
+post_upgrade() {
+    cat <<'MSG'
+
+  If pacman wrote a .pacnew beside /etc/kgsm-web/panel.env, merge it — new settings are declared there
+  and a key the file never declares binds to nothing.
+
+MSG
+}
+
+post_remove() {
+    cat <<'MSG'
+
+  The panel's sites are no longer loaded; reload nginx to stop serving them, and restart
+  kgsm-auth-anchor to drop the panel's origin from its clients. The certificate is left in
+  /etc/letsencrypt and the rendered files in /var/lib/kgsm-web-static.
+
+MSG
+}

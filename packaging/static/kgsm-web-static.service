@@ -1,0 +1,18 @@
+[Unit]
+Description=KGSM Control Panel served as a static site at the name in /etc/kgsm-web/panel.env
+Documentation=https://github.com/TheKrystalShip/kgsm-web
+# The certificate is issued over the network through nginx's webroot.
+Wants=network-online.target
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+# Root: it writes nginx's sites, runs certbot against /etc/letsencrypt and restarts the auth anchor.
+ExecStart=/usr/lib/kgsm-web-static/serve-panel
+StateDirectory=kgsm-web-static
+StateDirectoryMode=0755
+PrivateTmp=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

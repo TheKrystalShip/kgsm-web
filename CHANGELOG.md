@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.233.0]
+
+### Added — kgsm-web-static, the panel as a static site from a package
+
+A third package from `packaging/PKGBUILD` serves the Control Panel at one public name from the one admin
+value `KGSM_PANEL_HOST` in `/etc/kgsm-web/panel.env`, shipped blank. It carries its own bundle, built by
+the new `npm run build:static` with no host seed and no anchor, at `/usr/share/kgsm-web-static`.
+`kgsm-web-static.service` runs `serve-panel` as root: it renders the `:80` ACME surface and the panel's
+vhost into `/var/lib/kgsm-web-static`, which the package's `00-kgsm-web-static-sites.conf` includes,
+issues the certificate over the webroot where none exists, and writes `Anchor__PanelOrigins` into
+`/var/lib/kgsm-web-static/anchor.env`, read by the package's `kgsm-auth-anchor` drop-in, restarting the
+anchor when it changes. A blank value withdraws all of it. The package wants certbot's renewal timer and
+ships the deploy hook that reloads nginx. The nginx sources move to `packaging/static/`, where
+`deploy/setup.sh` reads them too, and the release workflow builds and stages the static bundle.
+
+This is what lets a machine serve the static panel from pacman alone: the setup.sh route needs a
+checkout and an untracked env file, and the package needs one line in `/etc`. The anchor default the
+setup.sh build bakes in from `KGSM_AUTH_ANCHOR` is left out on purpose: a packaged bundle cannot carry a
+host's value, and a browser that signed in before keeps its remembered door.
+
 ## [1.232.0]
 
 ### Added — setup.sh serves the panel, so a host needs nothing written by hand

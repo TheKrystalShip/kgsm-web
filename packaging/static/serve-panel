@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+#
+# serve-panel — serve the static Control Panel at the name /etc/kgsm-web/panel.env gives it.
+#
+# Run as root by kgsm-web-static.service, at boot and whenever an administrator restarts the unit after
+# changing the file. Everything it writes is derived from that one value and the files this package
+# ships, and each file is compared before it is written, so a run that changes nothing reloads nothing.
+#
+# With a name it serves, in this order: the machine's plain-HTTP surface (the ACME webroot and the https
+# upgrade), the name's Let's Encrypt certificate issued over that webroot, the panel's vhost over the
+# bundle this package ships, and the panel's origin as a client of the auth anchor on this machine.
+# Without one it withdraws all four, so blanking the value is how a machine stops serving the panel.
+#
+set -euo pipefail
+
+ENV_FILE=/etc/kgsm-web/panel.env
+LIB=/usr/lib/kgsm-web-static
+BUNDLE=/usr/share/kgsm-web-static
+STATE=/var/lib/kgsm-web-static
+ACME_ROOT=/var/lib/letsencrypt
+ANCHOR_UNIT=kgsm-auth-anchor.service
+
+log() { printf '%s\n' "$*"; }
+err() { printf '<3>%s\n' "$*" >&2; }
+
+# The last assignment of a key, unquoted. Read rather than sourced: the file is an administrator's, and
+# sourcing it would run whatever else it holds as root.
+value_of() {
+    [[ -f "$ENV_FILE" ]] || return 0
+    sed -n "s/^[[:space:]]*$1=[[:space:]]*//p" "$ENV_FILE" | tail -n1 | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/; s/[[:space:]]+$//'
+}
+
+HOST="$(value_of KGSM_PANEL_HOST)"
+EMAIL="$(value_of KGSM_PANEL_ACME_EMAIL)"
+
+if [[ -n "$HOST" && ! "$HOST" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]; then
+    err "KGSM_PANEL_HOST in ${ENV_FILE} is not a DNS name: '${HOST}'"
+    exit 1
+fi
+
+install -d -m 0755 "$STATE" "$ACME_ROOT"
+
+# place <rendered file> <destination> — returns 0 when the destination changed.
+place() {
+    local src="$1" dst="$2"
+    if cmp -s "$src" "$dst" 2>/dev/null; then
+        rm -f "$src"
+        return 1
+    fi
+    install -m 0644 "$src" "$dst"
+    rm -f "$src"
+}
+
+# withdraw <file> — returns 0 when there was something to remove.
+withdraw() {
+    [[ -e "$1" ]] || return 1
+    rm -f "$1"
+}
+
+# nginx is told only once it accepts the whole configuration, so a bad render never takes down the sites
+# already being served. reload-or-restart also starts it where nothing had yet.
+reload_nginx() {
+    if ! nginx -t -q; then
+        err "nginx refused the configuration; nothing was reloaded"
+        nginx -t || true
+        exit 1
+    fi
+    systemctl reload-or-restart nginx.service
+}
+
+# The anchor reads the panel's origin from this file through its drop-in. It is started from its own
+# unit, so it is restarted without waiting: a run at boot must not block on a unit ordered after it.
+point_anchor() {
+    local rendered
+    rendered="$(mktemp)"
+    if [[ -n "$HOST" ]]; then
+        printf 'Anchor__PanelOrigins=https://%s\n' "$HOST" > "$rendered"
+    fi
+    if place "$rendered" "${STATE}/anchor.env"; then
+        log "the auth anchor's panel origin is ${HOST:+https://}${HOST:-unset}"
+        systemctl --no-block try-restart "$ANCHOR_UNIT"
+    fi
+}
+
+if [[ -z "$HOST" ]]; then
+    log "no KGSM_PANEL_HOST in ${ENV_FILE}: the panel is not served here"
+    changed=1
+    withdraw "${STATE}/panel.conf" && changed=0
+    withdraw "${STATE}/acme.conf" && changed=0
+    (( changed == 0 )) && command -v nginx >/dev/null && systemctl is-active --quiet nginx.service && reload_nginx
+    point_anchor
+    exit 0
+fi
+
+# 1. The plain-HTTP surface, first: the certificate below is issued through it.
+rendered="$(mktemp)"
+cp "${LIB}/acme.conf" "$rendered"
+if place "$rendered" "${STATE}/acme.conf"; then
+    log "serving the ACME webroot and the https upgrade on :80"
+    reload_nginx
+fi
+
+# 2. The certificate. Renewal is certbot's own timer; the deploy hook this package ships reloads nginx.
+if [[ -f "/etc/letsencrypt/live/${HOST}/fullchain.pem" ]]; then
+    log "the certificate for ${HOST} exists"
+else
+    log "asking Let's Encrypt for ${HOST}"
+    account=(--register-unsafely-without-email)
+    [[ -n "$EMAIL" ]] && account=(--email "$EMAIL")
+    if ! certbot certonly --webroot -w "$ACME_ROOT" -d "$HOST" --cert-name "$HOST" \
+            --non-interactive --agree-tos --keep-until-expiring "${account[@]}"; then
+        err "certbot could not issue a certificate for ${HOST}; the panel is not served"
+        exit 1
+    fi
+fi
+
+# 3. The vhost.
+rendered="$(mktemp)"
+sed -e "s|@PANEL_HOST@|${HOST}|g" -e "s|@WEBROOT@|${BUNDLE}|g" "${LIB}/panel.conf.in" > "$rendered"
+if place "$rendered" "${STATE}/panel.conf"; then
+    log "serving the panel at https://${HOST}"
+    reload_nginx
+fi
+
+# 4. The panel as a client of the anchor's sign-in.
+point_anchor

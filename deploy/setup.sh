@@ -92,9 +92,9 @@ serve_panel() {
 
     # The plain-HTTP surface first: the certificate below is issued through it.
     $SUDO install -d -m 0755 /var/lib/letsencrypt
-    install_root_file "${REPO_DIR}/deploy/nginx/00-acme.conf" /etc/nginx/conf.d/00-acme.conf 0644 \
+    install_root_file "${REPO_DIR}/packaging/static/acme.conf" /etc/nginx/conf.d/00-acme.conf 0644 \
         && log "installed the ACME webroot and https upgrade on :80"
-    install_root_file "${REPO_DIR}/deploy/nginx/reload-nginx.hook" /etc/letsencrypt/renewal-hooks/deploy/reload-nginx 0755 \
+    install_root_file "${REPO_DIR}/packaging/static/reload-nginx.hook" /etc/letsencrypt/renewal-hooks/deploy/reload-nginx 0755 \
         && log "installed the renewal hook that reloads nginx"
     $SUDO nginx -t >/dev/null 2>&1 || { err "nginx refused the configuration; nothing was reloaded"; $SUDO nginx -t; exit 1; }
     $SUDO systemctl reload-or-restart nginx
@@ -111,7 +111,7 @@ serve_panel() {
     local rendered
     rendered="$(mktemp)"
     sed -e "s|@PANEL_HOST@|${PANEL_HOST}|g" -e "s|@WEBROOT@|${WEBROOT}|g" \
-        "${REPO_DIR}/deploy/nginx/kgsm-web.conf.in" > "$rendered"
+        "${REPO_DIR}/packaging/static/panel.conf.in" > "$rendered"
     install_root_file "$rendered" /etc/nginx/conf.d/kgsm-web.conf 0644 && log "installed the panel's vhost for ${PANEL_HOST}"
     rm -f "$rendered"
 

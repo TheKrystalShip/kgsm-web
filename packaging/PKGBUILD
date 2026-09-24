@@ -2,21 +2,24 @@
 #
 # Build from this directory:  cd packaging && makepkg
 #
-# Two built bundles of static files from one checkout, as two packages. Nothing here executes on the
-# host.
+# Three built bundles of static files from one checkout, as three packages.
 #
 #   kgsm-web       the Control Panel, served by kgsm-api same-origin, so the panel and the API it
 #                  talks to are one address.
 #   kgsm-web-auth  the auth anchor's own pages — sign-in, registration, the wait for approval and the
 #                  account page — which kgsm-auth-anchor serves at /ui/ from /usr/share/kgsm-web-auth,
 #                  the path it reads by default.
+#   kgsm-web-static the Control Panel served as a static site at one public name, with no member behind
+#                  it: its own bundle, which seeds no host, the nginx site and certificate, and the
+#                  panel's origin declared to the auth anchor on the same machine. One admin value,
+#                  KGSM_PANEL_HOST in /etc/kgsm-web/panel.env, drives all of it.
 #
 # Each is its own package rather than part of the daemon serving it, so a page upgrades without
 # rebuilding the daemon, each repo's version means what it says, and a host can run either daemon
 # without its pages by simply not installing them.
 
 pkgbase=kgsm-web
-pkgname=('kgsm-web' 'kgsm-web-auth')
+pkgname=('kgsm-web' 'kgsm-web-auth' 'kgsm-web-static')
 # A placeholder: pkgver() below replaces it with what deploy/version.sh reports, so the number is
 # declared in exactly one place and this file never carries a copy that can fall behind.
 pkgver=1.230.0
@@ -36,10 +39,11 @@ pkgver() {
 
 build() {
     local stage; stage="$(_stage)"
-    [[ -f "${stage}/dist/index.html" && -f "${stage}/dist-auth/auth-sign-in.html" ]] || {
+    [[ -f "${stage}/dist/index.html" && -f "${stage}/dist-auth/auth-sign-in.html" \
+        && -f "${stage}/dist-static/index.html" ]] || {
         printf '\n  no built bundles under %s\n' "$stage" >&2
-        printf '  build them first:  VITE_API_BASE=self npm run build && npm run build:auth\n' >&2
-        printf '  or point KGSM_STAGE at a directory holding dist/ and dist-auth/.\n\n' >&2
+        printf '  build them first:  VITE_API_BASE=self npm run build && npm run build:auth && npm run build:static\n' >&2
+        printf '  or point KGSM_STAGE at a directory holding dist/, dist-auth/ and dist-static/.\n\n' >&2
         return 1
     }
 }
@@ -90,4 +94,41 @@ package_kgsm-web-auth() {
     _install_tree "$(_stage)/dist-auth" "${pkgdir}/usr/share/kgsm-web-auth"
 
     install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web-auth/LICENSE"
+}
+
+package_kgsm-web-static() {
+    pkgdesc="KGSM Control Panel served as a static site at one public name, with its certificate"
+    # kgsm-base makes nginx read /etc/nginx/conf.d, where this package's include lives, and holds the
+    # preset that enables its unit. diffutils is serve-panel's cmp, which a minimal root lacks; without
+    # it every file reads as changed and each run restarts the auth anchor.
+    depends=('kgsm-base' 'nginx' 'certbot' 'diffutils')
+    backup=('etc/kgsm-web/panel.env')
+    install=kgsm-web-static.install
+
+    local src="${startdir}/static"
+
+    # Built with no host seed and no anchor, so it belongs to no cluster: a browser opening it asks for
+    # a member's address, or returns to the one it signed in at before.
+    _install_tree "$(_stage)/dist-static" "${pkgdir}/usr/share/kgsm-web-static"
+
+    install -Dm755 "${src}/serve-panel"                  "${pkgdir}/usr/lib/kgsm-web-static/serve-panel"
+    install -Dm644 "${src}/panel.conf.in"                "${pkgdir}/usr/lib/kgsm-web-static/panel.conf.in"
+    install -Dm644 "${src}/acme.conf"                    "${pkgdir}/usr/lib/kgsm-web-static/acme.conf"
+    install -Dm644 "${src}/kgsm-web-static.service"      "${pkgdir}/usr/lib/systemd/system/kgsm-web-static.service"
+    install -Dm644 "${src}/panel.env"                    "${pkgdir}/etc/kgsm-web/panel.env"
+    install -Dm644 "${src}/00-kgsm-web-static-sites.conf" "${pkgdir}/etc/nginx/conf.d/00-kgsm-web-static-sites.conf"
+    install -Dm644 "${src}/kgsm-auth-anchor.dropin.conf" \
+        "${pkgdir}/usr/lib/systemd/system/kgsm-auth-anchor.service.d/50-kgsm-web-static.conf"
+
+    # nginx reads a certificate when it loads its configuration, so a renewal is served only after a
+    # reload. certbot runs every executable in this directory once per renewed certificate.
+    install -Dm755 "${src}/reload-nginx.hook" "${pkgdir}/etc/letsencrypt/renewal-hooks/deploy/kgsm-web-static"
+
+    # Renewal is certbot's own timer, which ships disabled. Wanted here because a certificate this
+    # package issued and nothing renews stops the panel in 90 days.
+    install -d "${pkgdir}/usr/lib/systemd/system/timers.target.wants"
+    ln -s /usr/lib/systemd/system/certbot-renew.timer \
+        "${pkgdir}/usr/lib/systemd/system/timers.target.wants/certbot-renew.timer"
+
+    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web-static/LICENSE"
 }

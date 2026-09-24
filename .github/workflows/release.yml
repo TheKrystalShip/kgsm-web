@@ -54,8 +54,14 @@ jobs:
           npm run build:auth
           npm run check:auth
 
+      # The panel as a static site, packaged as kgsm-web-static: no host seed and no anchor.
+      - name: Build the static panel
+        run: |
+          npm run build:static
+          test -f dist-static/index.html
+
       - name: Pack the stage, modes included
-        run: tar -cf stage.tar dist dist-auth
+        run: tar -cf stage.tar dist dist-auth dist-static
 
       - uses: actions/upload-artifact@v7
         with:

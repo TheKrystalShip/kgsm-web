@@ -76,13 +76,24 @@ This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
 roots and hands them to you, verifying each is writable the way `deploy.sh` will use it, since a mode
 bit is not a guarantee. **Everything the host needs to serve the panel is produced by it, from this repo
 and the operator's values in the untracked `deploy/deploy.local.env`** — never written by hand: with
-`KGSM_PANEL_HOST` set it installs `deploy/nginx/`'s `:80` ACME server and the panel's rendered vhost,
+`KGSM_PANEL_HOST` set it installs `packaging/static/`'s `:80` ACME server and the panel's rendered vhost,
 issues the certificate over the webroot, installs the renewal hook, and makes sure `nginx.conf` reads
 `conf.d`. Where the anchor runs here it writes `kgsm-auth-anchor.service.d/50-kgsm-web.conf` with
 `Anchor__UiPath` and `Anchor__PanelOrigins`, the way this repo's package tells kgsm-api where the panel
 is. Every file is compared before it is written, so a re-run changes nothing that already matches. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
 refuses up front with *"run `deploy/setup.sh`"* when the target isn't there. The
 three files in `deploy/` are self-contained, so a standalone clone deploys.
+
+`packaging/PKGBUILD` builds three packages: `kgsm-web` (the same-origin bundle kgsm-api serves),
+`kgsm-web-auth` (the anchor's pages) and `kgsm-web-static`, the panel as a static site at one public
+name. The last carries its own bundle (`npm run build:static`: no host seed, no anchor) and a root
+oneshot, `packaging/static/serve-panel`, driven by the one admin value `KGSM_PANEL_HOST` in
+`/etc/kgsm-web/panel.env`: it renders the `:80` surface and the vhost into `/var/lib/kgsm-web-static`
+(included by the package's `conf.d` file), issues the certificate over the webroot, and writes the
+panel's origin into `/var/lib/kgsm-web-static/anchor.env`, which the anchor reads through the package's
+drop-in. The rendered files are the ones setup.sh installs, from the same sources in `packaging/static/`.
+`packaging/test/static-panel.sh` installs the built package into a booted Arch container and drives it
+through a blank name, a name with a certificate, an invalid name, a blank name again and its removal.
 
 **There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** —
 don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)

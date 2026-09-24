@@ -40,10 +40,19 @@ and "Another address" still reaches the address box.
 Run `./deploy/setup.sh` once on a new host first. It creates the web root and the auth pages' root and
 hands them to you; `deploy.sh` refuses until it has run. With `KGSM_PANEL_HOST` in the untracked
 `deploy/deploy.local.env`, it also serves the panel at that name through nginx — the machine's `:80`
-ACME webroot and https upgrade, the panel's vhost (`deploy/nginx/`), its Let's Encrypt certificate and
+ACME webroot and https upgrade, the panel's vhost (`packaging/static/`), its Let's Encrypt certificate and
 the renewal hook — and, where the auth anchor runs on the machine, points the anchor at the pages and
 declares the panel's origin a client of its sign-in. Everything it writes comes from this repo and that
 file, and re-running it changes nothing that already matches. It asks for sudo once.
+
+On a package-installed machine the same thing is the **`kgsm-web-static`** package: its own bundle,
+built by `npm run build:static` with no host seed and no anchor, served at `KGSM_PANEL_HOST` from
+`/etc/kgsm-web/panel.env`. `kgsm-web-static.service` (`packaging/static/serve-panel`, as root) renders
+the `:80` surface and the vhost into `/var/lib/kgsm-web-static`, which the package's
+`00-kgsm-web-static-sites.conf` includes, issues the certificate over the webroot, and writes the
+panel's origin into the file the auth anchor's `50-kgsm-web-static.conf` drop-in reads. Blank, it
+withdraws all of it. Renewal is certbot's timer, wanted by the package, with a deploy hook that reloads
+nginx.
 
 For an **API code change**, use the full `kgsm-api/deploy/deploy.sh` instead — it
 publishes the API and re-bundles the SPA, swapping the systemd service.

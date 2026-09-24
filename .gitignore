@@ -2,6 +2,7 @@ node_modules
 dist
 dist-assistant
 dist-auth
+dist-static
 dist-ssr
 *.local
 .env
@@ -9,3 +10,9 @@ dist-ssr
 .DS_Store
 *.log
 deploy/deploy.local.env
+
+# makepkg's working directories and output. Anchored: a slashless rule matches at every depth.
+/packaging/pkg/
+/packaging/src/
+/packaging/*.pkg.tar.zst
+/packaging/*.pkg.tar.zst.sig
