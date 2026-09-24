@@ -1,4 +1,3 @@
-import { Icon } from "../components/Icon.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
 import { ThemePicker } from "../components/ThemePicker.jsx";
 import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
@@ -9,19 +8,18 @@ import { useAssistantDock } from "../components/AssistantDockContext.jsx";
 import { usableTargets } from "../lib/assistants.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 import { SettingsAccess } from "./SettingsAccess.jsx";
-import { SettingsIdentities } from "./SettingsIdentities.jsx";
 import { SettingsNotifications } from "./SettingsNotifications.jsx";
-import { SettingsSessions } from "./SettingsSessions.jsx";
+import { SettingsSignIn } from "./SettingsSignIn.jsx";
 import { SettingsSync } from "./SettingsSync.jsx";
 
 // SettingsPage — YOUR account, and nothing about anybody else's. Tabs in the order somebody actually
-// asks the questions: who am I (Profile), how do I get in (Security), where am I signed in (Devices),
-// what does the assistant know about me (Memory), how do I get told things (Notifications).
-// Appearance lives on Profile.
+// asks the questions: who am I (Profile), how do I get in (Sign-in), what follows me between
+// browsers (Devices), what does the assistant know about me (Memory), how do I get told things
+// (Notifications). Appearance lives on Profile.
 //
 // The subject is what puts a tab here, never which service owns the data — this page is already a
-// join across three of them (the node's account store, this browser, and the assistant leaf), held
-// together by every one of them being about the person reading it.
+// join across several of them (the cluster's sign-in provider, this browser, and the assistant),
+// held together by every one of them being about the person reading it.
 //
 // Tabbed rather than one long column because the five are genuinely different subjects, and stacked
 // as equal cards none of them read as primary — the page became a list of slabs with no hierarchy.
@@ -127,26 +125,15 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
               {/* Above the notice, because unlike the row above it this one works, and unlike
                   deleting an account it is reversible by signing in again. */}
               <ResetLocalData />
-              <div className="settings-notice">
-                <Icon name="info" size={13} /> To sign out of every device, use Log out all under
-                Devices.
-              </div>
             </SettingsSection>
           </>
         )}
 
-        {/* How you get in: the password and the accounts that stand in for it, together. */}
-        {active === "security" && <SettingsIdentities sessionProvider={sessionProvider} />}
+        {/* How you get in, which is changed on the provider's own account page. */}
+        {active === "security" && <SettingsSignIn onLogout={onLogout} />}
 
-        {/* Where you are signed in, and the history of getting there. */}
-        {/* Devices holds both halves of "this browser versus your others": where you are signed in,
-            and whether what you arrange follows you between them. */}
-        {active === "devices" && (
-          <>
-            <SettingsSync />
-            <SettingsSessions onLogout={onLogout} />
-          </>
-        )}
+        {/* Whether what you arrange here follows you to your other browsers. */}
+        {active === "devices" && <SettingsSync />}
 
         {active === "memory" && (
           <SettingsMemory

@@ -1,10 +1,11 @@
 import { assistantSession } from "./assistantSession.js";
 import { parseSseEvent, readSseStream } from "./sse.js";
 
-// assistantClient.js — the seam onto an assistant LEAF, spoken directly.
+// assistantClient.js — the seam onto an assistant, spoken directly.
 //
-// The chat addresses the assistant on its own public origin with a session the leaf issued,
-// so kgsm-api is not in the path of a turn, a confirmation, or a conversation read. The leaf's
+// The chat addresses the assistant on its own public origin with the cluster's session, which the
+// assistant verifies itself, so kgsm-api is not in the path of a turn, a confirmation, or a
+// conversation read. The leaf's
 // wire contract is `kgsm-llm/docs/wire-contract.md`; the routes are the leaf's own, unprefixed
 // (`/turn`, `/confirm`, `/conversations`, …), not the aggregator's `/api/v1/assistant/*`.
 //
@@ -14,7 +15,7 @@ import { parseSseEvent, readSseStream } from "./sse.js";
 // coupling this path removes, and kgsm-api logs a warning when anything does.
 //
 // Auth is reactive, the same shape the node seam uses: send the token we hold, and let the
-// leaf be the judge. A 401 rotates the leaf's refresh token once and replays — EXCEPT for the
+// assistant be the judge. A 401 renews the session once and replays — EXCEPT for the
 // two calls that are not replayable (a turn consumes context and a confirm consumes a
 // single-use token), which rotate BEFORE the call instead if the access token has lapsed.
 
@@ -364,9 +365,10 @@ function host(hostId) {
   return {
     hostId,
     hasRoute: () => assistantSession.hasRoute(hostId),
-    // Who the leaf says this bearer is: { userId, displayName, tier, canPerformActions }. Authority
-    // is the LEAF's answer, re-derived from Discord per request — never read off the token here.
-    me: (opts) => json(hostId, "GET", "/auth/me", null, opts),
+    // Who the assistant says this bearer is: { userId, displayName, tier, canPerformActions }.
+    // Authority is the assistant's answer, re-derived from its replica of the accounts per request —
+    // never read off the token here.
+    me: (opts) => json(hostId, "GET", "/me", null, opts),
     // What this host's speech engine can do: `{ hear, speak }`. Asked before a microphone is offered,
     // because a recording made on a host that cannot listen is one nobody can read. Both are the same
     // optional leaf, and a host without it answers false to both rather than failing.

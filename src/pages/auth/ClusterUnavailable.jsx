@@ -1,42 +1,53 @@
 import { Icon } from "../../components/Icon.jsx";
 import { AuthShell } from "./AuthChrome.jsx";
 
-// ClusterUnavailable — something answered, and it is not a door.
+// ClusterUnavailable — the panel knows where to sign in, and cannot right now.
 //
 // Each fact reaching this screen is acted on differently, so they are not collapsed into one
-// apology. Every one is a configuration somebody can fix, and this is the one place any of it can be
-// said — every other surface reads healthy.
+// apology.
 //
-//   held-elsewhere  a node that belongs to a cluster. It serves no auth and announces nothing about
-//                   its cluster, so the holder's NAME is the whole of what can be said — a name is
-//                   not an address, and somebody who knows the cluster knows where that is
-//   anchor-standby  an anchor that is not holding. A promotion candidate rather than a second
-//                   authority, so sending anybody here would put them at a door that refuses them
-//   unreachable     nothing answered. The one a person can wait out, which is why it is the only one
-//                   offering Try again
+//   unreachable  the provider, or the member asked for it, did not answer. The one a person can wait
+//                out, so it offers Try again
+//   no_provider  a member answered and knows of no sign-in provider yet — its cluster is still
+//                settling, or has nobody holding its accounts
+//   ended        a session this page was using could not be renewed. Never followed on its own: the
+//                panel was on screen, and leaving for the provider unasked would discard whatever
+//                somebody was doing
+//   refused      the provider sent the browser back without a session, naming why
+//   no_access    signed in, and the cluster grants this account nothing
 
 const WHAT = {
-  "held-elsewhere": {
-    icon: "route-off",
-    title: "Not the door",
-    body: (c) => (c.holder
-      ? <>This node belongs to a cluster whose accounts are held by <b>{c.holder}</b>. Sign in there.</>
-      : <>This node belongs to a cluster that keeps its accounts elsewhere.</>),
-  },
-  "anchor-standby": {
-    icon: "unlink",
-    title: "Standing by",
-    body: () => <>This anchor is not holding a cluster’s accounts.</>,
-  },
   unreachable: {
     icon: "plug-zap",
     title: "Nothing answered",
-    body: (c) => <><b>{(c.origin || "").replace(/^https?:\/\//, "")}</b> isn’t answering.</>,
+    body: (c) => (c.origin
+      ? <><b>{c.origin.replace(/^https?:\/\//, "")}</b> isn’t answering.</>
+      : <>The cluster’s sign-in isn’t answering.</>),
+  },
+  no_provider: {
+    icon: "unlink",
+    title: "No sign-in yet",
+    body: () => <>This cluster doesn’t name anywhere to sign in yet.</>,
+  },
+  ended: {
+    icon: "log-out",
+    title: "Signed out",
+    body: () => <>Your session ended.</>,
+  },
+  refused: {
+    icon: "shield-x",
+    title: "Not signed in",
+    body: (c) => <>The sign-in came back without a session{c.error ? <> (<code>{c.error}</code>)</> : null}.</>,
+  },
+  no_access: {
+    icon: "user-x",
+    title: "No access",
+    body: () => <>You’re signed in, and this cluster grants your account nothing.</>,
   },
 };
 
-function ClusterUnavailable({ cluster, onChangeCluster, onRetry }) {
-  const key = WHAT[cluster.kind] ? cluster.kind : "unreachable";
+function ClusterUnavailable({ state, onSignIn, onRetry, onChangeCluster, onSignOut, accountPage }) {
+  const key = WHAT[state.kind] ? state.kind : "unreachable";
   const what = WHAT[key];
 
   return (
@@ -46,15 +57,28 @@ function ClusterUnavailable({ cluster, onChangeCluster, onRetry }) {
           <Icon name={what.icon} size={20} />
         </div>
         <div className="login-card__heading">{what.title}</div>
-        <div className="login-card__sub">{what.body(cluster)}</div>
+        <div className="login-card__sub">{what.body(state)}</div>
 
         <div className="login-card__actions">
-          {key === "unreachable" ? (
+          {(key === "ended" || key === "refused") && onSignIn ? (
+            <button type="button" className="login-form__submit" onClick={onSignIn}>Sign in</button>
+          ) : null}
+          {(key === "unreachable" || key === "no_provider") && onRetry ? (
             <button type="button" className="login-form__submit" onClick={onRetry}>Try again</button>
           ) : null}
-          <button type="button" className="btn-ghost" onClick={onChangeCluster}>
-            <Icon name="arrow-left" size={15} /> Another address
-          </button>
+          {key === "no_access" && accountPage ? (
+            <a className="login-form__submit" href={accountPage}>Your account</a>
+          ) : null}
+          {key === "no_access" && onSignOut ? (
+            <button type="button" className="btn-ghost" onClick={onSignOut}>
+              <Icon name="log-out" size={15} /> Sign out
+            </button>
+          ) : null}
+          {key !== "no_access" && onChangeCluster ? (
+            <button type="button" className="btn-ghost" onClick={onChangeCluster}>
+              <Icon name="arrow-left" size={15} /> Another address
+            </button>
+          ) : null}
         </div>
       </div>
     </AuthShell>

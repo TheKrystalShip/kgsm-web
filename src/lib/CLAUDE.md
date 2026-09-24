@@ -38,24 +38,16 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   dispatches carries `hostId` — the node whose socket delivered it — so a
   listener never has to guess which node produced an event.
 
-  **`accountDoor(hostId)` is where an account call is addressed**, and the only place that decides
-  it. A cluster whose accounts an anchor holds administers them at the anchor — a write that landed
-  in a member's read-only replica would be overwritten by the next thing the anchor published, so it
-  would appear to work and then quietly not have — and every member refuses those calls on that
-  basis. A cluster without an anchor holds its own, and the same calls go to the node. `api.users`
-  `api.identities` and `api.sessions` resolve through it per call — a session's rows sit with
-  whatever minted it, and in an anchored cluster the members mint none, so asking one returns an
-  honest empty list that reads as "no other devices". `logout` is the one auth call that never
-  resolves a door: it revokes the calling session in the node's own registry, and the cluster-wide
-  sign-out is `sessionStore`'s, which tells the anchor directly.
-  The two doors differ in three details, all absorbed here: the accounts sit under
-  `/auth/cluster/users` at an anchor, a password change spells its two fields `{current, password}`
-  there and `{currentPassword, newPassword}` on a node, and a credential is named `credentialId`
-  there and `id` on a node — the list normalises, so the screen above reads one field. Admin session
-  revokes ride the accounts path, so ending one of somebody's sessions asks "is this session that
-  person's" rather than "does this session exist". A call to an
-  anchor also leaves the connection signal alone: an anchor is not a member, and its reachability is
-  not a node's.
+  **`accountDoor()` is where an account call is addressed**, and the only place that decides it:
+  the cluster's sign-in provider, under `/auth/cluster/users`. A write that landed in a member's
+  read-only replica would be overwritten by the next thing the provider published, so it would
+  appear to work and then quietly not have — and every member refuses those calls on that basis. A
+  panel knowing no provider refuses the call rather than guessing a member. `api.users` and
+  `api.sessions` resolve through it per call; `api.sessions` is an administrator's view of somebody
+  else's sessions, scoped under their account, so ending one asks "is this session that person's"
+  rather than "does this session exist". A person's OWN sessions are the provider's account page's.
+  A call to the provider leaves the connection signal alone: it is not a node this panel drives, and
+  its reachability is not a node's.
 - `liveStream.js` — fetch-based SSE. One
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
@@ -98,23 +90,12 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   affordance — the cluster's own answers about every node in it, a leaf only about the machine it
   runs on — and the dock resolves its own target through the same list, so a button that offers to
   ask and the dock that would answer cannot disagree about whether there is one.
-- `assistantSession.js` — the session with that assistant: its own storage prefixes, its
-  own refresh rotation against the leaf's `/auth/session/refresh`, and the sign-in bounce.
-  An ANCHORED assistant has no session of its own to hold: another member holds the cluster's
-  accounts, so its sign-in doors answer `503` and it verifies the CLUSTER's session instead — every
-  read and every renewal routes to that credential and no redirect is ever attempted. The credential
-  is handed in (`setClusterSession`) rather than imported, because this module sits underneath the
-  one that owns it.
-  `setTargetResolver` is installed by the surface and answers where an assistant is and which kind
-  it is; resolving it here would mean this module importing the stores, which
-  thing the aggregator contributes — discovery, not transport.
-  **The sign-in is silent.** Every surface on a host is the same Discord application, so a browser
-  signed into the panel has already authorized the assistant and `prompt=none` completes with
-  nothing rendered. `ensureSession(hostId)` is the one decision point, ranked by cost: live ⇒
-  nothing, a held refresh ⇒ a silent rotate, neither ⇒ a redirect. **One redirect per host per
-  tab** (a `sessionStorage` marker written before leaving, cleared only when a session arrives), so
-  a leaf that keeps refusing cannot loop the browser; the route travels in `sessionStorage` because
-  the fragment is the handoff's. `prompt=consent` is passed by the dock's fallback button alone.
+- `assistantSession.js` — which credential an assistant is spoken to with, and where it is. None
+  of its own: every assistant accepts the cluster's session, a leaf verifying it against the host
+  file its node writes and an anchor through the holder of the accounts. Both halves are installed
+  by the surface — `setCredential` (the panel's `sessionStore`, or the standalone assistant's own
+  client of the provider) and `setTargetResolver` (where an assistant is) — because resolving either
+  here would mean this module importing the stores, which the standalone surface may not reach.
 
 **The honesty boundary**
 - `adapters.js` — maps kgsm-api's narrow HONEST model to view shapes. A value the
@@ -172,17 +153,24 @@ re-exports `stores/` — import from either.
   for auth-disabled dev.
 
 **Auth / RBAC / capabilities**
-- `anchor.js` — where this browser signs in, and the calls that do it. `anchorIdentity`
-  (`GET /auth/identity`, unauthenticated because a browser asking has no session yet — an address is
-  an anchor because it says so, never because something was inferred from it), `authDoors`
-  (`GET /auth/providers`, read on an anchor and a node alike, and which reports a clustered node's
-  503 as the holder's NAME), the interactive provider bounce, sign-in / register / refresh /
-  sign-out, and THE DOOR — the one stored fact about where this browser signs in, carrying its
-  `kind`. It does not go through `apiClient`, whose seam addresses nodes: every call here is either
-  anonymous or authorized by a **credential the caller passes in**. The credential rather than a
-  token is what keeps this module underneath the session layer — importing `sessionStore` from here
-  would close a cycle — while still leaving every call able to renew itself. `clusterCredential`
-  (exported by `sessionStore.js`) is the one every panel caller hands it.
+- `oidc.js` — how a surface finds the cluster's sign-in provider and holds a session from it, over
+  `oidc-client-ts`. `discoverProvider(address)` asks a member's protected-resource document and,
+  failing that, whether the address is the provider itself; `clientIdFor(origin)` is the client id a
+  page signs in as (its origin's host, `-port` when named); `createClient` builds the library's
+  client with the session in `localStorage` and a round trip's `state` in `sessionStorage`; `renew`
+  is the refresh grant, telling a provider that REFUSED apart from one that could not be asked, and
+  re-reading storage once before believing a refusal, because every tab shares the stored session.
+  **Imports nothing but the library**, so the standalone assistant holds its session through it too.
+- `provider.js` — the one stored fact about where the panel signs in (`krystal:provider`: the
+  issuer, and the address that named it). Its presence is also what says the provider names the
+  fleet. Imports nothing, so the connection modules can read it beneath the session layer.
+- `anchor.js` — what the panel asks the provider: `clusterMembers` (the fleet), authorized by a
+  **credential the caller passes in** — the credential rather than a token is what keeps this module
+  underneath the session layer while still leaving the call able to renew itself — and
+  `configuredAnchor`, the build's own cluster address for a static deployment.
+- `clusterSignIn.js` — what the panel does once it holds a session: the fleet, who this person is
+  (`GET /me` on the home node), and the first hydrate. The session is held first, because it is valid
+  on its signature and nothing a member says makes it more so.
 - `componentSurface.js` — a COMPONENT's own configuration, unit, journal and command manifest,
   behind one shape whichever transport reaches it. A component owns all of that wherever it runs;
   what differs is only how a browser gets to it, and this is the whole of that difference.
@@ -193,27 +181,20 @@ re-exports `stores/` — import from either.
   deliberately absent from the leaf surface: a leaf's comes off the keyed log store so a page and a
   pinned widget share one hydrate and one subscription, and a second reader here would fetch it
   again beside that one. The pages that mount it are `pages/component/`.
-- **Two entry paths, and nothing is discovered through a node.** An auth anchor holds a cluster's
-  accounts; a standalone node holds its own. Both mint and renew their own sessions and neither is
-  above the other. A node that belongs to a cluster is not an entry path at all — it serves no auth
-  and announces nothing about its cluster, so it is refused, and the refusal can name the holder but
-  never an address. `authFlow.identifyAddress` is the one place that decides which of those an
-  address is.
-- `fleet.js` — which nodes the panel drives, and whether that has been asked yet. In a cluster the
-  answer is the ANCHOR's and nobody else's, asked on every load and kept nowhere: a node the cluster
-  no longer names is gone on the next one. `fleetStore` exists so the shell can tell "no hosts" from
-  "nobody has been asked", which are the same empty set and opposite answers. A member's own roster
-  is read for health and capabilities and never to decide who is driven. A standalone deployment
-  keeps its one node in storage and never runs any of this.
+- `fleet.js` — which nodes the panel drives, and whether that has been asked yet. The answer is the
+  PROVIDER's and nobody else's, asked on every load and kept nowhere: a node the cluster no longer
+  names is gone on the next one. `fleetStore` exists so the shell can tell "no hosts" from "nobody
+  has been asked", which are the same empty set and opposite answers. A member's own roster is read
+  for health and capabilities and never to decide who is driven. A host run with auth off names no
+  provider, keeps its one node in storage and never runs any of this.
 - `sessionStore.js` — **ONE session**, and `clusterCredential`, which is that session as something a
-  call can be authorized BY. Whichever door minted it renews it, and only that door:
-  `doorOrigin()` is what renewal reads, `anchorOrigin()` is the narrower question of whether that
-  door is an anchor, and the account surfaces key off the second. In a cluster the anchor mints, and
-  every member accepts by verifying the anchor's signature against the published key and resolves
+  call can be authorized BY. The provider mints it and renews it through the refresh grant; every
+  member accepts it by verifying the provider's signature against the published key and resolves
   the tier from its own replica; no member ever issues this browser a credential or extends one — a
   member that could would be a second door to the same session on every machine in the cluster,
-  permanently. The door is a stored fact set when somebody chose it, never discovered: nothing here
-  asks a member anything.
+  permanently. `restore` and `completeSignIn` settle it at boot, `signIn` and `signOut` leave for the
+  provider, `anchorOrigin()` is the provider's origin the account surfaces address, and
+  `accountPage()` is where a person changes their own credentials.
   It also holds the LIVE half of the tier: the primary stream's `me` topic carries `{tier, status}`
   whenever the account is regraded, and `applyMePatch` writes it as given, so a demotion lands
   exactly like a promotion. `onTierChange` reports a genuine delta to the two things a re-render
@@ -224,13 +205,9 @@ re-exports `stores/` — import from either.
   once its replica carries their account, so one that has just joined refuses a good session. A
   **403** is never about the session (the token validated; the person is unknown there) and is
   recorded at once; a **401** is ambiguous until a renewal settles it.
-- `authRedirect.js` — captures the OAuth fragment handoff at boot, and **says who issued
-  it**. A node login and an assistant-leaf login both land on this origin with the same
-  `access`/`refresh`/`error` fragment keys; the `assistant_login=<hostId>` marker that
-  `assistantSession.signIn` puts in its return address is what tells them apart. It only
-  classifies — `main.jsx` hands an assistant landing to `assistantSession`, so this module
-  stays a leaf of the import graph and the two session layers keep their own storage.
-- `authStorage.js` — the app-shell user read/write (extracted from `App.jsx`).
+- `authStorage.js` — the app-shell user read/write, and the two one-shots the gate reads after a
+  navigation: what the provider said when it sent the browser back without a session, and that a
+  session ended while the panel was open.
 - `persona.js` — the authorization **policy, single source of truth**. Roles
   `admin｜operator｜viewer｜none`, one tier cluster-wide. `can(cap)` is the only question there is: a
   scoped variant would let a surface ask "may they do this *here*" and receive a cluster answer that

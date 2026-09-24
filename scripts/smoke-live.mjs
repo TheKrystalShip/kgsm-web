@@ -158,26 +158,6 @@ try {
     console.log(`✓ config wired live → ${seedBase}`);
   }
 
-  // ---- OAuth fragment capture (mechanical) --------------------------------
-  // Simulate the kgsm-api callback redirect landing on the SPA with the session
-  // in the URL fragment; the SPA must parse + stash + strip it before the hash
-  // router sees it (the real Discord consent round-trip is owed-to-human).
-  const assertEarly = (cond, label) => { console.log(`${cond ? "✓" : "✗"} ${label}`); if (!cond) fail++; };
-  {
-    const ar = await vite.ssrLoadModule("/src/lib/authRedirect.js");
-    w.history.replaceState(null, "", "/#access=tok_AAA&refresh=tok_BBB");
-    const cap = ar.captureOAuthFragment();
-    assertEarly(cap && cap.access === "tok_AAA" && cap.refresh === "tok_BBB", "OAuth fragment parsed (access+refresh)");
-    assertEarly(!String(w.location.hash || "").includes("access="), "OAuth fragment stripped from URL after capture");
-    const p = ar.takePendingTokens();
-    assertEarly(p && p.access === "tok_AAA", "pending tokens stashed for the session layer");
-    assertEarly(ar.takePendingTokens() === null, "pending tokens are one-shot (no replay)");
-    w.history.replaceState(null, "", "/#error=denied");
-    const cerr = ar.captureOAuthFragment();
-    assertEarly(cerr && cerr.error === "denied", "OAuth error fragment parsed (#error=denied)");
-    assertEarly(ar.takeOAuthError() === "denied", "OAuth error surfaced one-shot to LoginPage");
-    w.history.replaceState(null, "", "/");   // clean slate for the render phases
-  }
 
   // ---- Phase 1: data-level honest mapping (persona-independent) -----------
   // Fetch real backend payloads and run them through the adapters; assert the
@@ -388,7 +368,14 @@ try {
   w.location.hash = "#/servers";
   const root = createRoot(w.document.getElementById("root"));
   root.render(React.createElement(App));
-  await sleep(800);                           // boot fetch + adapters + first paint
+  // Boot fetch + adapters + first paint. The shell holds a boot cover until the session has settled
+  // and the hosts have answered, which takes as long as this backend's `/me` does — waited for,
+  // bounded, rather than guessed at.
+  for (let i = 0; i < 100; i++) {
+    const cover = /Signing you in|Finding your cluster/.test(w.document.getElementById("root").innerHTML);
+    if (i >= 8 && !cover) break;
+    await sleep(100);
+  }
 
   const nav = async (hash) => {
     w.location.hash = hash;
@@ -591,6 +578,18 @@ try {
   let tier = null;
   for (let i = 0; i < 30; i++) { tier = ss.sessionStore.tierOf(hid); if (tier && tier !== "none") break; await sleep(100); }
   assert(tier === "admin", `tier resolved from GET /me (${hid} → ${tier}); gates via /me, not a persona lens`);
+
+  // The provider sends a browser back to its own path, not to a hash route, so the boot can tell a
+  // landing from an ordinary load before the router reads the address. The exchange itself is the
+  // provider's and runs in a real browser (the visual harness); here the backend runs with auth off.
+  {
+    const here = w.location.pathname + w.location.search + w.location.hash;
+    w.history.replaceState(null, "", "/signed-in?code=c&state=s");
+    assert(ss.sessionStore.isLanding(), "the provider's return is recognised by its path");
+    w.history.replaceState(null, "", "/#/signed-in");
+    assert(!ss.sessionStore.isLanding(), "and a hash route of the same name is not one");
+    w.history.replaceState(null, "", here);
+  }
 
   // ---- Phase 4: realtime (real stream) ------------------------------------
   // The app boots a real stream to /api/v1/stream (createLiveStream). Prove the
@@ -1673,11 +1672,11 @@ try {
   }
 
   // ---- Phase 6: assistant turn SSE ----------------------------------------
-  // The turn goes STRAIGHT to the assistant leaf on its own public origin, with a session the
-  // leaf issued — kgsm-api is not in the path. NON-LEAF + deterministic: seed the route (the
-  // capability's info.url) and a session, then intercept the outbound POST and feed a canned
-  // stream, so the seam's SSE parser + frame translation are asserted whether or not a leaf is
-  // running. Seeding touches only this process's stores; nothing reaches a backend.
+  // The turn goes STRAIGHT to the assistant on its own public origin, with the cluster's session —
+  // kgsm-api is not in the path. NON-LEAF + deterministic: seed the route (the capability's
+  // info.url) and hand the seam a credential, then intercept the outbound POST and feed a canned
+  // stream, so the seam's SSE parser + frame translation are asserted whether or not an assistant
+  // is running. Seeding touches only this process's stores; nothing reaches a backend.
   const { assistant } = await vite.ssrLoadModule("/src/lib/assistantClient.js");
   const { assistantSession } = await vite.ssrLoadModule("/src/lib/assistantSession.js");
   const LEAF = "https://assistant.smoke.invalid";
@@ -1685,161 +1684,52 @@ try {
     capabilities: { ...(st.hostsStore.find(hmId).capabilities || {}),
       assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
   });
-  assistantSession.adopt(hmId, { token: "smoke-leaf-token", refresh: null, tier: "admin" });
-  assert(assistantSession.originOf(hmId) === LEAF && assistantSession.tokenOf(hmId) === "smoke-leaf-token",
-    "assistant session: the leaf origin comes from the capability's info.url, with its own bearer");
-
-  // ---- silent sign-in: what it costs, and what stops it looping ----------------------------
-  // The assistant's sign-in is a full-page redirect, so `ensureSession` is ranked by cost and
-  // guarded so it can never navigate the browser twice. `signIn` is spied at the seam (jsdom will
-  // not navigate, and a real bounce would end the run).
-  const SIGNIN_HOST = "silent-sso-host";
-  st.hostsStore.add({
-    id: SIGNIN_HOST, name: "Silent", capabilities: {
-      assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
-  });
-  let signInCalls = [];
-  assistantSession.__setNavigator((url) => signInCalls.push(url));
-
-  // A live session buys nothing with a redirect.
-  assert((await assistantSession.ensureSession(hmId)) === true && signInCalls.length === 0,
-    "ensureSession: a live session neither rotates nor redirects");
-
-  // A held refresh token is one silent request; spending a page navigation on it would be absurd.
-  assistantSession.adopt(SIGNIN_HOST, { token: "t", refresh: "r", tier: "admin" });
-  globalThis.fetch = async (url, opts) => {
-    const u = typeof url === "string" ? url : (url && url.url) || "";
-    if (opts && opts.method === "POST" && u === LEAF + "/auth/session/refresh")
-      return new Response(JSON.stringify({ access: "rotated", refresh: "r2", tier: "admin" }),
-        { status: 200, headers: { "content-type": "application/json" } });
-    return realFetch(url, opts);
+  // The credential the surface hands the seam — the panel's cluster session, stood in for here
+  // because the backend under test runs with auth off and mints nothing.
+  const credentialBearer = { token: "smoke-cluster-token", renewals: 0 };
+  const smokeCredential = {
+    statusOf: () => "live", isLive: () => true, tierOf: () => "admin",
+    tokenOf: () => credentialBearer.token,
+    rotate: async () => { credentialBearer.renewals += 1; credentialBearer.token = "renewed-" + credentialBearer.renewals; return "live"; },
+    authorize: async () => "live",
+    subscribe: () => () => {},
   };
-  sessionStorage.removeItem("krystal:assistant:session:" + SIGNIN_HOST);   // a new tab: refresh only, no access
-  assistantSession.seed();
-  assert(assistantSession.statusOf(SIGNIN_HOST) === "bootstrapping",
-    "seed: a refresh token with no access token is `bootstrapping`, not a reason to ask for a sign-in");
-  const rotated = await assistantSession.ensureSession(SIGNIN_HOST);
-  globalThis.fetch = realFetch;
-  assert(rotated === true && signInCalls.length === 0,
-    "ensureSession: a held refresh token is spent on a silent rotate, never on a redirect");
+  assistantSession.setCredential(smokeCredential);
+  assert(assistantSession.originOf(hmId) === LEAF && assistantSession.tokenOf(hmId) === "smoke-cluster-token",
+    "assistant session: the origin comes from the capability's info.url, and the bearer is the surface's own");
 
-  // ---- what ends a leaf session, and what merely failed to ask ----------------------------
-  // The refresh token is a thirty-day credential and the only thing standing between the user and
-  // another sign-in, so it is discarded ONLY when the leaf refuses it. Each case drives the real
-  // rotate through the fetch seam on its own host, so nothing here perturbs the sign-in assertions.
-  const ROTATE_HOST = "rotate-host";
+  // A host whose capability names no public origin has no route, so the seam has nothing to present
+  // there — rather than presenting the cluster's session to whatever served the bundle.
   st.hostsStore.add({
-    id: ROTATE_HOST, name: "Rotate", capabilities: {
-      assistant: { provisioned: true, status: "operational", info: { url: LEAF } } },
+    id: "no-route-host", name: "NoRoute",
+    capabilities: { assistant: { provisioned: true, status: "operational" } },
   });
-  const refreshOf = () => localStorage.getItem("krystal:assistant:refresh:" + ROTATE_HOST);
-  const answerRefresh = (fn) => {
-    globalThis.fetch = async (url, opts) => {
-      const u = typeof url === "string" ? url : (url && url.url) || "";
-      if (u === LEAF + "/auth/session/refresh") return fn(JSON.parse(opts.body).refresh);
-      return realFetch(url, opts);
-    };
-  };
+  assert(assistantSession.tokenOf("no-route-host") === null && assistantSession.statusOf("no-route-host") === "none",
+    "assistant session: a host with no public origin holds nothing to present");
+  st.hostsStore.remove("no-route-host");
 
-  // The leaf never answered. We know nothing about the session, so the credential stays.
-  assistantSession.adopt(ROTATE_HOST, { token: "t", refresh: "keep-me", tier: "admin" });
-  answerRefresh(() => { throw new TypeError("Failed to fetch"); });
-  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === "keep-me"
-      && assistantSession.statusOf(ROTATE_HOST) === "bootstrapping",
-    "rotate: an unreachable leaf keeps the refresh token — a dropped packet is not a sign-out");
-
-  // A leaf mid-restart answers 503. Same reasoning: it did not refuse, it did not answer.
-  answerRefresh(() => new Response("nope", { status: 503 }));
-  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === "keep-me"
-      && assistantSession.statusOf(ROTATE_HOST) === "bootstrapping",
-    "rotate: a 5xx keeps the refresh token (the leaf did not refuse it — it did not answer)");
-
-  // Two tabs, one shared token: the other tab rotated first, so ours is refused and the token it
-  // won is already in storage. That is a superseded credential, not a dead session.
-  localStorage.setItem("krystal:assistant:refresh:" + ROTATE_HOST, "won-by-another-tab");
-  const presentedTokens = [];
-  answerRefresh((presented) => {
-    presentedTokens.push(presented);
-    return presented === "won-by-another-tab"
-      ? new Response(JSON.stringify({ access: "fresh", refresh: "r3", tier: "admin" }),
-        { status: 200, headers: { "content-type": "application/json" } })
-      : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-  });
-  const healed = await assistantSession.rotate(ROTATE_HOST);
-  assert(healed === "fresh" && presentedTokens.length === 2 && refreshOf() === "r3"
-      && assistantSession.statusOf(ROTATE_HOST) === "live",
-    "rotate: a 401 re-reads storage and retries with the token another tab won — neither tab is signed out");
-
-  // Nothing newer to try: this is the session actually ending.
-  answerRefresh(() => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
-  assert((await assistantSession.rotate(ROTATE_HOST)) === null && refreshOf() === null
-      && assistantSession.statusOf(ROTATE_HOST) === "expired",
-    "rotate: a refused token with nothing newer behind it IS terminal — cleared, not kept");
-
-  // A token whose own `exp` has passed buys nothing by being sent: the seam rotates first, so the
-  // leaf never sees a bearer it was always going to refuse.
-  // Padded base64 with the url-safe substitutions the seam undoes — an unpadded payload is a
-  // decode the browser's atob may reject, which would test the catch rather than the expiry.
-  const deadJwt = "x." + Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))
+  // A token whose own `exp` has passed buys nothing by being sent: the seam renews first, so the
+  // assistant never sees a bearer it was always going to refuse. Padded base64 with the url-safe
+  // substitutions the seam undoes — an unpadded payload is a decode the browser's atob may reject,
+  // which would test the catch rather than the expiry.
+  credentialBearer.token = "x." + Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))
     .toString("base64").replace(/\+/g, "-").replace(/\//g, "_") + ".y";
-  assistantSession.adopt(ROTATE_HOST, { token: deadJwt, refresh: "r4", tier: "admin" });
   const seen = [];
   globalThis.fetch = async (url, opts) => {
     const u = typeof url === "string" ? url : (url && url.url) || "";
     seen.push(u);
-    if (u === LEAF + "/auth/session/refresh")
-      return new Response(JSON.stringify({ access: "live-token", refresh: "r5", tier: "admin" }),
-        { status: 200, headers: { "content-type": "application/json" } });
     if (u === LEAF + "/conversations")
       return new Response(JSON.stringify(
         { authorization: (opts.headers || {}).Authorization, conversations: [] }),
       { status: 200, headers: { "content-type": "application/json" } });
     return realFetch(url, opts);
   };
-  const read = await assistant.host(ROTATE_HOST).conversations();
+  const read = await assistant.host(hmId).conversations();
   globalThis.fetch = realFetch;
-  assert(seen[0] === LEAF + "/auth/session/refresh" && seen.length === 2
-      && read.authorization === "Bearer live-token",
-    "assistant seam: a lapsed access token is rotated BEFORE the call, never spent on a 401 first");
+  assert(credentialBearer.renewals === 1 && seen.length === 1 && read.authorization === "Bearer renewed-1",
+    "assistant seam: a lapsed access token is renewed BEFORE the call, never spent on a 401 first");
+  credentialBearer.token = "smoke-cluster-token";
 
-  // Nothing held: this is what a redirect is for — exactly once per host per tab.
-  assistantSession.signOut(SIGNIN_HOST);
-  sessionStorage.removeItem("krystal:assistant:tried:" + SIGNIN_HOST);
-  await assistantSession.ensureSession(SIGNIN_HOST);
-  assert(signInCalls.length === 1
-      && signInCalls[0].startsWith(LEAF + "/auth/discord/start?return_to=")
-      && !signInCalls[0].includes("prompt=")
-      && decodeURIComponent(signInCalls[0]).includes("assistant_login=" + SIGNIN_HOST),
-    "ensureSession: no credential at all → ONE silent sign-in, no prompt param (⇒ the leaf's prompt=none) + the issuer marker");
-  await assistantSession.ensureSession(SIGNIN_HOST);
-  assert(signInCalls.length === 1,
-    "ensureSession: the attempt marker stops a second bounce — a leaf that always refuses can't loop the browser");
-
-  // A host with no public origin has nowhere to send the browser.
-  st.hostsStore.add({
-    id: "no-route-host", name: "NoRoute",
-    capabilities: { assistant: { provisioned: true, status: "operational" } },
-  });
-  await assistantSession.ensureSession("no-route-host");
-  assert(signInCalls.length === 1,
-    "ensureSession: a leaf with no public origin is never redirected to (nowhere to go)");
-
-  // Denied is terminal — retrying a role decision loops forever without changing the answer.
-  signInCalls = [];
-  assistantSession.deny(SIGNIN_HOST);
-  sessionStorage.removeItem("krystal:assistant:tried:" + SIGNIN_HOST);
-  await assistantSession.ensureSession(SIGNIN_HOST);
-  assert(signInCalls.length === 0, "ensureSession: `denied` is terminal — never redirected again");
-
-  // The visible fallback is the only thing that ever asks Discord for a consent screen.
-  signInCalls = [];
-  assistantSession.signIn(hmId, { prompt: "consent" });
-  assert(signInCalls.length === 1 && signInCalls[0].includes("prompt=consent"),
-    "signIn: the fallback button is the ONLY caller that asks for a consent screen");
-
-  assistantSession.__setNavigator(null);
-  st.hostsStore.remove(SIGNIN_HOST);
-  st.hostsStore.remove("no-route-host");
   const enc = new TextEncoder();
   const CANNED = [
     'event: text.delta\ndata: {"type":"text.delta","text":"Let me check "}\n\n',
@@ -1866,8 +1756,8 @@ try {
   await assistant.host(hmId).turn({ prompt: "is factorio-test healthy?" }, { onEvent: (e) => frames.push(e) })
     .catch((e) => frames.push({ type: "__throw__", message: e.message }));
   globalThis.fetch = realFetch;
-  assert(leafTurnAuth === "Bearer smoke-leaf-token",
-    "assistant turn: POSTed to the LEAF origin with the leaf's own bearer (no kgsm-api in the path)");
+  assert(leafTurnAuth === "Bearer smoke-cluster-token",
+    "assistant turn: POSTed to the assistant's origin with the surface's own bearer (no kgsm-api in the path)");
   const types = frames.map((f) => f.type).join(",");
   assert(types === "text.delta,text.delta,tool.start,tool.result,done",
     `assistant turn: SSE parsed into the ordered §5·a frames (${types})`);
@@ -2116,8 +2006,8 @@ try {
     { onProgress: (e) => progressSeen.push(e.label) });
   globalThis.fetch = realFetch;
   assert(confirmCap && confirmCap.url === LEAF + "/confirm" && confirmCap.body.token === "tok_start"
-    && confirmCap.auth === "Bearer smoke-leaf-token",
-    "confirm → POST {leaf}/confirm { token } with the leaf's bearer (the staged token IS the authority)");
+    && confirmCap.auth === "Bearer smoke-cluster-token",
+    "confirm → POST {assistant}/confirm { token } with the surface's bearer (the staged token IS the authority)");
   assert(progressSeen.length === 1 && /come up/.test(progressSeen[0]),
     "confirm: the leaf's progress steps reach the card's live sub-label");
   assert(settled.outcome && settled.outcome.verdict === "settled" && settled.outcome.observedState === "running",

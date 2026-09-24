@@ -100,8 +100,8 @@ All BE routes are under `/api/v1`. ✓ aligned · ! remap needed · ✗ gap.
 | `GET /hosts` | `GET /api/v1/hosts` (Viewer) | ! | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
 | `GET /library` | `GET /api/v1/library?q=&category=` (Viewer) | ! | **path agrees** (not `/catalog`); schema differs (§5) |
 | `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=&since=&category=` (Viewer) | ✓ **DONE (audit paging + filters slice)** | `adaptAudit` preserves the `{data,nextCursor}` envelope; the store **walks the keyset cursor** (1000-row cap) so events older than the first page are reachable (the real bug — LIVE fetched ONE page) + `loadMore()`; page discloses incompleteness + "Load older events", omits counts in LIVE. **Structured filters PUSH DOWN** (severity incl. `attention`→`warn,danger`, serverId, actor, range→`since`, category→action-prefix) so the cursor walks the FILTERED log; free-text search stays client-side. **kgsm-api extended:** multi-value severity + `since` + `category` params + a `Ts`→ticks value-converter (SQLite can't translate `DateTimeOffset >=`) |
-| `GET /auth/discord/callback?host=&prompt=` | `GET /auth/discord/callback?code=&state=` (anon) | ! | **different flow** — FE has a simplified per-host callback; BE is real OAuth code/state. Also `GET /auth/discord/start`. Returns `{verdict,tier,token,refresh,userId}` (FE expects `user_id`, has no `refresh` handling) |
-| `POST /auth/session/refresh {host}` | `POST /auth/session/refresh` + `Bearer <refresh-jwt>` → `{token}` (anon) | ! | FE sends `{host}` body; BE wants the refresh token as bearer |
+| `GET /.well-known/oauth-protected-resource` (on the serving origin, or any member's) | `{resource, authorization_servers:[issuer]}` (anon), `503` while no provider is known | ✓ | how a surface finds its cluster's sign-in provider (`lib/oidc.js` `discoverProvider`) |
+| `oidc-client-ts` → the provider's `/authorize`, `/token`, `/sign-out` | the auth anchor's OpenID Connect endpoints (`hosted-sign-in-plan.md` §9) | ✓ | `authorization_code` + PKCE, public client, client id = the page origin's host (`-port` when named); renewal is the refresh grant; landing route `/signed-in` |
 | `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` (Viewer) | ✓ | both exist; detail adds `network` block |
 | `PATCH /alerts/{id}` (defined, **unused**) | — (alerts read-only) | ✓ | FE never calls it; fine |
 | `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST {leaf}/turn {prompt,think?,tools?,conversationId?}` (SSE, on the assistant leaf's own origin) | ✓ **DONE (slice 9a + 9b + 9c)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. **9b:** `command.proposed`→fork (a) (Confirm → `confirmCommand` = `POST /servers/{id}/commands {verb,origin:"assistant"}`)→SPA-composed `command.verified` from the job outcome. **9c (per-chat context):** the body now carries the local `conversationId` (the chat's `uid()`), forwarded by the API as `X-Relay-Conversation-Id` so the assistant keys memory `web:<userId>:<conversationId>` — each "New chat" is a fresh context window (was a single per-user thread that leaked across chats) |
@@ -215,21 +215,14 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 | `id`, `name` | `id`, `name` | ✓ |
 | — | `type`, `steamAppId`, `clientSteamAppId`, `isSteamAccountRequired`, `ports:[{start,end,proto}]`, `specs` | **B→F**: surface type badge, ports, specs |
 
-### Auth callback — flow + field
-- FE expects `{verdict, tier, token, user_id}`; BE returns `{verdict, tier, token, refresh, userId}`.
-- **A**: `userId` (not `user_id`); **handle `refresh`** (FE has no refresh-token store today — refresh sends `{host}` body, BE wants the refresh JWT as bearer).
-- **Flow**: replace the FE's `?host=&prompt=` single-call callback with `GET /auth/discord/start` → Discord → `GET /auth/discord/callback?code=&state=`. The `prompt=none` silent-SSO intent maps onto `start?prompt=none`.
+### Sign-in — the provider's, not a node's
+- No node signs anybody in. The session is the auth anchor's, obtained through OpenID Connect by
+  `lib/oidc.js`; the tier rides the access token as minted and the `me` topic keeps it live.
 
 ## 6. True gaps & rewrites (not simple remaps)
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
 2. **Assistant chat** — **slice 9a + 9b done.** Was a raw Ollama-shaped `fetch` to the wrong route; now `api.host(id).turn()` (SSE through the seam) streaming the §5·a frames. **9b** adds the command-confirm half: `command.proposed`→fork (a) (Confirm runs the M3 command path with `origin:"assistant"`)→SPA-composed `command.verified` from the job outcome.
 3. **Host discovery / registry** — no base-URL capture in the FE (see §1, §7).
-3b. **OAuth token handoff — BUILT (slice 4b; one manual browser login owed).** The
-    callback now 302s to `KGSM_API_AUTH_FRONTEND_URL` with the session in the URL
-    **fragment** (`#access=…&refresh=…` | `#error=…`), and the SPA captures+strips it
-    at boot (`authRedirect.js`). Mechanically verified; the real Discord consent
-    round-trip is owed-to-human. Refresh-token *rotation* (>15-min sessions) and
-    multi-host token routing remain deferred.
 4. **Honest-unknown UI** — ip/uptime/per-process/sensors have no source, and the player count has none for a server whose presence is unobservable: render "unknown" (preferred) or hide; never fabricate.
 
 ## 7. Open decisions

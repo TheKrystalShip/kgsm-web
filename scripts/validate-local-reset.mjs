@@ -17,14 +17,13 @@ const { clearLocalState } = await import("../src/lib/localState.js");
 
 // Enough keys that an index shifting under the loop leaves survivors rather than getting lucky.
 const OURS = [
-  "krystal:hosts:registry", "krystal:refresh", "krystal:anchor", "krystal:theme",
-  "krystal:dash:widgets", "krystal:dash:order", "krystal:device", "krystal:favorites",
-  "krystal:sidebar:collapsed", "krystal:notifications", "krystal:pref:density",
-  "krystal:member:last", "krystal:welcome:v1",
+  "krystal:hosts:registry", "krystal:oidc:user:https://auth.kgsm.test:kgsm.test", "krystal:provider",
+  "krystal:theme", "krystal:dash:widgets", "krystal:dash:order", "krystal:device", "krystal:favorites",
+  "krystal:sidebar:collapsed", "krystal:notifications", "krystal:pref:density", "krystal:welcome:v1",
 ];
 OURS.forEach((k) => localStorage.setItem(k, "x"));
-sessionStorage.setItem("krystal:session", "x");
-sessionStorage.setItem("krystal:pending:session", "x");
+sessionStorage.setItem("krystal:oidc:0123456789abcdef", "x");
+sessionStorage.setItem("krystal:signin:ended", "x");
 
 // Something else served from the same origin. Not ours, and not ours to delete.
 localStorage.setItem("theme-preference", "dark");

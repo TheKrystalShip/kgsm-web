@@ -1,45 +1,44 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
-import { identifyAddress } from "../../lib/authFlow.js";
-import { normalizeHostUrl } from "../../lib/connect.js";
+import { discoverProvider, originOf } from "../../lib/oidc.js";
 import { AuthError, AuthShell } from "./AuthChrome.jsx";
 
 // ClusterPage — one address, and nothing else.
 //
-// There are two things worth typing here and the page does not ask which: an auth anchor holding a
-// cluster's accounts, or a standalone node holding its own. Both are doors, neither is above the
-// other, and what was typed is classified by what answers rather than by being told in advance.
-//
-// A node that belongs to a cluster is the third thing somebody types, and it is the one that cannot
-// work: it serves no auth and announces nothing about its cluster, so the only honest answer is that
-// this is not the door. It is refused here rather than after a sign-in attempt.
-//
-// The address is checked before it is kept, so a refusal is what something answered rather than a
-// guess about what was typed.
+// Shown only to a panel whose own origin names no sign-in provider: one served from a static host, a
+// laptop, a bucket. Any member of the cluster answers where its provider is, and so does the provider
+// itself, so the page does not ask which was typed. What was typed is checked before it is kept, so
+// a refusal is what something answered rather than a guess about what was typed.
 
-function ClusterPage({ onPick }) {
+const REFUSAL = {
+  invalid: "That is not a usable address.",
+  unreachable: "Nothing there answered as a member of a cluster.",
+  no_provider: "That member doesn’t know its cluster’s sign-in yet. Try again shortly.",
+};
+
+function ClusterPage({ onFound }) {
   const [value, setValue] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState(null);
 
   const typed = value.trim();
-  const usable = !!normalizeHostUrl(typed);
+  const usable = !!originOf(typed);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!usable || busy) return;
     setBusy(true);
     setError(null);
-    const found = await identifyAddress(typed);
+    const found = await discoverProvider(typed);
     setBusy(false);
-    if (found.kind === "unreachable" || found.kind === "invalid") { setError(found.reason); return; }
-    onPick(found);
+    if (!found.ok) { setError(REFUSAL[found.reason] || REFUSAL.unreachable); return; }
+    onFound(found);
   };
 
   return (
     <AuthShell tagline="Sign in to your control panel.">
       <div className="login-card">
-        <div className="login-card__heading">Where do you want to sign in?</div>
+        <div className="login-card__heading">Where is your cluster?</div>
 
         <AuthError>{error}</AuthError>
 

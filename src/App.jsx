@@ -25,10 +25,9 @@ import { FirstRunWelcome, hasSeenWelcome } from "./pages/FirstRunWelcome.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
 import { AuthGate } from "./components/AuthGate.jsx";
-import { readPendingSession } from "./lib/authFlow.js";
 
 // Extracted modules
-import { readStoredUser, writeStoredUser } from "./lib/authStorage.js";
+import { noteSessionEnded, readStoredUser, writeStoredUser } from "./lib/authStorage.js";
 import { Breadcrumb } from "./components/Breadcrumb.jsx";
 import { BootLanding } from "./components/BootLanding.jsx";
 import { MobileNavToggle } from "./components/MobileNavToggle.jsx";
@@ -50,11 +49,13 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 // Wraps the inner app in AssistantDockProvider so dock state is available via
 // useAssistantDock() throughout the tree.
 
-// Somebody signed in and holding nothing. Read straight from storage rather than from a
-// store, because it is a fact about THIS TAB that has to be true on the first render —
-// before any hook, since deciding it later would mean mounting the shell for somebody
-// every one of its screens would refuse.
-const pendingApproval = () => !!readPendingSession();
+// Somebody signed in whom the cluster grants nothing. Read off the session the boot settled before
+// mount, because it has to be true on the first render — deciding it later would mean mounting the
+// shell for somebody every one of its screens would refuse. A host run open grants what it grants.
+const holdsNothing = () => {
+  const s = sessionStore.getState().session;
+  return !!(s && s.status === "live" && !s.open && (s.tier || "none") === "none");
+};
 
 // Where somebody was going when they were asked to sign in. Kept for this tab only: it is a
 // navigation intent, not a preference, and it must not outlive the browser or leak into another.
@@ -87,21 +88,20 @@ function App() {
     setRouteRaw(prev => resolveRoute(typeof r === "function" ? r(prev) : r));
   }, []);
 
-  // Re-read the stored identity. The gate calls this after every transition it makes,
-  // instead of the full page reload the app used to do on each of them — which is only
-  // possible because the shell is no longer mounted behind the gate, so there are no
-  // hooks below a flipping condition to trip React's rules.
+  // Re-read the stored identity. The gate calls this once it holds a session, rather than reloading
+  // the page — which works because the shell is not mounted behind the gate, so there are no hooks
+  // below a flipping condition to trip React's rules.
   const refreshUser = React.useCallback(() => setUser(readStoredUser()), []);
 
-  // Everything in front of the app: which cluster, which door, and the wait for approval. AppInner
-  // is not mounted while this is on screen, so none of the shell's hooks — and none of the data
-  // layer they drive — runs for somebody who has not signed in.
+  // Everything in front of the app: where the cluster signs people in, and going there. AppInner is
+  // not mounted while this is on screen, so none of the shell's hooks — and none of the data layer
+  // they drive — runs for somebody who has not signed in.
   //
   // Where they were going is recorded first. Somebody deep-linked to a server and asked to sign in
   // should land on that server, not on a home page that makes them find it again.
-  if (!user || pendingApproval()) {
+  if (!user || holdsNothing()) {
     rememberIntent(KrystalRouter.routeFromHash());
-    return <AuthGate user={user} onUser={refreshUser} />;
+    return <AuthGate onUser={refreshUser} />;
   }
 
   // NavProvider sits outside everything that renders a card, so a component can navigate by asking
@@ -133,28 +133,14 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   // --- Auth ---
 
+  // Signing out is the provider's: it ends its own session and every session minted under it, tells
+  // every member, and sends the browser back here — where nothing is held, so the next sign-in asks
+  // for a credential. A panel holding no provider session (a host run open) has only the local drop
+  // to do, and reloads into the gate.
   const handleLogout = React.useCallback(async () => {
-    // Revoke this device's session SERVER-SIDE wherever a row for it exists (best-effort, awaited so
-    // the reload below doesn't abort the requests) — this needs the live bearer, so it runs BEFORE
-    // we drop the local credentials. A node that mints its own sessions holds the row and revokes
-    // it here; a member of a cluster whose anchor mints them holds none, and the revocation that
-    // matters is sessionStore.signOut() below, which tells the anchor directly. Asking every node
-    // either way costs a no-op where there is nothing to revoke, and is the only thing that works
-    // where there is.
-    // A member of a cluster whose anchor holds the accounts serves no auth at all, so there is
-    // nothing there to ask and the call would only ever be refused. The anchor is told instead, by
-    // sessionStore.signOut() below.
-    const ids = sessionStore.anchorOrigin()
-      ? []
-      : sessionStore.readRegistry().map(h => h && h.id).filter(Boolean);
-    await Promise.all(ids.map(id => api.logout(id).catch(() => {})));
     writeStoredUser(null);
-    // Drop EVERY per-host credential — the access token (sessionStorage) AND the
-    // long-lived refresh token (localStorage) — so a reload can't silently rotate a
-    // fresh session back in. The host registry stays, so the user lands on the
-    // host's login rather than the add-host screen.
-    sessionStore.signOut();
-    window.location.reload();
+    const leaving = await sessionStore.signOut();
+    if (!leaving) window.location.reload();
   }, []);
 
   // --- Data stores ---
@@ -282,11 +268,12 @@ function AppInner({ user, setUser, route, setRoute }) {
   // everybody out four times an hour. The seam only surfaces one it failed to heal, 30 seconds later.
   //
   // Dropping the stored identity is the whole mechanism — App re-renders, sees no user, and shows
-  // AuthGate, which asks a member where the cluster signs people in. The honest answer to a dead
-  // session is the door.
+  // AuthGate. It is told the session ended here rather than never having been, so it offers the way
+  // back instead of leaving for the provider over whatever was on screen.
   React.useEffect(() => {
     if (!session) return;
     if (!(session.reauthDue || session.status === "denied")) return;
+    if (session.reauthDue) noteSessionEnded();
     writeStoredUser(null);
     setUser(null);
   }, [session, setUser]);
@@ -380,8 +367,8 @@ function AppInner({ user, setUser, route, setRoute }) {
   // --- Render ---
   useAlerts();
 
-  // Which node, which door, and the wait for approval are all AuthGate's — this component
-  // is not mounted until there is a session with a tier behind it.
+  // Where the cluster signs people in is AuthGate's — this component is not mounted until there is
+  // a session with a tier behind it.
 
   // The sidebar badge counts the CLUSTER's firing alerts — an alert on any node
   // needs a human, so hiding it behind a scope would hide the work.

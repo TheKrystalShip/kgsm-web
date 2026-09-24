@@ -320,14 +320,6 @@ import("./stores.js").then((m) => {
   const livePut = (path, body, hostId) => liveFetch("PUT", path, body, hostId);
   const livedel = (path, hostId) => liveFetch("DELETE", path, null, hostId);
 
-  // Rotate a host's access token from its long-lived refresh token (§6·a): POST
-  // /auth/session/refresh with the REFRESH token as the bearer (NOT the access
-  // token the seam would inject) → { token, tier }. No Discord round-trip. Past
-  // the refresh token's absolute cap the backend 401s → the caller treats it as
-  // genuinely expired. The endpoint is ROOT-routed (/auth/session/refresh), NOT
-  // under /api/v1 — so pass the bare origin as the base override.
-
-
   // Privileged, UN-FUNNELED identity probe for the session layer's bootstrap (sessionStore): pass the
   // bearer we hold explicitly (the access token, or null) so liveFetch SKIPS authorizedBearer. Routing
   // /me through the funnel would re-enter authorize() and recurse — so this is that path's escape
@@ -376,47 +368,32 @@ import("./stores.js").then((m) => {
     return livedel(path, hostId);
   }
 
-  // A root-routed counterpart to post, for the node's own sign-out: the auth endpoints live at the
-  // bare origin, NOT under /api/v1. Unlike meWith the caller DOES want the funnel — the cluster
-  // bearer, resolved the same way every other call resolves it. Leaving bearerOverride undefined
-  // routes liveFetch through authorizedBearer exactly like get/post do; only baseOverride changes.
-  async function rootPost(path, body, hostId) {
-    if (!CONNECTIONS.length) return Promise.reject(offlineError());
-    return liveFetch("POST", path, body, hostId, undefined, apiOriginOf(hostId));
-  }
-
   // ---- where account management goes --------------------------------------
-  // One question, asked once: are this cluster's accounts held by an anchor, or by the node in front
-  // of us? A cluster with an anchor administers them AT the anchor — a write that lands in a member's
-  // read-only replica is overwritten by the next thing the anchor publishes, so it appears to work
-  // and then quietly has not — and every member refuses those calls for exactly that reason. A
-  // cluster without one holds its own, and every call goes where it always did.
+  // The cluster's accounts are administered at its sign-in provider, on that member's own origin: a
+  // write that landed in a member's read-only replica would be overwritten by the next thing the
+  // provider published, so it would appear to work and then quietly not have — and every member
+  // refuses those calls for exactly that reason.
   //
   // Only the account surfaces resolve through here. Servers, metrics, audit, console and members are
-  // the node's and stay addressed to it. So do sessions and sign-out: revoking takes authority away
-  // rather than granting it, and the rows belong to whoever holds them.
+  // the node's and stay addressed to it.
   //
-  // The door is resolved per call rather than captured once, because the answer arrives from a member
-  // asynchronously and a surface that captured it at mount would keep whatever was true then.
-  async function accountDoor(hostId) {
+  // Resolved per call rather than captured once, because the provider is learned after boot and a
+  // surface that captured it at mount would keep whatever was true then. With none known there is
+  // nowhere to send the call, and it is refused rather than guessed.
+  async function accountDoor() {
     let url = "";
     try {
       if (!sessionStore) await sessionReady;
       if (sessionStore && sessionStore.resolveAnchor) url = await sessionStore.resolveAnchor();
     } catch { url = ""; }
-    return url
-      ? { anchor: true, origin: url, users: "/auth/cluster/users" }
-      : { anchor: false, origin: apiOriginOf(hostId), users: "/auth/users" };
+    if (!url) throw apiError(503, { error: { code: "no_provider", message: "This panel knows of no sign-in provider." } });
+    return { origin: url, users: "/auth/cluster/users" };
   }
 
-  // `ticket` asks the browser to keep the anchor's one-time link cookie. Set on the link start and
-  // nowhere else: a credentialed cross-origin request needs the anchor to allow credentials, so
-  // sending it on every call would put every account read behind that same header.
-  function doorFetch(method, path, body, hostId, door, ticket) {
-    const init = door.anchor
-      ? (ticket ? { track: false, device: false, credentials: "include" } : { track: false, device: false })
-      : undefined;
-    return liveFetch(method, path, body, door.anchor ? null : hostId, undefined, door.origin, init);
+  // A call to the provider leaves the connection signal alone: the provider is not a node this panel
+  // drives, and its reachability is not a node's.
+  function doorFetch(method, path, body, door) {
+    return liveFetch(method, path, body, null, undefined, door.origin, { track: false, device: false });
   }
 
   // ---- realtime transport (SSE streams, one primary + dynamic per host) ------
@@ -785,71 +762,48 @@ import("./stores.js").then((m) => {
     };
   }
 
-  // api.sessions(id) — the root-routed session-management surface (list/revoke
-  // active sessions), through accountDoor: a session's rows sit with whatever minted it, and in a
-  // cluster with an anchor the members mint none — they verify a signature and keep nothing, so
-  // asking a member would return an honest empty list that reads as "no other devices".
-  // Root-routed either way (these live at the bare origin, not under /api/v1); funneled (not the
-  // meWith bypass) because every call site here wants the live cluster bearer plus the same
-  // 401→expire→replay heal hostScoped gives REST calls. Mirrors hostScoped's withRetry verbatim
-  // rather than sharing it, since hostScoped's closure is itself scoped to the get/post/patch/put/del
-  // set.
-  //
-  // Sign-out is the exception and stays on the node (see logout below).
-  function sessionsScoped(id) {
+  // api.sessions() — an administrator's view of somebody else's sessions, at the provider, which
+  // mints every session and so holds every row. Funneled (not the meWith bypass) because every call
+  // site here wants the live cluster bearer plus the same 401→expire→replay heal hostScoped gives
+  // REST calls. A person's OWN sessions are the account page's, not this panel's.
+  function sessionsScoped() {
     const withRetry = (call) => call().catch(err => {
       if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
       sessionStore.expire();
       return call();
     });
-    // A host id is what addresses a NODE, so it is required once the door turns out to be one, and
-    // not before. An anchor is addressed by its own origin and the id is never read — which is what
-    // lets a surface about the cluster's accounts be about the cluster, holding no node.
-    const at = (method, path, body) =>
-      accountDoor(id).then((d) => {
-        if (!d.anchor && !id) throw new Error("api.sessions() requires a concrete host id (got " + id + ")");
-        return doorFetch(method, path, body, id, d);
-      });
+    const under = (d, userId, suffix) => d.users + "/" + encodeURIComponent(userId) + "/sessions" + suffix;
     return {
-      // Self, or (admin) another user's sessions via ?userId=.
-      list: (userId) => withRetry(() => at("GET", "/auth/sessions" + (userId ? "?userId=" + encodeURIComponent(userId) : ""))).then(adapt.adaptSessions),
-      // Self-revoke: {sid} one, {all:true} every session, {} the caller's own.
-      revoke: (body) => withRetry(() => at("POST", "/auth/session/revoke", body || {})),
-      // Admin: end ONE of another user's sessions — a different decision from signing them out
-      // everywhere, and the narrow one is the one an admin reaches for when they have a single
-      // suspicious session. Scoped under the account at an anchor, which makes the question "is this
-      // session that person's" rather than "does this session exist": an admin with the wrong account
-      // open is told so instead of being shown a stranger's row.
-      revokeSid: (userId, sid) => withRetry(() => accountDoor(id).then((d) => doorFetch(
-        "POST",
-        d.anchor
-          ? d.users + "/" + encodeURIComponent(userId) + "/sessions/" + encodeURIComponent(sid) + "/revoke"
-          : "/auth/sessions/" + encodeURIComponent(sid) + "/revoke",
-        {}, id, d))),
-      // Admin: log a user out everywhere. Scoped under the accounts path, which is the one place
-      // the two doors spell differently.
-      revokeUser: (userId) => withRetry(() => accountDoor(id).then((d) => doorFetch(
-        "POST", d.users + "/" + encodeURIComponent(userId) + "/sessions/revoke-all", {}, id, d))),
+      list: (userId) => withRetry(() => accountDoor().then((d) => doorFetch("GET", under(d, userId, ""), null, d)))
+        .then(adapt.adaptSessions),
+      // End ONE of somebody's sessions — a different decision from signing them out everywhere, and
+      // the narrow one is the one an admin reaches for when they have a single suspicious session.
+      // Scoped under the account, which makes the question "is this session that person's" rather
+      // than "does this session exist": an admin with the wrong account open is told so instead of
+      // being shown a stranger's row.
+      revokeSid: (userId, sid) => withRetry(() => accountDoor().then((d) =>
+        doorFetch("POST", under(d, userId, "/" + encodeURIComponent(sid) + "/revoke"), {}, d))),
+      // Sign somebody out everywhere.
+      revokeUser: (userId) => withRetry(() => accountDoor().then((d) =>
+        doorFetch("POST", under(d, userId, "/revoke-all"), {}, d))),
     };
   }
 
-  // api.users(id) — the KGSM accounts this cluster's identity holder keeps, through accountDoor:
-  // the anchor's when one holds them, otherwise the node's own. Root-routed either way (these live
-  // at the bare origin, not under /api/v1). Admin-gated server-side throughout, with one exception:
-  // changePassword is the caller changing their own.
+  // api.users() — the cluster's accounts, at the provider. Root-routed (these live at the bare
+  // origin, not under /api/v1) and admin-gated server-side throughout.
   //
   // Deliberately NOT behind a reactive store. Every other domain here is polled or
   // streamed because something else changes it; accounts change only when an admin
   // changes them, on this screen, and a cached list is then a list that can be stale
   // about who may do what. Each screen reads, and re-reads after it writes.
-  function usersScoped(id) {
+  function usersScoped() {
     const withRetry = (call) => call().catch((e) => {
       if (!(e && e.status === 401)) throw e;
       sessionStore.expire();
       return call();
     });
     const at = (method, suffix, body) =>
-      accountDoor(id).then((d) => doorFetch(method, d.users + suffix, body, id, d));
+      accountDoor().then((d) => doorFetch(method, d.users + suffix, body, d));
     const one = (userId) => "/" + encodeURIComponent(userId);
     return {
       list: () => withRetry(() => at("GET", "")).then((r) => (r && r.data) || []),
@@ -857,51 +811,6 @@ import("./stores.js").then((m) => {
       update: (userId, body) => withRetry(() => at("PATCH", one(userId), body || {})),
       remove: (userId) => withRetry(() => at("DELETE", one(userId))),
       setPassword: (userId, password) => withRetry(() => at("POST", one(userId) + "/password", { password })),
-      // Self-service. The current password is required even though the caller holds a
-      // live session — the backend refuses without it, and for the reason it should. The two doors
-      // spell the same two fields differently, which is the whole of the difference.
-      changePassword: (currentPassword, newPassword) =>
-        withRetry(() => accountDoor(id).then((d) => doorFetch("POST", "/auth/password",
-          d.anchor ? { current: currentPassword, password: newPassword }
-                   : { currentPassword, newPassword }, id, d))),
-    };
-  }
-
-  // api.identities(id) — the caller's OWN sign-in methods, through accountDoor like the accounts
-  // above. Self-service throughout: an account carries the tier, and only its holder changes what
-  // proves it.
-  //
-  // The link flow rides a one-time HttpOnly ticket cookie the callback comes back with. On a node
-  // that is same-origin and needs nothing said about it, because the deployed panel is served by the
-  // API it talks to. At an anchor it is cross-origin, so the start asks the browser to keep the
-  // cookie and the anchor has to allow credentials for that origin; where it does not, the start
-  // succeeds and the callback then honestly reports `invalid_state`.
-  //
-  // The two doors name a credential differently — `credentialId` at the anchor, `id` on a node —
-  // so the list normalises to one shape and the screen above reads a single field.
-  function identitiesScoped(id) {
-    if (!id) throw new Error("api.identities() requires a concrete host id (got " + id + ")");
-    const withRetry = (call) => call().catch((e) => {
-      if (!(e && e.status === 401)) throw e;
-      sessionStore.expire();
-      return call();
-    });
-    const at = (method, path, body, ticket) =>
-      accountDoor(id).then((d) => doorFetch(method, path, body, id, d, ticket));
-    const named = (row) => (row && row.id === undefined && row.credentialId !== undefined
-      ? { ...row, id: row.credentialId } : row);
-    return {
-      list: () => withRetry(() => at("GET", "/auth/identities")).then((d) => (d && Array.isArray(d.identities)
-        ? { ...d, identities: d.identities.map(named) } : d)),
-      // Prove the KGSM password again, opening the window both writes below need.
-      reauth: (password) => withRetry(() => at("POST", "/auth/reauth", { password })),
-      // Returns the URL to send the browser to. Navigating is the caller's — a bearer does not
-      // survive a top-level navigation, so the start has to be an XHR and the bounce a location set.
-      // The provider comes from the door's own list, never from a name written here.
-      startLink: (provider) =>
-        withRetry(() => at("POST", "/auth/identities/" + encodeURIComponent(provider) + "/start", {}, true)),
-      unlink: (credentialId) =>
-        withRetry(() => at("DELETE", "/auth/identities/" + encodeURIComponent(credentialId))),
     };
   }
 
@@ -962,23 +871,11 @@ import("./stores.js").then((m) => {
     }));
   }
 
-  // Server-side sign-out for a host: revoke the CALLING session in the registry
-  // (root-routed POST /auth/logout, funneled with the live bearer). The one auth call that never
-  // resolves a door — it is the node's own, and the cluster-wide sign-out is sessionStore's, which
-  // tells the anchor directly. Best-effort
-  // — the caller drops its local tokens regardless; a 401 (already gone) or a
-  // network error must never block the client-side logout.
-  function logout(id) {
-    if (!id) return Promise.resolve();
-    return rootPost("/auth/logout", {}, id).catch(() => {});
-  }
-
   const api = {
-    get, post, patch, put, del, stream, fanOut, meWith, pingHost, logout,
+    get, post, patch, put, del, stream, fanOut, meWith, pingHost,
     host: hostScoped,
     sessions: sessionsScoped,
     users: usersScoped,
-    identities: identitiesScoped,
     members: membersScoped,
     reconnectHost, reconnectAll,
     startStreams, stopStreams,

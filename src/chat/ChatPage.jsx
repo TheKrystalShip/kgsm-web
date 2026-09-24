@@ -83,25 +83,10 @@ function ChatPage({
   const conn = connection || { tone: "muted", label: "No assistant", usable: false, message: null };
   const assistantUsable = !!conn.usable;
 
-  // The chat holds its OWN session with the assistant leaf — the leaf issues it, and the node's
-  // kgsm-api session neither mints nor refreshes it. So a user signed in to the panel can still
-  // owe the assistant a sign-in, and that is worth saying plainly instead of letting every message
-  // fail on a 401.
-  const leafStatus = useStore(assistantSession, s => {
-    const rec = assistantHost ? s.byHost[assistantHost.id] : null;
-    return rec ? rec.status : "none";
-  });
-  const assistantAuthed = leafStatus === "live";
-  // The sign-in is normally automatic and invisible (AssistantDockContext → ensureSession): every
-  // surface on a host is the same Discord application, so a browser signed into the panel has
-  // already authorized the assistant. This bar is the FALLBACK for the one case that genuinely
-  // needs a person — Discord declined the silent round trip and wants a consent — plus the case
-  // where an attempt was already spent in this tab and came back with nothing.
-  const consentNeeded = !!(assistantHost && assistantSession.needsConsent(assistantHost.id));
-  const needsAssistantSignIn = !!(
-    assistantHost && assistantUsable && !assistantAuthed
-    && leafStatus !== "bootstrapping"
-    && (consentNeeded || assistantSession.attempted(assistantHost.id)));
+  // The assistant accepts the session this surface already holds, whichever standing it has, so there
+  // is nothing to sign in to here. A session that is not live is the surface's own gate's business.
+  const sessionStatus = useStore(assistantSession, s => s.status);
+  const assistantAuthed = !!assistantHost && sessionStatus === "live" && assistantSession.hasRoute(assistantHost.id);
 
   const [convos, setConvos]     = React.useState(loadConversations);
   const [activeId, setActiveId] = React.useState(() => loadConversations()[0]?.id || null);
@@ -766,22 +751,6 @@ function ChatPage({
       return;
     }
 
-    if (needsAssistantSignIn) {
-      // Unnamed on purpose: the turn never reached the leaf, so there is no recorded first prompt for
-      // it to be named after, and a name invented here would be one no other surface could arrive at.
-      setConvos(prev => prev.map(c => {
-        if (c.id !== convId) return c;
-        const why = leafStatus === "denied"
-          ? "You don\u2019t have access to " + assistantHost.title + "."
-          : "Sign in to " + assistantHost.name + "\u2019s assistant to talk to it.";
-        return {
-          ...c, lastActivity: Date.now(),
-          messages: [...c.messages, userMsg, { role: "assistant", content: "\u26a0\ufe0f " + why, error: true }],
-        };
-      }));
-      return;
-    }
-
     sendLive(convId, text, userMsg);
   };
 
@@ -1358,25 +1327,6 @@ function ChatPage({
               onDraftEdit={onDraftEdit} onDraftActive={onDraftActive} onRate={rateTurn} />
           )}
         </div>
-
-        {needsAssistantSignIn && (
-          <div className="chat-signin">
-            <Icon name="bot" size={14} />
-            <span>
-              {leafStatus === "denied"
-                ? "You don\u2019t have access to " + assistantHost.name + "\u2019s assistant."
-                : consentNeeded
-                  ? assistantHost.name + "\u2019s assistant needs your permission once."
-                  : "Couldn\u2019t sign in to " + assistantHost.name + "\u2019s assistant."}
-            </span>
-            {leafStatus !== "denied" && (
-              <button type="button" className="chat-signin__go"
-                onClick={() => assistantSession.signIn(assistantHost.id, { prompt: "consent" })}>
-                Continue with Discord
-              </button>
-            )}
-          </div>
-        )}
 
         <div className="chat-composer">
           {voice.phase === "idle" ? (

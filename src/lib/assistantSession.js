@@ -1,404 +1,78 @@
 import { createStore } from "./store.js";
 
-// assistantSession.js — the browser's session with an assistant LEAF.
+// assistantSession.js — which credential an assistant is spoken to with, and where it is.
 //
-// The assistant is a standalone service, not a feature of kgsm-api. It serves its own
-// browser clients on its own public origin, authenticates people itself through Discord,
-// and issues its own tokens — so the panel holds a session with the LEAF that is separate
-// from the session it holds with the node's kgsm-api. Two sign-ins, two token families,
-// two revocation surfaces; neither can mint or refresh the other's.
+// An assistant signs nobody in. A leaf verifies the cluster's session against the host file the node
+// on its machine writes, and an anchor through the member holding the cluster's accounts, so in either
+// standing the session a browser presents to it is the one it already holds for the cluster. There is
+// no session with an assistant: there is the surface's own, handed in, and an address to send it to.
 //
-// Sessions are still keyed by HOST ID, because that is what the surfaces address: a host
-// has an assistant or it does not, and a node's chat talks to that node's leaf. The leaf's
-// public origin comes from the node's assistant capability (`info.url`), which is the only
-// thing the aggregator contributes here — discovery, not transport.
+// Both halves are installed by the surface, because each differs in kind between the two surfaces
+// rather than in detail. The Control Panel discovers where an assistant is, across a cluster it may
+// add nodes to at runtime, and holds the cluster session in its own store; the standalone assistant
+// was served by the one it talks to and holds a session of its own. Resolving either here would mean
+// importing the panel's stores into a surface that has none.
 //
-// Storage mirrors the node sessions deliberately, so the two age the same way:
-//   • access token  → sessionStorage. Short-lived; survives a reload, gone on tab close.
-//   • refresh token → localStorage. The long-lived "stay signed in" credential.
-// A leaf with no configured public origin has no browser route at all: `originOf` returns
-// null and every caller reports the assistant unreachable rather than falling back to the
-// node's relay, which would quietly restore the coupling going direct exists to remove.
+// Nothing installed ⇒ no route and no credential, which is the honest answer for a surface that has
+// not said.
 
-const TOKEN_PREFIX = "krystal:assistant:session:";    // sessionStorage {token,tier}
-const REFRESH_PREFIX = "krystal:assistant:refresh:";  // localStorage (long-lived)
-const ATTEMPT_PREFIX = "krystal:assistant:tried:";    // sessionStorage — one silent bounce per tab
-const CONSENT_PREFIX = "krystal:assistant:consent:";  // sessionStorage — Discord wants a human
-const ROUTE_KEY = "krystal:assistant:route";          // sessionStorage — the route to come back to
-
-// The query key the leaf's return leg carries back, naming the host whose assistant issued
-// the tokens in the fragment. The boot-time fragment capture reads it to tell an assistant
-// landing from a node one — they arrive on the same origin with the same fragment keys.
-const ASSISTANT_LOGIN_PARAM = "assistant_login";
-
-const store = createStore({ byHost: {} });
-
-const rotations = {};   // hostId → in-flight rotate (dedupe concurrent 401 heals)
-
-const recOf = (id) => store.getState().byHost[id] || null;
-
-// How a host id becomes the leaf's address, INSTALLED BY THE SURFACE — because the answer differs
-// in kind, not in detail. The Control Panel discovers it, reading the address off the node's
-// assistant capability across a cluster it may add nodes to at runtime; the standalone assistant
-// has one leaf at a known address and nothing to discover. Resolving it here would mean this module
-// importing the host store, which drags the whole node data layer into a surface that has no nodes.
-//
-// Not installed ⇒ no route, which is the honest answer for a surface that has not said.
 let resolveTarget = () => null;
 function setTargetResolver(fn) { resolveTarget = typeof fn === "function" ? fn : () => null; }
 
-// An assistant held by a cluster ANCHOR has no session of its own for this browser to hold. Another
-// member holds `auth`, so its sign-in doors answer `503` and it verifies the CLUSTER's session
-// instead — the credential this browser is already carrying. So everything below routes to that
-// credential for such a target and mints, refreshes and redirects nothing.
-//
-// Handed in rather than imported, for the reason the resolver above is: this module sits underneath
-// the one that owns the cluster session, and importing it would close a cycle through the store
-// barrel. Not installed means no cluster session exists, which is true of the standalone surface.
-let clusterSession = null;
-function setClusterSession(s) { clusterSession = s || null; }
+// The credential: `statusOf`, `tokenOf`, `tierOf`, `isLive`, `rotate` (resolving to a status) and
+// `authorize`, with `subscribe` so a surface re-renders when it changes. The panel's sessionStore and
+// the standalone assistant's own session both speak it.
+let credential = null;
+let unsubscribe = null;
 
-// What kind of assistant this id names, and where it is. `null` is the honest answer for an id the
-// surface has not described — never guessed.
-function targetOf(id) {
-  if (!id) return null;
-  const t = resolveTarget(id);
-  if (!t) return null;
-  // A resolver may answer with the address alone, which is what a surface with one assistant and no
-  // cluster has to say.
-  const url = typeof t === "string" ? t : t.origin;
-  if (typeof url !== "string" || !url.trim()) return null;
-  return { origin: url.trim().replace(/\/+$/, ""), anchored: typeof t === "object" && !!t.anchored };
+// The status, mirrored so a component can subscribe to this store rather than to whichever
+// credential the surface happened to install.
+const store = createStore({ status: "none" });
+function sync() {
+  const status = credential ? credential.statusOf() : "none";
+  if (store.getState().status !== status) store.setState({ status });
 }
-
-// Whether this id is served by an anchor whose credential is the cluster's. False whenever there is
-// no cluster session to present, so a surface that never installed one keeps the leaf behaviour it
-// has always had rather than losing its session to a branch that cannot answer.
-function anchored(id) {
-  const t = targetOf(id);
-  return !!(t && t.anchored && clusterSession);
+function setCredential(c) {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  credential = c || null;
+  if (credential && typeof credential.subscribe === "function") unsubscribe = credential.subscribe(sync);
+  sync();
 }
 
 // The assistant's public origin for an id. Null is an honest "no route" — never guessed from the
 // panel's own origin, which would send a turn to whatever happened to serve the bundle.
 function originOf(id) {
-  const t = targetOf(id);
-  return t ? t.origin : null;
+  if (!id) return null;
+  const t = resolveTarget(id);
+  const url = t && (typeof t === "string" ? t : t.origin);
+  return typeof url === "string" && url.trim() ? url.trim().replace(/\/+$/, "") : null;
 }
+const hasRoute = (id) => !!originOf(id);
 
-const hasRoute = (hostId) => !!originOf(hostId);
-
-// The three reads every surface makes. An anchored assistant answers each of them from the cluster
-// session, which speaks the same status vocabulary — so a surface asks one question and never has
-// to know which kind it is talking to.
-const statusOf = (id) => {
-  if (anchored(id)) return clusterSession.statusOf();
-  const r = recOf(id);
-  return r ? r.status : "none";
-};
-const tokenOf = (id) => {
-  if (anchored(id)) return clusterSession.tokenOf();
-  const r = recOf(id);
-  return r && r.status === "live" ? (r.token || null) : null;
-};
-const tierOf = (id) => {
-  if (anchored(id)) return clusterSession.tierOf();
-  const r = recOf(id);
-  return r ? (r.tier || null) : null;
-};
+const routed = (id) => !!(credential && hasRoute(id));
+const statusOf = (id) => (routed(id) ? credential.statusOf() : "none");
+const tokenOf = (id) => (routed(id) ? credential.tokenOf() : null);
+const tierOf = (id) => (routed(id) ? credential.tierOf() : null);
 const isLive = (id) => statusOf(id) === "live";
-const isDenied = (id) => statusOf(id) === "denied";
 
-function setRec(id, partial) {
-  store.setState((s) => ({ byHost: { ...s.byHost, [id]: { ...(s.byHost[id] || {}), ...partial } } }));
+// Renew, and hand back whatever the renewal produced, so a caller retrying a refused call retries
+// with the token that renewal actually yielded.
+async function rotate(id) {
+  if (!routed(id)) return null;
+  await credential.rotate();
+  return credential.tokenOf();
 }
 
-function writeAccess(id, token, tier) {
-  try { sessionStorage.setItem(TOKEN_PREFIX + id, JSON.stringify({ token, tier: tier || null })); } catch {}
-}
-function readAccess(id) {
-  try { const raw = sessionStorage.getItem(TOKEN_PREFIX + id); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
-}
-function writeRefresh(id, token) {
-  try { if (token) localStorage.setItem(REFRESH_PREFIX + id, token); else localStorage.removeItem(REFRESH_PREFIX + id); } catch {}
-}
-function readRefresh(id) {
-  try { return localStorage.getItem(REFRESH_PREFIX + id) || null; } catch { return null; }
-}
-
-// ---- the silent sign-in's guard rails ----
-// A silent sign-in navigates the whole page, so it gets exactly ONE attempt per host per tab. The
-// marker is written before leaving and cleared only on a session actually arriving; a landing that
-// came back empty leaves it set, which is what stops a leaf that always refuses from bouncing the
-// browser in a loop. sessionStorage, because the answer is only true of THIS tab's journey.
-function markAttempted(id) { try { sessionStorage.setItem(ATTEMPT_PREFIX + id, "1"); } catch {} }
-function clearAttempted(id) { try { sessionStorage.removeItem(ATTEMPT_PREFIX + id); } catch {} }
-function attempted(id) { try { return sessionStorage.getItem(ATTEMPT_PREFIX + id) === "1"; } catch { return false; } }
-
-// Discord declined a silent sign-in and wants a human. Recorded so the dock can offer the one
-// button that will work, rather than silently retrying something we know will be refused again.
-function markConsentNeeded(id) { try { sessionStorage.setItem(CONSENT_PREFIX + id, "1"); } catch {} }
-function needsConsent(id) { try { return sessionStorage.getItem(CONSENT_PREFIX + id) === "1"; } catch { return false; } }
-
-// The route the browser was on when it left. The fragment carries the handoff, so it cannot also
-// carry the route; keeping it out of the query too means a sign-in never writes where someone was
-// into an access log. One slot: only one sign-in can be in flight, since it navigates the page.
-function stashRoute(hash) {
-  try {
-    if (hash && hash !== "#") sessionStorage.setItem(ROUTE_KEY, hash);
-    else sessionStorage.removeItem(ROUTE_KEY);
-  } catch {}
-}
-function takeRoute() {
-  try { const r = sessionStorage.getItem(ROUTE_KEY); sessionStorage.removeItem(ROUTE_KEY); return r || null; }
-  catch { return null; }
-}
-
-// Adopt a session the leaf just issued (the OAuth return leg, or a rotation).
-function adopt(hostId, sess) {
-  if (!hostId || !sess || !sess.token) return;
-  // A session arrived: whatever the last attempt cost, it is spent and the guards are done.
-  clearAttempted(hostId);
-  try { sessionStorage.removeItem(CONSENT_PREFIX + hostId); } catch {}
-  writeAccess(hostId, sess.token, sess.tier);
-  if (sess.refresh !== undefined) writeRefresh(hostId, sess.refresh || null);
-  setRec(hostId, {
-    status: "live", token: sess.token, tier: sess.tier || null, error: null,
-    refresh: sess.refresh !== undefined ? (sess.refresh || null) : readRefresh(hostId),
-  });
-}
-
-// Identity verified, no access on that host. Terminal: never retried, because retrying a
-// role decision loops forever without ever changing the answer.
-function deny(hostId) {
-  writeAccess(hostId, null, null);
-  try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
-  writeRefresh(hostId, null);
-  setRec(hostId, { status: "denied", token: null, refresh: null, tier: "none", error: "denied" });
-}
-
-function signOut(hostId) {
-  // Signing out is a decision to be signed out. Leaving the attempt marker set is what stops the
-  // automatic sign-in from immediately undoing it.
-  markAttempted(hostId);
-  try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
-  writeRefresh(hostId, null);
-  setRec(hostId, { status: "none", token: null, refresh: null, tier: null, error: null });
-}
-
-// Exchange the long-lived refresh token for a fresh pair, straight at the leaf. The leaf
-// rotates the refresh token too, so the reply's `refresh` replaces the stored one. Deduped per
-// host, so several calls healing from 401 at once spend one token between them rather than
-// racing each other for it.
-function rotate(hostId) {
-  // An anchored assistant holds nothing to rotate. The cluster session is renewed at the door that
-  // minted it, and this hands back whatever that renewal produced so a caller retrying a refused
-  // call retries with the token that renewal actually yielded.
-  if (anchored(hostId)) return clusterSession.rotate().then(() => clusterSession.tokenOf());
-  if (rotations[hostId]) return rotations[hostId];
-  const p = rotateSession(hostId).finally(() => { delete rotations[hostId]; });
-  rotations[hostId] = p;
-  return p;
-}
-
-// Only the leaf REFUSING the token ends the session — it was revoked or aged out, and only a new
-// Discord consent produces another. Everything else (the request never completing, a 5xx, an answer
-// with no token in it) says we could not ask: the credential is left where it is and the host stays
-// `bootstrapping`, so the next call tries again. Discarding a thirty-day token because one request
-// lost a packet, or because the leaf was mid-restart, costs a sign-in nobody needed.
-//
-// A refusal has one ordinary cause besides the end of the session: the refresh token is shared by
-// every tab on this origin while this dedupe is per-tab, so two tabs waking together present the
-// same token and the leaf, correctly, rotates it for whichever arrives first. The other is holding a
-// token that was superseded a moment ago, not a dead session — so a refusal re-reads storage, and
-// retries once against what is there now before concluding anything.
-async function rotateSession(hostId) {
-  const origin = originOf(hostId);
-  let presented = (recOf(hostId) || {}).refresh || readRefresh(hostId);
-  if (!origin || !presented) {
-    setRec(hostId, { status: "expired", token: null, error: "expired" });
-    return null;
-  }
-
-  // At most two: the token we hold, and — if that one was refused — the one another tab won with.
-  for (let attempt = 0; attempt < 2 && presented; attempt++) {
-    let res;
-    try {
-      res = await fetch(origin + "/auth/session/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ refresh: presented }),
-      });
-    } catch {
-      return unreachable(hostId);
-    }
-
-    if (res.ok) {
-      let j = null;
-      try { j = await res.json(); } catch { j = null; }
-      const token = (j && (j.access || j.token)) || null;
-      if (!token) return unreachable(hostId);
-      adopt(hostId, {
-        token, refresh: (j && j.refresh) || presented, tier: (j && j.tier) || tierOf(hostId),
-      });
-      return token;
-    }
-
-    if (res.status !== 401 && res.status !== 400) return unreachable(hostId);
-
-    const stored = readRefresh(hostId);
-    if (stored && stored !== presented) { presented = stored; continue; }
-    break;
-  }
-
-  try { sessionStorage.removeItem(TOKEN_PREFIX + hostId); } catch {}
-  writeRefresh(hostId, null);
-  setRec(hostId, { status: "expired", token: null, refresh: null, error: "expired" });
-  return null;
-}
-
-// We could not ask, so we know nothing about the session. `bootstrapping` is the state of holding a
-// refresh token and no access token, which is exactly true here — `ensureSession` spends it on the
-// next attempt rather than bouncing the browser at a leaf that is not answering.
-function unreachable(hostId) {
-  setRec(hostId, { status: "bootstrapping", token: null, error: "unreachable" });
-  return null;
-}
-
-// Ensure a live session for a host, silently, without asking the user for anything. A seeded
-// refresh token is spent here rather than at the first call, because the surfaces read `statusOf`
-// on their first render — healing only on demand shows a Sign in prompt to someone who is, in
-// every sense that matters, already signed in. Resolves to whether we now hold a session.
-function authorize(hostId) {
-  if (!hostId || !originOf(hostId)) return Promise.resolve(false);
-  // The cluster session heals itself the same way and at its own door, so an anchored assistant asks
-  // for nothing of its own here.
-  if (anchored(hostId)) return clusterSession.authorize().then(() => clusterSession.isLive());
-  const status = statusOf(hostId);
-  if (status === "live") return Promise.resolve(true);
-  if (status === "denied" || status === "none") return Promise.resolve(false);
-  return rotate(hostId).then((t) => !!t);
-}
-
-// The one decision point for "we want to be talking to this leaf". Ranked by what it costs the
-// user: a live session is free, a held refresh token is one silent request, and only a browser
-// with neither is worth a redirect. Called wherever a host becomes the assistant we address.
-function ensureSession(hostId) {
-  if (!hostId || !originOf(hostId)) return Promise.resolve(false);
-  // An anchored assistant is reached with the session this browser already holds, so wanting to talk
-  // to it costs nothing and can never involve a redirect: its own sign-in doors are shut, and sending
-  // the browser to one would land it on a refusal.
-  if (anchored(hostId)) return clusterSession.authorize().then(() => clusterSession.isLive());
-  const status = statusOf(hostId);
-  if (status === "live") return Promise.resolve(true);
-  if (status === "denied") return Promise.resolve(false);          // terminal; a retry loops forever
-  if (status === "bootstrapping") return authorize(hostId);        // spend the refresh token instead
-  if (attempted(hostId)) return Promise.resolve(false);            // already bounced this tab; the UI asks
-  // The silent bounce is a DISCORD round trip, and it is silent only because a browser signed into
-  // the panel through Discord has already authorized the same application for this leaf. Somebody
-  // signed in with a KGSM password has authorized nothing — the bounce would not be silent, and on a
-  // host with no Discord application at all it cannot complete. Navigating the whole page away to
-  // find that out is a far worse answer than the dock saying it needs a sign-in, so it is not
-  // attempted; the chat surface offers its own sign-in instead.
-  if (!signedInThroughAProvider()) return Promise.resolve(false);
-  signIn(hostId);
-  return Promise.resolve(false);                                   // we are navigating away
-}
-
-// Whether the panel identity came from an external provider — the only case the silent round trip
-// can complete without rendering anything. Read from the shell's stored user rather than passed in,
-// because every caller of ensureSession would otherwise have to thread it.
-function signedInThroughAProvider() {
-  try {
-    const raw = localStorage.getItem("krystal:auth");
-    const provider = raw ? (JSON.parse(raw) || {}).provider : null;
-    // Absent is treated as a provider login: this predates local accounts existing, so an old stored
-    // identity with no provider recorded is a Discord one, and refusing it would break its dock.
-    return !provider || provider !== "local";
-  } catch {
-    return true;
-  }
-}
-
-// Hand the browser to the leaf's Discord sign-in, asking to be returned HERE.
-//
-// **This is normally invisible.** Every surface on the host is the SAME Discord application — one
-// client id in /etc/kgsm/discord-auth.env, differing only in redirect URI — so a browser that
-// authorized the app to sign into the panel has already authorized it for the assistant. Discord
-// answers `prompt=none` with two 302s and renders nothing. `prompt=consent` is the fallback for the
-// one case that genuinely needs a human, and is passed only after a silent attempt asked for it.
-//
-// The marker in the return address is what tells the landing which service issued the fragment —
-// the node login lands on the same origin with the same key names, and without it the panel would
-// present an assistant token to kgsm-api.
-// The navigation itself, behind a seam. A sign-in leaves the page, which a test harness cannot let
-// happen and jsdom cannot perform — so the smoke swaps this to record the bounce it would have made
-// (the `__setJobTiming` pattern in stores/servers.js). Production never touches it.
-let navigate = (url) => { window.location.href = url; };
-function __setNavigator(fn) { navigate = fn || ((url) => { window.location.href = url; }); }
-
-function signIn(hostId, opts) {
-  // An anchored assistant has no door to send anybody to: another member holds the cluster's
-  // accounts, so its sign-in answers `503` and a bounce would land the browser on a refusal instead
-  // of on a sign-in. Nothing to do here, and nothing missing — the credential is already held.
-  if (anchored(hostId)) return false;
-  // `origin` is passed by the caller that runs BEFORE the app mounts (the login chain), where the
-  // host roster is not loaded yet and there is nothing to resolve an address from.
-  const origin = (opts && opts.origin) || originOf(hostId);
-  if (!origin) return false;
-  const back = new URL(window.location.href);
-  // The fragment is the handoff's, so the route travels out of band and is put back after landing.
-  stashRoute(back.hash);
-  back.hash = "";
-  back.searchParams.set(ASSISTANT_LOGIN_PARAM, hostId);
-  markAttempted(hostId);
-  const prompt = opts && opts.prompt ? "prompt=" + encodeURIComponent(opts.prompt) + "&" : "";
-  navigate(origin + "/auth/discord/start?" + prompt + "return_to=" + encodeURIComponent(back.toString()));
-  return true;
-}
-
-// Restore what survived the tab: the access token from sessionStorage, else a refresh token
-// from localStorage (a fresh tab, days later) which the first call rotates. Nothing is probed
-// here — a session is proven by the leaf answering, not by us holding bytes.
-function seed() {
-  const ids = [];
-  try {
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const k = sessionStorage.key(i);
-      if (k && k.startsWith(TOKEN_PREFIX)) ids.push(k.slice(TOKEN_PREFIX.length));
-    }
-  } catch {}
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(REFRESH_PREFIX)) {
-        const id = k.slice(REFRESH_PREFIX.length);
-        if (!ids.includes(id)) ids.push(id);
-      }
-    }
-  } catch {}
-  for (const id of ids) {
-    const acc = readAccess(id);
-    const ref = readRefresh(id);
-    if (acc && acc.token) setRec(id, { status: "live", token: acc.token, tier: acc.tier || null, refresh: ref, error: null });
-    // A refresh token with no access token is the ORDINARY state of a new tab: sessionStorage is
-    // per-tab and localStorage is not. It is `bootstrapping`, not `expired` — the long-lived
-    // credential is exactly what spares the user another sign-in, and prompting for one while
-    // holding it is asking for something we already have.
-    else if (ref) setRec(id, { status: "bootstrapping", token: null, tier: null, refresh: ref, error: null });
-  }
+// Ensure a live session, without asking anybody for anything. Resolves to whether one is held.
+async function ensureSession(id) {
+  if (!routed(id)) return false;
+  await credential.authorize();
+  return credential.isLive();
 }
 
 const assistantSession = Object.assign(store, {
-  ASSISTANT_LOGIN_PARAM,
-  __setNavigator, setClusterSession, setTargetResolver,
-  adopt, attempted, authorize, deny, ensureSession, hasRoute, isDenied, isLive, needsConsent,
-  markConsentNeeded, originOf, rotate, seed, signIn, signOut, statusOf, takeRoute, tierOf, tokenOf,
+  setCredential, setTargetResolver,
+  ensureSession, hasRoute, isLive, originOf, rotate, statusOf, tierOf, tokenOf,
 });
 
-// Restore at module load: the surfaces read `statusOf` on their first render, and a store that
-// starts empty and fills a tick later shows a signed-in user a sign-in prompt for that tick.
-seed();
-
-export { ASSISTANT_LOGIN_PARAM, assistantSession };
+export { assistantSession };

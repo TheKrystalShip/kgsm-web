@@ -1,23 +1,21 @@
 // ApiOverview — the one leaf whose page is served by the leaf it describes.
 //
 // Everything else in the Control Panel reaches its subject through this API. This page turns that around
-// and asks what the API itself is: which build is answering, which leaves it can currently reach, who is
-// signed in to it, and which other nodes it is federated with. Nothing here is a new measurement — it is
-// the data the API already publishes about itself, gathered onto the page where someone would look for it.
+// and asks what the API itself is: which build is answering, which leaves it can currently reach, and
+// which other nodes it is federated with. Nothing here is a new measurement — it is the data the API
+// already publishes about itself, gathered onto the page where someone would look for it.
 //
 // The Settings tab for this leaf is inert by design (its descriptor is readOnly — applying a change here
 // would mean restarting the process serving the request), which is exactly why the Overview carries more
 // than the others: it is the only tab with anything to say.
 //
-// The three sources degrade independently. Identity is the page; sessions and peers are additive, and
-// each says so when it can't be read rather than rendering an empty list that would read as "nobody is
-// signed in" or "this node stands alone".
+// The two sources degrade independently. Identity is the page; peers are additive, and say so when they
+// can't be read rather than rendering an empty list that would read as "this node stands alone".
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
-import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { leafIcon } from "../../lib/leaves.js";
 import { fetchHostDetail } from "../../lib/stores.js";
 import {
@@ -37,14 +35,13 @@ const capState = (c) => CAP_STATE[(c && c.status) || "unknown"] || CAP_STATE.unk
 
 const chipTone = (tone) => (tone === "ok" ? "ok" : tone === "danger" || tone === "warn" ? "danger" : "muted");
 
-// Identity is the page and must succeed; the other two are additive and resolve to null on any failure,
-// so one unreadable source never costs the whole Overview.
+// Identity is the page and must succeed; the roster is additive and resolves to null on any failure,
+// so an unreadable roster never costs the whole Overview.
 function loadApiOverview(hostId) {
   return Promise.all([
     fetchHostDetail(hostId),
-    api.sessions(hostId).list().catch(() => null),
     api.members(hostId).roster().catch(() => null),
-  ]).then(([host, sessions, peers]) => (host ? { host, sessions, peers } : null));
+  ]).then(([host, peers]) => (host ? { host, peers } : null));
 }
 
 function ApiOverview({ hostId, leafId }) {
@@ -56,9 +53,7 @@ function ApiOverview({ hostId, leafId }) {
   }
 
   const host = data.host;
-  const sessions = data.sessions ? data.sessions.sessions : null;
   const peers = Array.isArray(data.peers) ? data.peers : null;
-  const now = new Date();
 
   // The capability block keyed by leaf, in the order the Services board uses. `api` is excluded — this
   // API does not hold a capability describing itself, and inventing one would be circular.
@@ -92,11 +87,6 @@ function ApiOverview({ hostId, leafId }) {
             ? "of " + provisioned.length + " connected on this host"
             : "no capabilities reported"}
           barPct={provisioned.length ? (reachable.length / provisioned.length) * 100 : undefined} />
-        {/* Null is "we couldn't read the session registry", which is not zero people signed in. */}
-        <KPI icon="users" label="Active sessions" value={sessions ? sessions.length : "—"} tone="muted"
-          sub={sessions
-            ? (sessions.length === 1 ? "one signed-in browser" : "signed-in browsers on this node")
-            : "the session registry didn’t answer"} />
         <KPI icon="network" label="Cluster peers" value={peers ? peers.length : "—"} tone="muted"
           sub={peers
             ? (peers.length === 0 ? "this node stands alone" : "nodes in the converged roster")
@@ -146,44 +136,6 @@ function ApiOverview({ hostId, leafId }) {
           )}
         </BriefCard>
       </div>
-
-      <CardTable
-        icon="users" title="Active sessions" count={sessions ? sessions.length : 0}
-        columns={[
-          {
-            key: "userId", label: "User", width: "minmax(0,1.3fr)", sort: r => r.userId,
-            render: r => (
-              <>
-                {r.userId}
-                {r.current && <span className="cluster-chip cluster-chip--ok" style={{ marginLeft: 8 }}>this browser</span>}
-              </>
-            ),
-          },
-          {
-            key: "userAgent", label: "Client", width: "minmax(0,1.6fr)", sort: r => r.userAgent,
-            render: r => (r.userAgent || <span className="svc-fact svc-fact--unit">not recorded</span>),
-          },
-          {
-            key: "lastSeen", label: "Last seen", width: "130px", align: "right",
-            sort: r => (r.lastSeen ? parseTs(r.lastSeen) : null), defaultDir: "desc",
-            render: r => (r.lastSeen
-              ? <span title={parseTs(r.lastSeen).toLocaleString()}>{fmtRelative(parseTs(r.lastSeen), now)}</span>
-              : "—"),
-          },
-          {
-            key: "expires", label: "Expires", width: "150px", align: "right",
-            sort: r => (r.expires ? parseTs(r.expires) : null),
-            render: r => (r.expires
-              ? <span title={parseTs(r.expires).toLocaleString()}>{parseTs(r.expires).toLocaleString()}</span>
-              : "—"),
-          },
-        ]}
-        rows={sessions || []}
-        getKey={r => r.sid}
-        defaultSort={{ key: "lastSeen", dir: "desc" }}
-        empty={sessions
-          ? "No active sessions on this node."
-          : "The session registry didn’t answer — this is not “nobody is signed in”."} />
 
       {/* Rendered even at zero peers, because "this node stands alone" is an answer someone came here for
           — and a table that vanishes at zero cannot distinguish it from one that failed to load. */}

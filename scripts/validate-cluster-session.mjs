@@ -5,6 +5,10 @@
 // a session. Every network call is stubbed and COUNTED, so "it did not ask a node for a credential"
 // is a measured zero rather than an assertion about an absence.
 //
+// The session is the provider's, held through oidc-client-ts. It is seeded the way the library
+// stores one after a round trip, because the round trip itself is a page navigation to the
+// provider's own pages that jsdom cannot perform; the visual harness drives that part in a browser.
+//
 //   node scripts/validate-cluster-session.mjs
 
 import { JSDOM } from "jsdom";
@@ -16,44 +20,60 @@ globalThis.sessionStorage = dom.window.sessionStorage;
 globalThis.document = dom.window.document;
 
 const ANCHOR = "https://auth.kgsm.test";
-// The door is chosen by a person and stored. Nothing discovers it, because a clustered node
-// announces nothing about its cluster — which is why no stub below answers for one.
-localStorage.setItem("krystal:anchor", JSON.stringify({ origin: ANCHOR, kind: "anchor" }));
-localStorage.setItem("krystal:hosts:registry", JSON.stringify([
-  { id: "hotrod", url: "https://kgsm.test", name: "hotrod" },
-  { id: "node-b", url: "https://node-b.test", name: "node-b" },
-]));
+const CLIENT = "kgsm.test";   // this page's origin's host — the client id it signs in as
+const USER_KEY = `krystal:oidc:user:${ANCHOR}:${CLIENT}`;
+
+// Where this panel signs in, as the gate records it after asking.
+localStorage.setItem("krystal:provider", JSON.stringify({ issuer: ANCHOR, via: "https://kgsm.test" }));
+
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const jwt = (claims) => "h." + b64(claims) + ".s";
+const inAnHour = () => Math.floor(Date.now() / 1000) + 3600;
+const access = (n, tier, exp = inAnHour()) => jwt({ sid: "sid_1", tier, exp, n });
+
+// The session as oidc-client-ts stores it after a sign-in.
+function seed({ token, refresh, expiresAt = inAnHour() }) {
+  localStorage.setItem(USER_KEY, JSON.stringify({
+    id_token: jwt({ sub: "usr_1", sid: "psid_1" }), access_token: token, refresh_token: refresh,
+    token_type: "Bearer", scope: "openid", profile: { sub: "usr_1", sid: "psid_1" }, expires_at: expiresAt,
+  }));
+}
+const stored = () => { try { return JSON.parse(localStorage.getItem(USER_KEY) || "null"); } catch { return null; } };
 
 const calls = [];
 let refuseRefresh = false;
 let refuseMembers = false;
 let anchorDown = false;
+let minted = 1;
 
 globalThis.fetch = async (url, opts) => {
   const u = String(url);
   const method = (opts && opts.method) || "GET";
-  calls.push({ u, method });
+  const body = opts && opts.body ? String(opts.body) : "";
+  calls.push({ u, method, body });
 
   if (u.startsWith(ANCHOR)) {
     if (anchorDown) throw new TypeError("Failed to fetch");
-    if (u.endsWith("/auth/providers")) {
-      return json({ providers: ["discord"], redirects: true, registration: true });
+    if (u.endsWith("/.well-known/openid-configuration")) {
+      return json({
+        issuer: ANCHOR, authorization_endpoint: ANCHOR + "/authorize", token_endpoint: ANCHOR + "/token",
+        userinfo_endpoint: ANCHOR + "/userinfo", jwks_uri: ANCHOR + "/.well-known/jwks.json",
+        end_session_endpoint: ANCHOR + "/sign-out", response_types_supported: ["code"],
+        code_challenge_methods_supported: ["S256"],
+      });
     }
-    if (u.endsWith("/auth/session/refresh")) {
-      if (refuseRefresh) return json({ error: { code: "invalid_refresh_token", message: "gone" } }, 401);
-      return json({ token: "access.2", refresh: "refresh.2", tier: "operator", expiresAt: "2026-01-01T00:00:00Z" });
+    if (u.endsWith("/token")) {
+      if (refuseRefresh) return json({ error: "invalid_grant", error_description: "That session has ended." }, 400);
+      minted += 1;
+      return json({ access_token: access(minted, "operator"), token_type: "Bearer", expires_in: 900,
+        refresh_token: "refresh." + minted, scope: "openid" });
     }
-    if (u.endsWith("/auth/sign-in")) {
-      return json({ token: "access.1", refresh: "refresh.1", tier: "admin", userId: "usr_1", status: "active" });
-    }
-    if (u.endsWith("/auth/session/sign-out")) return json({});
     if (u.endsWith("/auth/cluster/members")) {
-      // Who is in a cluster is not something an unauthenticated caller learns, so this door refuses
-      // a bearer it does not know exactly the way the anchor does — with one answer for a lapsed
-      // token, a forged one and a revoked session alike.
+      // Who is in a cluster is not something an unauthenticated caller learns, so this refuses a
+      // bearer it does not know exactly the way the provider does.
       const headers = (opts && opts.headers) || {};
       const bearer = headers.Authorization || headers.authorization || "";
-      if (refuseMembers || bearer !== "Bearer access.2")
+      if (refuseMembers || bearer !== "Bearer " + current())
         return json({ error: { code: "unauthenticated", message: "Sign in to continue." } }, 401);
       return json({
         cluster: "kgsm-cluster",
@@ -62,15 +82,8 @@ globalThis.fetch = async (url, opts) => {
       });
     }
   }
-  // A MEMBER, and one with auth switched on. Every node here refuses an unauthenticated caller,
-  // which is the deployment this file is about: a cluster with an anchor holding its accounts.
-  //
-  // Load-bearing, and not obvious. `alertsApi` reads the fleet's alerts when it is imported, and
-  // that read runs through the egress funnel before anything below has signed in — so a node
-  // answering `/me` 200 tells the session layer this is an auth-DISABLED deployment, and it adopts
-  // an `open` session. An open session has nothing to rotate, so every renewal below then returns
-  // "live" without asking the anchor anything, and the checks pass or fail on the timing of an
-  // import rather than on what they are about.
+  // A MEMBER, with auth switched on. Load-bearing: a node answering `/me` 200 would tell the session
+  // layer this is an auth-DISABLED deployment, and an open session has nothing to renew.
   if (u.endsWith("/api/v1/me")) {
     return json({ error: { code: "unauthenticated", message: "Sign in to continue." } }, 401);
   }
@@ -80,117 +93,100 @@ const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 const { sessionStore } = await import("../src/lib/sessionStore.js");
-const anchor = await import("../src/lib/anchor.js");
+const current = () => sessionStore.tokenOf();
 
 let fail = 0;
 const check = (c, label, extra = "") => {
   console.log(`${c ? "✓" : "✗"} ${label}${extra ? " — " + extra : ""}`);
   if (!c) fail++;
 };
-const nodeCredentialCalls = () => calls.filter(c =>
-  !c.u.startsWith(ANCHOR) && /\/auth\/(session\/refresh|sign-in|register|cluster-session)/.test(c.u)).length;
+const memberCredentialCalls = () => calls.filter(c => !c.u.startsWith(ANCHOR) && /\/(auth|token)/.test(new URL(c.u).pathname)).length;
+const renewalsSince = (mark) => calls.slice(mark).filter(c => c.u === ANCHOR + "/token" && c.body.includes("grant_type=refresh_token"));
 
-// 1. Signing in reaches the ANCHOR, and nothing else issues a credential.
-const res = await anchor.signIn(ANCHOR, "heisen", "hunter22hunter22");
-check(res.ok && res.session.token === "access.1", "the anchor mints the session");
-sessionStore.adoptSession({
-  token: res.session.token, refresh: res.session.refresh,
-  tier: res.session.tier, account: res.session.status,
-});
-check(sessionStore.isLive() && sessionStore.tierOf() === "admin", "which is adopted whole", sessionStore.tierOf());
+// 1. A stored session is restored before anything mounts, whole.
+seed({ token: access(1, "admin"), refresh: "refresh.1" });
+await sessionStore.restore();
+check(sessionStore.isLive() && sessionStore.tierOf() === "admin", "a stored session is restored with its tier", sessionStore.tierOf());
 
 // 2. ONE token, and it is the same one for every member. There is no per-member token to differ.
-check(sessionStore.tokenOf() === "access.1", "one bearer is held", sessionStore.tokenOf());
+check(sessionStore.tokenOf() === access(1, "admin"), "one bearer is held");
 check(sessionStore.statusOf() === "live", "and one status, with no member named to ask about");
 
-// 3. Renewal goes to the anchor and NOWHERE else. This is the rule the whole design rests on: a
-//    member that could re-mint would be a second door to the same session on every machine.
-const before = calls.length;
+// 3. Renewal is the refresh grant at the PROVIDER and nowhere else. A member that could re-mint would
+//    be a second door to the same session on every machine.
+let mark = calls.length;
 sessionStore.expire();
 const outcome = await sessionStore.rotate();
-const renewals = calls.slice(before).filter(c => c.u.endsWith("/auth/session/refresh"));
+let spent = renewalsSince(mark);
 check(outcome === "live", "a lapsed session renews", outcome);
-check(renewals.length === 1 && renewals[0].u.startsWith(ANCHOR), "at the anchor", renewals.map(c => c.u).join());
-check(nodeCredentialCalls() === 0, "and no member was ever asked for one", String(nodeCredentialCalls()));
+check(spent.length === 1 && spent[0].body.includes("refresh_token=refresh.1"), "through the refresh grant at the provider", String(spent.length));
+check(spent.length === 1 && spent[0].body.includes("client_id=" + CLIENT), "as the client this origin is", CLIENT);
+check(memberCredentialCalls() === 0, "and no member was ever asked for one", String(memberCredentialCalls()));
 
-// 4. The renewed tier is adopted as given — the anchor resolved it now, so a demotion lands exactly
-//    like a promotion rather than being treated as a downgrade to argue with.
-check(sessionStore.tierOf() === "operator", "the tier the anchor answered with is taken as given",
-  sessionStore.tierOf());
+// 4. The renewed tier is the one the new token carries — the provider resolved it when it minted, so
+//    a demotion lands exactly like a promotion.
+check(sessionStore.tierOf() === "operator", "the tier the renewal minted is taken as given", sessionStore.tierOf());
+check(stored() && stored().refresh_token === "refresh.2", "and the rotated refresh token replaces the spent one");
 
-// 5. A member refusing is a fact about THAT MEMBER and leaves the session alone. This is the one
-//    that does not follow from a per-node model: a member verifies the signature offline but can
-//    only say what somebody may do once its replica carries their account.
+// 5. A member refusing is a fact about THAT MEMBER and leaves the session alone.
 sessionStore.markNode("node-b", "refusing", "unknown_here");
 check(sessionStore.isLive(), "a member refusing does not end the session");
-check(sessionStore.nodeAccepts("hotrod") && !sessionStore.nodeAccepts("node-b"),
-  "it is recorded against that member and no other");
-check(sessionStore.nodeRefusal("node-b").reason === "unknown_here",
-  "carrying WHICH refusal, since the two resolve differently");
+check(sessionStore.nodeAccepts("hotrod") && !sessionStore.nodeAccepts("node-b"), "it is recorded against that member and no other");
+check(sessionStore.nodeRefusal("node-b").reason === "unknown_here", "carrying WHICH refusal, since the two resolve differently");
 
-// 6. A renewed session is re-offered to every member that was refusing it — none of those refusals
-//    were about the session, so none of them survive a new one.
+// 6. A renewed session is re-offered to every member that was refusing it.
 await sessionStore.rotate();
 check(sessionStore.nodeAccepts("node-b"), "renewing clears every member's refusal");
 
-// 7. An anchor that cannot be reached is an OUTAGE, not a session that ended. Different states,
-//    because one is waited out and the other is signed in again.
+// 7. A provider that cannot be reached is an OUTAGE, not a session that ended.
 anchorDown = true;
 sessionStore.expire();
 await sessionStore.rotate();
-check(sessionStore.statusOf() === "expired", "an unreachable anchor lapses the session");
-check(localStorage.getItem("krystal:refresh") === "refresh.2",
-  "but the credential is KEPT — there was nowhere to spend it, not a refusal",
-  String(localStorage.getItem("krystal:refresh")));
+check(sessionStore.statusOf() === "expired", "an unreachable provider lapses the session");
+check(stored() && stored().refresh_token, "but the session is KEPT — there was nowhere to spend it, not a refusal");
 
-// 8. A refusal IS the end, and the dead credential goes so it is not retried.
+// 8. A refusal IS the end, and the dead session goes so it is not retried.
 anchorDown = false; refuseRefresh = true;
 await sessionStore.rotate();
 check(sessionStore.statusOf() === "expired", "a refused renewal ends the session");
-check(localStorage.getItem("krystal:refresh") === null, "and the dead credential is dropped");
-
-// 9. Signing out tells the anchor, which is what stops the bearer still in this tab being spent on
-//    the members for the rest of its life.
-refuseRefresh = false;
-sessionStore.adoptSession({ token: "access.3", refresh: "refresh.3", tier: "admin", account: "active" });
-const beforeOut = calls.length;
-sessionStore.signOut();
 await new Promise(r => setTimeout(r, 10));
-const outs = calls.slice(beforeOut).filter(c => c.u.endsWith("/auth/session/sign-out"));
-check(outs.length === 1 && outs[0].u.startsWith(ANCHOR), "signing out reaches the anchor");
-check(sessionStore.statusOf() === "none" && localStorage.getItem("krystal:refresh") === null,
-  "and nothing is left behind locally");
+check(stored() === null, "and the dead session is dropped");
+refuseRefresh = false;
 
-// 10. A reload restores a session whose bearer has already lapsed. It reads as live — the status is
-//     what was persisted, and nothing predicts expiry — and the roster is the ONLY authenticated
-//     call a clustered panel makes, so there is no other refusal to heal from. It renews itself
-//     before asking, or the panel spends a dead bearer with nothing left to spend a live one.
+// 9. A reload restores a session whose bearer has already lapsed. The roster is the ONLY
+//    authenticated call a clustered panel makes, so it renews first rather than spending a dead one.
 const { fleetStore, refreshFleetFromAnchor } = await import("../src/lib/fleet.js");
-const lapsedBearer = "h." + Buffer.from(JSON.stringify({ exp: Math.floor((Date.now() - 60000) / 1000) })).toString("base64url") + ".s";
+seed({ token: access(9, "admin", Math.floor(Date.now() / 1000) - 60), refresh: "refresh.9", expiresAt: Math.floor(Date.now() / 1000) - 60 });
+await sessionStore.restore();
+check(sessionStore.statusOf() === "expired", "a restored session with a lapsed bearer is held, not live");
 
-sessionStore.adoptSession({ token: lapsedBearer, refresh: "refresh.9", tier: "admin", account: "active" });
-check(sessionStore.isLive(), "a restored session reads as live, lapsed bearer and all");
-
-let mark = calls.length;
+mark = calls.length;
 const fleet = await refreshFleetFromAnchor();
-let spent = calls.slice(mark).filter(c => c.u.endsWith("/auth/session/refresh"));
-check(spent.length === 1 && spent[0].u.startsWith(ANCHOR), "so it is renewed at the anchor before the roster is asked", String(spent.length));
+spent = renewalsSince(mark);
+check(spent.length === 1, "so it is renewed at the provider before the roster is asked", String(spent.length));
 check(fleet.ok && fleetStore.getState().state === "ready", "and the cluster answers", fleetStore.getState().state);
-check(sessionStore.tokenOf() === "access.2", "on the bearer the renewal minted", String(sessionStore.tokenOf()));
 
-// 11. A refusal the bearer's own expiry did not predict — a session revoked elsewhere, a key the
-//     anchor has rotated — is renewed once and asked again. ONCE: a second refusal is the anchor
-//     describing the session rather than the bearer, and asking a third time is a loop.
+// 10. A refusal the bearer's own expiry did not predict is renewed once and asked again. ONCE: a
+//     second refusal is the provider describing the session, and asking a third time is a loop.
 refuseMembers = true;
 mark = calls.length;
 await refreshFleetFromAnchor();
 const asked = calls.slice(mark).filter(c => c.u.endsWith("/auth/cluster/members"));
-spent = calls.slice(mark).filter(c => c.u.endsWith("/auth/session/refresh"));
+spent = renewalsSince(mark);
 check(asked.length === 2, "a refused roster is asked exactly twice", String(asked.length));
 check(spent.length === 1, "with exactly one renewal between", String(spent.length));
-check(fleetStore.getState().state === "ready", "and a roster already landed is not thrown away over it",
-  fleetStore.getState().state);
+check(fleetStore.getState().state === "ready", "and a roster already landed is not thrown away over it", fleetStore.getState().state);
 refuseMembers = false;
+
+// 11. Signing out is the provider's end-session endpoint, carrying the id token that names the
+//     provider session — and nothing is left behind locally whether or not the page gets there. A
+//     sign-out that is leaving never resolves: the page it would resolve on is gone.
+const signingOut = await Promise.race([
+  sessionStore.signOut().then((leaving) => (leaving ? "left" : "stayed")),
+  new Promise(r => setTimeout(() => r("leaving"), 200)),
+]);
+check(signingOut === "leaving" || signingOut === "left", "signing out leaves for the provider", signingOut);
+check(sessionStore.statusOf() === "none" && stored() === null, "and nothing is left behind locally");
 
 console.log(fail ? `\n!! ${fail} failed` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

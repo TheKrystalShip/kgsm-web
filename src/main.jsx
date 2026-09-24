@@ -2,8 +2,9 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { ErrorBoundary, AppCrash } from "./components/ErrorBoundary.jsx";
-import { captureOAuthFragment, completeOAuthLogin } from "./lib/authRedirect.js";
+import { noteSignInRefusal } from "./lib/authStorage.js";
 import { registerServiceWorker } from "./lib/registerSW.js";
+import { sessionStore } from "./lib/sessionStore.js";
 
 // Global styles. Order matters: design tokens (variables + @font-face) first,
 // then the component class library, then consumer overrides.
@@ -17,47 +18,25 @@ import "./styles/consumer.css";
 // store + browser-chrome color in sync. See src/lib/theme.js.
 import "./lib/theme.js";
 
-// If we just landed from the OAuth callback (kgsm-api 302'd back with the session
-// in the URL fragment), capture + strip it BEFORE the hash router reads
-// location.hash, then resolve the app-shell identity from /me so the app mounts
-// already signed in (no sign-in flash). A normal load is a synchronous no-op.
+// The session is settled BEFORE anything mounts, so the gate knows on its first render whether this
+// browser holds one. The provider sending a browser back lands on its own path with a code in the
+// query: that is exchanged for a session and the address put back to the route the browser left
+// from, before the hash router reads it. Any other load restores what is stored, which asks nobody
+// anything.
 async function boot() {
-  const captured = captureOAuthFragment();
-  // An assistant-leaf landing carries the same fragment keys as a node one and is told apart
-  // by the marker its sign-in put in the return address. Its tokens belong to the leaf session,
-  // never to kgsm-api, so it is adopted here and completeOAuthLogin is not run for it.
-  if (captured && captured.issuer === "assistant") {
-    const { assistantSession } = await import("./lib/assistantSession.js");
-    if (captured.access) assistantSession.adopt(captured.hostId, { token: captured.access, refresh: captured.refresh, tier: captured.tier });
-    else if (captured.error === "denied") assistantSession.deny(captured.hostId);
-    // Discord declined a silent sign-in and wants a human. Recorded so the dock offers the one
-    // button that can work; the attempt marker stays set, so nothing bounces the browser again.
-    else if (captured.error === "consent_required" || captured.error === "login_required") {
-      assistantSession.markConsentNeeded(captured.hostId);
-    }
-    // Put the browser back on the route it left. The fragment was the handoff's, so the route
-    // travelled out of band — restoring it before mount means the router reads the right one and
-    // a sign-in never costs the user their place.
-    const route = assistantSession.takeRoute();
-    if (route) { try { history.replaceState(null, "", location.pathname + location.search + route); } catch {} }
-  }
-  else if (captured && captured.access) {
-    const result = await completeOAuthLogin(captured);
-    // This node runs an assistant we owe a session to. The browser is already mid-redirect, so
-    // chaining the leaf's own (silent) round trip on now costs nothing visible — one sign-in, and
-    // the dock is ready. Navigating away instead of mounting; the node session is already stored.
-    if (result && result.chainAssistant) {
-      const { assistantSession } = await import("./lib/assistantSession.js");
-      const { hostId, origin } = result.chainAssistant;
-      if (assistantSession.signIn(hostId, { origin })) return;
-    }
+  if (sessionStore.isLanding()) {
+    const landed = await sessionStore.completeSignIn();
+    if (!landed.ok) noteSignInRefusal(landed.error);
+    const back = landed.ok && landed.back && landed.back.startsWith("#") ? landed.back : "";
+    try { history.replaceState(null, "", "/" + back); } catch { /* the router reads what is there */ }
+  } else {
+    await sessionStore.restore();
   }
   // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
   // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
-  // into the app instead of stalling on the sign-in screen (which can't complete
-  // against an auth-disabled host). Gated to dev builds → DCE'd in production; a
+  // into the app instead of stalling in front of it. Gated to dev builds → DCE'd in production; a
   // no-op against an auth-ENABLED seed. See connect.js devSeedAutoConnect.
-  else if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && !sessionStore.isLive()) {
     try {
       const { devSeedAutoConnect } = await import("./lib/connect.js");
       await devSeedAutoConnect(import.meta.env.VITE_API_BASE);

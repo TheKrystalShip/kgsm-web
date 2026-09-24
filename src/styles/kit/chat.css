@@ -2995,35 +2995,6 @@ a.ev-search__src:hover {
   background: var(--surface-3);
 }
 
-/* ---- assistant sign-in bar ----
-   The assistant leaf issues its own session, so a user signed in to the panel can still owe this
-   one. Sits directly above the composer, where the thing it blocks is. */
-.chat-signin {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 16px;
-  padding: 8px 12px;
-  border: var(--edge);
-  border-radius: var(--r-md);
-  background: var(--surface-3);
-  color: var(--fg-2);
-  font-size: 12.5px;
-}
-.chat-signin > span { flex: 1; min-width: 0; }
-.chat-signin__go {
-  flex: none;
-  padding: 4px 12px;
-  border: var(--edge-strong);
-  border-radius: var(--r-sm);
-  background: var(--surface-2);
-  color: var(--fg-1);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.chat-signin__go:hover { background: var(--veil-2); }
-
 /* ---- composer ---- */
 .chat-composer {
   padding: 12px 16px 14px;
@@ -4365,9 +4336,9 @@ a.ev-search__src:hover {
 }
 
 
-/* ── The standalone assistant's sign-in screen ───────────────────────────────
+/* ── The standalone assistant's signed-out screen ────────────────────────────
    Its own centred layout rather than the chat page's: signed out there is no
-   conversation and no rail, so borrowing that grid leaves the form in the column
+   conversation and no rail, so borrowing that grid leaves the message in the column
    where the rail would have been. */
 .assistant-signin {
   min-height: 100dvh;
@@ -4380,23 +4351,11 @@ a.ev-search__src:hover {
   padding: 24px;
 }
 
-.assistant-signin__form {
-  width: 100%;
-  max-width: 280px;
-  text-align: left;
-}
-
 .assistant-signin__who {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--fg-4);
   word-break: break-all;
-}
-
-.assistant-signin__divider {
-  width: 100%;
-  max-width: 280px;
-  margin: 4px 0;
 }
 
 /* ── The standalone assistant's settings page ────────────────────────────────

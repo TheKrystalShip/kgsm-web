@@ -22,9 +22,9 @@ import { startPingLoop, stopPingLoop } from "./ui.js";
 import { assistantSession } from "../assistantSession.js";
 import { assistantTargets } from "../assistants.js";
 
-// Tell the assistant session layer how THIS surface finds an assistant, and what kind it found. The
-// session module holds no opinion about either, so it can also serve the standalone assistant, which
-// has one at a known address and no stores to look in.
+// Tell the assistant session layer how THIS surface finds an assistant. The session module holds no
+// opinion about it, so it can also serve the standalone assistant, which has one at a known address
+// and no stores to look in.
 //
 // Both standings are resolved from the same derivation the dock's picker is built from, so the
 // address a turn is sent to and the entry somebody chose can never disagree.
@@ -36,7 +36,7 @@ assistantSession.setTargetResolver((id) => {
     members: clusterStore.getState().nodes,
     capabilities: clusterStore.getState().capabilities,
   }).find(t => t.id === id);
-  return target && target.origin ? { origin: target.origin, anchored: target.kind === "anchor" } : null;
+  return target && target.origin ? target.origin : null;
 });
 
 // sessionStore is reached by a LAZY import, not a static one. It imports hostsStore from
@@ -57,10 +57,10 @@ function startDataLayer() {
     const swallow = () => {};
     withSessionStore((s) => {
       s.startBootstrap();
-      // An assistant held by a cluster anchor is reached with the cluster's own session — its sign-in
-      // doors are shut because another member holds the accounts. Handed over here because this is
-      // the one place that already reaches the session store without closing the import cycle.
-      assistantSession.setClusterSession(s);
+      // Every assistant is reached with the cluster's own session, whichever standing it has. Handed
+      // over here because this is the one place that already reaches the session store without
+      // closing the import cycle.
+      assistantSession.setCredential(s);
     });
     api.startStreams();
     serversStore.refresh().catch(swallow);

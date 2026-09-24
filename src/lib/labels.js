@@ -86,7 +86,7 @@ export const ROUTE_TABS = {
   ],
   settings: [
     { id: "profile",       label: "Profile",       icon: "user" },
-    { id: "security",      label: "Security",      icon: "key-round" },
+    { id: "security",      label: "Sign-in",       icon: "key-round" },
     { id: "devices",       label: "Devices",       icon: "monitor-smartphone" },
     { id: "memory",        label: "Memory",        icon: "brain" },
     { id: "notifications", label: "Notifications", icon: "bell" },

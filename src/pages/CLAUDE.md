@@ -70,26 +70,16 @@ after the mechanics change, and nobody has the new key.
 ## `auth/` — the screens in front of the app
 
 `auth/` is not on the router. `components/AuthGate.jsx` renders these instead of the shell,
-so they answer to no `route.kind` and no persona: `ClusterPage` (which cluster), `SignInPage`
-(one card, two tabs, at the anchor), `ClusterUnavailable` (a cluster that answered and cannot
-sign anybody in) and `PendingPage` (signed in, holding nothing).
-`AuthChrome.jsx` holds what they share. The domain logic — discovery, the credential calls,
-the pending session and the field checks — is `lib/authFlow.js` and `lib/anchor.js`, so these
-files are the rendering and nothing else.
+so they answer to no `route.kind` and no persona: `ClusterPage` (the address of the cluster, for a
+panel whose own origin names no provider) and `ClusterUnavailable` (the panel knows where to sign in
+and cannot right now — nothing answered, no provider yet, a session that ended while the panel was
+open, a provider that sent the browser back without one, or an account the cluster grants nothing).
+Nobody signs in on either: that is the provider's own pages. `AuthChrome.jsx` holds what these share
+with those pages, which reuse `SignInCard.jsx` and `PendingPage.jsx` from here.
 
-**One address, and what answers decides the rest.** Two things are worth typing — an auth anchor
-holding a cluster's accounts, or a standalone node holding its own — and the page does not ask
-which, because `identifyAddress` classifies what answers. A node that belongs to a cluster is the
-third thing somebody types and the one that cannot work: it serves no auth and announces nothing
-about its cluster, so `ClusterUnavailable` refuses it and names the holder, which is a name and
-never an address. **And the text stays thin**: the anchor's refusals name
-the rule they applied, so nothing here keeps a second copy of the rules to stand beside them.
-
-Two rules they encode. **A refusal sits with what it is about**: a wrong password renders
-above the username inside the form, while an anchor that cannot be reached renders above the
-tabs, because it invalidates every door on the card rather than one of them. And **every
-check here is also the anchor's** — the client validates shape so somebody is told while
-typing, and the anchor decides.
+**One address, and what answers decides the rest.** Any member of the cluster names its provider,
+and so does the provider itself, so the page does not ask which was typed — `discoverProvider`
+asks. What was typed is checked before it is kept, so a refusal is what something answered.
 
 ## Administering accounts — one screen, two homes
 
@@ -112,15 +102,9 @@ naming the holder rather than offering a table whose every write the node refuse
 capability assignment is re-read on the roster's own cadence, the tab moves with no reload and
 nothing redeployed.
 
-`SettingsIdentities.jsx` answers the other question — "how do I prove who I am" — and asks the same
-hook. `SettingsSessions.jsx` asks it too, for two reasons that each cost a person something. It
-reads the sessions from ONE source under an anchor, because every member resolves to the same anchor
-and fanning out would fetch the identical list once per member — every device rendered as many times
-as the cluster has nodes, each copy tagged with a member that has nothing to do with it. And it
-labels recency `last refreshed` rather than `last active`, because an anchor's `lastSeen` is the
-last time the session rotated its tokens, at roughly a quarter-hour's granularity: calling that
-activity would report a person from a token. A node measures its own requests and means what it
-says. Both of those follow the DOOR, never `anchored` — they describe where the rows were measured.
+The other question — "how do I prove who I am", and where am I signed in — is not the panel's. It is
+the provider's account page, behind a recent proof only those pages can ask for, and
+`SettingsSignIn.jsx` links there.
 
 No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 

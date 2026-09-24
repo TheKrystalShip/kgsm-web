@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.0.0]
+
+### Changed — both surfaces are clients of the cluster's sign-in provider
+
+- **The panel and the standalone assistant sign in through OpenID Connect** (`oidc-client-ts`):
+  `authorization_code` with PKCE at the auth anchor's own pages, renewed through the refresh grant.
+  A surface finds the provider by asking the origin that served it
+  (`/.well-known/oauth-protected-resource`); a static panel asks the build's configured address and
+  then the person for any member's address. The client id is the page origin's host, with `-port`
+  when the origin names one. The panel lands back at `/signed-in`, the assistant at `/`.
+- **A cold load holding nothing leaves for the provider at once**; a session that ends while the
+  panel is open is shown with the way back offered, never followed on its own.
+- **Signing out is the provider's end-session endpoint**, which ends every session minted under the
+  provider session on every member.
+- **The panel's sign-in card, registration, approval wait and door choice are gone**, with
+  `authFlow`, `authRedirect`, `oauthFragment` and the sign-in half of `anchor.js`. The provider's
+  pages (`kgsm-web-auth`) carry all of it.
+- **Settings holds no credentials.** Password, connected accounts and own sessions are the
+  provider's account page, linked from Settings' Sign-in tab; the Devices tab keeps sync.
+- **Every assistant is reached with the cluster's session.** `assistantSession` holds no session of
+  its own and relays the surface's; the dock's silent assistant sign-in and the chat's sign-in bar
+  are gone, and the standalone assistant holds its own client of the provider (`assistant/session.js`).
+- **Account administration always addresses the provider** (`/auth/cluster/users…`), and an
+  administrator reads somebody's sessions at `/auth/cluster/users/{id}/sessions`. A panel that knows
+  no provider refuses an account call rather than asking a node.
+- The API leaf's overview no longer lists sessions, which a node does not hold.
+- `check:entry`, `check:session` and `check:door` test provider discovery, the client id, the OIDC
+  session and where an account call goes; the smoke waits for the boot cover rather than a fixed
+  800ms.
+
 ## [1.233.0]
 
 ### Added — kgsm-web-static, the panel as a static site from a package

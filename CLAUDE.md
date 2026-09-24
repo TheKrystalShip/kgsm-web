@@ -41,8 +41,9 @@ npm run preview      # serve the built dist/
 ./deploy/setup.sh    # ONCE per host — the web roots; with KGSM_PANEL_HOST, nginx + certificate + anchor drop-in (sudo once)
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the web root, nothing restarts
 
-npm run check:entry  # what an address is: anchor, standalone node, or a node inside a cluster
-npm run check:door   # where an account call goes — anchor or node — in both clusters
+npm run check:entry  # where an address says its cluster signs in, and the client id an origin is
+npm run check:session # one session for the cluster: restored, renewed at the provider, ended there
+npm run check:door   # where an account call goes: the provider, or nowhere when none is known
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
 npm run check:assistants # which assistants exist: a node's leaf, the cluster's anchor, or both
@@ -51,8 +52,8 @@ npm run check:egress # the one seam a bearer is attached at: renewal, replay, an
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
 
-`check:door` runs offline, and has to: the smoke's backend is auth-disabled, which reports no
-anchor and exercises no account surface at all.
+`check:session` and `check:door` run offline, and have to: the smoke's backend is auth-disabled,
+which names no provider and exercises no session or account surface at all.
 
 **The panel is served by no node.** It is a static artifact that belongs to no cluster: it holds no
 cluster state, depends on no node, and reaches whichever cluster it is pointed at over that
@@ -64,12 +65,12 @@ repo does not make.
 
 The build carries **no node address**. Baking one in would make this that node's panel.
 
-It carries an anchor only when the host has configured one: `KGSM_AUTH_ANCHOR` in the untracked
-`deploy/deploy.local.env`, or the environment. **Blank by default, and blank is the interesting
-case** — an unconfigured build points at no cluster and asks for an address, which is what lets one
-deployment serve any of them. Configured, it opens on that cluster's sign-in instead. Either way it
-is a DEFAULT and never a lock: a door somebody has already chosen wins, "Another address" still
-reaches the address box, and the value is classified like any other address rather than trusted.
+It carries a cluster address only when the host has configured one: `KGSM_AUTH_ANCHOR` in the
+untracked `deploy/deploy.local.env`, or the environment — any member, or the sign-in provider
+itself. **Blank by default, and blank is the interesting case** — a panel served by a member asks
+that member where to sign in, and an unconfigured static build asks the person for an address, which
+is what lets one deployment serve any cluster. Configured, a static build signs in without asking.
+The value is asked like any other address rather than trusted.
 
 This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
 `kgsm-*` repo uses. It owns no systemd unit and runs no process of its own. `setup.sh` creates the web
@@ -270,10 +271,10 @@ realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-v
   ASSISTANT.** The assistant is a standalone service, so the chat talks to it **directly** — 
   `kgsm-api` is not in the path of a turn, a confirmation, or a conversation read. It runs in one of
   two standings and `assistants.js` finds both: a **leaf** on a node, at the public origin that
-  node's assistant capability reports (`info.url`), with a session the leaf issued; or an **anchor**,
-  a member of the cluster holding the `assistant` capability at its own member address, reached with
-  the **cluster's own session** because another member holds the accounts. A cluster can have both,
-  so the dock offers a choice rather than resolving one silently. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
+  node's assistant capability reports (`info.url`); or an **anchor**, a member of the cluster holding
+  the `assistant` capability at its own member address. Both are reached with the **cluster's own
+  session** — an assistant signs nobody in, and verifies the provider's sessions itself. A cluster
+  can have both, so the dock offers a choice rather than resolving one silently. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
   `turn`, `confirm`, …) against the leaf's own unprefixed routes. **A host that reports no
   public origin has no chat** (`ENOROUTE`, and the capability reads down) — it never falls
   back to kgsm-api's `/assistant/*` relay, which exists to reach a *peer* node's assistant
@@ -288,22 +289,26 @@ break boot. Read the comments before "tidying" an import.
 
 ## Auth, RBAC, capabilities
 
+- **Every surface is a client of the cluster's sign-in provider** (`lib/oidc.js`, over
+  `oidc-client-ts`): `authorization_code` with PKCE, public, renewed through the refresh grant — no
+  iframe, no silent re-authorization. The provider is the auth anchor on its own origin, and it is
+  found by asking the origin that served the page (`/.well-known/oauth-protected-resource`); a panel
+  on a static host that answers nothing asks the build's configured address, and then the person, for
+  any member's address. The client id is the page's own origin's host, with `-<port>` when the origin
+  names one — derived, never configured, which is what lets a static panel sign in through a member
+  that never served it. Signing in, registering, the wait for approval and every change to a
+  person's own credentials are the provider's own pages (`src/authui/`); the panel carries the
+  library, a landing route (`/signed-in`) and nothing else.
 - **`sessionStore.js` — ONE session, for the whole cluster.** An account belongs to the cluster and
-  so does the session it opens. The **anchor** — the member holding the `auth` capability — mints it
-  and is the only thing that renews it; every other member accepts it by verifying the anchor's
-  signature against the published key and resolves the tier from its own replica of the account
-  store. **No member ever issues this browser a credential or extends one.** That is a rule, not an
-  implementation detail: a member that could re-mint would be a second door to the same session on
-  every machine in the cluster, permanently, in exchange for an outage largely shared with the
-  panel's own ingress anyway.
-  Two doors, both at the anchor: a username and password (`POST /auth/sign-in`, and `/auth/register`
-  for a new account) and a provider bounce (`/auth/{provider}/start?prompt=consent` — the bare start
-  is a silent attempt, which is right for a renewal behind somebody's back and wrong for a person
-  who has just pressed Sign in). `authRedirect.js` captures the fragment handoff at boot and
-  `establishClusterSession` is the adoption path both doors end in — it adopts the session FIRST,
-  because the tokens are valid on their signature and nothing a member says makes them more so.
-  The record carries `account` (`active｜pending｜unknown`) beside the tier, because a `none` tier is
-  two facts: waiting on an admin, and holding nothing at all.
+  so does the session it opens. The provider mints it and is the only thing that renews it; every
+  member accepts it by verifying the provider's signature against the published key and resolves the
+  tier from its own replica of the account store. **No member ever issues this browser a credential
+  or extends one.** That is a rule, not an implementation detail: a member that could re-mint would
+  be a second door to the same session on every machine in the cluster, permanently.
+  The boot settles the session before anything mounts: a landing exchanges its code, and any other
+  load restores what the library stored. The tier rides the token as the provider minted it, and a
+  provider hands no code to an account awaiting approval, so a session that reaches the panel is an
+  active account's.
   **A tier is LIVE, not something learned once at sign-in.** A member pushes `{tier, status}` on the
   primary stream's `me` topic whenever the account is regraded, and that push is the authority — a
   demotion is written exactly like a promotion. Everything gated re-renders off the record write;
@@ -318,24 +323,16 @@ break boot. Read the comments before "tidying" an import.
   session, so it is recorded at once; a **401** means the token itself did not validate, which is
   ambiguous until a renewal settles it, because a member still refusing a *fresh* session is not
   describing the session.
-  **`components/AuthGate.jsx` is everything in front of the app** — the member screen, discovery,
-  the one sign-in/register card, and the wait for approval — and `App.jsx` renders it *instead of*
-  the shell, so none of the shell's hooks and none of the data layer run for somebody who has not
-  signed in. A **pending** account is not carried by `sessionStore`: everything behind the gate
-  would render for somebody entitled to none of it. The gate holds their session itself
-  (`lib/authFlow.js`, sessionStorage) and polls `GET /me` — bare-authorized precisely so a tierless
-  caller can ask — until an admin acts. A fresh registration and a first provider arrival land in
-  exactly that state, so there is one screen for both.
-- **`SettingsIdentities.jsx` — connected accounts, per host.** Which provider accounts are attached
-  to the caller's own KGSM account, and attaching or detaching one. Both writes confirm the password
-  first (`POST /auth/reauth`), asked BEFORE starting rather than after being refused; a fresh sign-in
-  already counts, so the common path is never prompted. **The link flow is same-origin**: the start
-  is an XHR (a bearer does not survive a top-level navigation) whose one-time ticket cookie the
-  callback comes back with, and a cross-origin fetch does not store one. The callback returns to the
-  configured frontend URL with `#linked=<provider>` or `#link_error=<code>`, which
-  `oauthFragment.js` captures into a one-shot the section reports — and it rewrites the hash to
-  `#/settings`, because the callback can only return to one address and landing on the dashboard
-  after connecting an account tells nobody whether it worked.
+  **`components/AuthGate.jsx` is everything in front of the app** — finding the provider, and going
+  there — and `App.jsx` renders it *instead of* the shell, so none of the shell's hooks and none of
+  the data layer run for somebody who has not signed in. A cold load holding nothing leaves for the
+  provider at once, because nothing is on screen to lose. A session that ends while the panel is
+  open is NOT followed on its own: the gate says so and offers the way back, because leaving unasked
+  discards whatever somebody was doing.
+- **The panel holds no credential settings.** A password, connected accounts and the list of where
+  somebody is signed in are changed on the provider's account page, behind a recent proof only
+  those pages can ask for; Settings links there (`SettingsSignIn.jsx`). Administering OTHER people's
+  accounts stays in the panel, through the provider's admin API with the bearer it holds.
 - **`persona.js` — the authorization POLICY (single source of truth).** Roles are
   `admin｜operator｜viewer｜none`, and there is **one tier, cluster-wide** — the anchor resolves it
   and every member reads the same one from its own replica. So there is one question, `can(cap)`: a
@@ -344,22 +341,10 @@ break boot. Read the comments before "tidying" an import.
   that answer is a different fact and lives in `sessionStore.nodeRefusal(id)`.
   `resolveRoute()` is the **routing chokepoint**: a forbidden route is mapped to the persona's home
   synchronously, so it never enters state or mounts.
-- **`assistantSession.js` — the session with the assistant.** An ANCHORED one needs none of what
-  follows: its sign-in doors answer `503` because another member holds the cluster's accounts, and it
-  verifies the cluster session this browser already carries — so nothing is minted, nothing is
-  rotated, and no redirect is ever attempted at a door that is shut.
-  A LEAF is separate from the node's, and obtained
-  silently. The leaf issues and revokes its own tokens, but every surface on a host is the
-  **same Discord application** (one `KgsmAuth__Providers__discord__ClientId`, differing only in redirect URI), so a
-  browser signed into the panel has already authorized the assistant: its round trip completes with
-  `prompt=none`, rendering nothing. It is chained onto a panel login (already mid-redirect, so it
-  costs nothing visible) and otherwise fires as soon as there is a targeted assistant host — which
-  is what bounds it, since no assistant means nothing targeted and several means nothing targeted
-  until the user picks. The return leg lands here carrying an **`assistant_login=<hostId>` marker
-  in the query**; that marker is load-bearing, because both logins come back to this origin with
-  the same `access`/`refresh`/`error` fragment keys and without it the panel hands a leaf token to
-  kgsm-api and gets a 401. **One redirect per host per tab**, so a refusing leaf cannot loop the
-  browser.
+- **`assistantSession.js` — which credential an assistant is spoken to with.** None of its own: every
+  assistant accepts the cluster's session, so the surface hands in the session it holds — the panel
+  its `sessionStore`, the standalone assistant its own client of the provider
+  (`src/assistant/session.js`) — and this relays it to whichever assistant has a route.
 - **`capabilities.js` — per-host services** (metrics / assistant / watchdog), each
   with `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of
   the **two** places an assistant is found — `assistants.js` joins it with the cluster's capability

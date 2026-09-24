@@ -31,11 +31,11 @@ to restart. Which server publishes it is a deployment choice this repo does not 
 The build carries **no node address**. Baking one in would make this that node's panel rather than
 a panel.
 
-It carries an anchor only when the host configures one — `KGSM_AUTH_ANCHOR` in the untracked
-`deploy/deploy.local.env`, or the environment. Blank by default: an unconfigured build points at no
-cluster and asks for an address, which is what lets one deployment serve any of them. Configured, it
-opens on that cluster's sign-in. A default, never a lock — a door somebody has already chosen wins,
-and "Another address" still reaches the address box.
+It carries a cluster address only when the host configures one — `KGSM_AUTH_ANCHOR` in the
+untracked `deploy/deploy.local.env`, or the environment: any member, or the sign-in provider itself.
+Blank by default: a panel served by a member asks that member where its cluster signs in, and an
+unconfigured static build asks the person for an address, which is what lets one deployment serve
+any cluster. Configured, a static build signs in without asking.
 
 Run `./deploy/setup.sh` once on a new host first. It creates the web root and the auth pages' root and
 hands them to you; `deploy.sh` refuses until it has run. With `KGSM_PANEL_HOST` in the untracked
@@ -146,9 +146,9 @@ only see `api`. **`WIRING.md` is the authoritative front↔back contract**
 The SPA is a complete, live multi-host client on a real toolchain: every page
 and component runs against real `kgsm-api`(s) through the store/router/data
 layer — servers/hosts/audit/library/alerts over `fetch` + adapters plus the
-realtime SSE stream, with honest-unknown rendering throughout. Auth is per-host:
-a KGSM username/password door and Discord OAuth, with password re-auth for
-sensitive writes and refresh-token rotation. The Files, Settings, Performance
+realtime SSE stream, with honest-unknown rendering throughout. Signing in is the
+cluster's: both surfaces are OpenID Connect clients of its auth anchor, which
+signs people in on its own pages, and renew through the refresh grant. The Files, Settings, Performance
 and Players server sub-tabs are each backed by a real endpoint. Both surfaces —
 the Control Panel and the standalone assistant — install as PWAs, each as its
 own app (see "PWA / installability" below).
