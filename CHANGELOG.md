@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.1.0]
+
+### Added
+
+- **A capability can be given an alias from the DNS anchor's Names tab.** The Anchors table carries an
+  "Add alias" action that names a published capability at the top of the zone (such as
+  `assistant.<zone>`), lists each alias beside the capability names with what it follows, and removes
+  one from its row. `AddAliasModal` takes what it offers and the base it composes under from the table
+  that opens it, so servers and capabilities share it.
+
 ## [2.0.1]
 
 ### Fixed

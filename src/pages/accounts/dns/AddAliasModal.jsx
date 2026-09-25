@@ -1,6 +1,11 @@
-// AddAliasModal — name an existing, published game server under an additional label. The anchor
-// claims the alias at the same node its server already resolves to (`NameService.ClaimAlias`), so
-// this form only ever asks which server and which label — it can never point a name anywhere new.
+// AddAliasModal — name an existing, published game server or capability under an additional label.
+// The anchor claims the alias at the same place its target already resolves to — a game server's node
+// (`NameService.ClaimAlias`) or a capability's holder (`NameService.ClaimCapabilityAlias`) — so this
+// form only ever asks which target and which label, and can never point a name anywhere new.
+//
+// The caller decides what can be aliased and where the alias lands: `targets` are the rows offered,
+// `describe` is how one reads in the picker, and `suffix` is the base the label is composed under —
+// the play base for a server, the zone itself for a capability.
 
 import React from "react";
 
@@ -8,26 +13,24 @@ import { Icon } from "../../../components/Icon.jsx";
 import { Modal } from "../../../components/Modal.jsx";
 import { Select } from "../../../components/Select.jsx";
 import { addAlias } from "../../../lib/dnsClient.js";
-import { shortName } from "./dnsKit.jsx";
 
-function AddAliasModal({ gameRows, existingNames, zone, playBase, onClose, onDone }) {
-  const published = (gameRows || []).filter((r) => r.state === "published");
-  const [server, setServer] = React.useState(published[0] ? published[0].name : "");
+function AddAliasModal({ targets, targetLabel, describe, suffix, placeholder, existingNames, onClose, onDone }) {
+  const published = (targets || []).filter((r) => r.state === "published");
+  const [target, setTarget] = React.useState(published[0] ? published[0].name : "");
   const [label, setLabel] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState(null);
 
-  const suffix = "." + (playBase || "play") + (zone ? "." + zone : "");
   const trimmed = label.trim().toLowerCase();
   const fullName = trimmed ? trimmed + suffix : "";
   const taken = trimmed && (existingNames || []).includes(fullName);
-  const valid = !!server && !!trimmed && !taken;
+  const valid = !!target && !!trimmed && !taken;
 
   const submit = () => {
     if (!valid || busy) return;
     setBusy(true);
     setErr(null);
-    addAlias(server, trimmed)
+    addAlias(target, trimmed)
       .then(onDone)
       .catch((e) => { setErr((e && e.userMessage) || "That didn’t work."); setBusy(false); });
   };
@@ -47,11 +50,11 @@ function AddAliasModal({ gameRows, existingNames, zone, playBase, onClose, onDon
 
         <div className="host-editor__body">
           <label className="host-field">
-            <span className="host-field__label">Server</span>
-            <Select value={server} disabled={busy} onChange={(e) => setServer(e.target.value)}>
-              {published.length === 0 && <option value="">No published servers</option>}
+            <span className="host-field__label">{targetLabel}</span>
+            <Select value={target} disabled={busy} onChange={(e) => setTarget(e.target.value)}>
+              {published.length === 0 && <option value="">Nothing published</option>}
               {published.map((r) => (
-                <option key={r.name} value={r.name}>{(r.key || r.name) + " · " + r.member + " · " + shortName(r.name, zone)}</option>
+                <option key={r.name} value={r.name}>{describe(r)}</option>
               ))}
             </Select>
           </label>
@@ -60,7 +63,7 @@ function AddAliasModal({ gameRows, existingNames, zone, playBase, onClose, onDon
             <span className="dns-alias-row">
               <input className="host-field__input host-field__input--mono" value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="smp" spellCheck="false" autoCapitalize="off" autoCorrect="off"
+                placeholder={placeholder} spellCheck="false" autoCapitalize="off" autoCorrect="off"
                 disabled={busy} autoFocus
                 onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
               <span className="dns-alias-suffix">{suffix}</span>

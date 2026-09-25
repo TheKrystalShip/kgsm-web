@@ -1,5 +1,5 @@
 // DnsNames — every name the cluster has claimed, in the three tables a name's KIND decides: the
-// nodes, the anchors, and the game servers (each with its aliases). A fourth table, Public
+// nodes, the anchors and the game servers, the last two each with their aliases. A fourth table, Public
 // addresses, is not names at all — it groups every member by the address its host resolves to, so a
 // shared router's port space is visible before it becomes a collision.
 //
@@ -109,51 +109,13 @@ function DnsNodesTable({ onlyBlocked = false }) {
   );
 }
 
-// DnsAnchorsTable — every anchor's own name. No row actions at all: an anchor is reached through the
-// cluster's Anchors card and moves capability through Settings, never from here.
-function DnsAnchorsTable({ onlyBlocked = false }) {
-  const { data } = useDnsStatus();
-  const zone = data && data.standing && data.standing.zone;
-  const names = (data && data.names) || [];
-  let rows = names.filter((n) => n.kind === "capability");
-  if (onlyBlocked) rows = rows.filter((r) => r.state === "blocked");
-
-  return (
-    <CardTable icon="anchor" title="Anchors" count={rows.length}
-      pin={<PinButton type="dns.anchors" params={{}} label="Anchors" />}
-      columns={[
-        {
-          key: "name", label: "Name", width: "minmax(0,1.4fr)",
-          render: (r) => <NameCell name={shortName(r.name, zone)} sub={r.member} />,
-        },
-        { key: "points", label: "Points at", width: "minmax(0,1.6fr)", render: (r) => <span className="mono dim">{r.content ? r.type + " " + r.content : "—"}</span> },
-        { key: "member", label: "Held by", width: "minmax(0,0.9fr)" },
-        { key: "state", label: "State", width: "130px", render: (r) => <NameStateBadge state={r.state} /> },
-        { key: "cert", label: "Certificate", width: "110px", render: (r) => certificateFor(data && data.certificates, r.name) },
-      ]}
-      rows={rows}
-      getKey={(r) => r.name}
-      empty="No anchor names"
-      className="dns-table dns-table--anchors"
-    />
-  );
-}
-
-// DnsServersTable — every published game name and its aliases, with the "Add alias" action and the
-// one write a server row can offer: an alias giving it up.
-function DnsServersTable({ onlyBlocked = false }) {
-  const { data } = useDnsStatus();
-  const [adding, setAdding] = React.useState(false);
+// useRemoveAlias — the one write an alias row offers, giving the alias up, and the refusal it can
+// come back with. Shared by every table that lists aliases.
+function useRemoveAlias() {
   const [pending, setPending] = React.useState(null);
   const [err, setErr] = React.useState(null);
 
-  const zone = data && data.standing && data.standing.zone;
-  const names = (data && data.names) || [];
-  const gameRows = names.filter((n) => n.kind === "game");
-  let rows = names.filter((n) => n.kind === "game" || n.kind === "alias");
-  if (onlyBlocked) rows = rows.filter((r) => r.state === "blocked");
-
-  const removeAliasAction = (row) => ({
+  const action = (row) => ({
     icon: "trash-2", label: "Remove alias", tone: "danger", pending: pending === row.name,
     onRun: () => {
       setErr(null);
@@ -164,9 +126,89 @@ function DnsServersTable({ onlyBlocked = false }) {
     },
   });
 
+  return { action, err };
+}
+
+const aliasChip = <span className="cluster-chip cluster-chip--muted" style={{ marginLeft: 6 }}>alias</span>;
+
+// DnsAnchorsTable — every capability's own name and the aliases an admin gave one at the top of the
+// zone, with the "Add alias" action and an alias's removal. Nothing here moves a capability: an anchor
+// is reached through the cluster's Anchors card and changes hands through Settings.
+function DnsAnchorsTable({ onlyBlocked = false }) {
+  const { data } = useDnsStatus();
+  const [adding, setAdding] = React.useState(false);
+  const remove = useRemoveAlias();
+
+  const zone = data && data.standing && data.standing.zone;
+  const names = (data && data.names) || [];
+  const capabilityRows = names.filter((n) => n.kind === "capability");
+  let rows = names.filter((n) => n.kind === "capability" || n.kind === "capability-alias");
+  if (onlyBlocked) rows = rows.filter((r) => r.state === "blocked");
+
   return (
     <>
-      {err && <div className="settings-users__note"><span>{err}</span></div>}
+      {remove.err && <div className="settings-users__note"><span>{remove.err}</span></div>}
+      <CardTable icon="anchor" title="Anchors" count={rows.length}
+        pin={<PinButton type="dns.anchors" params={{}} label="Anchors" />}
+        action={(
+          <button className="dash-section__more" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={11} strokeWidth={2.4} /> Add alias
+          </button>
+        )}
+        columns={[
+          {
+            key: "name", label: "Name", width: "minmax(0,1.4fr)",
+            render: (r) => r.kind === "capability-alias"
+              ? <NameCell name={r.name} sub={shortName(r.aliasOf || r.key, zone) + " · " + r.member} badge={aliasChip} />
+              : <NameCell name={shortName(r.name, zone)} sub={r.member} />,
+          },
+          { key: "points", label: "Points at", width: "minmax(0,1.6fr)", render: (r) => <span className="mono dim">{r.content ? r.type + " " + r.content : "—"}</span> },
+          { key: "member", label: "Held by", width: "minmax(0,0.9fr)" },
+          { key: "state", label: "State", width: "130px", render: (r) => <NameStateBadge state={r.state} /> },
+          { key: "cert", label: "Certificate", width: "110px", render: (r) => certificateFor(data && data.certificates, r.name) },
+          {
+            key: "actions", label: "", align: "right", width: "56px",
+            render: (r) => <DnsRowActions action={r.kind === "capability-alias" ? remove.action(r) : null} />,
+          },
+        ]}
+        rows={rows}
+        getKey={(r) => r.name}
+        empty="No anchor names"
+        className="dns-table dns-table--anchors"
+      />
+      {adding && (
+        <AddAliasModal
+          targets={capabilityRows}
+          targetLabel="Capability"
+          describe={(r) => (r.key || r.name) + " · " + r.member + " · " + shortName(r.name, zone)}
+          suffix={zone ? "." + zone : ""}
+          placeholder={(capabilityRows[0] && capabilityRows[0].key) || ""}
+          existingNames={names.map((n) => n.name)}
+          onClose={() => setAdding(false)}
+          onDone={() => { setAdding(false); dnsStore.refresh().catch(() => {}); }}
+        />
+      )}
+    </>
+  );
+}
+
+// DnsServersTable — every published game name and its aliases, with the "Add alias" action and the
+// one write a server row can offer: an alias giving it up.
+function DnsServersTable({ onlyBlocked = false }) {
+  const { data } = useDnsStatus();
+  const [adding, setAdding] = React.useState(false);
+  const remove = useRemoveAlias();
+
+  const zone = data && data.standing && data.standing.zone;
+  const playBase = data && data.standing && data.standing.bases && data.standing.bases.play;
+  const names = (data && data.names) || [];
+  const gameRows = names.filter((n) => n.kind === "game");
+  let rows = names.filter((n) => n.kind === "game" || n.kind === "alias");
+  if (onlyBlocked) rows = rows.filter((r) => r.state === "blocked");
+
+  return (
+    <>
+      {remove.err && <div className="settings-users__note"><span>{remove.err}</span></div>}
       <CardTable icon="server" title="Servers" count={rows.length}
         pin={<PinButton type="dns.servers" params={{}} label="Servers" />}
         action={(
@@ -184,8 +226,7 @@ function DnsServersTable({ onlyBlocked = false }) {
                 : [r.member, (r.ports || []).map(fmtPortRange).join(" "), hint && (shortName(hint.otherName, zone) + ", " + hint.where)]
                   .filter(Boolean).join(" · ");
               return (
-                <NameCell name={shortName(r.name, zone)} sub={sub}
-                  badge={r.kind === "alias" && <span className="cluster-chip cluster-chip--muted" style={{ marginLeft: 6 }}>alias</span>} />
+                <NameCell name={shortName(r.name, zone)} sub={sub} badge={r.kind === "alias" && aliasChip} />
               );
             },
           },
@@ -202,7 +243,7 @@ function DnsServersTable({ onlyBlocked = false }) {
           { key: "state", label: "State", width: "130px", render: (r) => <NameStateBadge state={r.state} /> },
           {
             key: "actions", label: "", align: "right", width: "56px",
-            render: (r) => <DnsRowActions action={r.kind === "alias" ? removeAliasAction(r) : null} />,
+            render: (r) => <DnsRowActions action={r.kind === "alias" ? remove.action(r) : null} />,
           },
         ]}
         rows={rows}
@@ -212,10 +253,12 @@ function DnsServersTable({ onlyBlocked = false }) {
       />
       {adding && (
         <AddAliasModal
-          gameRows={gameRows}
+          targets={gameRows}
+          targetLabel="Server"
+          describe={(r) => (r.key || r.name) + " · " + r.member + " · " + shortName(r.name, zone)}
+          suffix={"." + (playBase || "play") + (zone ? "." + zone : "")}
+          placeholder="smp"
           existingNames={names.map((n) => n.name)}
-          zone={data && data.standing && data.standing.zone}
-          playBase={data && data.standing && data.standing.bases && data.standing.bases.play}
           onClose={() => setAdding(false)}
           onDone={() => { setAdding(false); dnsStore.refresh().catch(() => {}); }}
         />
@@ -278,7 +321,7 @@ function DnsNames() {
 
   const names = (data && data.names) || [];
   const nodeCount = names.filter((n) => n.kind === "member").length;
-  const anchorCount = names.filter((n) => n.kind === "capability").length;
+  const anchorCount = names.filter((n) => n.kind === "capability" || n.kind === "capability-alias").length;
   const serverCount = names.filter((n) => n.kind === "game" || n.kind === "alias").length;
   const blockedCount = names.filter((n) => n.state === "blocked").length;
 
