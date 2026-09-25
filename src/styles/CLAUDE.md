@@ -2,8 +2,8 @@
 
 Plain CSS — **no Tailwind, no CSS-modules.** Three files load in order (from
 `../main.jsx`): `tokens.css` → `kit.css` → `consumer.css`. Everything is driven
-by the CSS custom properties `tokens.css` defines. The root `../CLAUDE.md` ("Styling & themes") has
-the full theming narrative; this is the local map + the one rule that matters.
+by the CSS custom properties `tokens.css` defines. The theme *preference* (which palette is active,
+`THEME_OPTS`) is `../lib/theme.js`; this file is the CSS side.
 
 ## The one rule
 
@@ -13,7 +13,12 @@ what makes theme switching (and adding a theme) a data change, not a code hunt.
 
 The same applies to **radius** and to a surface's **border**: write
 `border-radius: var(--r-sm)` and `border: var(--edge)`, never a literal, because
-those two tokens are how a theme re-shapes the whole app at once.
+those two tokens are how a theme re-shapes the whole app at once. **Borders are the elevation model
+here** (hairlines far outnumber shadows), so the whole shorthand is a token — `--edge` /
+`--edge-strong` / `--edge-accent` — and it is the OUTLINE OF A SURFACE. A one-sided
+`border-top`/`border-bottom` is a **divider**: it keeps the longhand and stays a hairline in every
+theme. Canvas-fade gradients use `color-mix(in srgb, var(--canvas) X%, transparent)` so they track the
+theme with no extra token.
 
 ## A percentage size next to padding or a border must state `box-sizing`
 
@@ -225,13 +230,35 @@ left out renders unstyled and nothing fails. `npm run check:assistant` checks ev
 standalone surface can render against the CSS it ships, so add the missing **partial** when it
 complains.
 
-## Theme landmines (see root `../CLAUDE.md` for detail)
+## Theme landmines
 
+- **A theme is a client-only preference** (`localStorage krystal:theme` = `auto` or a palette id from
+  `THEME_OPTS`, default `dark`) that NEVER round-trips to a host. `auto` resolves via `matchMedia` and
+  live-updates on OS change. Switching is **live — no page reload** (swaps `<html data-theme>`, which
+  re-cascades instantly). Both surfaces offer the same `<ThemePicker>` on a Settings page — the
+  panel's under Profile, the standalone assistant's under Appearance.
 - **No-flash:** an inline boot script in `index.html` **and `assistant.html`** sets
   `data-theme` before the stylesheet applies — both mirror `../lib/theme.js`;
   keep the three in sync.
 - **Always-dark media surfaces** (cinematic hero over key-art) pin dark tokens
   **locally** (see `.hero--cinematic` in `kit/server.css`) rather than
   per-theme special-casing.
-- jsdom smoke does **not** lay out CSS — test theme/layout with the visual harness
-  (`/home/heisen/tks/scripts/visual-harness/`, `--theme dark|light`).
+- **`npm run check:tokens`** fails on any `var(--…)` that names a property nothing defines. That is
+  silent otherwise: an undefined custom property goes invalid-at-computed-value-time, so a border
+  falls back to `currentColor` and a radius computes to 0, forever, with no warning from CSS or the
+  build.
+
+## Check layout and themes in a real browser, in both engines
+
+jsdom smoke does **not** lay out CSS, so a theme or layout regression is visible only in the visual
+harness (`/home/heisen/tks/scripts/visual-harness/`). Its `--theme <id>` flag seeds `krystal:theme`
+with any id in `THEME_OPTS`.
+
+**Chromium alone is not proof.** The engines disagree about real things — most sharply, a percentage
+height resolves only against a *definite* containing block, and Chromium resolves one against a
+flex-derived height where Firefox follows the spec and collapses the element.
+`shoot.mjs --engine both --measure '<css>,<css>'` measures the selectors in each engine, prints what
+they disagree about, and **exits 2** when they do. Use it for anything resting on a percentage height,
+a flex/grid track, sticky/fixed positioning, or `100vh`/`dvh`. Firefox contexts take no
+`isMobile`/`hasTouch`/`deviceScaleFactor` (Playwright rejects them), so a Firefox "mobile" run is the
+viewport only — check touch- and DPR-dependent behaviour in Chromium.

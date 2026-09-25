@@ -87,6 +87,12 @@ ignorant of widgets entirely — they render whatever they are handed.
 pin itself and no shell has to check. It is a **toggle**: filled means this exact `(type, params)` is
 on the dashboard, and pressing it removes it.
 
+**The pin is not prose, and survives every no-prose removal.** Where a surface is one card, the pin
+goes in that card's `BriefCard` header and reveals on hover with the rest of the family
+(`.chat-brief:hover .pin-btn`). Where it is not — the runs board — it sits on a row of its own
+(`.opsq__head`), stays visible because nothing reveals it, and that row takes itself out of the layout
+when the pin self-suppresses inside a widget.
+
 **CANON: a component does not branch on where it is mounted.** A card renders and behaves
 identically on its own page and pinned to the dashboard — a Minecraft console is the same console in
 both places. Its data is a function of its PARAMS (which server, which leaf) and never of its
@@ -420,5 +426,12 @@ retries it.
 - Monaco can't read CSS vars → `CodeEditor.jsx` samples resolved tokens at runtime
   and re-themes on theme flip. Follow that pattern for any canvas/3rd-party
   surface that can't inherit the cascade.
+- **Every Monaco mount needs a definite height.** `@monaco-editor/react` renders a
+  `<section style="height:100%">`, and a percentage height resolves only against a *definite*
+  containing block: Chromium resolves one against a flex-derived height, Firefox follows the spec and
+  collapses the editor. `.bp-editor__monaco-wrap` states a grid track (`minmax(0, 1fr)`) for exactly
+  this reason — the file browser's `flex: 1` works only because `.fb-card` already fills its modal
+  from a grid. Reach for the grid when you add an editor mount, and check it with the harness's
+  `--engine both` (`../styles/CLAUDE.md`).
 - Presentational only: take data + callbacks as props (or read a store); don't
   call `setRoute` or `api.*` from a leaf component — hand that to the page/shell.

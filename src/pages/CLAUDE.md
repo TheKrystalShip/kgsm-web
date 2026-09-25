@@ -77,6 +77,18 @@ open, a provider that sent the browser back without one, or an account the clust
 Nobody signs in on either: that is the provider's own pages. `AuthChrome.jsx` holds what these share
 with those pages, which reuse `SignInCard.jsx` and `PendingPage.jsx` from here.
 
+**`AuthGate` is everything in front of the app** — finding the provider, and going there — and
+`App.jsx` renders it *instead of* the shell, so none of the shell's hooks and none of the data layer
+run for somebody who has not signed in. A cold load holding nothing leaves for the provider at once,
+because nothing is on screen to lose. A session that ends while the panel is open is NOT followed on
+its own: the gate says so and offers the way back, because leaving unasked discards whatever somebody
+was doing.
+
+**The panel holds no credential settings.** A password, connected accounts and the list of where
+somebody is signed in are changed on the provider's account page, behind a recent proof only those
+pages can ask for; Settings links there (`SettingsSignIn.jsx`). Administering OTHER people's accounts
+stays in the panel, through the provider's admin API with the bearer it holds.
+
 **One address, and what answers decides the rest.** Any member of the cluster names its provider,
 and so does the provider itself, so the page does not ask which was typed — `discoverProvider`
 asks. What was typed is checked before it is kept, so a refusal is what something answered.
@@ -241,4 +253,4 @@ the API doesn't provide arrives as `null`/`"unknown"`/`[]` from `../lib/adapters
 and renders as "—"; a roster that can't be measured renders its own honest
 not-measurable state rather than "0 players". Adding a tab means wiring its
 endpoint, not inventing numbers to fill it. (Ecosystem-wide "never fabricate a
-metric" invariant — see root `CLAUDE.md` and `../lib/adapters.js`.)
+metric" invariant — see the workspace root `CLAUDE.md` and `../lib/adapters.js`.)

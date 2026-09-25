@@ -2,27 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel**, the
-**standalone assistant** served by the kgsm-assistant leaf, and the **auth anchor's own pages** —
-sign-in, registration, the wait for approval and the account page — shipped as `kgsm-web-auth`.
-Three Vite builds over one source tree. The panel and the assistant share `src/chat/` — the
-conversation is the same code in both, because a divergence between the dock and the standalone page
-would be a bug, not a variant. The anchor's pages share the panel's sign-in card
-(`pages/auth/SignInCard.jsx`), so the two sign-ins are one card by construction. Everything that
-differs is a prop. Neither of the other two surfaces may reach the panel's data layer;
-`npm run check:assistant` and `npm run check:auth` enforce it (see `src/CLAUDE.md`). The Control Panel is a standard
-Vite + React 18 (JSX) single-page app. It is a **runtime multi-host client**: it reads a localStorage
-registry of `kgsm-api` hosts and talks to them over `fetch` + SSE. The
-`README.md` covers quick-start and the file layout; this file covers the
-architecture and the landmines.
+`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel**, the **standalone
+assistant** served by the kgsm-assistant leaf, and the **auth anchor's own pages** — sign-in,
+registration, the wait for approval and the account page — shipped as `kgsm-web-auth`. Three Vite
+builds over one source tree. The panel and the assistant share `src/chat/`, and the anchor's pages
+share the panel's sign-in card; everything that differs is a prop. Neither of the other two surfaces
+may reach the panel's data layer (`npm run check:assistant`, `npm run check:auth`). The Control Panel
+is a Vite + React 18 (JSX) single-page app and a **runtime multi-host client**: it reads a
+localStorage registry of `kgsm-api` hosts, grows it from the cluster's roster, and talks to them over
+`fetch` + SSE. The workspace root `../CLAUDE.md` carries the ecosystem rules, including the
+documentation canon.
 
-**Per-directory docs (read the one for wherever you're working):** the source
-tree carries focused nested `CLAUDE.md` files with each area's structure and
-local conventions — `src/CLAUDE.md` (the source map +
-module boundaries), `src/pages/CLAUDE.md` (pages & routing), `src/lib/CLAUDE.md`
-(data layer), `src/lib/stores/CLAUDE.md` (the domain-split stores),
-`src/components/CLAUDE.md` (shared UI + `<Modal>`), `src/styles/CLAUDE.md` (CSS
-tokens + the `kit/` barrel). This file stays the architecture/landmines narrative.
+**Every area's rules live in a `CLAUDE.md` beside its code** — read the one for wherever you're
+working: `src/` (the source map, module boundaries, the shell, a server's two names, what a component
+may say, the push surfaces), `src/lib/` (the data layer, connection model, session and RBAC policy),
+`src/lib/stores/`, `src/pages/`, `src/components/`, `src/styles/` (tokens, themes, cross-engine
+layout checks), `scripts/` (the smoke), `deploy/` and `packaging/`.
 
 ## Commands
 
@@ -48,530 +43,65 @@ npm run check:origin # a roster address this page cannot fetch never becomes a c
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
 npm run check:assistants # which assistants exist: a node's leaf, the cluster's anchor, or both
 npm run check:egress # the one seam a bearer is attached at: renewal, replay, and what it refuses
+npm run check:tokens # every var(--…) names a defined custom property
 
 KGSM_API=http://127.0.0.1:8096 npm run smoke   # against a RUNNING, AUTH-DISABLED kgsm-api
 ```
 
-`check:session` and `check:door` run offline, and have to: the smoke's backend is auth-disabled,
-which names no provider and exercises no session or account surface at all.
+## The gates
 
-**The panel is served by no node.** It is a static artifact that belongs to no cluster: it holds no
-cluster state, depends on no node, and reaches whichever cluster it is pointed at over that
-cluster's public addresses. `npm run deploy:prod` (`deploy/deploy.sh`) builds and `rsync`s `dist/`
-into the directory a web server publishes (`/srv/kgsm-web`, yours → no sudo; override with
-`KGSM_WEB_ROOT`). The bundle is live the moment the files land, because nothing is running to
-restart. Which server publishes it — nginx, an object store, a CDN — is a deployment choice this
-repo does not make.
-
-The build carries **no node address**. Baking one in would make this that node's panel.
-
-It carries a cluster address only when the host has configured one: `KGSM_AUTH_ANCHOR` in the
-untracked `deploy/deploy.local.env`, or the environment — any member, or the sign-in provider
-itself. **Blank by default, and blank is the interesting case** — a panel served by a member asks
-that member where to sign in, and an unconfigured static build asks the person for an address, which
-is what lets one deployment serve any cluster. Configured, a static build signs in without asking.
-The value is asked like any other address rather than trusted.
-
-This repo follows the same `setup.sh`-once / `deploy.sh`-forever pattern every
-`kgsm-*` repo uses. It owns no systemd unit and runs no process of its own. `setup.sh` creates the web
-roots and hands them to you, verifying each is writable the way `deploy.sh` will use it, since a mode
-bit is not a guarantee. **Everything the host needs to serve the panel is produced by it, from this repo
-and the operator's values in the untracked `deploy/deploy.local.env`** — never written by hand: with
-`KGSM_PANEL_HOST` set it installs `packaging/static/`'s `:80` ACME server and the panel's rendered vhost,
-issues the certificate over the webroot, installs the renewal hook, and makes sure `nginx.conf` reads
-`conf.d`. Where the anchor runs here it writes `kgsm-auth-anchor.service.d/50-kgsm-web.conf` with
-`Anchor__UiPath` and `Anchor__PanelOrigins`, the way this repo's package tells kgsm-api where the panel
-is. Every file is compared before it is written, so a re-run changes nothing that already matches. `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and
-refuses up front with *"run `deploy/setup.sh`"* when the target isn't there. The
-three files in `deploy/` are self-contained, so a standalone clone deploys.
-
-`packaging/PKGBUILD` builds three packages: `kgsm-web` (the same-origin bundle kgsm-api serves),
-`kgsm-web-auth` (the anchor's pages) and `kgsm-web-static`, the panel as a static site at one public
-name. The last carries its own bundle (`npm run build:static`: no host seed, no anchor) and a root
-oneshot, `packaging/static/serve-panel`, driven by the one admin value `KGSM_PANEL_HOST` in
-`/etc/kgsm-web/panel.env`: it renders the `:80` surface and the vhost into `/var/lib/kgsm-web-static`
-(included by the package's `conf.d` file), issues the certificate over the webroot, and writes the
-panel's origin into `/var/lib/kgsm-web-static/anchor.env`, which the anchor reads through the package's
-drop-in. The rendered files are the ones setup.sh installs, from the same sources in `packaging/static/`.
-`packaging/test/static-panel.sh` installs the built package into a booted Arch container and drives it
-through a blank name, a name with a certificate, an invalid name, a blank name again and its removal.
-
-**There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** —
-don't hunt for `npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat)
-is deliberately NARROW: `no-undef` and `react-hooks/rules-of-hooks` are **errors**
-(these are static bug classes the build itself cannot catch — a component
-used-but-not-imported, a hook called after an early return), and so are the **egress rules**
-(`no-restricted-syntax`): a module outside the credential owners may neither attach an
-`Authorization` header nor read a bearer with `tokenOf`, so every authenticated call reaches a KGSM
+**There is an ESLint gate (`npm run lint`) but no typecheck or unit-test runner** — don't hunt for
+`npm run test`. The lint config (`eslint.config.js`, ESLint 9 flat) is deliberately NARROW:
+`no-undef` and `react-hooks/rules-of-hooks` are **errors** (static bug classes the build itself cannot
+catch — a component used-but-not-imported, a hook called after an early return), and so are the
+**egress rules** (`no-restricted-syntax`): a module outside the credential owners may neither attach
+an `Authorization` header nor read a bearer with `tokenOf`, so every authenticated call reaches a KGSM
 surface through `lib/authorizedFetch.js` and renews itself. That one is a lint rule because the
 failure it prevents is invisible in review and in any test with a warm session — a hand-rolled call
-works for as long as something else keeps the token fresh, and fails only where nothing does;
-`react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a real backlog
-to work down, not a wall). Keep errors at zero. The other automated check is
-`scripts/smoke-live.mjs` (`npm run smoke`): it boots the real Vite module graph in jsdom
-against a RUNNING kgsm-api and asserts real backend data renders without crashing. After any
-data-layer or route change, run `npm run lint` (0 errors), `npm run build` (no
-import dangles), and `npm run smoke` against a live api.
+works for as long as something else keeps the token fresh, and fails only where nothing does.
+`react-hooks/exhaustive-deps` and `no-unused-vars` are **warnings** (a backlog to work down, not a
+wall). Keep errors at zero.
 
-Five things about the smoke are load-bearing enough to state outright:
+After any data-layer or route change, run `npm run lint` (0 errors), `npm run build` (no import
+dangles), and `npm run smoke` against a live, auth-disabled api — `/home/heisen/tks/scripts/visual-harness/dev-api.sh`
+serves one on `:8096`. What the smoke may and may not do: `scripts/CLAUDE.md`.
 
-- **It never mutates the host.** Every assertion is either a READ against the live backend or a
-  WRITE INTERCEPTED at the fetch seam (assert the request the SPA builds, answer it synthetically).
-  This is not fastidiousness: kgsm's event transport is a single host-wide journal
-  (`/var/lib/kgsm/events/*.ndjson`) indexed by ONE kgsm-monitor, and **every** kgsm-api on the box —
-  including the operator's `:8097` — merges its engine history from that one monitor. There is no
-  such thing as a write scoped to the backend under test; anything reaching the engine lands in the
-  operator's real audit log permanently and rides the live consumer out to their notification
-  integrations. So: no `kgsm.sh events emit`, no engine-touching PUT/DELETE, and nothing requiring
-  this process to sit next to the engine. A run leaves nothing behind because it writes nothing —
-  not because it cleans up afterwards. Coverage this gives up (the journal→api→stream relay, the
-  note's verbatim round trip through a SOURCED config) lives in kgsm-api's `AuditJournalRelayTests`
-  / `ServerNoteRoundTripTests`, which own a disposable fixture.
-- **It needs an AUTH-DISABLED backend.** It sends no bearer, so a real auth-enabled host
-  401s every gated read. The backend it expects is
-  `/home/heisen/tks/scripts/visual-harness/dev-api.sh` (`:8096`) — the harness lives at the
-  workspace root, outside every repo, so it is named absolutely and runs from whichever repo is
-  being worked in. The prod unit on `:8097` has auth ON, and the smoke refuses it up front with a
-  message rather than degrading into a wall of failures. Run it as
-  `KGSM_API=http://127.0.0.1:8096 npm run smoke`.
-- **The backend URL is written to `.env.development.local`, not `.env.local`.** The vite
-  server boots in "development" mode, and Vite ranks a mode-specific env file above a plain
-  one — the committed `.env.development` (seeding `:8090`) beats `.env.local`, so writing
-  there silently does nothing and the whole suite runs against the wrong port.
-- **Monaco is stubbed with a `textarea`.** It is built for a real browser and throws from
-  inside its own mount under jsdom, which surfaces as the *page* hitting its error boundary
-  — every surface hosting it (blueprint editor, create page, file editor, chat draft) would
-  be untestable. Its real behaviour is proven in Chromium by the visual harness; the smoke
-  asserts the wiring around it.
-- **Instances are DERIVED from the live roster, never named.** `PROBE`/`OTHER` come from
-  `GET /servers`, because a hardcoded instance name rots the moment someone uninstalls it
-  and then fails in a way that reads like an SPA regression.
-
-**Every visual change is checked in the harness before it ships.** Not "may be" — the offline suites
-cannot see any of it. `smoke` runs in jsdom, which lays out no CSS, has no origin policy and mounts
-past every gate: a preflight the browser refuses, a sign-in card that never renders, a credential
-posted to a path that does not exist and a shell that never resolves have all shipped green. If a
-change alters what a person sees or what the browser does on their behalf, a run here is the only
-thing that can tell you it works.
+**Every visual change is checked in the harness before it ships.** The offline suites cannot see any
+of it: `smoke` runs in jsdom, which lays out no CSS, has no origin policy and mounts past every gate —
+a preflight the browser refuses, a sign-in card that never renders, a credential posted to a path that
+does not exist and a shell that never resolves have all shipped green. If a change alters what a
+person sees or what the browser does on their behalf, a run in the harness is the only thing that can
+tell you it works.
 
 **The harness is `/home/heisen/tks/scripts/visual-harness/`** — its own git repository, beside the
 `kgsm-*` checkouts rather than inside one, because it tests this panel but stands up kgsm-api and
 kgsm-auth to test it against. Commit a script you add there, in that repo. Its `.state*/` never is:
 those hold a session signing key, account stores with password hashes and the bootstrap passwords a
-test signs in with.
+test signs in with. There is a script per thing worth seeing, and adding one (copying the nearest
+neighbour, since they share `_panel.mjs`) is the normal way to check a change; its `README.md` has the
+recipe. Playwright drives Chromium and Firefox against a real auth-disabled dev kgsm-api — and
+Chromium alone is not proof (`src/styles/CLAUDE.md`).
 
-There is a script per thing worth seeing, and adding one is the normal way to check a change — copy
-the nearest neighbour, since they all share `_panel.mjs`. Existing ones worth knowing: `shoot.mjs`
-(screenshots + overflow/footer diagnostics for any route), `auth-routes.mjs` (the address bar and
-real history), `cors-anchor.mjs` (what the live anchor accepts, from the panel's own origin),
-`standalone-signin.mjs` (signing in at a node that holds its own accounts, `API_AUTH=on`),
-`cluster-signin.mjs` (signing in at a real anchor and the fleet arriving from it),
-`anchor-accounts.mjs` (administering a cluster's accounts on the anchor's page, against a real
-anchor and a real clustered node), `standalone-accounts.mjs` (the mirror: a node holding its own,
-and the tab leaving when a member takes them), `anchor-config.mjs` (configuring an anchor on its own
-page — the run that caught a CORS list with no `PUT` in it), `anchor-tabs.mjs` (an anchor reached at
-the member route a node uses, its own tab strip, and the URL and trail following the tab),
-`anchor-logs.mjs` (its journal arriving live, through the panel's own console),
-`live-panel-anchor.mjs` (the deployed panel, read-only and unauthenticated).
-Playwright + **Chromium and Firefox** (no sudo on this host) drive the real SPA against
-a real **auth-disabled** dev kgsm-api with real data — this is the only way to actually
-*see* a mobile/responsive/overflow bug rather than reason about the CSS. Flow:
-background `dev-api.sh` (auth-off api on :8096, state sandboxed) + `dev-web.sh`
-(Vite on :5190, seeded — leaves your `:5173` alone), then `node shoot.mjs
-'#/servers/factorio-test/files' --device both --click 'manage.sh'` → PNGs in
-`shots/` + overflow/footer-overlap diagnostics. See that dir's `README.md` for the
-full recipe and gotchas (port waits, teardown, the `pkill -f` self-match trap).
+## The connection model, in one paragraph
 
-**Chromium alone is not proof.** The engines disagree about real things — most sharply,
-a percentage height resolves only against a *definite* containing block, and Chromium
-resolves one against a flex-derived height where Firefox follows the spec and collapses
-the element. `shoot.mjs --engine both --measure '<css>,<css>'` measures the selectors in
-each engine, prints what they disagree about, and **exits 2** when they do. Use it for
-anything resting on a percentage height, a flex/grid track, sticky/fixed positioning, or
-`100vh`/`dvh`. Firefox contexts take no `isMobile`/`hasTouch`/`deviceScaleFactor`
-(Playwright rejects them), so a Firefox "mobile" run is the viewport only — check
-touch- and DPR-dependent behaviour in Chromium.
-
-**Monaco's own mounts are the live instance of that trap:** `@monaco-editor/react`
-renders a `<section style="height:100%">`, so every editor wrapper must give it a
-definite height. `.bp-editor__monaco-wrap` states a grid track (`minmax(0, 1fr)`) for
-exactly this reason — the file browser's `flex: 1` works only because `.fb-card` already
-fills its modal from a grid. Reach for the grid when you add an editor mount.
-
-## The connection model (`src/lib/config.js`)
-
-There is exactly ONE data path: the app always talks to real `kgsm-api`(s). There
-are no fixtures and no mode switch. The only state distinction is **whether any
-host is connected**, derived at module-load from `CONNECTIONS`:
-
-- **≥1 connection** (a non-empty localStorage registry, or a `VITE_API_BASE`
-  *seed*) → normal operation against the real backend(s).
-- **0 connections** → the "connect a host" screen (`AddHostPage`), the entry point
-  where you point the SPA at a kgsm-api.
-
-`VITE_API_BASE` is an OPTIONAL single-host **seed** (a dev shortcut and how
-`smoke` points the app at a backend), not a gate. `CONNECTIONS` is seeded once at
-module load and then **grows in place**: cluster discovery (`clusterStore.discover`,
-started from `stores/boot.js`) asks any reachable node for the converged peer
-roster and registers the nodes it names, so the SPA drives the **cluster's** node
-set rather than the addresses this browser was pointed at by hand. The array
-identity never changes, so every consumer that holds the import sees a new node at
-once; `subscribeConnections()` notifies the pieces that hold per-connection
-resources (the SSE registry opens a stream per new node and re-hydrates). Connect
-and disconnect still do a **full page reload** — they change identity and auth, the
-same way login/logout/session-loss do. An appended peer needs no reload.
-
-Each host carries its own base URL + bearer, and **routing is exact**: `apiV1Of(hostId)`
-resolves the connection with that backend id or fails — throwing in dev, returning
-null in prod so the call is rejected — because answering from another node is worse
-than not answering. The single exemption is **cold boot**: a lone connection whose id
-`GET /hosts` hasn't reconciled yet answers to any id. The fan-out and the SSE registry
-already hold the connection, so they address it directly (`apiV1ForConn` /
-`streamUrlForConn`) instead of round-tripping through an id. Multi-host (N≥2) fan-out
-+ merge are real but some paths are still partly stubbed (see `merge.js`, `WIRING.md`).
-`CONNECTIONS.length` (0 → connect screen, \>1 → fan-out) is a topology check, NOT a
-mode flag — don't reintroduce a `LIVE`/`MOCK` duality.
-
-## The data layer (`src/lib/`)
-
-Components never touch the API directly. The flow is:
-
-```
-component → useStore(domainStore)            (store.js / stores.js — reactive cache, React 18 useSyncExternalStore)
-domainStore.refresh() → api.get/post/patch   (apiClient.js — the ONE backend seam)
-   fetch → adapters.js → store
-realtime: liveStream.js (fetch-based SSE — one primary stream per host + per-view dynamic streams) → adaptStreamMessage → same stores
-```
-
-- **`apiClient.js` is the single seam.** Every store stays empty until it fetches;
-  **call sites only ever see `api`**. It also owns connection health
-  (`connectionStore` = REST reachability → cold-start/banner; `realtimeStore` =
-  per-host SSE stream state, driven by `liveStream` `onMode`), the cluster auth gate
-  (`api.host(id)` with 401-retry/silent-renew), `fanOut` (multi-host roll-up),
-  `reconnectHost`/`reconnectAll` (drive the per-host sockets). **The assistant is not on
-  this seam** — see below.
-- **`adapters.js` — the honesty boundary.** kgsm-api emits a narrow, HONEST
-  model. A value the backend doesn't provide maps to
-  `null`/`"unknown"`/`[]` — **NEVER to `0` or an invented default** (the
-  ecosystem-wide "never fabricate a metric" invariant; the UI renders "—").
-  Don't hardcode game/domain data the backend can serve — plumb it through.
-- **`merge.js`** — pure per-host → aggregated roll-up (every row carries its
-  owning host id; merge only unions/de-dups, never invents attribution).
-- **A server has TWO names, and they are not interchangeable.** `id` is the engine's — immutable,
-  unique, path-safe — and is the key for every route, keyed store, SSE join, fetch path, widget param
-  and React key. `name` is the mutable display label, free text, **not unique**, and never blank (an
-  unlabelled instance reads as its id, which `adaptServer` guarantees with `be.name ?? be.id`). Render
-  `name` wherever a person reads which server this is; pass `id` wherever something has to find it
-  again. Where two servers could collide or identity is the point — the hero, the Identity card, the
-  palette's rows — show BOTH, the id as secondary monospace. A rename arrives as an ordinary
-  `server.patch` carrying a new `name`, so nothing needs invalidating: the row is patched in place and
-  every surface re-renders. **Searching reads both**, because a person who knows an instance as
-  `factorio-42` from a shell must still find it after somebody has labelled it "Sunday Server".
-- **`assistants.js` + `assistantClient.js` + `assistantSession.js` — the SECOND seam, onto the
-  ASSISTANT.** The assistant is a standalone service, so the chat talks to it **directly** — 
-  `kgsm-api` is not in the path of a turn, a confirmation, or a conversation read. It runs in one of
-  two standings and `assistants.js` finds both: a **leaf** on a node, at the public origin that
-  node's assistant capability reports (`info.url`); or an **anchor**, a member of the cluster holding
-  the `assistant` capability at its own member address. Both are reached with the **cluster's own
-  session** — an assistant signs nobody in, and verifies the provider's sessions itself. A cluster
-  can have both, so the dock offers a choice rather than resolving one silently. `assistant.host(id)` mirrors `api.host(id)`'s shape (`conversations`,
-  `turn`, `confirm`, …) against the leaf's own unprefixed routes. **A host that reports no
-  public origin has no chat** (`ENOROUTE`, and the capability reads down) — it never falls
-  back to kgsm-api's `/assistant/*` relay, which exists to reach a *peer* node's assistant
-  and logs a warning when it serves the local one.
-
-### Init-order: the lazy-import edges are deliberate
-
-A few base-layer modules `import("...")`-lazily import upper ones (e.g.
-`apiClient.js` defers `stores.js`/`sessionStore.js`/`alertsApi.js`). This keeps
-the ESM graph **acyclic**. Converting one of these to a static `import` can reintroduce a cycle and
-break boot. Read the comments before "tidying" an import.
-
-## Auth, RBAC, capabilities
-
-- **Every surface is a client of the cluster's sign-in provider** (`lib/oidc.js`, over
-  `oidc-client-ts`): `authorization_code` with PKCE, public, renewed through the refresh grant — no
-  iframe, no silent re-authorization. The provider is the auth anchor on its own origin, and it is
-  found by asking the origin that served the page (`/.well-known/oauth-protected-resource`); a panel
-  on a static host that answers nothing asks the build's configured address, and then the person, for
-  any member's address. The client id is the page's own origin's host, with `-<port>` when the origin
-  names one — derived, never configured, which is what lets a static panel sign in through a member
-  that never served it. Signing in, registering, the wait for approval and every change to a
-  person's own credentials are the provider's own pages (`src/authui/`); the panel carries the
-  library, a landing route (`/signed-in`) and nothing else.
-- **`sessionStore.js` — ONE session, for the whole cluster.** An account belongs to the cluster and
-  so does the session it opens. The provider mints it and is the only thing that renews it; every
-  member accepts it by verifying the provider's signature against the published key and resolves the
-  tier from its own replica of the account store. **No member ever issues this browser a credential
-  or extends one.** That is a rule, not an implementation detail: a member that could re-mint would
-  be a second door to the same session on every machine in the cluster, permanently.
-  The boot settles the session before anything mounts: a landing exchanges its code, and any other
-  load restores what the library stored. The tier rides the token as the provider minted it, and a
-  provider hands no code to an account awaiting approval, so a session that reaches the panel is an
-  active account's.
-  **A tier is LIVE, not something learned once at sign-in.** A member pushes `{tier, status}` on the
-  primary stream's `me` topic whenever the account is regraded, and that push is the authority — a
-  demotion is written exactly like a promotion. Everything gated re-renders off the record write;
-  `App.jsx` re-runs `resolveRoute` against the page the person is standing on, takes them home if
-  they may no longer be there, and says once what their access now is.
-  **A member's refusal is not the session's**, and this is the part that does not follow from a
-  per-node model. A member verifies a signature offline but can only say what somebody MAY DO once
-  its replica carries their account, so a member that has just joined refuses a perfectly good
-  cluster session. `nodes` records who is currently honouring it, and the two refusals are separate
-  claims: a **403** means the token validated and the person resolved to a tier too low (for an
-  unknown account, `none`) — always about that member's view of this person, never about the
-  session, so it is recorded at once; a **401** means the token itself did not validate, which is
-  ambiguous until a renewal settles it, because a member still refusing a *fresh* session is not
-  describing the session.
-  **`components/AuthGate.jsx` is everything in front of the app** — finding the provider, and going
-  there — and `App.jsx` renders it *instead of* the shell, so none of the shell's hooks and none of
-  the data layer run for somebody who has not signed in. A cold load holding nothing leaves for the
-  provider at once, because nothing is on screen to lose. A session that ends while the panel is
-  open is NOT followed on its own: the gate says so and offers the way back, because leaving unasked
-  discards whatever somebody was doing.
-- **The panel holds no credential settings.** A password, connected accounts and the list of where
-  somebody is signed in are changed on the provider's account page, behind a recent proof only
-  those pages can ask for; Settings links there (`SettingsSignIn.jsx`). Administering OTHER people's
-  accounts stays in the panel, through the provider's admin API with the bearer it holds.
-- **`persona.js` — the authorization POLICY (single source of truth).** Roles are
-  `admin｜operator｜viewer｜none`, and there is **one tier, cluster-wide** — the anchor resolves it
-  and every member reads the same one from its own replica. So there is one question, `can(cap)`: a
-  scoped variant would let a surface ask "may they do this *here*" and receive a cluster answer that
-  only looks scoped, which is worse than not offering the question. Whether a MEMBER will honour
-  that answer is a different fact and lives in `sessionStore.nodeRefusal(id)`.
-  `resolveRoute()` is the **routing chokepoint**: a forbidden route is mapped to the persona's home
-  synchronously, so it never enters state or mounts.
-- **`assistantSession.js` — which credential an assistant is spoken to with.** None of its own: every
-  assistant accepts the cluster's session, so the surface hands in the session it holds — the panel
-  its `sessionStore`, the standalone assistant its own client of the provider
-  (`src/assistant/session.js`) — and this relays it to whichever assistant has a route.
-- **`capabilities.js` — per-host services** (metrics / assistant / watchdog), each
-  with `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of
-  the **two** places an assistant is found — `assistants.js` joins it with the cluster's capability
-  assignments — and there is no central fallback for either: a node that exposes no leaf has no leaf,
-  and a cluster that assigns the capability to nobody has no cluster assistant. An assistant whose
-  capability names no public origin reads **down**, because the browser has nowhere to send a turn
-  however healthy the leaf is.
-
-## The shell (`App.jsx`)
-
-Hash routing (`router.js`) — the URL is the source of truth (Back/Forward,
-deep links, refresh all work). **Login/logout/session-loss do a full
-`window.location.reload()` rather than swapping components in place** — this is
-deliberate: several hooks live below the `!user` gate, so flipping `user` in
-place would trip React's Rules of Hooks. Keep that pattern.
-
-**First paint ends on the shell or on `BootFailed`, never on the cover.** The boot cover
-(`BootLanding`) is held only while a question is being answered: an answer the shell cannot be drawn
-from — every node refusing `GET /hosts`, a roster naming no node this page can address — ends the
-boot on `pages/auth/BootFailed.jsx`, which always offers Try again and Sign out, and a deadline
-(`BOOT_DEADLINE_MS`) catches a question that never returns. `main.jsx` drops a stored identity with
-no session record behind it before mount, so the shell never mounts for a session nothing will
-authorize; a session the provider refuses while the boot is still settling goes to the gate at once,
-which leaves for the provider as it does for any cold load holding nothing; and every request to
-the provider is bounded (`oidc.js`). A new gate on the cover must
-name the work it waits on and the answer that ends it; one that waits for a fact to appear is a
-cover that can hang. `visual-harness/boot-terminates.mjs` drives each way a boot can fail.
-
-Every server sub-tab
-(Files, Settings, Performance, Players) is backed by a real endpoint; a value the
-backend can't supply renders as "—" or its own honest not-measurable state, never
-as a fabricated number.
-
-**Notifications are two separate things here, and conflating them is the mistake
-to avoid.** `<Toasts>` + the sidebar tray (`lib/toasts.js`) report the outcome of
-something the **user just did**, in an open browser — they exist for the
-shell-level handlers that own no control to render an error into, and a write path
-with its own component keeps its inline error instead. **Web Push**
-(`lib/push.js`, `pages/SettingsNotifications.jsx`, `public-panel/sw.js`) reports
-what happened to the **fleet** while nothing was open, per device, opt-in, and
-gated by both the host's rule and the person's own preference. Detail:
-`components/CLAUDE.md`; the ecosystem-wide map, including how both relate to
-kgsm-bot's Discord announcements, is in the workspace `CLAUDE.md`.
-
-**There are TWO push surfaces, on two origins, and they are not interchangeable.**
-The panel's is above. The standalone assistant's (`assistant/push.js`,
-`assistant/SettingsPage.jsx`, `public-assistant/assistant-sw.js`) announces one
-thing — an action the leaf staged and is waiting on you to approve — and it comes
-from the **leaf**, with the leaf's own VAPID key. A subscription carries exactly
-one application server key and belongs to one origin, so these can never share
-one: the panel's worker is kgsm-api's and the assistant's is the leaf's, whatever
-the browser. The browser mechanics they share live in `lib/pushBrowser.js`, which
-takes its transport as a parameter and **imports nothing** — a shared module
-reaching `apiClient` would fail `npm run check:assistant`.
-
-## A component shows its data; it does not explain the system
-
-**Never caption a reusable component with prose about how the system behind it works.** No footnote
-saying where a node's queue is held, what a restart empties, that a run outlives the tab, or where
-history lives instead. No empty-state subtitle restating the empty-state title in a sentence. No
-sheet paragraph describing how work is paced. The site is not a tutorial on its own internals, and a
-surface that has to caption itself to be understood has not been designed — the fix is the layout,
-the label, or the data shown, never a paragraph underneath.
-
-What a component *may* say in words is what it measured or was told: a count, a name, a verdict it
-holds evidence for, a node that could not be read. The distinction is whether the sentence would
-change if the data changed. *"1 node couldn't be read (DevTest)"* is data. *"A run keeps going
-whether or not this tab is open"* is documentation, and belongs in `CLAUDE.md` or the CHANGELOG.
-
-Assert the **absence**, not the presence. A no-prose rule is invisible to lint and to a build, and
-the next edit that adds a helpful sentence will pass every gate. `scripts/smoke-live.mjs` and the
-browser harnesses check the rendered component for explanatory phrasing and fail on it.
-
-The **pin** is not prose and must survive any such removal. Where a surface is one card, the pin goes
-in that card's `BriefCard` header and reveals on hover with the rest of the family
-(`.chat-brief:hover .pin-btn`). Where it is not — the runs board — it sits on a row of its own
-(`.opsq__head`), stays visible because nothing reveals it, and that row takes itself out of the
-layout when the pin self-suppresses inside a widget.
-
-## Styling & themes (`src/styles/`)
-
-Plain CSS, no Tailwind/CSS-modules. Three files load in order (`main.jsx`):
-`tokens.css` → `kit.css` → `consumer.css`. Everything is driven by the CSS custom
-properties `tokens.css` defines — **a component must never hardcode a color; add
-or extend a token.**
-
-- **`tokens.css` — the design-token source of truth, split by concern:**
-  - A plain `:root` holds **structural** tokens (type, spacing, radius, edge,
-    shadow, motion, layout). Shadow/ring/edge tokens may reference color vars;
-    `var()` is late-bound, so they pick up the active theme automatically.
-    Most of these are invariant, but a closed subset — **the shape surface** —
-    may be re-valued by a theme; the block's banner names it exactly.
-  - **Borders are the elevation model here** (hairlines far outnumber shadows),
-    so the whole shorthand is a token: `--edge` / `--edge-strong` /
-    `--edge-accent`. Those are the OUTLINE OF A SURFACE; a one-sided
-    `border-top`/`border-bottom` is a **divider**, keeps the longhand, and stays a
-    hairline in every theme.
-  - **Radii must go through `var(--r-*)`.** `--r-sm` and `--r-pill` carry the
-    bulk of the kit's radius declarations, which is what makes corner geometry a
-    one-line theme change. A literal `border-radius: 4px` is legal CSS and simply
-    will not follow a theme.
-  - **Color** tokens live in theme scopes: `:root, [data-theme="dark"]` (the
-    default — applies with no attribute too) and `[data-theme="light"]`. Plus the
-    overlay tokens: `--veil-1/2/3` (white-alpha
-    surface fills that flip to black-alpha on light), `--scrim-base` (modal/drawer
-    backdrop, consumed via `color-mix` so each site keeps its own alpha), and
-    `--scrollbar-*`. **The contract: a theme = the FULL color set re-valued.**
-    Canvas-fade gradients use `color-mix(in srgb, var(--canvas) X%, transparent)`
-    so they track the theme with no extra token.
-- **`kit.css` is a BARREL, not a file to edit.** It only `@import`s the focused
-  per-domain partials under `src/styles/kit/` — read the barrel for the set and
-  order. **Add a rule to the partial that owns
-  the domain — do NOT grow a monolith.** Import **order is load-bearing**
-  (later wins on equal specificity): keep the `@import` sequence; a new domain gets
-  a new partial appended to the barrel. `@import` must precede other rules, which
-  the imports-only barrel satisfies.
-- **`consumer.css`** — a few consumer surfaces (connect/MOTD/login persona).
-
-**Themes (`src/lib/theme.js`).** A client-only preference (`localStorage
-krystal:theme` = `auto` or a concrete palette id from `THEME_OPTS`, default
-`dark`) that NEVER round-trips to a
-host — same model as favorites. `auto` resolves via `matchMedia` and live-updates
-on OS change. Switching is **LIVE — no page reload** (swaps `<html data-theme>`,
-which re-cascades instantly). **Both surfaces offer the same `<ThemePicker>` on a
-Settings page** — the panel's under Profile, the standalone assistant's under
-Appearance (`src/assistant/SettingsPage.jsx`, reached from the foot of the
-conversation rail, or the header cog at phone width where that rail is hidden).
-Landmines:
-- **No-flash:** an inline boot script in `index.html` **and `assistant.html`** sets
-  `data-theme` *before* the stylesheet applies. Both mirror `theme.js` — keep the
-  three in sync.
-- **Monaco can't read CSS vars** → `CodeEditor.jsx` samples the resolved tokens at
-  runtime and re-themes (`vs`/`vs-dark`) whenever the theme store flips.
-- **Always-dark media surfaces** (e.g. the cinematic server hero over key-art) pin
-  the dark `--fg-*`/`--border-*`/`--*-fg` tokens **locally** so they stay
-  light-on-dark in every theme — see `.hero--cinematic` in `kit/server.css`. Do
-  that instead of per-theme special-casing.
-- **Adding a theme:** add a `[data-theme="x"]` block (full color set) to
-  `tokens.css`, then one entry in `theme.js`'s `THEME_OPTS` (id + label — `VALID`
-  is derived from it, and every picker reads it), and the concrete-theme list in
-  the `index.html` / `assistant.html` boot scripts, which cannot import.
-- **The `cvd-*` colour-vision themes carry a measured guarantee** — status colours
-  a stated ΔE2000 apart and every contrast floor held, *under a simulation of the
-  deficiency each names*. Editing one of their tokens means re-running
-  `node /home/heisen/tks/scripts/cvd-check/verify.mjs`, which re-measures the
-  blocks straight out of `tokens.css`. A `THEME_OPTS` entry joins the pack by
-  carrying a `cvd:` field naming who it is for; that field, not the id prefix, is
-  what the pickers group and badge on. See `src/styles/CLAUDE.md`.
-- **The tribute themes quote a screen from somewhere else** — The Matrix, Windows
-  95, Winamp, LCARS, Cyberpunk 2077, the DOS blue screen, the Commodore 64, PICO-8.
-  Their colours are chosen for recognition, so where a source palette can't carry a
-  status family the nearest colour from the SAME source is used and the deviation is
-  named in the block's comment; a foreign hue smuggled in to make the ramp tidy is
-  the one edit to refuse. A `THEME_OPTS` entry joins them by carrying a `tribute:`
-  field naming what it quotes, which the pickers group on and show as the swatch's
-  tooltip.
-- **The tributes are also the only themes that re-value SHAPE** — corner radius,
-  border weight, elevation, the UI font, transition durations. An upstream editor
-  scheme never had an opinion about a corner; a tribute is quoting a whole
-  interface, so the shape is part of the quotation. Win95, DOS Blue and the C64
-  set every duration to `0ms` because nothing on those screens eased; LCARS
-  triples the radius ladder because the elbow *is* the design. A `THEME_OPTS`
-  entry declares it with a `shape:` field saying in words what changes, since a
-  swatch cannot show a duration. The permitted token set is fixed — see the
-  structural banner in `tokens.css`, and don't widen it without a reason.
-- **`npm run check:tokens`** fails on any `var(--…)` that names a property nothing
-  defines. That is silent otherwise: an undefined custom property goes
-  invalid-at-computed-value-time, so a border falls back to `currentColor` and a
-  radius computes to 0, forever, with no warning from CSS or the build.
-- **A theme named after an upstream scheme ships that scheme's values unretouched**,
-  including where they are low-contrast by design — Solarized and Nord both are.
-  Only the palettes this repo invents (the tribute and colour-vision packs) are held
-  to contrast floors. `src/styles/CLAUDE.md` has the split.
-- **Test themes with the visual harness's `--theme <id>` flag** (jsdom smoke does
-  NOT lay out CSS, so it can't catch a theme regression). It seeds `krystal:theme`
-  with whatever id you give it, so any palette in `THEME_OPTS` can be shot.
+The app always talks to real `kgsm-api`(s); there are no fixtures and no mode switch. The only
+distinction is whether any host is connected: `CONNECTIONS.length` is 0 → the connect screen, ≥2 →
+fan-out, and it is a topology check, **never a `LIVE`/`MOCK` mode flag — don't reintroduce that
+duality**. Routing to a node is exact: an id no connection holds fails rather than landing on another
+node. Detail: `src/lib/CLAUDE.md` (`config.js`, `connect.js`).
 
 ## Where truth lives
 
-- **`WIRING.md` is the authoritative front↔back contract** — endpoint/realtime/
-  schema diffs + the sequenced wiring plan. `§8` is the slice ledger; consult it
-  for what's wired vs. pending rather than trusting prose elsewhere. The realtime
-  SSE protocol's authority is `kgsm-api/src/Api/Realtime/CLAUDE.md`.
-- **Deferred, repo-wide:** TypeScript, a unit-test runner, a full Workbox
-  **precache** (`vite-plugin-pwa`; the service workers cache on demand, not the
-  whole build manifest), and parts of multi-host fan-out (see `merge.js`,
-  `WIRING.md`).
+- **`WIRING.md` is the authoritative front↔back contract** — endpoint/realtime/schema diffs + the
+  sequenced wiring plan. `§8` is the slice ledger; consult it for what's wired vs. pending rather than
+  trusting prose elsewhere. The realtime SSE protocol's authority is
+  `kgsm-api/src/Api/Realtime/CLAUDE.md`.
+- `README.md` covers quick-start and the file layout.
 
 ## Version tracking
 
-- **Version source:** the `"version"` field in `package.json`
-- **Packaging reads it via `deploy/version.sh`** — `./deploy/version.sh` prints the declared version, `--pkgver` prints the pacman-safe form. A package never restates a version number; it asks for one.
-- Bump the version whenever you make a user-facing change (new feature, bug fix, behaviour change). Patch for fixes, minor for new features, major for breaking changes.
-- Update `CHANGELOG.md` under `## [Unreleased]` with a brief entry for every meaningful change.
-- A git tag matching the new version should be created on release: `git tag v<version>`.
-
-## Documentation & comments: present-tense canon only
-
-Prose in this repo — every doc, `README`/`CLAUDE.md` section, and in-code comment — describes
-**how the thing works right now**, nothing else. History lives in the `CHANGELOG` and git
-history; never duplicate it into docs or code.
-
-- **No transitions.** Never "was X, now Y", "used to…", "changed from…", "no longer…", or any
-  before/after framing. State the current rule flat: a sentence that only makes sense to a reader
-  who knows what the code *used to* do is dead weight, because that "before" no longer exists
-  anywhere in the code.
-- **Tombstones leave no marker.** When something is removed — dying naturally as part of the work,
-  or explicitly asked to be deleted — the removal is silent: no *"removed X"*, no *"X is gone"*,
-  no *"deprecated, use Y instead"* pointing at a corpse. The prose reads as if it never was. Code
-  kept while the thing that justified it was deleted gets a live present-tense reason to exist —
-  or goes too.
-- **No residue of the active work.** References only meaningful *during* a piece of work don't
-  survive it: *"temporary shim for the rework"*, *"added to satisfy the new requirement"*,
-  milestone/phase labels (*"per M2"*, *"the Phase 1 step"*). If a line's justification is the work
-  that produced it rather than the system as it now stands, it goes.
-- **No volatile numbers.** Counts and versions that drift — how many projects/files/tests/
-  partials exist, a dependency's pinned version, a file's line count — never go in prose: they are
-  stale the moment anything changes, and nothing fails to remind anyone. Name the authoritative
-  source instead (the csproj, the directory, the barrel file). A number belongs in prose only when
-  it *is* the contract (a port, a timeout, a cap) or a measured fact that is itself the reason a
-  design exists.
-- **Edits are replacements, not appends.** When changing an existing feature, rewrite the affected
-  doc/comment fresh as if writing it for the first time — never append a correction under the
-  stale version, and never leave the stale version standing beside the new. The current revision
-  does not converse with prior revisions.
-
-A reader six months from now should learn the system from the doc without knowing what it
-replaced. If you catch yourself explaining a change, stop — that sentence belongs in the commit
-message. When touching prose that already violates this, rewrite it to present-tense canon in
-passing.
+- **Version source:** the `"version"` field in `package.json`.
+- **Packaging reads it via `deploy/version.sh`** — `./deploy/version.sh` prints the declared version,
+  `--pkgver` prints the pacman-safe form. A package never restates a version number; it asks for one.
+- Bump the version whenever you make a user-facing change (patch for fixes, minor for features, major
+  for breaking changes), with a `CHANGELOG.md` entry under `## [Unreleased]`.

@@ -3,8 +3,9 @@
 Everything that isn't a React view lives here: the backend seam, the reactive
 stores, the honesty boundary, auth/RBAC policy, and the URL router. **Components
 and pages never touch `fetch` or the API directly — they go through a store, and
-stores go through `apiClient`.** The root `../CLAUDE.md` ("The data layer"
-section) is the narrative; this is the per-file map.
+stores go through `apiClient`.** There is exactly ONE data path: the app always talks to real
+`kgsm-api`(s), with no fixtures and no mode switch. The assistant is a separate backend reached on its
+own seam (`assistantClient.js`), never through kgsm-api.
 
 ## The one data path
 
@@ -214,8 +215,10 @@ re-exports `stores/` — import from either.
   only looks scoped. Where a surface needs to know whether a MEMBER will honour that answer, that is
   `sessionStore.nodeRefusal(id)` and a different fact. `resolveRoute()` is the routing chokepoint.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
-  `provisioned` × `status`. A node's assistant capability is one of the two places an assistant is
-  found; `assistants.js` joins it with the cluster's.
+  `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of the two
+  places an assistant is found; `assistants.js` joins it with the cluster's, and there is no central
+  fallback for either. An assistant whose capability names no public origin reads **down**, because
+  the browser has nowhere to send a turn however healthy the leaf is.
 
 **Routing & presentation helpers**
 - `router.js` — pure URL-hash ↔ `route` object bridge (framework-free). Full URL
