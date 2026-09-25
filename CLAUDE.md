@@ -367,7 +367,9 @@ from — every node refusing `GET /hosts`, a roster naming no node this page can
 boot on `pages/auth/BootFailed.jsx`, which always offers Try again and Sign out, and a deadline
 (`BOOT_DEADLINE_MS`) catches a question that never returns. `main.jsx` drops a stored identity with
 no session record behind it before mount, so the shell never mounts for a session nothing will
-authorize, and every request to the provider is bounded (`oidc.js`). A new gate on the cover must
+authorize; a session the provider refuses while the boot is still settling goes to the gate at once,
+which leaves for the provider as it does for any cold load holding nothing; and every request to
+the provider is bounded (`oidc.js`). A new gate on the cover must
 name the work it waits on and the answer that ends it; one that waits for a fact to appear is a
 cover that can hang. `visual-harness/boot-terminates.mjs` drives each way a boot can fail.
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.1.2]
+
+### Fixed
+
+- **A refused session at load goes straight to sign in.** A stored session whose refresh the
+  provider refused held an empty shell for 30 seconds before the "Signed out" screen. Found before
+  anything has been on screen, it now leaves for the provider at once, as any load holding nothing
+  does.
+- **A node that cannot be read keeps its dashboard layout.** A browser with no layout of its own
+  whose node failed the preferences read took the failure for "nothing stored", seeded the default
+  layout and wrote it to the node over the account's own. The default is still shown, and written
+  nowhere until the person arranges something.
+
 ## [2.1.1]
 
 ### Fixed

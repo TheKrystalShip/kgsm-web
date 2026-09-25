@@ -171,6 +171,10 @@ function migrateTypes(raw) {
 ///   no local copy, no answer→ WAIT. The dashboard shows its skeleton rather than a default that
 ///                             would overwrite the real layout a moment later.
 ///   no local copy, answered → nothing is stored anywhere, so seed the default and keep it.
+///   no local copy, node unreadable
+///                           → SHOW the default and write nothing. A node that could not be read has
+///                             not said it holds nothing, and the account's own layout may be exactly
+///                             what it failed to return; the next load that reads it adopts it.
 dashboardStore.hydrate = () => {
   const stored = readStored();
   if (stored) {
@@ -189,11 +193,17 @@ dashboardStore.hydrate = () => {
   }
 
   // Nothing here. Only seed once the node has said it has nothing either.
-  if (!prefsStore.getState().hydrated) return;
+  const prefs = prefsStore.getState();
+  if (!prefs.hydrated) return;
   const layout = defaultLayout();
   dashboardStore.setState({ layout, hydrated: true });
-  writeStored(layout);
+  _unwritten = prefs.status === "error";
+  if (!_unwritten) writeStored(layout);
 };
+
+// A default shown over a node that could not be read, held on screen and nowhere else. Anything the
+// person arranges commits it as theirs; a role change re-seeds it in place without writing.
+let _unwritten = false;
 
 // The node's copy arrives after the first render — the data layer reads it once there is a session,
 // and the dashboard has already mounted from the local copy by then. So adopt it when it lands.
@@ -220,6 +230,7 @@ prefsStore.subscribe(() => {
 });
 
 const commit = (layout) => {
+  _unwritten = false;
   dashboardStore.setState({ layout, hydrated: true });
   writeStored(layout);
 };
@@ -252,6 +263,7 @@ function isUntouchedSeed(layout) {
 dashboardStore.retier = () => {
   const { layout, hydrated } = dashboardStore.getState();
   if (!hydrated || !isUntouchedSeed(layout)) return;
+  if (_unwritten) { dashboardStore.setState({ layout: defaultLayout(), hydrated: true }); return; }
   commit(defaultLayout());
 };
 

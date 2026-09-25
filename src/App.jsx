@@ -299,13 +299,19 @@ function AppInner({ user, setUser, route, setRoute }) {
   // Dropping the stored identity is the whole mechanism — App re-renders, sees no user, and shows
   // AuthGate. It is told the session ended here rather than never having been, so it offers the way
   // back instead of leaving for the provider over whatever was on screen.
+  //
+  // A session found ended while the boot is still settling — `login_required`, which is written only
+  // when nothing is left to renew with — goes to the gate at once and is NOT noted as ended: nothing
+  // has been on screen yet, so this is a cold load holding nothing, and the gate leaves for the
+  // provider exactly as it would for one.
   React.useEffect(() => {
     if (!session) return;
-    if (!(session.reauthDue || session.status === "denied")) return;
-    if (session.reauthDue) noteSessionEnded();
+    const endedAtBoot = !landingResolved && session.status === "expired" && session.error === "login_required";
+    if (!(session.reauthDue || endedAtBoot || session.status === "denied")) return;
+    if (session.reauthDue && !endedAtBoot) noteSessionEnded();
     writeStoredUser(null);
     setUser(null);
-  }, [session, setUser]);
+  }, [session, setUser, landingResolved]);
 
   // A role can change under somebody who is already standing on a page. `resolveRoute` is the
   // chokepoint every navigation passes through, so re-running it against the route currently held is
