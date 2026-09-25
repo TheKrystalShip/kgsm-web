@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { ErrorBoundary, AppCrash } from "./components/ErrorBoundary.jsx";
-import { noteSignInRefusal } from "./lib/authStorage.js";
+import { noteSignInRefusal, writeStoredUser } from "./lib/authStorage.js";
 import { registerServiceWorker } from "./lib/registerSW.js";
 import { sessionStore } from "./lib/sessionStore.js";
 
@@ -42,6 +42,11 @@ async function boot() {
       await devSeedAutoConnect(import.meta.env.VITE_API_BASE);
     } catch {}
   }
+  // The stored identity mounts the shell, and the session record is what the shell settles on. An
+  // identity with no record behind it — the library's session removed by a refused renewal, or no
+  // provider recorded at all — is a shell nothing will ever authorize, so it is dropped here and the
+  // gate, which can sign somebody in, takes the load instead.
+  if (!sessionStore.getState().session) writeStoredUser(null);
   createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <ErrorBoundary

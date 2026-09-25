@@ -25,6 +25,7 @@ import { FirstRunWelcome, hasSeenWelcome } from "./pages/FirstRunWelcome.jsx";
 import AssistantFabIcon from "./components/AssistantFabIcon.jsx";
 import { Modal } from "./components/Modal.jsx";
 import { AuthGate } from "./components/AuthGate.jsx";
+import { BootFailed } from "./pages/auth/BootFailed.jsx";
 
 // Extracted modules
 import { noteSessionEnded, readStoredUser, writeStoredUser } from "./lib/authStorage.js";
@@ -60,6 +61,11 @@ const holdsNothing = () => {
 // Where somebody was going when they were asked to sign in. Kept for this tab only: it is a
 // navigation intent, not a preference, and it must not outlive the browser or leak into another.
 const INTENT_KEY = "krystal:after-signin";
+
+// How long first paint may wait on a question nobody answers. Every failure the boot can recognise
+// ends it at once; this is the backstop for one that never returns at all, and it sits above the
+// provider's own request timeout so a slow renewal is still answered rather than cut off.
+const BOOT_DEADLINE_MS = 25000;
 
 function rememberIntent(route) {
   if (!route || KrystalRouter.isAuthRoute(route)) return;
@@ -147,6 +153,11 @@ function AppInner({ user, setUser, route, setRoute }) {
   const servers = useStore(serversStore, s => s.list);
   const libraryList = useStore(libraryStore, s => s.list);
   const hostsLoaded = useStore(hostsStore, s => s.everLoaded);
+  const conn = useStore(connectionStore, s => s);
+  // The fan-out answered and nothing it answered can draw a shell: every node refused or failed, with
+  // no roster ever loaded. An all-401 answer is not this — it settles the roster and the session's own
+  // renewal decides what happens next.
+  const hostsError = useStore(hostsStore, s => (s.status === "error" && !s.everLoaded ? s.error || {} : null));
   const fleet = useStore(fleetStore, s => s);
   const session = useStore(sessionStore, s => s.session);
   const refusingNodes = useStore(sessionStore, s => s.nodes);
@@ -216,6 +227,25 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   const authzReady = hostsSettled && authzSettled;
 
+  // The boot cover waits only while a question is being answered. An answer the shell cannot be drawn
+  // from ends the boot on BootFailed, which always offers a way forward, and the deadline catches any
+  // question that is never answered at all — so first paint ends on the shell or on that screen.
+  //
+  // A roster that named nodes and registered none of them is an answer, not a wait: reconciling adds
+  // every node it keeps before the fleet reads `ready`, and nothing re-asks the anchor until the data
+  // layer starts, which needs a connection.
+  const [bootExpired, setBootExpired] = React.useState(false);
+  React.useEffect(() => {
+    if (landingResolved) return undefined;
+    const t = setTimeout(() => setBootExpired(true), BOOT_DEADLINE_MS);
+    return () => clearTimeout(t);
+  }, [landingResolved]);
+  const bootFailure = landingResolved ? null
+    : hostsError ? { kind: "refused", error: hostsError.userMessage || hostsError.message || null }
+    : (fleet.state === "ready" && fleet.count > 0 && !CONNECTIONS.length) ? { kind: "unaddressable", count: fleet.count }
+    : bootExpired ? { kind: "timeout" }
+    : null;
+
   useRouteSync(route, setRoute, landingResolved);
 
   React.useEffect(() => {
@@ -232,7 +262,6 @@ function AppInner({ user, setUser, route, setRoute }) {
   useMobileSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOpen);
 
   // --- Connection ---
-  const conn = useStore(connectionStore, s => s);
   const retryConnection = React.useCallback(() => {
     connectionStore.setState(s => ({ ...s, retrying: true, status: s.everLoaded ? s.status : "connecting" }));
     return api.fanOut("/servers").catch(() => {});
@@ -385,6 +414,13 @@ function AppInner({ user, setUser, route, setRoute }) {
   const serversCount = serverAlertsActive.length;
   const serversTone = alertsTone(serverAlertsActive);
 
+  // A node that cannot be reached at all is ColdStartDown's to say, below; everything else the boot
+  // could not settle is said here, ahead of every hold.
+  const coldDown = conn.status === "down" && !conn.everLoaded;
+  if (bootFailure && !coldDown) {
+    return <BootFailed reason={bootFailure} onRetry={() => window.location.reload()} onSignOut={handleLogout} />;
+  }
+
   // A clustered panel keeps no node list, so an empty connection set on a fresh load means the
   // anchor has not answered yet — not that this account has no hosts. Offering to add one then is a
   // confident wrong answer, and the node it would ask somebody to type is one the cluster already
@@ -403,7 +439,7 @@ function AppInner({ user, setUser, route, setRoute }) {
       onLogout={handleLogout} />;
   }
 
-  if (conn.status === "down" && !conn.everLoaded) {
+  if (coldDown) {
     return <ColdStartDown retrying={conn.retrying} onRetry={retryConnection} onLogout={handleLogout} />;
   }
 

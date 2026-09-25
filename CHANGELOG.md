@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [2.1.1]
+
+### Fixed
+
+- **The boot cover always ends.** The panel could sit on "Signing you in…" forever: when every node
+  refused `GET /hosts` with anything but a 401, when the cluster named nodes this page has no usable
+  address for, and when a stored identity outlived the session behind it with no provider recorded —
+  that last one making no request at all. A boot that cannot be settled now ends on a screen naming
+  what happened, with Try again and Sign out; an identity with no session behind it is dropped before
+  mount, so the gate signs somebody in instead; renewals at the provider time out after 10 seconds;
+  and a 25-second deadline catches any question that is never answered.
+
 ## [2.1.0]
 
 ### Added

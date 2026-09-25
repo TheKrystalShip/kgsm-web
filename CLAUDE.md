@@ -359,7 +359,19 @@ Hash routing (`router.js`) — the URL is the source of truth (Back/Forward,
 deep links, refresh all work). **Login/logout/session-loss do a full
 `window.location.reload()` rather than swapping components in place** — this is
 deliberate: several hooks live below the `!user` gate, so flipping `user` in
-place would trip React's Rules of Hooks. Keep that pattern. Every server sub-tab
+place would trip React's Rules of Hooks. Keep that pattern.
+
+**First paint ends on the shell or on `BootFailed`, never on the cover.** The boot cover
+(`BootLanding`) is held only while a question is being answered: an answer the shell cannot be drawn
+from — every node refusing `GET /hosts`, a roster naming no node this page can address — ends the
+boot on `pages/auth/BootFailed.jsx`, which always offers Try again and Sign out, and a deadline
+(`BOOT_DEADLINE_MS`) catches a question that never returns. `main.jsx` drops a stored identity with
+no session record behind it before mount, so the shell never mounts for a session nothing will
+authorize, and every request to the provider is bounded (`oidc.js`). A new gate on the cover must
+name the work it waits on and the answer that ends it; one that waits for a fact to appear is a
+cover that can hang. `visual-harness/boot-terminates.mjs` drives each way a boot can fail.
+
+Every server sub-tab
 (Files, Settings, Performance, Players) is backed by a real endpoint; a value the
 backend can't supply renders as "—" or its own honest not-measurable state, never
 as a fabricated number.

@@ -85,6 +85,12 @@ async function discoverProvider(address, { fetchImpl = fetch, signal } = {}) {
 // verifier and `state` of a round trip in flight stay in `sessionStorage`, because they belong to the
 // one tab that left. Renewal is the refresh grant alone — no iframe, no silent re-authorization — so
 // automatic renewal and session monitoring are off and the callers renew when a call is refused.
+//
+// Every request to the provider is bounded. Renewals share one in-flight promise that the boot and
+// every refused call await, so a token endpoint that accepts the connection and never answers would
+// hold all of them forever; a timeout is reported like any provider that could not be asked.
+const PROVIDER_TIMEOUT_S = 10;
+
 function createClient({ issuer, redirectPath, postLogoutPath, prefix }) {
   const origin = window.location.origin;
   return new UserManager({
@@ -99,6 +105,7 @@ function createClient({ issuer, redirectPath, postLogoutPath, prefix }) {
     automaticSilentRenew: false,
     monitorSession: false,
     loadUserInfo: false,
+    requestTimeoutInSeconds: PROVIDER_TIMEOUT_S,
   });
 }
 
@@ -126,7 +133,9 @@ async function renew(client) {
   const before = await client.getUser().catch(() => null);
   if (!before || !before.refresh_token) return { ok: false, ended: true };
   try {
-    const user = await client.signinSilent();
+    // The refresh grant takes its bound from this argument alone: the library spreads an absent one
+    // over its own default, so leaving it out leaves the request unbounded.
+    const user = await client.signinSilent({ silentRequestTimeoutInSeconds: PROVIDER_TIMEOUT_S });
     return user && user.access_token ? { ok: true, user } : { ok: false };
   } catch (err) {
     if (!(err instanceof ErrorResponse)) return { ok: false };
