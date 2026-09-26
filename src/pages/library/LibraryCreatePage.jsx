@@ -19,7 +19,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { useAssistantFor } from "../../components/AssistantDockContext.jsx";
-import { can, isAdmin } from "../../lib/persona.js";
+import { ACTIONS, can, may } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
 
@@ -38,7 +38,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
   // here, an operator hands off to that host's assistant. Either way the file
   // lands on the host chosen here.
   const hosts = React.useMemo(
-    () => (allHosts || []).filter(h => can("server.operate")),
+    () => (allHosts || []).filter(h => can("server.operate", { hostId: h.id })),
     [allHosts],
   );
   // A sole qualifying node is taken because it is the only one. With several,
@@ -52,7 +52,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
 
   const hostId = selectedHostId;
   const hostObj = hostId ? hosts.find(h => h.id === hostId) || null : null;
-  const canWrite = hostId ? isAdmin(hostId) : false;
+  const canWrite = hostId ? may(ACTIONS.BLUEPRINTS_WRITE, { hostId }) : false;
 
   // The assistant hand-off is offered only where one would actually answer about the host the
   // blueprint lands on — the dock's own answer, so the button and the dock behind it cannot disagree

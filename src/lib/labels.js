@@ -20,6 +20,7 @@ export const ROUTE_TABS = {
     { id: "files",       label: "Files",       icon: "folder" },
     { id: "backups",     label: "Backups",     icon: "database" },
     { id: "settings",    label: "Settings",    icon: "settings" },
+    { id: "access",      label: "Access",      icon: "shield" },
   ],
   game: [
     { id: "overview",  label: "Overview",  icon: "layout-grid" },
@@ -40,7 +41,11 @@ export const ROUTE_TABS = {
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
     { id: "conversations", label: "Conversations", icon: "messages-square" },
-    { id: "users",    label: "Users",    icon: "users" },
+    { id: "users",    label: "Accounts", icon: "users" },
+    { id: "roles",    label: "Roles",    icon: "shield" },
+    { id: "permissions", label: "Permissions", icon: "key-round" },
+    { id: "catalog",  label: "Catalog",  icon: "list-checks" },
+    { id: "services", label: "Services", icon: "bot" },
     { id: "names",        label: "Names",        icon: "globe" },
     { id: "certificates", label: "Certificates", icon: "badge-check" },
     { id: "commands", label: "Commands", icon: "terminal" },
@@ -133,7 +138,7 @@ const TAB_LABEL_FALLBACK = {
 // certificates to DNS. A capability gains a tab by gaining a row here, once the member behind it
 // actually serves one.
 const ANCHOR_CAPABILITY_TABS = {
-  auth: ["users"],
+  auth: ["users", "roles", "permissions", "catalog", "services"],
   assistant: ["conversations", "commands"],
   dns: ["names", "certificates"],
 };

@@ -81,7 +81,7 @@ function AuthGate({ onUser }) {
       if (status === "live") {
         await establishClusterSession();
         const r = sessionStore.getState().session;
-        if (!(r && r.open) && (sessionStore.tierOf() || "none") === "none") { show({ kind: "no_access" }); return; }
+        if (!(r && r.open) && sessionStore.accountOf() !== "active") { show({ kind: "no_access" }); return; }
         onUser();
         return;
       }

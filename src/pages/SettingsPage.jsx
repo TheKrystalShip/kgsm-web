@@ -99,7 +99,7 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
               </SettingsRow>
             </SettingsSection>
 
-            {/* What you may do, per node — the one question no other surface answers out loud. */}
+            {/* What you may do, and where — the one question no other surface answers out loud. */}
             <SettingsAccess />
 
             {/* Appearance sits with the profile rather than on a tab of its own: it is one

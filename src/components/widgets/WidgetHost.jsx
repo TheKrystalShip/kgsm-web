@@ -42,18 +42,17 @@ function useIsWidget() { return React.useContext(WidgetContext) != null; }
 
 // ---- Authorization -------------------------------------------------------
 // "Aggregate for reach, scoped for action" (persona.js) applies here as everywhere: a widget about
-// ONE node asks whether the role holds the capability ON that node, not anywhere. An admin on
-// hotrod and a viewer on node-b must not see node-b's journal because hotrod made them an admin
-// somewhere.
+// ONE node asks whether the capability is held ON that node, not anywhere. Somebody granted
+// everything on hotrod and nothing on node-b must not see node-b's journal because of hotrod.
 function widgetPermitted(entry, params) {
   if (!entry || !entry.cap) return true;
   const p = params || {};
-  if (entry.scope === "host") return p.hostId ? can(entry.cap) : can(entry.cap);
+  if (entry.scope === "host") return p.hostId ? can(entry.cap, { hostId: p.hostId }) : can(entry.cap);
   if (entry.scope === "server") {
     const srv = p.serverId ? serversStore.find(p.serverId) : null;
     // A server we have not loaded yet is not a denial — the roster arrives a moment later, and
     // hiding the widget in the meantime would flash it out and back in on every cold load.
-    return srv && srv.hostId ? can(entry.cap) : can(entry.cap);
+    return srv && srv.hostId ? can(entry.cap, { server: srv }) : can(entry.cap);
   }
   return can(entry.cap);
 }

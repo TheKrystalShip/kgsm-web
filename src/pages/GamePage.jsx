@@ -37,11 +37,11 @@ function GamePage({ game, tab: tabProp, onTabChange, onCreate, onOpenServer, onA
   // the user can create on at least one host that offers this blueprint
   // (architecture.html §3·f·1). A read-only viewer never sees the entry point —
   // and the install modal's host picker is filtered to the same set.
-  const canCreate = offered.some(h => can("server.create"));
+  const canCreate = offered.some(h => can("server.create", { hostId: h.id }));
   // The blueprint FILE is the engine's operational definition of how a server is
   // launched, so it sits at operator — the same line the API draws on
   // GET /library/{id}/file. The card gates the write half itself.
-  const canReadFile = offered.some(h => can("server.operate"));
+  const canReadFile = offered.some(h => can("server.operate", { hostId: h.id }));
   // Instances of THIS blueprint — shared helper so the detail page and the
   // library grid/counts always agree (robust to per-instance ids like "rust-ab12").
   const instances = instancesOfBlueprint(game, servers);

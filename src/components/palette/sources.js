@@ -466,7 +466,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
   // Only what a node has actually reported. A leaf list is per host and arrives when that host's
   // services are read, so before then this contributes nothing rather than guessing at a roster.
   for (const [hostId, entry] of Object.entries(services || {})) {
-    if (!entry || !entry.everLoaded || !can("host.manage")) continue;
+    if (!entry || !entry.everLoaded || !can("host.manage", { hostId })) continue;
     for (const svc of entry.list || []) {
       push({
         id: "leaf." + hostId + "." + svc.id,

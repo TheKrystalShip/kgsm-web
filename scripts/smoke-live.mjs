@@ -182,8 +182,8 @@ try {
   // the derivation, which holds whichever door the account came through.
   const wantProvider = String((cr.user && cr.user.id) || "").includes(":")
     ? String(cr.user.id).split(":")[0] : "local";
-  assert(cr.user && cr.tier && cr.user.provider === wantProvider,
-    `connectHost: identity + tier resolved from /me (${cr.user && cr.user.provider}, tier=${cr.tier})`);
+  assert(cr.user && cr.user.provider === wantProvider,
+    `connectHost: identity resolved from /me (${cr.user && cr.user.provider})`);
 
   const rawServers = await (await fetch(API + "/api/v1/servers")).json();
   const servers = adapt.adaptServers(rawServers);
@@ -357,11 +357,8 @@ try {
   assert(adaptedAlerts.length === 1 && adaptedAlerts[0].icon === "alert-triangle" && adaptedAlerts[0].status === "firing",
     "adaptAlerts derives an icon from source + passes status through");
 
-  // ---- Phase 2: live UI render (viewer-reachable routes) ------------------
-  // Mount once, navigate via hashchange (the App's own listener). NOTE: with no
-  // per-host session yet, the frontend persona is tier "none" → admin surfaces
-  // (dashboard/fleet) resolve to the viewer home (servers). Those are gated
-  // until the auth slice; here we verify the viewer-reachable read path renders
+  // ---- Phase 2: live UI render (the read routes) --------------------------
+  // Mount once, navigate via hashchange (the App's own listener), and verify the read path renders
   // real backend data without crashing.
   const { App } = await vite.ssrLoadModule("/src/App.jsx");
   w.sessionStorage.clear();
@@ -430,12 +427,10 @@ try {
     svList.every((s) => byId.has(s.blueprint) && s.game === byId.get(s.blueprint));
   assert(joinOk, `game name joined via /library by blueprint (${svList.length} servers, ${libList.length} catalog)`);
 
-  // ---- Phase 3: gated surfaces, ungated by the /me-driven tier ------------
-  // Auth is now wired: the per-host tier comes from GET /me (admin, since the
-  // backend runs auth-disabled) — NOT a forced "Preview as" lens. So fleet /
-  // library / audit / alerts must render without bouncing to the viewer home,
-  // proving the tier resolution + persona gate work against the live backend.
-  // (No `persona` key here on purpose — the gate must come from /me alone.)
+  // ---- Phase 3: gated surfaces, opened by /me/access ----------------------
+  // What this person may do comes from each node's GET /me/access — an Owner, since the backend runs
+  // auth-disabled. So fleet / library / audit / alerts must render without bouncing to the servers
+  // list, proving the access answer and the persona gate work against the live backend.
   w.localStorage.setItem("krystal:auth", JSON.stringify({ name: "dev", provider: "discord", stay: true, id: "u_dev" }));
   const FAB = /0 cores|load 0\.0|CPU 0%/;          // fabricated zero readouts must NOT appear
   const GATED = [
@@ -571,13 +566,17 @@ try {
     && (bpCount === servers.length || !libHtml2.includes(label(servers.length))),
     `library cards count per blueprint (${label(bpCount)} for ${PROBE.blueprint}, not the match-all ${label(servers.length)})`);
 
-  // The gate is driven by the /me tier, not a persona override: confirm the live
-  // host's session resolved to admin (auth-disabled → admin) from GET /me.
+  // The gate is driven by the node's /me/access answer: confirm the live host answered as the
+  // synthetic Owner an auth-disabled node authenticates everybody as.
   const ss = await vite.ssrLoadModule("/src/lib/sessionStore.js");
   const hid = (st.hostsStore.getState().list[0] || {}).id;
-  let tier = null;
-  for (let i = 0; i < 30; i++) { tier = ss.sessionStore.tierOf(hid); if (tier && tier !== "none") break; await sleep(100); }
-  assert(tier === "admin", `tier resolved from GET /me (${hid} → ${tier}); gates via /me, not a persona lens`);
+  let answer = null;
+  for (let i = 0; i < 30; i++) { answer = st.accessStore.getState().sources["node:" + hid]; if (answer) break; await sleep(100); }
+  assert(answer && answer.state === "ok" && answer.report && answer.report.owner === true,
+    `access resolved from GET /me/access (${hid} → ${answer ? answer.state : "no answer"}, owner=${answer && answer.report ? answer.report.owner : "—"})`);
+  const rec = ss.sessionStore.getState().session;
+  assert(rec && rec.open === true,
+    "an auth-disabled host is a session run open — no account behind it for the gate to wait on");
 
   // The provider sends a browser back to its own path, not to a hash route, so the boot can tell a
   // landing from an ordinary load before the router reads the address. The exchange itself is the
@@ -612,36 +611,43 @@ try {
   }
   assert(rtMode === "live", `realtime stream connected (mode=${rtMode})`);
 
-  // (a2) `me.patch` — the node stating this account's role while the panel is open. Injected at the
-  // same dispatch seam as every other frame, because what belongs to the SPA is the write, the
-  // re-gate and the delta it announces; that the node emits one is kgsm-api's contract. The tier is
-  // put back before anything below runs, since every gated surface after this reads it.
+  // (a2) `me.access` — the node restating what this account may do while the panel is open. Injected
+  // at the same dispatch seam as every other frame, because what belongs to the SPA is the write, the
+  // re-gate and the change it announces; that the node emits one is kgsm-api's contract. The Owner
+  // answer is put back before anything below runs, since every gated surface after this reads it.
   {
     assert(api.__topics().includes("me"),
-      "the primary stream asks for `me` — a role change needs no reconnect to arrive");
+      "the primary stream asks for `me` — a change of access needs no reconnect to arrive");
 
-    const { can, resolveRoute } = await vite.ssrLoadModule("/src/lib/persona.js");
-    const seen = [];
-    const off = ss.sessionStore.onTierChange((d) => seen.push(d));
-    const push = (t) => api.__dispatch({ topic: "me", type: "me.patch", data: { tier: t, status: "active" } }, hid);
+    const { can, resolveRoute, serverOperable } = await vite.ssrLoadModule("/src/lib/persona.js");
+    const owner = st.accessStore.getState().sources["node:" + hid].report;
+    const probe = st.serversStore.find(PROBE.id) || PROBE;
+    const other = (st.serversStore.getState().list || []).find((s) => s.id !== probe.id && s.hostId === hid) || null;
+    // Starting is granted on the probe alone: on its install where the node reported a nonce, and on
+    // the whole node otherwise, which is the narrowest target that server can be looked up at.
+    const narrow = probe.installNonce
+      ? { cluster: ["kgsm:server.read"], nodes: {}, instances: { [hid + "/" + probe.id + "#" + probe.installNonce]: ["kgsm:server.start"] } }
+      : { cluster: ["kgsm:server.read"], nodes: { [hid]: ["kgsm:server.start"] }, instances: {} };
+    let changes = 0;
+    const off = st.accessStore.onChange(() => { changes += 1; });
+    const push = (report) => api.__dispatch({ topic: "me", type: "me.access", data: { version: 7, current: true, owner: false, ...report } }, hid);
 
-    push("viewer");
-    assert(ss.sessionStore.tierOf(hid) === "viewer",
-      "me.patch is the authority: a pushed demotion is written to the session record, never refused as a downgrade");
-    assert(!can("nav.cluster") && !can("server.operate"),
-      "the demotion re-gates the policy layer at once — no cluster, no operating");
+    push(narrow);
+    assert(!can("nav.cluster") && can("nav.servers") && serverOperable(probe),
+      "me.access is the authority: the pushed answer re-gates the policy layer at once — no cluster, the probe operable");
+    assert(!probe.installNonce || !other || !serverOperable(other),
+      "a grant on one install opens that server and no other on the same node");
     assert(resolveRoute({ kind: "cluster" }).kind !== "cluster",
-      "a route the new role may not occupy resolves away from itself");
-    assert(seen.length === 1 && seen[0].from === "admin" && seen[0].to === "viewer",
-      "the change is announced once, naming what it moved between");
+      "a route the new access does not reach resolves away from itself");
+    assert(changes === 1, "the change is announced once");
 
-    push("viewer");
-    assert(seen.length === 1, "a frame restating the tier already held announces nothing");
+    push(narrow);
+    assert(changes === 1, "a frame restating the access already held announces nothing");
 
-    push("admin");
+    api.__dispatch({ topic: "me", type: "me.access", data: owner }, hid);
     off();
-    assert(ss.sessionStore.tierOf(hid) === "admin" && can("nav.cluster") && can("server.operate"),
-      "a promotion lands the same way and the gates come back with it");
+    assert(can("nav.cluster") && serverOperable(probe),
+      "the Owner answer lands the same way and the gates come back with it");
   }
 
   // (b) audit.append → auditStore prepends. The frame carries the real AuditRecord wire
@@ -1688,7 +1694,7 @@ try {
   // because the backend under test runs with auth off and mints nothing.
   const credentialBearer = { token: "smoke-cluster-token", renewals: 0 };
   const smokeCredential = {
-    statusOf: () => "live", isLive: () => true, tierOf: () => "admin",
+    statusOf: () => "live", isLive: () => true,
     tokenOf: () => credentialBearer.token,
     rotate: async () => { credentialBearer.renewals += 1; credentialBearer.token = "renewed-" + credentialBearer.renewals; return "live"; },
     authorize: async () => "live",

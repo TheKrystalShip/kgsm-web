@@ -179,7 +179,7 @@ function AccountApp() {
 
       <SettingsSection icon="user" title="Account">
         <SettingsRow icon="at-sign" title="Username" sub={me.username} />
-        <SettingsRow icon="shield" title="Access" sub={capitalise(me.status === "active" ? me.tier : me.status)} />
+        <SettingsRow icon="shield" title="Status" sub={me.status === "pending" ? "Awaiting approval" : capitalise(me.status)} />
       </SettingsSection>
 
       <SettingsSection icon="key-round" title="Signing in">

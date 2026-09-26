@@ -18,6 +18,7 @@ import { auditStore } from "./audit.js";
 import { batchesStore } from "./batches.js";
 import { clusterStore, startDiscovery, stopDiscovery } from "./cluster.js";
 import { prefsStore } from "./prefs.js";
+import { accessStore } from "./access.js";
 import { startPingLoop, stopPingLoop } from "./ui.js";
 import { assistantSession } from "../assistantSession.js";
 import { assistantTargets } from "../assistants.js";
@@ -75,7 +76,14 @@ function startDataLayer() {
     // in parallel finds no node, concludes the account has no stored preferences, and the dashboard
     // seeds a default over the layout that was actually there. Reconciliation is what this waits on;
     // a roster that fails still resolves the hydrate, which then honestly reports no node.
-    hostsStore.refresh().catch(swallow).finally(() => { prefsStore.hydrate().catch(swallow); });
+    //
+    // What the caller may do is asked of the same nodes, so it waits on the same reconciliation, and
+    // the shell holds its first paint until every member has answered once.
+    accessStore.start();
+    hostsStore.refresh().catch(swallow).finally(() => {
+      prefsStore.hydrate().catch(swallow);
+      accessStore.refresh().catch(swallow);
+    });
     startPingLoop();
     // Resolve the cluster's node set, not just the addresses this browser holds.
     // A peer it registers joins the fan-out live; apiClient re-hydrates the stores
@@ -90,6 +98,7 @@ function stopDataLayer() {
   started = false;
   try {
     api.stopStreams();
+    accessStore.stop();
     stopDiscovery();
     stopPingLoop();
     withSessionStore((s) => s.stopBootstrap());

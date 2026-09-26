@@ -21,6 +21,8 @@ import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
 import { formatLatency } from "../../lib/nodeLabel.js";
+import { useStore } from "../../lib/store.js";
+import { authorityStore } from "../../lib/stores/authority.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
 
@@ -37,9 +39,22 @@ function AnchorOverview({ member, address, showsAccounts }) {
     return () => { live = false; };
   }, [showsAccounts]);
 
+  // Who holds Owner, and what nobody but an Owner can do yet, from the authority — which only somebody
+  // administering some of it may read. Anybody else sees dashes.
+  const view = useStore(authorityStore, s => s.view);
+  React.useEffect(() => {
+    if (showsAccounts) authorityStore.refresh().catch(() => {});
+  }, [showsAccounts]);
+
   const total = accounts ? accounts.length : null;
   const waiting = accounts ? accounts.filter(a => a.status === "pending").length : null;
-  const admins = accounts ? accounts.filter(a => a.status === "active" && a.tier === "admin").length : null;
+  const ownerRole = view ? (view.roles.find(r => r.kind === "owner") || {}).id : null;
+  const owners = view
+    ? new Set(view.assignments.filter(a => a.roleId === ownerRole)
+      .map(a => a.accountId)
+      .filter(id => (view.accounts.find(x => x.id === id) || {}).status === "active")).size
+    : null;
+  const unmapped = view ? view.catalog.filter(a => a.unmapped).length : null;
 
   // A figure that could not be read is a dash. Rendering 0 would say this anchor holds no accounts,
   // which for the thing that holds every account in the cluster is the worst thing it could say.
@@ -55,8 +70,11 @@ function AnchorOverview({ member, address, showsAccounts }) {
           <KPI icon="hourglass" label="Awaiting approval" value={n(waiting)}
             sub={waiting ? "they can sign in and see nothing" : null}
             tone={waiting ? "warn" : "muted"} />
-          <KPI icon="shield" label="Administrators" value={n(admins)} sub="active"
-            tone={admins === 0 ? "danger" : "muted"} />
+          <KPI icon="crown" label="Owners" value={n(owners)} sub="active"
+            tone={owners === 0 ? "danger" : "muted"} />
+          <KPI icon="list-checks" label="Unmapped actions" value={n(unmapped)}
+            sub={unmapped ? "only an Owner can perform them" : null}
+            tone={unmapped ? "warn" : "muted"} />
         </div>
       )}
 

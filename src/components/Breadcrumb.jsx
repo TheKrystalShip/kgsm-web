@@ -41,7 +41,8 @@ function breadcrumbTrail(route, ctx) {
                         { label: ctx.serverName || "Server", to: { kind: "server", id: route.id } });
                       // Files / Backups / Settings / Performance are operator surfaces the page hides
                       // from a player, landing them on the overview — so there is no crumb to add.
-                      tab("server", ctx.serverOperable || route.tab === "overview");
+                      tab("server", route.tab === "overview"
+                        || (route.tab === "access" ? ctx.serverAssignable : ctx.serverOperable));
                       break;
     case "library":   trail.push({ label: ctx.catalogLabel }); break;
     case "library-create": trail.push({ label: ctx.catalogLabel, to: { kind: "library" } }, { label: "New blueprint" }); break;

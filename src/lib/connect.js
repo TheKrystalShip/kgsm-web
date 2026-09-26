@@ -209,7 +209,7 @@ export function reconcileRosterToRegistry(nodes, opts = {}) {
 }
 
 // ---- impure: probe a candidate host (fetch injectable for tests) --------
-// Returns { status, origin, name?, version?, user?, tier? } where status ∈
+// Returns { status, origin, name?, version?, user?, hostId? } where status ∈
 //   "ok"          reachable kgsm-api, identity resolved (auth-disabled or already authed)
 //   "needs_auth"  reachable, but /me 401 (auth-enabled — OAuth handoff is a backend gap)
 //   "not_kgsm"    reachable, but the handshake isn't a kgsm-api
@@ -242,7 +242,7 @@ export async function connectHost(input, opts) {
       const hr = await fetchImpl(origin + "/api/v1/hosts", { headers: { Accept: "application/json" } });
       if (hr.ok) { const arr = await hr.json(); const h = Array.isArray(arr) ? arr[0] : (arr && arr.data && arr.data[0]); hostId = (h && h.id) || null; }
     } catch {}
-    return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), tier: (me && me.tier) || "none", hostId };
+    return { status: "ok", origin, name: hs.name, version: hs.version, user: userFromMe(me), hostId };
   } catch { return { status: "unreachable", origin }; }
 }
 
@@ -252,7 +252,7 @@ export async function connectHost(input, opts) {
 // the connect screen, and a seed skips both — so an auth-DISABLED dev backend (no
 // Discord to bounce to) is a dead end. Under `npm run dev` we instead resolve the
 // seed's identity exactly as the connect screen does (connectHost → /me 200 →
-// synthesized admin) and establish the session BEFORE the app mounts, so dev boots
+// the host's synthetic Owner) and establish the session BEFORE the app mounts, so dev boots
 // straight in. This is the same finalize HostAccess does on a successful connect
 // (addConnection + setAppUser), minus the reload — it runs pre-mount.
 //

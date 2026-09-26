@@ -3,7 +3,7 @@ import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { AssistantHostPicker } from "../chat/AssistantHostPicker.jsx";
 import { ChatPage as SharedChatPage } from "../chat/ChatPage.jsx";
 import { usableTargets } from "../lib/assistants.js";
-import { canOperate, isAdmin } from "../lib/persona.js";
+import { ACTIONS, canOperate, may } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { auditEventHost, fetchAssistantTranscript, hostsStore, serversStore } from "../lib/stores.js";
 
@@ -33,10 +33,10 @@ function ChatPage(props) {
         message: assistantHost.message || null,
       };
 
-  // One session, one tier, and every member reads the same one — so this is the account's role and
-  // there is no member to resolve it against.
+  // Staged actions are shown to whoever operates servers anywhere; carrying one out without
+  // confirmation is an action the assistant declares, which an Owner holds until it is granted.
   const canSeeActions = !!(assistantHost && canOperate());
-  const canUseActions = !!(assistantHost && isAdmin());
+  const canUseActions = !!(assistantHost && may(ACTIONS.ASSISTANT_AUTORUN));
 
   // Evidence rows name the node an event belongs to, which needs the roster and the store-aware
   // derivation (an event with only a serverId resolves through the server roster).

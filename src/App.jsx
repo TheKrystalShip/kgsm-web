@@ -11,14 +11,14 @@ import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
-import { can, homeKind, resolveRoute, serverOperable } from "./lib/persona.js";
+import { can, homeKind, resolveRoute, serverAssignable, serverOperable } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { runServerAction } from "./lib/serverActions.js";
 import { CONNECTIONS, subscribeConnections } from "./lib/config.js";
 import { fleetStore, refreshFleetFromAnchor } from "./lib/fleet.js";
-import { sessionStore, TIER_LABEL } from "./lib/sessionStore.js";
+import { sessionStore } from "./lib/sessionStore.js";
 import { useStore } from "./lib/store.js";
-import { clusterStore, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
+import { accessStore, clusterStore, hostsStore, installServer, libraryStore, serversStore, servicesStore, startDataLayer, stopDataLayer } from "./lib/stores.js";
 import { AddHostPage } from "./pages/HostAccess.jsx";
 import { CommandPalette } from "./components/palette/CommandPalette.jsx";
 import { FirstRunWelcome, hasSeenWelcome } from "./pages/FirstRunWelcome.jsx";
@@ -50,12 +50,14 @@ const ChatPage = React.lazy(() => import("./pages/ChatPage.jsx"));
 // Wraps the inner app in AssistantDockProvider so dock state is available via
 // useAssistantDock() throughout the tree.
 
-// Somebody signed in whom the cluster grants nothing. Read off the session the boot settled before
-// mount, because it has to be true on the first render — deciding it later would mean mounting the
-// shell for somebody every one of its screens would refuse. A host run open grants what it grants.
+// Somebody signed in whose account the cluster does not hold active — awaiting approval, switched
+// off, or unknown. Read off the session the boot settled before mount, because it has to be true on
+// the first render — deciding it later would mean mounting the shell for somebody every one of its
+// screens would refuse. An active account that holds no actions is let in: what it holds is each
+// page's answer, and "Your access" says so. A host run open grants what it grants.
 const holdsNothing = () => {
   const s = sessionStore.getState().session;
-  return !!(s && s.status === "live" && !s.open && (s.tier || "none") === "none");
+  return !!(s && s.status === "live" && !s.open && (s.account || "unknown") !== "active");
 };
 
 // Where somebody was going when they were asked to sign in. Kept for this tab only: it is a
@@ -161,12 +163,15 @@ function AppInner({ user, setUser, route, setRoute }) {
   const fleet = useStore(fleetStore, s => s);
   const session = useStore(sessionStore, s => s.session);
   const refusingNodes = useStore(sessionStore, s => s.nodes);
+  // What this person may do, as every member answered it. Read here so a change re-renders the shell
+  // and every gate below it asks again.
+  const access = useStore(accessStore, s => s.sources);
+  const accessSettled = useStore(accessStore, s => s.settled);
   // Read for the breadcrumb's leaf crumb only — the leaf page is what hydrates this board, so this
   // reads whichever node's board is currently held and shows nothing when none is.
   const servicesByHost = useStore(servicesStore, s => s.byHost);
 
-  // One session, so authorization settles once. A member still catching up does not hold the panel
-  // back — its own rows are what wait.
+  // One session, so authentication settles once.
   const authzSettled = !!session && session.status !== "none" && session.status !== "bootstrapping";
 
   const [tab] = React.useState(null);
@@ -225,7 +230,10 @@ function AppInner({ user, setUser, route, setRoute }) {
   const hostsSettled = hostsLoaded
     || (!wired && (fleet.state === "unreachable" || (fleet.state === "ready" && !fleet.count)));
 
-  const authzReady = hostsSettled && authzSettled;
+  // Authorization is settled once every member has answered `/me/access`, whatever it said: a member
+  // answering with an outage does not hold the panel back, and the controls it gates stay closed until
+  // it answers. With no node to ask the data layer never starts, and there is nothing to wait for.
+  const authzReady = hostsSettled && authzSettled && (accessSettled || !wired);
 
   // The boot cover waits only while a question is being answered. An answer the shell cannot be drawn
   // from ends the boot on BootFailed, which always offers a way forward, and the deadline catches any
@@ -316,28 +324,28 @@ function AppInner({ user, setUser, route, setRoute }) {
   // A role can change under somebody who is already standing on a page. `resolveRoute` is the
   // chokepoint every navigation passes through, so re-running it against the route currently held is
   // the whole guard: a route this role may still occupy comes back identical and nothing happens, a
-  // route it may not comes back as the persona's home and `setRoute` takes them there. It waits for
-  // `landingResolved` because every tier reads `none` until the sessions bootstrap, and bouncing on
-  // that would land a deep link on the viewer home a beat before its role arrived.
+  // route it may not comes back as the reachable home and `setRoute` takes them there. It waits for
+  // `landingResolved` because nothing is allowed until every member has answered, and bouncing on
+  // that would land a deep link on the servers list a beat before the answers arrived.
   React.useEffect(() => {
     if (!landingResolved) return;
     const allowed = resolveRoute(route);
     if (allowed !== route) setRoute(allowed);
-  }, [session, hosts, route, setRoute, landingResolved]);
+  }, [session, access, hosts, route, setRoute, landingResolved]);
 
-  // What a role change costs is visible immediately — controls and tabs go, and the page may change
-  // under them — and nothing else on the panel says why. So the shell says it, once: a tier belongs
-  // to the account and every member reads the same one, so there is no node to name.
-  React.useEffect(() => sessionStore.onTierChange(({ to }) => {
-    toast.info("Your access is now " + (TIER_LABEL[to] || to));
+  // What a change of access costs is visible immediately — controls and tabs go, and the page may
+  // change under them — and nothing else on the panel says why. So the shell says it, once. "Your
+  // access" on the settings page says what it now is.
+  React.useEffect(() => accessStore.onChange(() => {
+    toast.info("Your access changed");
   }), []);
 
-  // The nodes an install could land on: online, this role may create at all, and the member is not
-  // refusing this session. The capability is the cluster's; the refusal is the member's, and both
-  // have to hold for a target to be offerable.
+  // The nodes an install could land on: online, this person may install there, and the member is not
+  // refusing this session. The grant is the node's answer; the refusal is the member's session state,
+  // and both have to hold for a target to be offerable.
   const installTargets = hosts.filter(h => {
     const refusal = refusingNodes[h.id];
-    return h.online && can("server.create") && !(refusal && refusal.accepts === "refusing");
+    return h.online && can("server.create", { hostId: h.id }) && !(refusal && refusal.accepts === "refusing");
   });
   // An install nobody may make does not stay on screen with its fields. A role can be regraded while
   // the form is open, and a form with no node left to install on is one whose button can only be
@@ -403,7 +411,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   useAlerts();
 
   // Where the cluster signs people in is AuthGate's — this component is not mounted until there is
-  // a session with a tier behind it.
+  // a session with an active account behind it.
 
   // The sidebar badge counts the CLUSTER's firing alerts — an alert on any node
   // needs a human, so hiding it behind a scope would hide the work.
@@ -462,6 +470,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     // The server's operator tabs are hidden from a player, and the page falls back to the overview
     // for one — so the breadcrumb has to know, or it would name a tab that isn't on screen.
     serverOperable: serverForRender ? serverOperable(serverForRender) : false,
+    serverAssignable: serverForRender ? serverAssignable(serverForRender) : false,
     gameName: activeGame ? activeGame.name : null,
     // A cluster route names a MEMBER, and a member is a node or an anchor. A node is in the
     // connection set with a friendly name; an anchor is not driven by this browser at all and is

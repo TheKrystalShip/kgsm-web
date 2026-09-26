@@ -13,8 +13,9 @@ import { hostsStore } from "./stores.js";
 // of it (`oidc.js`): a round trip to the provider's pages signs somebody in, and the refresh grant
 // renews the session without a page. Every member accepts the session by verifying the provider's
 // signature against the key it publishes and resolves what the person may do from its own replica of
-// the account store. So there is one token, one tier and one record here, and no member ever issues
-// this browser a credential or extends one.
+// the account store. So there is one token and one record here, and no member ever issues this
+// browser a credential or extends one. The token proves who somebody is and nothing more: what they
+// may do is each member's `/me/access` answer (`stores/access.js`).
 //
 // ── The API is the authority ────────────────────────────────────────────────
 // The client does not predict expiry. It spends the token it holds and lets a refusal be the answer:
@@ -24,8 +25,8 @@ import { hostsStore } from "./stores.js";
 // ── A member's refusal is not proof the session is bad ──────────────────────
 // The two refusals a member can give are not the same claim.
 //
-// A member answers 403 when the token validated perfectly and the person then resolved to a tier
-// too low — which, for an account its replica does not carry yet, is `none`. That is always a
+// A member answers 403 when the token validated perfectly and the person then was not allowed what
+// they asked — which, for an account its replica does not carry yet, is everything. That is always a
 // statement about that member's view of this person, and a member that has just joined gives it as
 // a matter of course. It says nothing whatever about the session.
 //
@@ -59,7 +60,9 @@ import { hostsStore } from "./stores.js";
   const statusOf = () => (rec() ? rec().status : "none");
   const isLive = () => statusOf() === "live";
   const isDenied = () => statusOf() === "denied";
-  const tierOf = () => { const r = rec(); return r ? r.tier : null; };
+  // Where the account stands: active, pending (awaiting approval), or unknown (nothing here has an
+  // account for this session). Null with no session.
+  const accountOf = () => { const r = rec(); return r ? (r.account || "unknown") : null; };
   // The live bearer. Null unless one is actually held — a host running open is `live` with no token.
   const tokenOf = () => { const r = rec(); return r && r.status === "live" ? (r.token || null) : null; };
 
@@ -192,14 +195,11 @@ import { hostsStore } from "./stores.js";
   }
 
   // ---- adopting what the provider issued ----------------------------------
-  // The tier rides the token and is adopted as given: the provider resolved it when it minted, so a
-  // demotion lands exactly like a promotion. The `me` topic keeps it live afterwards. An account that
-  // reaches here is active — the provider hands no code to one awaiting approval.
+  // An account that reaches here is active — the provider hands no code to one awaiting approval.
   function adoptUser(user) {
-    const claims = claimsOf(user.access_token) || {};
     held = !!user.refresh_token;
     setRec({
-      status: "live", token: user.access_token, tier: claims.tier || "none",
+      status: "live", token: user.access_token,
       account: "active", open: false, error: null,
     });
     store.setState(s => ({ ...s, nodes: {} }));   // a new session; nobody has refused it yet
@@ -274,7 +274,7 @@ import { hostsStore } from "./stores.js";
         return res.json().then(me => {
           setRec({
             status: "live", token: null, open: true,
-            tier: (me && me.tier) || "none", account: (me && me.status) || "unknown", error: null,
+            account: (me && me.status) || "unknown", error: null,
           });
           return "live";
         });
@@ -309,23 +309,14 @@ import { hostsStore } from "./stores.js";
   function reauthorize() { return rotate(); }
   function needsReauth() { const r = rec(); return !!(r && r.reauthDue); }
 
-  // ---- a member stating this session's role, live -------------------------
-  // A member pushes `{tier, status}` on the `me` topic when it regrades the account behind this
-  // session, and the push is the authority — it is that member re-reading its replica of the one
-  // account, so it is written as given and a demotion lands exactly like a promotion.
-  //
-  // Only a genuine delta is announced: a frame restating the tier already held is not one, and
-  // somebody who was granted nothing is not told their access changed.
-  const tierListeners = new Set();
-  function onTierChange(fn) { tierListeners.add(fn); return () => tierListeners.delete(fn); }
-
+  // ---- a member stating where this account stands, live -------------------
+  // A member pushes the account's status on the `me` topic when it changes — approved, switched off —
+  // and the push is that member re-reading its replica of the one account, so it is written as given.
+  // A member with no account for this person has said nothing about the account: its replica may not
+  // have caught up, and that is its refusal to record, not the account's standing.
   function applyMePatch(patch) {
-    if (!patch) return;
-    const before = tierOf();
-    setRec({ tier: patch.tier || "none", account: patch.status || "unknown" });
-    const after = tierOf();
-    if (before == null || before === after) return;
-    for (const fn of tierListeners) { try { fn({ from: before, to: after }); } catch { /* one listener must not stop the rest */ } }
+    if (!patch || !patch.status || patch.status === "unknown") return;
+    setRec({ account: patch.status });
   }
 
   // Mark the session lapsed. The seam calls this on a refusal it is about to heal.
@@ -374,14 +365,14 @@ import { hostsStore } from "./stores.js";
     if (!user) return statusOf();
     if (!user.expired) { adoptUser(user); return "live"; }
     held = !!user.refresh_token;
-    if (held) setRec({ status: "expired", token: null, tier: (claimsOf(user.access_token) || {}).tier || "none", account: "active", error: "expired" });
+    if (held) setRec({ status: "expired", token: null, account: "active", error: "expired" });
     return statusOf();
   }
 
   store.statusOf = statusOf;
   store.isDenied = isDenied;
   store.isLive = isLive;
-  store.tierOf = tierOf;
+  store.accountOf = accountOf;
   store.tokenOf = tokenOf;
   store.rotate = rotate;
   store.authorize = authorize;
@@ -394,7 +385,6 @@ import { hostsStore } from "./stores.js";
   store.deny = deny;
   store.drop = drop;
   store.applyMePatch = applyMePatch;
-  store.onTierChange = onTierChange;
   store.signIn = signIn;
   store.isLanding = isLanding;
   store.completeSignIn = completeSignIn;
@@ -412,10 +402,9 @@ import { hostsStore } from "./stores.js";
   store.resolveAnchor = resolveAnchor;
 
   const sessionStore = store;
-  const TIER_LABEL = { admin: "Admin", operator: "Operator", viewer: "Viewer", none: "No role" };
 
-  // The `me` topic is this store's live half: a member's own re-statement of the tier behind this
-  // session. A global topic on the primary stream, so subscribing costs a listener and no socket,
+  // The `me` topic is this store's live half: a member's own re-statement of where the account behind
+  // this session stands. A global topic on the primary stream, so subscribing costs a listener and no socket,
   // and a member delivers the frame only to this account's connections — one that arrives is about
   // the reader. Started with the rest of the data layer rather than at import, so a browser on its
   // way to the provider opens nothing.
@@ -448,4 +437,4 @@ const clusterCredential = {
   rotate: async () => ((await sessionStore.rotate()) === "live" ? sessionStore.tokenOf() : null),
 };
 
-export { TIER_LABEL, clusterCredential, sessionStore };
+export { clusterCredential, sessionStore };

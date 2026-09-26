@@ -35,9 +35,10 @@ async function establishClusterSession() {
       display: u.display || u.username || null,
       provider, id: u.id || null, stay: true,
     });
-    // The tier the provider minted is what the session carries; this member's own answer confirms it
-    // from its replica and is what a first paint gates on.
-    sessionStore.applyMePatch({ tier: (me && me.tier) || sessionStore.tierOf() || "none", status: (me && me.status) || "unknown" });
+    // Where the account stands is the provider's answer, and it gave one by handing out a session: it
+    // gives a session only to an active account. This member's own view of the account — a replica
+    // that has not caught up, a member that has no account for this person — is its refusal to record
+    // against it, never a reason to turn the whole panel away.
   } catch { /* signed in with the identity unresolved; the next call fills it in */ }
 
   // Resolve this member's real backend id so routing is exact from the next call, and hydrate the

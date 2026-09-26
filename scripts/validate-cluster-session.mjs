@@ -29,7 +29,7 @@ localStorage.setItem("krystal:provider", JSON.stringify({ issuer: ANCHOR, via: "
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const jwt = (claims) => "h." + b64(claims) + ".s";
 const inAnHour = () => Math.floor(Date.now() / 1000) + 3600;
-const access = (n, tier, exp = inAnHour()) => jwt({ sid: "sid_1", tier, exp, n });
+const access = (n, exp = inAnHour()) => jwt({ sid: "sid_1", exp, n });
 
 // The session as oidc-client-ts stores it after a sign-in.
 function seed({ token, refresh, expiresAt = inAnHour() }) {
@@ -65,7 +65,7 @@ globalThis.fetch = async (url, opts) => {
     if (u.endsWith("/token")) {
       if (refuseRefresh) return json({ error: "invalid_grant", error_description: "That session has ended." }, 400);
       minted += 1;
-      return json({ access_token: access(minted, "operator"), token_type: "Bearer", expires_in: 900,
+      return json({ access_token: access(minted), token_type: "Bearer", expires_in: 900,
         refresh_token: "refresh." + minted, scope: "openid" });
     }
     if (u.endsWith("/auth/cluster/members")) {
@@ -104,12 +104,13 @@ const memberCredentialCalls = () => calls.filter(c => !c.u.startsWith(ANCHOR) &&
 const renewalsSince = (mark) => calls.slice(mark).filter(c => c.u === ANCHOR + "/token" && c.body.includes("grant_type=refresh_token"));
 
 // 1. A stored session is restored before anything mounts, whole.
-seed({ token: access(1, "admin"), refresh: "refresh.1" });
+seed({ token: access(1), refresh: "refresh.1" });
 await sessionStore.restore();
-check(sessionStore.isLive() && sessionStore.tierOf() === "admin", "a stored session is restored with its tier", sessionStore.tierOf());
+check(sessionStore.isLive() && sessionStore.accountOf() === "active",
+  "a stored session is restored, standing active — the provider gives a session to nothing else", sessionStore.accountOf());
 
 // 2. ONE token, and it is the same one for every member. There is no per-member token to differ.
-check(sessionStore.tokenOf() === access(1, "admin"), "one bearer is held");
+check(sessionStore.tokenOf() === access(1), "one bearer is held");
 check(sessionStore.statusOf() === "live", "and one status, with no member named to ask about");
 
 // 3. Renewal is the refresh grant at the PROVIDER and nowhere else. A member that could re-mint would
@@ -123,9 +124,10 @@ check(spent.length === 1 && spent[0].body.includes("refresh_token=refresh.1"), "
 check(spent.length === 1 && spent[0].body.includes("client_id=" + CLIENT), "as the client this origin is", CLIENT);
 check(memberCredentialCalls() === 0, "and no member was ever asked for one", String(memberCredentialCalls()));
 
-// 4. The renewed tier is the one the new token carries — the provider resolved it when it minted, so
-//    a demotion lands exactly like a promotion.
-check(sessionStore.tierOf() === "operator", "the tier the renewal minted is taken as given", sessionStore.tierOf());
+// 4. The renewed session is the one the new token carries, and it says who, never what: what the
+//    person may do is each member's `/me/access`.
+const heldN = JSON.parse(Buffer.from(String(sessionStore.tokenOf()).split(".")[1], "base64url").toString()).n;
+check(heldN === minted, "the bearer the renewal minted is the one held", String(heldN));
 check(stored() && stored().refresh_token === "refresh.2", "and the rotated refresh token replaces the spent one");
 
 // 5. A member refusing is a fact about THAT MEMBER and leaves the session alone.
@@ -156,7 +158,7 @@ refuseRefresh = false;
 // 9. A reload restores a session whose bearer has already lapsed. The roster is the ONLY
 //    authenticated call a clustered panel makes, so it renews first rather than spending a dead one.
 const { fleetStore, refreshFleetFromAnchor } = await import("../src/lib/fleet.js");
-seed({ token: access(9, "admin", Math.floor(Date.now() / 1000) - 60), refresh: "refresh.9", expiresAt: Math.floor(Date.now() / 1000) - 60 });
+seed({ token: access(9, Math.floor(Date.now() / 1000) - 60), refresh: "refresh.9", expiresAt: Math.floor(Date.now() / 1000) - 60 });
 await sessionStore.restore();
 check(sessionStore.statusOf() === "expired", "a restored session with a lapsed bearer is held, not live");
 

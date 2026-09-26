@@ -20,6 +20,8 @@ export { clusterStore } from "./cluster.js";
 export { DNS_KEY, dnsStore } from "./dns.js";
 export { PREF_KEYS, prefsStore } from "./prefs.js";
 export { AVAILABILITY_WINDOW, fleetOpsStore, startFleetOps, stopFleetOps } from "./fleet.js";
+export { accessStore } from "./access.js";
+export { authorityStore, refusalOf } from "./authority.js";
 
 // The data layer is started by the shell once there is a live session, and stopped when
 // there is not — importing this barrel hydrates nothing and opens no stream. See boot.js

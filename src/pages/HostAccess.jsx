@@ -5,10 +5,10 @@ import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/co
 
 // HostAccess.jsx — UI for the per-host identity/session layer (Model A).
 //
-//   HostAuthBadge   — per-host session pill (live tier / connecting / expired /
+//   HostAuthBadge   — per-host session pill (connected / connecting / expired /
 //                     no-access). Used in the host switcher, Fleet, Settings.
-//   HostDeniedNotice— the TERMINAL 403 surface: identity verified, but the role
-//                     isn't granted on this host. Never offers re-auth (a 403
+//   HostDeniedNotice— the TERMINAL 403 surface: identity verified, but nothing
+//                     is granted on this host. Never offers re-auth (a 403
 //                     re-bounce would loop); only "switch away" / "manage".
 //   AddHostPage     — the intermediate "add a host" surface. Shown after login
 //                     when no host is configured (the original empty-dashboard

@@ -4,7 +4,7 @@ import { reachStore } from "../lib/apiClient.js";
 import { CONNECTIONS } from "../lib/config.js";
 import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
-import { sessionStore, TIER_LABEL } from "../lib/sessionStore.js";
+import { sessionStore } from "../lib/sessionStore.js";
 import { statusTone } from "../lib/formatting.js";
 
 // host-helpers.jsx — shared host-related UI components extracted from page files.
@@ -196,11 +196,10 @@ function HostAuthBadge({ hostId, size }) {
   const session = useStore(sessionStore, s => s.session) || { status: "none" };
   const refusal = useStore(sessionStore, s => s.nodes[hostId]);
   const rec = refusal && refusal.accepts === "refusing"
-    ? { status: "denied", tier: session.tier }
+    ? { status: "denied" }
     : session;
-  const TIER = TIER_LABEL;
   const map = {
-    live:          { tone: "ok",   icon: "shield-check", label: TIER[rec.tier] || "Connected" },
+    live:          { tone: "ok",   icon: "shield-check", label: "Connected" },
     bootstrapping: { tone: "info", icon: "loader-2",     label: "Connecting\u2026", spin: true },
     expired:       { tone: "warn", icon: "rotate-cw",    label: "Reconnecting\u2026", spin: true },
     denied:        { tone: "danger", icon: "lock",       label: "No access" },
@@ -229,10 +228,7 @@ function HostDeniedNotice({ host, onBack, onManage, embedded }) {
       <div className="host-denied__icon"><Icon name="lock" size={26} strokeWidth={1.8} /></div>
       <h2 className="host-denied__title">You don{"'"}t have permission on {name}</h2>
       <p className="host-denied__body">
-        You{"'"}re signed in with Discord and <b>{name}</b> recognises you — but your Discord
-        role doesn{"'"}t grant access here. Each host checks roles against its own
-        community, so access can differ from host to host. Ask an admin of this
-        host{"'"}s Discord to grant your role, then reconnect.
+        <b>{name}</b> recognises you and grants you nothing.
       </p>
       <div className="host-denied__actions">
         {onBack && <button className="host-btn host-btn--primary" onClick={onBack}><Icon name="layers" size={14} /> Back to all hosts</button>}

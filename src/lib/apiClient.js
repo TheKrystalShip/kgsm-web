@@ -172,6 +172,9 @@ import("./stores.js").then((m) => {
     // and the blueprint editor renders them one per line. Dropping it here would leave the caller with
     // "the engine rejected this blueprint" and nothing about what to fix.
     e.details = env.details || null;
+    // The whole answer, for the refusals that carry more beside the envelope: the auth anchor names
+    // the actions a subset refusal was about, and answers a stale edit with the authority as it stands.
+    e.body = body || null;
     return e;
   }
   // A host's bearer, when we hold a live one. Sessions are keyed by BACKEND HOST
@@ -814,6 +817,27 @@ import("./stores.js").then((m) => {
     };
   }
 
+  // api.authority() — who may do what, at the provider: the authority the management pages read, one
+  // change at a time against the version it was read at, the rules' verdict on edits nobody has made,
+  // and the caller's own `auth:*` actions. Not behind a store for the same reason the accounts are not.
+  // A change made against an older version is refused with the authority as it stands (`e.body`).
+  function authorityScoped() {
+    const withRetry = (call) => call().catch((e) => {
+      if (!(e && e.status === 401)) throw e;
+      sessionStore.expire();
+      return call();
+    });
+    const at = (method, path, body) =>
+      accountDoor().then((d) => doorFetch(method, path, body, d));
+    return {
+      read: () => withRetry(() => at("GET", "/auth/cluster/authority")),
+      edit: (version, edit) => withRetry(() => at("POST", "/auth/cluster/authority/edits", { ...edit, version })),
+      check: (edits) => withRetry(() => at("POST", "/auth/cluster/authority/checks", { edits }))
+        .then((r) => (r && r.results) || []),
+      access: () => withRetry(() => at("GET", "/me/access")),
+    };
+  }
+
   // api.members(id) — the cluster membership surface (/api/v1/members…): admin CRUD over
   // this host's peer roster + the viewer-safe converged roster. v1-routed (get/
   // post/patch/del, not rootGet/rootPost) because these live under /api/v1, not
@@ -876,6 +900,7 @@ import("./stores.js").then((m) => {
     host: hostScoped,
     sessions: sessionsScoped,
     users: usersScoped,
+    authority: authorityScoped,
     members: membersScoped,
     reconnectHost, reconnectAll,
     startStreams, stopStreams,

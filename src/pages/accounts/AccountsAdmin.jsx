@@ -1,18 +1,24 @@
-// AccountsAdmin — the KGSM accounts somebody may sign in with, and what each of them may do.
+// AccountsAdmin — the KGSM accounts somebody may sign in with, where each stands, and the roles each
+// holds at which scope.
 //
-// An account is the primary identity object: it exists on its own, carries the tier, and an external
-// provider (Discord today, others later) is a credential attached to it rather than the source of
-// it. So this is where authority is decided — the only place a tier ever changes.
+// An account is the primary identity object: it exists on its own, and an external provider (Discord
+// today, others later) is a credential attached to it rather than the source of it. What an account
+// may do is the roles assigned to it — each at the cluster, a node or one server — plus what
+// `everyone` holds; approving somebody makes them active holding only that, and assigning a role is
+// the next, separate act.
 //
 // WHOSE accounts these are decides where the screen lives, and the cluster decides that, not this
-// component. Held by an anchor they are the cluster's — one account, one tier, everywhere — and they
-// are administered on the anchor's page, because that is the member that holds and writes them. Held
-// by a node they are that node's, administered on that node's API leaf beside the service's logs and
-// its configuration. One component either way: the subject differs, the screen does not.
+// component. Held by an anchor they are the cluster's and are administered on the anchor's page,
+// because that is the member that holds and writes them. Held by a node they are that node's,
+// administered on that node's API leaf. One component either way: the subject differs, the screen
+// does not.
 //
 // Read straight from `api.users()` rather than through a store: accounts change only when somebody
-// changes them here, and a cached list is a list that can be stale about who may do what. Each write
-// re-reads.
+// changes them here, and a cached list is a list that can be stale about who may sign in. Each write
+// re-reads. The roles come from the authority (`authorityStore`), which only somebody administering
+// some of it may read; without it the rows show no roles rather than claiming there are none.
+//
+// Every control is gated on the caller's own actions and every refusal is the anchor's sentence.
 
 import React from "react";
 
@@ -22,13 +28,20 @@ import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { SettingsSection } from "../../components/settings-primitives.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
+import { ADMINISTER_ACCESS } from "../../lib/actions.js";
 import { api } from "../../lib/apiClient.js";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
-import { sessionStore } from "../../lib/sessionStore.js";
+import { ACTIONS, isOwner, may, mayAny } from "../../lib/persona.js";
+import { useStore } from "../../lib/store.js";
+import { authorityStore, refusalOf } from "../../lib/stores/authority.js";
+import { Assignments } from "./access/Assignments.jsx";
+import { RefusalNote, roleName } from "./access/accessKit.jsx";
 
-const TIERS = ["viewer", "operator", "admin"];
-const TIER_LABEL = { none: "No access", viewer: "Viewer", operator: "Operator", admin: "Admin" };
 const STATUS_LABEL = { active: "Active", pending: "Awaiting approval", disabled: "Disabled" };
+const CLUSTER = { cluster: true };
+
+// The providers an account signs in with, from the credential handles it holds (`provider:subject`).
+const providersOf = (u) => (u.identities || []).map((i) => (typeof i === "string" ? i.split(":")[0] : i.provider));
 
 function AccountsAdmin({ hostId }) {
   const { anchor, anchored } = useAccountHolder();
@@ -37,259 +50,290 @@ function AccountsAdmin({ hostId }) {
   const reachable = anchor ? true : !!hostId;
   // Checked before asking, because a table that 403s tells the reader less than a sentence naming
   // what they would need.
-  const admin = reachable && sessionStore.isLive() && sessionStore.tierOf() === "admin";
+  const administers = reachable && (isOwner() || mayAny(ADMINISTER_ACCESS));
 
   const [rows, setRows] = React.useState(null);          // null = not loaded yet
-  const [error, setError] = React.useState(null);
+  const [refusal, setRefusal] = React.useState(null);
   const [editing, setEditing] = React.useState(null);    // a user row, or "new"
+  const view = useStore(authorityStore, (s) => s.view);
 
   const reload = React.useCallback(() => {
-    if (!admin) return Promise.resolve();
-    setError(null);
+    if (!administers) return Promise.resolve();
+    setRefusal(null);
+    authorityStore.refresh().catch(() => {});
     return api.users(hostId).list().then(
       (list) => setRows(list),
-      (e) => { setRows([]); setError(messageOf(e, "Couldn’t load the accounts.")); });
-  }, [hostId, admin]);
+      (e) => { setRows([]); setRefusal(refusalOf(e)); });
+  }, [hostId, administers]);
 
   React.useEffect(() => { reload(); }, [reload]);
 
-  // Approve in place: set the account active at viewer. Anything more is a tier decision, which is
-  // what the row's own editor is for.
+  // Approve in place: the account becomes active holding what `everyone` holds, and nothing more.
   const [approving, setApproving] = React.useState(null);
   const approve = (u) => {
     setApproving(u.id);
-    setError(null);
-    api.users(hostId).update(u.id, { status: "active", tier: u.tier === "none" ? "viewer" : u.tier }).then(
+    setRefusal(null);
+    api.users(hostId).update(u.id, { status: "active" }).then(
       () => reload().then(() => setApproving(null)),
-      (e) => { setError(messageOf(e, "Couldn’t approve that account.")); setApproving(null); });
+      (e) => { setRefusal(refusalOf(e)); setApproving(null); });
   };
 
-  if (!admin) {
+  if (!administers) {
     return (
       <div className="chat-brief">
         <div className="chat-brief__empty chat-brief__empty--neutral">
           <div className="chat-brief__empty-title">You don’t have access to this</div>
-          <div className="chat-brief__empty-sub">
-            Managing accounts needs the administrator role.
-          </div>
+          <div className="chat-brief__empty-sub">Managing accounts needs an auth action.</div>
         </div>
       </div>
     );
   }
 
-  const activeAdmins = (rows || []).filter((u) => u.status === "active" && u.tier === "admin").length;
+  const canApprove = may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER);
+  const canCreate = may(ACTIONS.ACCOUNTS_CREATE, CLUSTER);
   const waiting = (rows || []).filter((u) => u.status === "pending").length;
   // People waiting first. They are the only rows on this screen that need something done, and a
   // cluster with twenty accounts would otherwise bury them.
   const ordered = [...(rows || [])].sort(
     (a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
+  const rolesOf = (id) => (view ? view.assignments.filter((a) => a.accountId === id) : null);
+  const services = view ? view.accounts.filter((a) => a.kind === "service") : [];
 
   return (
-    <SettingsSection icon="users" title="Accounts"
-      meta={anchored ? "Who can sign in to this cluster, and what they may do."
-                     : "Who can sign in to this node, and what they may do."}>
-      {error && (
-        <div className="login-card__error" role="alert">
-          <Icon name="alert-triangle" size={14} />{error}
-        </div>
-      )}
+    <>
+      <SettingsSection icon="users" title="Accounts"
+        meta={anchored ? "Who can sign in to this cluster." : "Who can sign in to this node."}>
+        <RefusalNote refusal={refusal} />
 
-      {waiting > 0 && (
-        <div className="settings-users__waiting">
-          <Icon name="hourglass" size={14} />
-          {waiting === 1
-            ? "1 person is waiting for approval. Until you approve them they can sign in and see nothing."
-            : `${waiting} people are waiting for approval. Until you approve them they can sign in and see nothing.`}
-        </div>
-      )}
+        {waiting > 0 && (
+          <div className="settings-users__waiting">
+            <Icon name="hourglass" size={14} />
+            {waiting === 1 ? "1 person is waiting for approval." : `${waiting} people are waiting for approval.`}
+          </div>
+        )}
 
-      {rows === null ? (
-        <div className="settings-users__empty">Loading…</div>
-      ) : rows.length === 0 && !error ? (
-        <div className="settings-users__empty">No accounts yet.</div>
-      ) : (
-        <div className="settings-users">
-          {ordered.map((u) => (
-            <div key={u.id} className="settings-users__row">
-              <button type="button" className="settings-users__open" onClick={() => setEditing(u)}>
-                <span className="settings-users__avatar">{(u.displayName || u.username || "?")[0].toUpperCase()}</span>
-                <span className="settings-users__who">
-                  <span className="settings-users__name">{u.displayName || u.username}</span>
-                  <span className="settings-users__handle">
-                    {u.username}
-                    {u.identities && u.identities.length > 0 && (
-                      <> · {u.identities.map((i) => i.provider).join(", ")}</>
+        {rows === null ? (
+          <div className="settings-users__empty">Loading…</div>
+        ) : rows.length === 0 && !refusal ? (
+          <div className="settings-users__empty">No accounts yet.</div>
+        ) : (
+          <div className="settings-users">
+            {ordered.map((u) => {
+              const held = rolesOf(u.id);
+              return (
+                <div key={u.id} className="settings-users__row" data-account={u.username}>
+                  <button type="button" className="settings-users__open" onClick={() => setEditing(u)}>
+                    <span className="settings-users__avatar">{(u.displayName || u.username || "?")[0].toUpperCase()}</span>
+                    <span className="settings-users__who">
+                      <span className="settings-users__name">{u.displayName || u.username}</span>
+                      <span className="settings-users__handle">
+                        {u.username}
+                        {providersOf(u).length > 0 && <> · {providersOf(u).join(", ")}</>}
+                        {!u.hasPassword && providersOf(u).length === 0 && <> · no way to sign in</>}
+                      </span>
+                    </span>
+                    {held && (
+                      <span className="settings-users__roles">
+                        {held.length === 0
+                          ? <span className="settings-users__tier">everyone</span>
+                          : held.slice(0, 3).map((a) => (
+                            <span key={a.id} className="settings-users__tier">{roleName(view, a.roleId)}</span>
+                          ))}
+                        {held.length > 3 && <span className="settings-users__tier">+{held.length - 3}</span>}
+                      </span>
                     )}
-                    {!u.hasPassword && u.identities && u.identities.length === 0 && <> · no way to sign in</>}
-                  </span>
-                </span>
-                <span className={"settings-users__tier settings-users__tier--" + u.tier}>{TIER_LABEL[u.tier] || u.tier}</span>
-                <span className={"settings-users__status settings-users__status--" + u.status}>{STATUS_LABEL[u.status] || u.status}</span>
-                <Icon name="chevron-right" size={14} />
-              </button>
-              {u.status === "pending" && (
-                /* One gesture, because this is the whole of what an admin does on this screen most
-                   days. It grants VIEWER and nothing more: approving somebody is deciding they
-                   belong here, and deciding what they may do is a second, deliberate act. */
-                <button type="button" className="settings-users__approve"
-                  disabled={approving === u.id}
-                  onClick={() => approve(u)}>
-                  {approving === u.id ? "Approving…" : "Approve"}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                    <span className={"settings-users__status settings-users__status--" + u.status}>{STATUS_LABEL[u.status] || u.status}</span>
+                    <Icon name="chevron-right" size={14} />
+                  </button>
+                  {u.status === "pending" && canApprove && (
+                    <button type="button" className="settings-users__approve"
+                      disabled={approving === u.id}
+                      onClick={() => approve(u)}>
+                      {approving === u.id ? "Approving…" : "Approve"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-      <div className="settings-foot">
-        <button className="fb-editor__btn" onClick={() => setEditing("new")}>
-          Add an account
-        </button>
-      </div>
+        {canCreate && (
+          <div className="settings-foot">
+            <button className="fb-editor__btn" onClick={() => setEditing("new")}>
+              Add an account
+            </button>
+          </div>
+        )}
+      </SettingsSection>
+
+      {services.length > 0 && (
+        <SettingsSection icon="bot" title="Service accounts" meta={String(services.length)}>
+          <div className="settings-users">
+            {services.map((s) => (
+              <div key={s.id} className="settings-users__row">
+                <span className="settings-users__open">
+                  <span className="settings-users__avatar"><Icon name="bot" size={14} /></span>
+                  <span className="settings-users__who">
+                    <span className="settings-users__name">{s.username}</span>
+                    <span className="settings-users__handle">
+                      {s.requirements.length} {s.requirements.length === 1 ? "requirement" : "requirements"}
+                    </span>
+                  </span>
+                  <span className={"settings-users__status settings-users__status--" + s.status}>{STATUS_LABEL[s.status] || s.status}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </SettingsSection>
+      )}
 
       {editing && (
         <UserModal
           hostId={hostId}
+          view={view}
           user={editing === "new" ? null : editing}
-          // The backend refuses to leave the accounts with no way in, and says so with `last_admin`.
-          // The modal is told the count so it can explain BEFORE somebody tries, rather than only
-          // after.
-          isLastActiveAdmin={editing !== "new" && editing.status === "active"
-            && editing.tier === "admin" && activeAdmins <= 1}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); reload(); }} />
       )}
-    </SettingsSection>
+    </>
   );
 }
 
-// Create or edit one account. One modal for both, because the fields are the same and a separate
-// "create" form is how the two drift apart.
-function UserModal({ hostId, user, isLastActiveAdmin, onClose, onSaved }) {
-  const { anchored } = useAccountHolder();
+// Create or edit one account. Creating names it, optionally with a first password; editing changes
+// where it stands, sets a new password, assigns its roles, and ends its sessions or the account.
+function UserModal({ hostId, view, user, onClose, onSaved }) {
   const creating = !user;
   const [form, setForm] = React.useState(() => ({
-    username: user ? user.username : "",
-    displayName: user ? user.displayName : "",
-    tier: user ? user.tier : "viewer",
+    username: "",
+    displayName: "",
     status: user ? user.status : "active",
     password: "",
   }));
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState(null);
+  const [refusal, setRefusal] = React.useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const canCreate = may(ACTIONS.ACCOUNTS_CREATE, CLUSTER);
+  const canApprove = may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER);
+  const canDisable = may(ACTIONS.ACCOUNTS_DISABLE, CLUSTER);
+  const canDelete = may(ACTIONS.ACCOUNTS_DELETE, CLUSTER);
+  // Which statuses this person may move the account to: approving and returning to the queue are one
+  // action, switching off and on another.
+  const statusAllowed = (to) => {
+    if (!user || to === user.status) return true;
+    if (to === "disabled" || user.status === "disabled") return canDisable;
+    return canApprove;
+  };
 
   const save = async () => {
     setBusy(true);
-    setError(null);
+    setRefusal(null);
     try {
       const users = api.users(hostId);
       if (creating) {
         await users.create({
           username: form.username.trim(),
           displayName: form.displayName.trim() || form.username.trim(),
-          tier: form.tier,
           status: form.status,
           password: form.password || undefined,
         });
       } else {
-        await users.update(user.id, {
-          username: form.username.trim(),
-          displayName: form.displayName.trim(),
-          tier: form.tier,
-          status: form.status,
-        });
+        if (form.status !== user.status) await users.update(user.id, { status: form.status });
         if (form.password) await users.setPassword(user.id, form.password);
       }
       onSaved();
     } catch (e) {
       setBusy(false);
-      setError(messageOf(e, "Couldn’t save this account."));
+      setRefusal(refusalOf(e));
     }
   };
 
   const remove = async () => {
     setBusy(true);
-    setError(null);
+    setRefusal(null);
     try {
       await api.users(hostId).remove(user.id);
       onSaved();
     } catch (e) {
       setBusy(false);
-      setError(messageOf(e, "Couldn’t delete this account."));
+      setRefusal(refusalOf(e));
     }
   };
+
+  const dirty = creating || form.status !== user.status || !!form.password;
 
   return (
     <Modal onClose={busy ? undefined : onClose} canClose={!busy}>
       <div className="modal settings-users__form">
-        <h2 className="host-remove__title">{creating ? "Add an account" : form.username}</h2>
-        {error && (
-          <div className="login-card__error" role="alert"><Icon name="alert-triangle" size={14} />{error}</div>
+        <h2 className="host-remove__title">{creating ? "Add an account" : (user.displayName || user.username)}</h2>
+        {!creating && <div className="settings-users__linked">{user.username}</div>}
+        <RefusalNote refusal={refusal} />
+
+        {creating && (
+          <>
+            <label className="login-form__label" htmlFor="user-username">Username</label>
+            <input id="user-username" className="login-form__input" value={form.username}
+              autoCapitalize="off" spellCheck="false" disabled={busy} onChange={set("username")} />
+
+            <label className="login-form__label" htmlFor="user-display">Display name</label>
+            <input id="user-display" className="login-form__input" value={form.displayName}
+              disabled={busy} onChange={set("displayName")} />
+          </>
         )}
-        {isLastActiveAdmin && (
-          <div className="settings-users__note">
-            <Icon name="info" size={14} />
-            This is the only active admin{anchored ? " in this cluster" : " on this node"}. Give someone
-            else the admin tier before changing or removing it.
-          </div>
-        )}
-
-        <label className="login-form__label" htmlFor="user-username">Username</label>
-        <input id="user-username" className="login-form__input" value={form.username}
-          autoCapitalize="off" spellCheck="false" disabled={busy} onChange={set("username")} />
-
-        <label className="login-form__label" htmlFor="user-display">Display name</label>
-        <input id="user-display" className="login-form__input" value={form.displayName}
-          disabled={busy} onChange={set("displayName")} />
-
-        <label className="login-form__label" htmlFor="user-tier">Tier</label>
-        <Select id="user-tier" value={form.tier} disabled={busy} onChange={set("tier")}>
-          {TIERS.map((t) => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
-        </Select>
 
         <label className="login-form__label" htmlFor="user-status">Status</label>
         <Select id="user-status" value={form.status} disabled={busy} onChange={set("status")}>
-          <option value="active">Active</option>
-          <option value="pending">Awaiting approval</option>
-          {!creating && <option value="disabled">Disabled</option>}
+          <option value="active" disabled={!statusAllowed("active")}>Active</option>
+          <option value="pending" disabled={!statusAllowed("pending")}>Awaiting approval</option>
+          {!creating && <option value="disabled" disabled={!statusAllowed("disabled")}>Disabled</option>}
         </Select>
 
-        <label className="login-form__label" htmlFor="user-password">
-          {creating ? "Password (optional)" : "Set a new password"}
-        </label>
-        <input id="user-password" className="login-form__input" type="password" value={form.password}
-          autoComplete="new-password" placeholder={creating ? "Leave empty for no password yet" : "Leave empty to keep the current one"}
-          disabled={busy} onChange={set("password")} />
+        {canCreate && (
+          <>
+            <label className="login-form__label" htmlFor="user-password">
+              {creating ? "Password (optional)" : "Set a new password"}
+            </label>
+            <input id="user-password" className="login-form__input" type="password" value={form.password}
+              autoComplete="new-password" placeholder={creating ? "Leave empty for no password yet" : "Leave empty to keep the current one"}
+              disabled={busy} onChange={set("password")} />
+          </>
+        )}
         {!creating && user.identities && user.identities.length > 0 && (
           <div className="settings-users__linked">
-            Also signs in with: {user.identities.map((i) => i.handle).join(", ")}
+            Also signs in with: {user.identities.map((i) => (typeof i === "string" ? i : i.handle)).join(", ")}
           </div>
         )}
 
-        {!creating && <UserSessions hostId={hostId} user={user} disabled={busy} />}
+        {!creating && view && (
+          <div className="settings-users__sessions">
+            <div className="settings-users__sessions-head"><span>Roles</span></div>
+            <Assignments view={view} accountId={user.id} />
+          </div>
+        )}
+
+        {!creating && canDisable && <UserSessions hostId={hostId} user={user} disabled={busy} />}
 
         <div className="settings-users__actions">
-          {!creating && (
+          {!creating && canDelete && (
             <button className="host-btn host-btn--danger" onClick={remove} disabled={busy}>Delete</button>
           )}
           <span style={{ flex: 1 }} />
-          <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="host-btn host-btn--primary" onClick={save}
-            disabled={busy || !form.username.trim()}>
-            {busy ? "Saving…" : creating ? "Create" : "Save"}
-          </button>
+          <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Close</button>
+          {(creating || canApprove || canDisable || canCreate) && (
+            <button className="host-btn host-btn--primary" onClick={save}
+              disabled={busy || !dirty || (creating && !form.username.trim())}>
+              {busy ? "Saving…" : creating ? "Create" : "Save"}
+            </button>
+          )}
         </div>
       </div>
     </Modal>
   );
 }
 
-// Where this account is signed in, and ending any of it — inside the modal for the person it
-// belongs to, so an administrator acts on somebody they have already named. The alternative was a
-// lookup box that took a raw `usr_…` id, which asked an admin to know an opaque string by heart to
-// perform the most consequential thing on this screen.
+// Where this account is signed in, and ending any of it — inside the modal for the person it belongs
+// to, so an administrator acts on somebody they have already named rather than on an opaque id.
 //
 // Signing somebody out is deliberately NOT the same act as disabling them: the sessions end and the
 // account is untouched, so they can sign straight back in. The confirmation says so, because an
@@ -381,8 +425,7 @@ function rel(ts) {
 }
 
 // The backend's own message when it wrote one, because it is more specific than anything guessable
-// here — "that username is already taken", "that is the only active admin". Falls back only when
-// there is nothing to show.
+// here. Falls back only when there is nothing to show.
 function messageOf(e, fallback) {
   return (e && e.userMessage) || fallback;
 }

@@ -201,7 +201,7 @@ function RunCard({ run, hosts, nameOf, openOf }) {
 
   // Per NODE, because that is how the permission is held: a run can contain servers this person may
   // not operate on one node while operating freely on another.
-  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId && can("server.operate"));
+  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId && can("server.operate", { hostId: b.hostId }));
   const theirs = run.batches.filter((b) => b.state !== "settled").length - mine.length;
 
   const fire = () => {

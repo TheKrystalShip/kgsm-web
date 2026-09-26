@@ -19,7 +19,7 @@ import { createStore } from "./store.js";
 let resolveTarget = () => null;
 function setTargetResolver(fn) { resolveTarget = typeof fn === "function" ? fn : () => null; }
 
-// The credential: `statusOf`, `tokenOf`, `tierOf`, `isLive`, `rotate` (resolving to a status) and
+// The credential: `statusOf`, `tokenOf`, `isLive`, `rotate` (resolving to a status) and
 // `authorize`, with `subscribe` so a surface re-renders when it changes. The panel's sessionStore and
 // the standalone assistant's own session both speak it.
 let credential = null;
@@ -52,7 +52,6 @@ const hasRoute = (id) => !!originOf(id);
 const routed = (id) => !!(credential && hasRoute(id));
 const statusOf = (id) => (routed(id) ? credential.statusOf() : "none");
 const tokenOf = (id) => (routed(id) ? credential.tokenOf() : null);
-const tierOf = (id) => (routed(id) ? credential.tierOf() : null);
 const isLive = (id) => statusOf(id) === "live";
 
 // Renew, and hand back whatever the renewal produced, so a caller retrying a refused call retries
@@ -72,7 +71,7 @@ async function ensureSession(id) {
 
 const assistantSession = Object.assign(store, {
   setCredential, setTargetResolver,
-  ensureSession, hasRoute, isLive, originOf, rotate, statusOf, tierOf, tokenOf,
+  ensureSession, hasRoute, isLive, originOf, rotate, statusOf, tokenOf,
 });
 
 export { assistantSession };

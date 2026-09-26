@@ -4,7 +4,7 @@ import { PinButton } from "./widgets/PinButton.jsx";
 import { ConsoleView } from "./ConsoleView.jsx";
 import { api } from "../lib/apiClient.js";
 import { sendConsoleInput } from "../lib/stores.js";
-import { can, serverOperable } from "../lib/persona.js";
+import { ACTIONS, can, may } from "../lib/persona.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 
 // ConsolePanel — the server's stdout feed + command input, rendered through the shared
@@ -252,7 +252,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   // and is hidden in a forced read-only view (the player tab). The backend re-checks all of this —
   // this only decides whether to show the input vs. an honest note explaining why it's unavailable.
   const isNative = live && server.runtime === "native";
-  const canSend = live && !readOnly && isNative && isRunning && serverOperable(server);
+  const canSend = live && !readOnly && isNative && isRunning && may(ACTIONS.SERVER_CONSOLE_WRITE, { server });
 
   const submit = (e) => {
     e.preventDefault();
@@ -278,7 +278,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
   // blocking reason: structural (container) → permission → run-state.
   const note = !live ? null
     : !isNative ? { icon: "terminal-square", text: "Console input isn’t available for container servers — Docker owns their console." }
-    : !serverOperable(server) ? { icon: "lock", text: "Read-only — you don’t have permission to send console commands." }
+    : !may(ACTIONS.SERVER_CONSOLE_WRITE, { server }) ? { icon: "lock", text: "Read-only — you don’t have permission to send console commands." }
     : !isRunning ? { icon: "power-off", text: server.status === "unknown"
         ? "Console input is unavailable — the server’s state can’t be confirmed."
         : "Console input is unavailable while the server is offline — start it to send commands." }
@@ -286,7 +286,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
 
   // Gated on this host's audit reach, which is the same gate the audit page uses — the rows come
   // from the same endpoint, so asking without it would just collect 403s.
-  const recent = useRecentCommands(live ? server : null, live && !readOnly && can("nav.audit"));
+  const recent = useRecentCommands(live ? server : null, live && !readOnly && can("nav.audit", { hostId: server.hostId }));
 
   // Who has been sending commands here. Shown under the input rather than in the feed: these are
   // audit rows, not console output, and putting them in the stream would be writing lines the server

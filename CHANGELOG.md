@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [3.0.0]
+
+### Changed — every gate reads `/me/access`
+
+- **What somebody may do is each member's `/me/access` answer, looked up by action at a target.**
+  `stores/access.js` holds one answer per member — every node's `GET /api/v1/me/access` and the auth
+  anchor's `GET /me/access` — kept live by the node's `me.access` frame and by re-reading the anchor
+  when the tab comes back into view. `access.js` looks an action up and decides nothing; `actions.js`
+  names every action the panel gates on. `persona.js` asks `may(action, target)` with the narrowest
+  target in hand — a server, a node, the cluster, or anywhere — so a grant on one server opens that
+  server's controls and no other's. An Owner's `owner` answer covers actions no manifest declares.
+- **The session proves who, never what.** `sessionStore` holds no tier: `tierOf`, `TIER_LABEL` and
+  `onTierChange` are gone. A provider session is active by construction, and a member with no account
+  for the person has said nothing about the account; its refusal is recorded against it.
+- The shell holds its first paint until every member has answered `/me/access` once, and says "Your
+  access changed" when what is held changes.
+- Servers carry their `installNonce`.
+
+### Added — the access management pages
+
+- **The auth anchor's page** gains Roles (rank order, create, rename, drag or step to rank, delete,
+  the permissions each holds; Owner locked), Permissions (create, rename, delete, file catalog actions,
+  the roles holding each), Catalog (every action by component with effect, scope and declarers; an
+  Unmapped filter, filing from the row) and Services (each service account's requirements, approved,
+  narrowed or revoked). Accounts shows each account's roles and assigns them at any scope.
+- **A server's Access tab** lists and makes the assignments scoped to that install.
+- **Every control is gated on the caller's own actions, and every closed one says why**, in the
+  anchor's words from `POST /auth/cluster/authority/checks`: a role above the assigner's is offered,
+  closed, with the reason. A stale edit redraws on the authority the anchor hands back.
+- **Your access** lists what each member answered — cluster-wide, per node, per server — and which
+  member could not answer.
+- The anchor's overview counts active Owners and unmapped actions.
+
 ## [2.1.2]
 
 ### Fixed

@@ -1,70 +1,60 @@
+import { allows, isOwner as holdsEverything } from "./access.js";
+import { ACTIONS, SERVER_OPERATE } from "./actions.js";
 import { hostAddressOf } from "./config.js";
 import { KrystalRouter } from "./router.js";
-import { sessionStore } from "./sessionStore.js";
+import { accessStore } from "./stores/access.js";
 
-// persona.js — the authorization POLICY layer (the single source of truth for
-// "what may you reach" and "what may you do"), plus the Steam connect helper.
+// persona.js — the authorization POLICY layer: "what may you reach" and "what may you do", plus the
+// Steam connect helper.
 //
-// This is deliberately distinct from the SESSION layer (sessionStore.js, §3·f),
-// which answers "who are you" + "is your bearer valid". This module answers the
-// next two questions and answers them STRUCTURALLY — see docs/architecture.html
-// §3·f·1. The whole panel reads its rules from here; nothing re-derives a gate
-// inline, and an unlisted (role, surface) pair is denied by default.
-//
-// PERSONA IS NOT STORED STATE. A role is emergent from the one tier the session layer holds
-// (sessionStore.tierOf → admin | operator | viewer | none), which the anchor resolved and every
-// member reads from its own replica of the same account. One account, one tier, cluster-wide.
-//
-// The one override: a signed-in user may carry persona:"admin|operator|viewer" (the "Preview as"
-// lens). It forces a role so an operator can verify how the panel looks to each tier, then sign
-// back in to return to their real one.
+// Distinct from the SESSION layer (sessionStore.js), which answers "who are you" and "is your bearer
+// valid". What somebody may do is an ACTION at a TARGET, and every member they reach has already
+// evaluated it: the answers live in `stores/access.js` and are looked up by `access.js`. Nothing here
+// decides access; it names which actions a surface performs and asks.
 //
 // ── The model ──────────────────────────────────────────────────────────────
-//   CAP        named capabilities (nav surfaces + the two action gates)
-//   ROLE_CAPS  role → its capability set (explicit, not additive-by-code)
-//   ROUTE_CAP  route.kind → required capability (absent ⇒ public to any role)
-//   can(cap)         does this person hold `cap` — the one question there is
-//   resolveRoute(r)  the routing chokepoint: forbidden route → persona's home
+//   may(action, target)     the question — is `action` allowed at `target`
+//   mayAny(actions, target) any of them
+//   can(cap, target)        a navigation or control capability, which names the actions behind it
+//   resolveRoute(r)         the routing chokepoint: forbidden route → the home this person can reach
 //
-// There is ONE question because there is one tier. A scoped variant would let a surface ask "may
-// they do this HERE" and receive a cluster answer that only looks scoped, which is worse than not
-// offering the question. Where a surface needs to know whether a MEMBER will honour the answer,
-// that is a different fact and `sessionStore.nodeRefusal(id)` is where it lives.
+// A target is what the caller has in hand: nothing (anywhere — the question a nav entry asks),
+// `{ hostId }` for a node, `{ server }` for a server row, `{ cluster: true }` for cluster-wide only.
+// Asking with the narrowest target in hand is what lets a grant on one server open that server's
+// controls and no other's.
 
-  var AUTH_LS_KEY = "krystal:auth";
-  var AUTH_SS_KEY = "krystal:auth:session";
-
-  // ── Capabilities ──────────────────────────────────────────────────────────
+  // ── Capabilities → the actions they are ─────────────────────────────────────
+  // A capability is a surface's name for what it does; the actions are what a member grants. An entry
+  // with no actions is open to anybody signed in.
   var CAP = {
-    NAV_DASHBOARD: "nav.dashboard",   // Home / ops dashboard
-    NAV_SERVERS:   "nav.servers",     // the game-server list + detail
-    NAV_LIBRARY:   "nav.library",     // the install catalog
-    NAV_ALERTS:    "nav.alerts",      // the alerts board
-    NAV_AUDIT:     "nav.audit",       // the audit log
-    NAV_CLUSTER:   "nav.cluster",     // the cluster grid + node deep-dive
-    NAV_SETTINGS:  "nav.settings",    // account settings
-    SERVER_OPERATE: "server.operate", // lifecycle, files, backups, settings, MOTD, moderation
-    SERVER_CREATE:  "server.create",  // install/create a NEW game server (distinct from operating one)
-    HOST_MANAGE:    "host.manage",    // add/forget hosts, cluster management
+    NAV_DASHBOARD: "nav.dashboard",
+    NAV_SERVERS:   "nav.servers",
+    NAV_LIBRARY:   "nav.library",
+    NAV_ALERTS:    "nav.alerts",
+    NAV_AUDIT:     "nav.audit",
+    NAV_CLUSTER:   "nav.cluster",
+    NAV_SETTINGS:  "nav.settings",
+    SERVER_OPERATE: "server.operate",
+    SERVER_CREATE:  "server.create",
+    HOST_MANAGE:    "host.manage",
   };
 
-  // ── Role → capability matrix (explicit; each set audits at a glance) ────────
-  // Viewer  — READ-ONLY: servers + catalog + settings. No creating,
-  //           no operating — it can browse the catalog but not deploy from it.
-  // Operator— + dashboard, alerts, audit, Discord config, SERVER_CREATE and
-  //           SERVER_OPERATE.
-  // Admin   — + cluster and host management.
-  var VIEWER = [CAP.NAV_SERVERS, CAP.NAV_LIBRARY, CAP.NAV_SETTINGS];
-  var OPERATOR = VIEWER.concat([CAP.NAV_DASHBOARD, CAP.NAV_ALERTS, CAP.NAV_AUDIT, CAP.SERVER_CREATE, CAP.SERVER_OPERATE]);
-  var ADMIN = OPERATOR.concat([CAP.NAV_CLUSTER, CAP.HOST_MANAGE]);
-  var ROLE_CAPS = { none: [], viewer: VIEWER, operator: OPERATOR, admin: ADMIN };
-  // Pre-resolved Sets for O(1) lookup.
-  var ROLE_SET = {};
-  Object.keys(ROLE_CAPS).forEach(function (r) { ROLE_SET[r] = new Set(ROLE_CAPS[r]); });
+  var CAP_ACTIONS = {
+    "nav.dashboard": [ACTIONS.SERVER_READ],
+    "nav.servers": [ACTIONS.SERVER_READ],
+    "nav.library": [ACTIONS.LIBRARY_READ],
+    "nav.alerts": [ACTIONS.ALERTS_READ],
+    "nav.audit": [ACTIONS.AUDIT_READ],
+    "nav.cluster": [ACTIONS.MEMBERS_READ],
+    "nav.settings": [],
+    "server.operate": SERVER_OPERATE,
+    "server.create": [ACTIONS.SERVER_INSTALL],
+    "host.manage": [ACTIONS.MEMBERS_MANAGE],
+  };
 
-  // ── Route → required capability (absent ⇒ public to any signed-in role) ─────
-  // Public: servers, server, library, game (every role can browse + open detail;
-  // the OPERATE actions inside are gated separately, scoped to the host).
+  // ── Route → required capability (absent ⇒ open to anybody signed in) ────────
+  // Servers, a server, the library and a game are browsed by anyone holding their read; the controls
+  // inside ask for their own actions against the server or node they are about.
   var ROUTE_CAP = {
     home:      CAP.NAV_DASHBOARD,
     attention: CAP.NAV_ALERTS,
@@ -72,59 +62,38 @@ import { sessionStore } from "./sessionStore.js";
     cluster:   CAP.NAV_CLUSTER,
     settings:  CAP.NAV_SETTINGS,
     addHost:   CAP.HOST_MANAGE,
-    // Leaf configuration is admin-only end to end: kgsm-api's whole leaf controller is
-    // Admin-policy, so an operator reaching this route would meet a 403 on every read.
+    // A leaf's page and its configuration aggregate surfaces the node serves only to somebody who
+    // manages it, so a lower grant would reach them and meet a refusal on every read.
     leafConfig: CAP.HOST_MANAGE,
-    // A leaf's own page is admin-only for the same reason its config page is: every surface it
-    // aggregates — the service row, the config, and the assistant's conversation review — is
-    // Admin-policy in kgsm-api, so a lower tier would reach it and meet a 403 on every read.
     leaf: CAP.HOST_MANAGE,
   };
 
-  function storedUser() {
-    try {
-      var p = localStorage.getItem(AUTH_LS_KEY);
-      if (p) return JSON.parse(p);
-      var s = sessionStorage.getItem(AUTH_SS_KEY);
-      if (s) return JSON.parse(s);
-    } catch {}
-    return null;
-  }
-  function personaOverride() {
-    var u = storedUser();
-    var o = u && u.persona;
-    return (o && ROLE_SET[o]) ? o : null; // "admin" | "operator" | "viewer" | null(auto)
-  }
-  function tierOf() {
-    try { return sessionStore.tierOf(); }
-    catch { return null; }
-  }
+  const sources = () => accessStore.getState().sources;
 
-  // ── role — the effective role, override-aware ──────────────────────────────
-  function role() {
-    var o = personaOverride();
-    if (o) return o;
-    return tierOf() || "none";
+  // ── The questions ──────────────────────────────────────────────────────────
+  function may(action, target) { return allows(sources(), action, target); }
+  function mayAny(actions, target) {
+    var s = sources();
+    return (actions || []).some(function (a) { return allows(s, a, target); });
   }
-  function caps() { return ROLE_SET[role()] || ROLE_SET.none; }
-
-  // ── The one evaluation ─────────────────────────────────────────────────────
-  function can(cap) { return caps().has(cap); }
+  function can(cap, target) {
+    var actions = CAP_ACTIONS[cap];
+    if (!actions) return false;          // an unlisted capability is closed
+    if (!actions.length) return true;
+    return mayAny(actions, target);
+  }
+  // Whether any member says this person holds every action, declared or not.
+  function isOwner() { return holdsEverything(sources()); }
 
   // ── Route gating + resolution (the chokepoint) ──────────────────────────────
-  // homeKind — where a persona lands by default: the ops dashboard if they can
-  // reach it, else the servers list (a viewer's actual home).
   function homeKind() { return can(CAP.NAV_DASHBOARD) ? "home" : "servers"; }
-  // canReach — may this persona occupy `route`? Global surfaces use the
-  // aggregate; public routes (no ROUTE_CAP entry) are open to any signed-in role.
   function canReach(route) {
     if (!route || !route.kind) return true;
     var cap = ROUTE_CAP[route.kind];
     return cap ? can(cap) : true;
   }
-  // resolveRoute — the single chokepoint. A forbidden destination is mapped to the persona's home
-  // SYNCHRONOUSLY, so a route this role cannot occupy never enters state and its page never mounts.
-  // No post-render bounce, no flash.
+  // A forbidden destination is mapped to the home this person can reach SYNCHRONOUSLY, so a route
+  // they cannot occupy never enters state and its page never mounts.
   //
   // The screens in front of the app go the same way. Reaching one from inside means asking for a
   // door while standing in the building, and the answer is the room they are already in — which is
@@ -134,10 +103,14 @@ import { sessionStore } from "./sessionStore.js";
     return canReach(route) ? route : { kind: homeKind() };
   }
 
-  // ── Back-compat aliases (now thin reads of the one policy) ──────────────────
-  function canOperate() { return can(CAP.SERVER_OPERATE); }
-  function serverOperable(server) { return server ? can(CAP.SERVER_OPERATE) : false; }
-  function isAdmin() { return role() === "admin"; }
+  // Operating: any lifecycle verb, anywhere or on one server.
+  function canOperate() { return mayAny(SERVER_OPERATE); }
+  function serverOperable(server) { return server ? mayAny(SERVER_OPERATE, { server: server }) : false; }
+  // Assigning roles on one server: `auth:roles.assign` held there or wider, which only an install
+  // whose nonce is known can be looked up for.
+  function serverAssignable(server) {
+    return !!(server && server.installNonce) && may(ACTIONS.ROLES_ASSIGN, { server: server });
+  }
 
   // ---- Steam launch + connect address --------------------------------------
   // Identity comes from the backend, NOT a hardcoded table: each server carries
@@ -201,17 +174,6 @@ import { sessionStore } from "./sessionStore.js";
     };
   }
 
-  // ── Public surface ──────────────────────────────────────────────────────
-  // The policy layer — the single source of truth every surface reads.
-  const krystalPolicy = {
-    CAP: CAP, ROLE_CAPS: ROLE_CAPS, ROUTE_CAP: ROUTE_CAP,
-    role: role, can: can,
-    canReach: canReach, resolveRoute: resolveRoute, homeKind: homeKind,
-  };
-  // Flat conveniences (used directly by components + the router chokepoint).
+  const krystalPolicy = { CAP: CAP, CAP_ACTIONS: CAP_ACTIONS, ROUTE_CAP: ROUTE_CAP };
 
-  // Back-compat aliases — kept so existing call sites don't churn; all now read
-  // the one policy above rather than re-deriving a rule.
-  const krystalPersona = personaOverride;
-
-export { can, canOperate, canReach, homeKind, isAdmin, krystalPersona, krystalPolicy, resolveRoute, role, serverJoin, serverOperable };
+export { ACTIONS, can, canOperate, canReach, homeKind, isOwner, krystalPolicy, may, mayAny, resolveRoute, serverAssignable, serverJoin, serverOperable };

@@ -47,7 +47,7 @@ if (known) {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const exp = Math.floor(Date.now() / 1000) + 3600;
   localStorage.setItem(`krystal:oidc:user:${ANCHOR}:kgsm.test`, JSON.stringify({
-    id_token: "h." + b64({ sub: "usr_1" }) + ".s", access_token: "h." + b64({ tier: "admin", exp }) + ".s",
+    id_token: "h." + b64({ sub: "usr_1" }) + ".s", access_token: "h." + b64({ exp }) + ".s",
     refresh_token: "refresh.1", token_type: "Bearer", scope: "openid", profile: { sub: "usr_1" }, expires_at: exp,
   }));
 }
@@ -91,7 +91,7 @@ if (known) {
   check(at(NODE, since(mark)).length === 0, "with nothing asked of the member", String(at(NODE, since(mark)).length));
 
   mark = calls.length;
-  await api.users("hotrod").update("usr_1", { tier: "operator" });
+  await api.users("hotrod").update("usr_1", { status: "disabled" });
   await api.users("hotrod").remove("usr_1");
   await api.users("hotrod").setPassword("usr_1", "hunter2");
   check(at(NODE, since(mark)).length === 0, "no account WRITE reaches a member, whatever node a screen names",

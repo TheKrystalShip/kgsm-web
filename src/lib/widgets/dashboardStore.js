@@ -6,8 +6,8 @@
 // first render, and a round trip would mean an empty grid on every cold load.
 
 import { can } from "../persona.js";
-import { sessionStore } from "../sessionStore.js";
 import { createStore } from "../store.js";
+import { accessStore } from "../stores/access.js";
 import { PREF_KEYS, prefsStore } from "../stores/prefs.js";
 import { getWidget, hasWidget } from "./registry.js";
 import { findTarget, makeWidget, normalizeLayout, sameTarget, widgetId } from "./layout.js";
@@ -21,10 +21,9 @@ const LEGACY_ORDER_KEY = "krystal:dash:order";
 
 // ---- The default layout --------------------------------------------------
 //
-// ONE list, filtered by what the role may actually see, rather than three hand-kept per-role lists
-// that drift apart. A viewer is never seeded a widget their capability immediately hides, and a
-// capability added to a role later starts appearing in new dashboards with no second list to
-// update.
+// ONE list, filtered by what this person may actually see, rather than hand-kept lists per kind of
+// person that drift apart. Nobody is seeded a widget their access immediately hides, and access
+// granted later starts appearing in new dashboards with no second list to update.
 //
 // Order is the reading order of the page it replaces: what is happening, what needs me, then the
 // things to browse.
@@ -123,7 +122,7 @@ function migrateLegacy() {
 const dashboardStore = createStore({ layout: [], hydrated: false });
 
 /// Load the layout. Called by the dashboard on mount rather than at import, because the seed reads
-/// the persona and there is no role to read until there is a session.
+/// what this person may do and there is nothing to read until there is a session.
 // A layout written before the summary was split holds one `fleet.summary`. Expand it in place into
 // the twelve tiles rather than leaving somebody with a block they cannot take apart — the figures
 // are identical and they land exactly where the block was. The type stays registered either way, so
@@ -202,7 +201,7 @@ dashboardStore.hydrate = () => {
 };
 
 // A default shown over a node that could not be read, held on screen and nowhere else. Anything the
-// person arranges commits it as theirs; a role change re-seeds it in place without writing.
+// person arranges commits it as theirs; a change of access re-seeds it in place without writing.
 let _unwritten = false;
 
 // The node's copy arrives after the first render — the data layer reads it once there is a session,
@@ -235,15 +234,15 @@ const commit = (layout) => {
   writeStored(layout);
 };
 
-// ---- Following a role change ---------------------------------------------
+// ---- Following a change of access ----------------------------------------
 //
-// A dashboard NOBODY HAS ARRANGED follows the role; one somebody has arranged is theirs.
+// A dashboard NOBODY HAS ARRANGED follows the access; one somebody has arranged is theirs.
 //
-// The seed is `DEFAULT_LAYOUT` filtered by what the role may see, so an untouched dashboard is that
+// The seed is `DEFAULT_LAYOUT` filtered by what this person may see, so an untouched dashboard is that
 // list, in that order, at those sizes, with nothing added and nothing renamed. Recognising exactly
 // that is what makes re-seeding safe: for any other layout the arrangement is a decision, and
 // replacing it would throw the decision away. Nothing is lost by leaving one alone either —
-// `WidgetHost` asks the capability on every render, so a card the new role may not see stops
+// `WidgetHost` asks the capability on every render, so a card the new access does not reach stops
 // drawing whether or not the layout was rewritten.
 function isUntouchedSeed(layout) {
   const seed = DEFAULT_LAYOUT.filter(d => hasWidget(d.type));
@@ -258,8 +257,8 @@ function isUntouchedSeed(layout) {
   return true;
 }
 
-/// Re-seed for the role now held. A dashboard that has not loaded yet needs nothing: `hydrate` runs
-/// on the next mount and reads the role then.
+/// Re-seed for the access now held. A dashboard that has not loaded yet needs nothing: `hydrate` runs
+/// on the next mount and reads the access then.
 dashboardStore.retier = () => {
   const { layout, hydrated } = dashboardStore.getState();
   if (!hydrated || !isUntouchedSeed(layout)) return;
@@ -267,7 +266,7 @@ dashboardStore.retier = () => {
   commit(defaultLayout());
 };
 
-sessionStore.onTierChange(() => dashboardStore.retier());
+accessStore.onChange(() => dashboardStore.retier());
 
 dashboardStore.replace = (layout) => commit(layout);
 

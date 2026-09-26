@@ -22,6 +22,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { fmtUntil } from "../../lib/formatting.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { controlLeafWindow, fetchLeafSchedules } from "../../lib/stores.js";
 import { OutcomeChip, TaskChips, flattenWindows } from "./schedulerBoard.jsx";
@@ -64,11 +65,9 @@ const POSTPONE_SPANS = [
 ];
 
 function SchedulerWindows({ hostId, leafId }) {
-  // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
-  // whether these windows can be moved is the one held on THIS node. Reading the board is operator.
+  // Moving a window is the scheduler's own action, asked of THIS node.
   const live = !!hostId && sessionStore.isLive();
-  const tier = live ? sessionStore.tierOf() : null;
-  const canEdit = tier === "admin";
+  const canEdit = live && may(ACTIONS.SCHEDULER_WINDOWS_WRITE, { hostId });
 
   const { state, data, error, reload } = useLeafResource(hostId, leafId, (h) => fetchLeafSchedules(h));
 
@@ -194,8 +193,8 @@ function SchedulerWindows({ hostId, leafId }) {
 
       {!canEdit && (
         <div className="thr-notice">
-          These are the appointments this host keeps. Postponing, skipping or running one needs admin on
-          this node{tier ? " — you’re " + tier + " here." : "."}
+          These are the appointments this host keeps. Postponing, skipping or running one needs{" "}
+          {ACTIONS.SCHEDULER_WINDOWS_WRITE} on this node.
         </div>
       )}
 

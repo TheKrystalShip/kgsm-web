@@ -14,7 +14,7 @@ import { AuthShell } from "./AuthChrome.jsx";
 //                panel was on screen, and leaving for the provider unasked would discard whatever
 //                somebody was doing
 //   refused      the provider sent the browser back without a session, naming why
-//   no_access    signed in, and the cluster grants this account nothing
+//   no_access    signed in, and the cluster holds no active account for this session
 
 const WHAT = {
   unreachable: {
@@ -42,7 +42,7 @@ const WHAT = {
   no_access: {
     icon: "user-x",
     title: "No access",
-    body: () => <>You’re signed in, and this cluster grants your account nothing.</>,
+    body: () => <>You’re signed in, and this cluster has no active account for you.</>,
   },
 };
 

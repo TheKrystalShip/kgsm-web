@@ -9,13 +9,14 @@ import { RecentActivity } from "../components/RecentActivity.jsx";
 import { ServerHero } from "../components/ServerHero.jsx";
 import { ServerNotice } from "../components/ServerNotice.jsx";
 import { StatTiles } from "../components/StatTiles.jsx";
-import { serverOperable } from "../lib/persona.js";
+import { serverAssignable, serverOperable } from "../lib/persona.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 import { serversStore } from "../lib/stores.js";
 import { BackupsList } from "./BackupsList.jsx";
 import { FileBrowser } from "./FileBrowser.jsx";
 import { PerformanceTab } from "./PerformanceTab.jsx";
 import { PlayersTab } from "./PlayersTab.jsx";
+import { ServerAccess } from "./ServerAccess.jsx";
 import { ServerSettings } from "./ServerSettings.jsx";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";
 
@@ -58,9 +59,11 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // this page's to add.
   const allTabs = ROUTE_TABS.server.map(t => ({ ...t, ...badge(t.id) }));
   // Files / Backups / Settings / Performance are operator surfaces — hidden for
-  // players, not merely disabled. safeTab keeps a stale tab in the URL from
-  // rendering an empty body when the tab isn't available to this user.
-  const tabs = canOps ? allTabs : allTabs.filter(t => t.id === "overview");
+  // players, not merely disabled. Access is for whoever may assign roles on this server. safeTab
+  // keeps a stale tab in the URL from rendering an empty body when the tab isn't available.
+  const canAssign = serverAssignable(server);
+  const tabs = allTabs.filter(t => t.id === "overview"
+    || (t.id === "access" ? canAssign : canOps));
   const safeTab = tabs.some(t => t.id === tab) ? tab : "overview";
 
   // ---- Overview layout customization (client-side, per-browser) -----------
@@ -157,6 +160,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
       {safeTab === "files"       && <FileBrowser server={server} />}
       {safeTab === "backups"     && <BackupsList server={server} />}
       {safeTab === "settings"    && <ServerSettings server={server} onDeleted={onDeleted} />}
+      {safeTab === "access"      && <ServerAccess server={server} />}
     </>
   );
 }

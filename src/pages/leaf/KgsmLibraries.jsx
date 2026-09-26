@@ -11,14 +11,14 @@ import { Icon } from "../../components/Icon.jsx";
 import { Select } from "../../components/Select.jsx";
 import { addLibrary, removeLibrary, renameLibrary } from "../../lib/stores.js";
 import { fmtBytes } from "../../lib/formatting.js";
-import { can } from "../../lib/persona.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { LeafNotice } from "./leafOverviewKit.jsx";
 
 const errText = (e, fallback) => (e && (e.userMessage || e.message)) || fallback;
 
 function KgsmLibraries({ host }) {
   const libraries = host && host.libraries;
-  const canManage = can("host.manage");
+  const canManage = !!host && may(ACTIONS.LIBRARIES_MANAGE, { hostId: host.id });
 
   const [adding, setAdding] = React.useState(false);
   const [path, setPath] = React.useState("");

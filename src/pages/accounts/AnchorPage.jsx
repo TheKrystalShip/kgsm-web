@@ -32,6 +32,10 @@ import { anchorSurface } from "../../lib/componentSurface.js";
 import { anchorTabs } from "../../lib/labels.js";
 import { AccountsAdmin } from "./AccountsAdmin.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
+import { CatalogAdmin } from "./access/CatalogAdmin.jsx";
+import { PermissionsAdmin } from "./access/PermissionsAdmin.jsx";
+import { RolesAdmin } from "./access/RolesAdmin.jsx";
+import { ServiceRequests } from "./access/ServiceRequests.jsx";
 import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
 import { ComponentCommands } from "../component/ComponentCommands.jsx";
 import { ComponentConfiguration } from "../component/ComponentConfiguration.jsx";
@@ -69,6 +73,16 @@ const CAPABILITY_BODIES = {
     names: () => <DnsNames />,
     certificates: () => <DnsCertificates />,
   },
+};
+
+// The `auth` holder's own surfaces: the cluster's accounts and who may do what, all behind the door
+// this browser signed in through.
+const DOOR_BODIES = {
+  users: () => <AccountsAdmin />,
+  roles: () => <RolesAdmin />,
+  permissions: () => <PermissionsAdmin />,
+  catalog: () => <CatalogAdmin />,
+  services: () => <ServiceRequests />,
 };
 
 // What this member going down costs, said in the review before a change restarts it. Only the holder
@@ -198,10 +212,10 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
       );
     }
 
-    // The cluster's accounts, which are the `auth` holder's and behind the door this browser signed
-    // in through. A session opened at a node holds nothing for them: naming the holder is the whole
-    // of what it knows, since a member gives out an anchor's name and never its address.
-    if (active === "users") {
+    // The cluster's accounts and access, which are the `auth` holder's and behind the door this
+    // browser signed in through. A session opened at a node holds nothing for them: naming the holder
+    // is the whole of what it knows, since a member gives out an anchor's name and never its address.
+    if (DOOR_BODIES[active]) {
       if (!anchor) {
         return (
           <div className="chat-brief">
@@ -214,7 +228,7 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
           </div>
         );
       }
-      return <AccountsAdmin />;
+      return DOOR_BODIES[active]();
     }
 
     if (own[active]) return own[active](ownProps);

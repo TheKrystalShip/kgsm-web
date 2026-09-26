@@ -145,7 +145,8 @@ identical in mock + live. Drives `realtimeStore` only (REST reachability stays o
 | `alerts` → `alert.raise`/`alert.resolve`/`alert.retract` | same three | ✓ `alert.raise` runs through `adaptAlert` (derived icon); resolve/retract passthrough |
 | `batches` → `batch.patch` | `batches` → `batch.patch` | ✓ the frame carries a whole `BatchView`, so a client that reconnects mid-run learns the shape of one from the next member that moves. `stores/batches.js` merges it under the node whose socket delivered it; the runs board groups by `runId` |
 | `audit` → `audit.append` | `audit` → `audit.append` | ✓ live-prepend to `auditStore` (e2e-verified via a real kgsm emit) |
-| `me` → `me.patch` | `me` → `me.patch` | ✓ `{tier, status}` — the node's own re-statement of what THIS account holds, delivered only to that account's connections, so the client filters nothing. `adaptMePatch` maps it with `/me`'s vocabulary and `sessionStore.applyMePatch` writes it as the authority (a demotion is not refused as a downgrade). The node re-gates the connection in place, so the client never reconnects on one |
+| `me` → `me.patch` | `me` → `me.patch` | ✓ the account's `status` as the node re-read it, delivered only to that account's connections, so the client filters nothing. `sessionStore.applyMePatch` writes it; a frame naming no status, or `unknown`, says nothing about the account and is dropped |
+| `me` → `me.access` | `me` → `me.access` | ✓ a fresh `/me/access` answer for this node whenever its replica takes a change. `stores/access.js` replaces the node's answer with it, and every gate re-renders against it |
 | `hosts/{id}/metrics` → `host.metrics` | `hosts/{id}/metrics` → `host.metrics` | ✓ **DONE (slice 7 follow-on, 2026-06-21)** — deep-dive subscribes while open; `adaptHostMetrics` reshapes the tick; `hostsStore.mergeMetrics` merges clobber-safe (keeps capabilities + firewall open_ports) + stamps receipt-time freshness; disposer unsubscribes (idles the pump) + clears the stamp |
 | — (deferred) | `servers/{id}/metrics` → `metrics.tick` | per-instance metrics — same shape; wire when the per-server tiles need live numbers |
 
@@ -183,7 +184,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 |---|---|---|
 | `name` | `label` | **A** |
 | `online: boolean` | `status: "online"` (reaching the row = up) | **A** |
-| `tier`, `authDenied` | (from auth layer, not `/hosts`) | **A**: the cluster session's tier, and which member refuses it |
+| access, `authDenied` | (from `/me/access` and the auth layer, not `/hosts`) | **A**: what the caller may do on this node, and whether it refuses the session |
 | `cpu:{…}`, `ram:{…detailed}`, `per_core`, `load_avg`, `temp_c` | `cpuPct`, `mem:{used,total}`, `disks:[{mount,used,total}]` | **A**+**F**: BE is coarser — render what exists, honest-unknown the rest (no per-core/temp today) |
 | `processes`, `sensors`, `network.interfaces` | — | **F**: no source → hide those diagnostics panels |
 | `capabilities:{metrics,assistant,watchdog}` | same (richer: `provisioned/status/since/message/info`) | ✓ **A**: align field names (`sample_age_s` etc. → BE `info.intervalMs`) |
@@ -217,7 +218,8 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 
 ### Sign-in — the provider's, not a node's
 - No node signs anybody in. The session is the auth anchor's, obtained through OpenID Connect by
-  `lib/oidc.js`; the tier rides the access token as minted and the `me` topic keeps it live.
+  `lib/oidc.js`. The token says who, never what: what the caller may do is each member's
+  `GET /me/access` (`lib/stores/access.js`), and the `me` topic's `me.access` keeps it live.
 
 ## 6. True gaps & rewrites (not simple remaps)
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.
@@ -656,7 +658,7 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | FE field | BE today | Bucket | Action |
 |---|---|---|---|
 | `id`, `name`, `online` | `id`, `label`, `status` | **A** | remap (done) |
-| `tier`, `authDenied` | (auth layer) | **A** | the cluster session's tier, and which member refuses it |
+| access, `authDenied` | `/me/access`, the auth layer | **A** | what the caller may do per member, and which member refuses the session |
 | `capabilities.*` | same (richer) | **A** | align `info` field names |
 | `network.open_ports` | detail `network.openPorts[]` | **A** | remap |
 | `cpu.usage_pct` | `cpuPct` | **A** | passthrough |

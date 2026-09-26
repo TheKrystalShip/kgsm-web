@@ -20,6 +20,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { SettingsSection, Toggle } from "../../components/settings-primitives.jsx";
 import { api } from "../../lib/apiClient.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { LeafLoading, LeafNotice } from "./leafOverviewKit.jsx";
 
@@ -40,12 +41,9 @@ const METRICS = {
 const metricOf = (key) => METRICS[key] || { label: key, unit: "", scope: "host" };
 
 function MonitorThresholds({ hostId }) {
-  // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
-  // whether these are editable is the one held on THIS node. Reading is operator; changing what the
-  // fleet alerts on is admin.
+  // Changing what the fleet alerts on is the monitor's own action, asked of THIS node.
   const live = !!hostId && sessionStore.isLive();
-  const tier = live ? sessionStore.tierOf() : null;
-  const canEdit = tier === "admin";
+  const canEdit = live && may(ACTIONS.THRESHOLDS_WRITE, { hostId });
 
   const [doc, setDoc] = React.useState(null);      // null = not loaded yet
   const [draft, setDraft] = React.useState(null);
@@ -114,8 +112,7 @@ function MonitorThresholds({ hostId }) {
 
       {!canEdit && (
         <div className="thr-notice">
-          These are what this host alerts on. Changing them needs admin on this node
-          {tier ? " — you’re " + tier + " here." : "."}
+          These are what this host alerts on. Changing them needs {ACTIONS.THRESHOLDS_WRITE} on this node.
         </div>
       )}
 

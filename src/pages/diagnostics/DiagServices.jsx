@@ -27,7 +27,7 @@ function DiagServices({ host, onOpenLeaf }) {
   const hostId = host && host.id;
   const entry = useStore(servicesStore, s => (hostId ? s.byHost[hostId] : null));
   const status = entry ? entry.status : "loading";
-  const canManage = hostId ? can("host.manage") : false;
+  const canManage = hostId ? can("host.manage", { hostId }) : false;
   const f = useFilters({ search: "", state: "all", link: "all" });
 
   useKeyedResource(

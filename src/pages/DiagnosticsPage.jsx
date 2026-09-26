@@ -57,7 +57,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // instrument, so hovering a dot lights its row and hovering a row lights its dot — the state
   // is the page's because it is the only thing that holds both.
   const [hoveredNode, setHoveredNode] = React.useState(null);
-  const manageable = hosts.filter(h => can("host.manage"));
+  const manageable = hosts.filter(h => can("host.manage", { hostId: h.id }));
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterCapabilities = useStore(clusterStore, s => s.capabilities);

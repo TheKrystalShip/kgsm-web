@@ -162,6 +162,9 @@ export function adaptServer(be) {
     // whether the files exist to run at all — joined for display in stores/servers.js, the one place
     // that derivation lives.
     libraryState: be.libraryState || null,
+    // The nonce the engine wrote at install. An access grant on this server names it and `/me/access`
+    // keys the server by it, so without it nothing granted on this server alone can be looked up.
+    installNonce: be.installNonce || null,
   };
 }
 export const adaptServers = (arr) => (Array.isArray(arr) ? arr.map(adaptServer) : []);
@@ -818,17 +821,15 @@ export function adaptPhantom({ id, blueprint, cover, hero, displayName, hostId, 
   };
 }
 
-// ---- Me (caller identity + tier) ---------------------------------------
-// /me drives the per-host tier (the persona / route gate). Honest passthrough;
-// tier falls back to "none" (secure-by-default), never a fabricated role.
+// ---- Me (caller identity + account standing) ---------------------------
+// Who the caller is and where their account stands. What they may do is `/me/access`'s, never this.
 export function adaptMe(be) {
   if (!be) return be;
   return {
     user: be.user || null,
-    tier: be.tier || "none",
-    // Why the caller holds nothing, when they hold nothing: "pending" is waiting on an
-    // admin, "unknown" is a host that has no account for them. Same tier, different
-    // sentences. Anything unrecognised reads as unknown rather than as a guess.
+    // "pending" is waiting on an administrator, "unknown" is a host that has no account for them —
+    // two different sentences for somebody who holds nothing. Anything unrecognised reads as unknown
+    // rather than as a guess.
     status: be.status === "active" || be.status === "pending" || be.status === "disabled"
       ? be.status
       : "unknown",
@@ -839,16 +840,14 @@ export function adaptMe(be) {
   };
 }
 
-// ---- Me patch (a live change to what this account holds on a host) ------
-// The `me.patch` frame carries the two facts the session record gates on, and
-// nothing else — it is a patch, not a second /me, so it never stands in for an
-// identity. Same vocabulary as `adaptMe`: an unrecognised tier reads `none` and
-// an unrecognised status reads `unknown`, because inventing either would hand
-// somebody a role, or an explanation, the node never gave.
+// ---- Me patch (a live change to where this account stands) --------------
+// The `me.patch` frame's account status, in `adaptMe`'s vocabulary: an unrecognised status reads
+// `unknown`, because inventing one would hand somebody an explanation the node never gave. A frame
+// stating no status is null — a node that said nothing about the account has not said it is unknown.
 export function adaptMePatch(be) {
   if (!be) return be;
+  if (!be.status) return { status: null };
   return {
-    tier: be.tier === "viewer" || be.tier === "operator" || be.tier === "admin" ? be.tier : "none",
     status: be.status === "active" || be.status === "pending" || be.status === "disabled"
       ? be.status
       : "unknown",

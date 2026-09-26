@@ -30,7 +30,7 @@ import {
   deleteLeafReactorRule, fetchLeafReactorCatalog, fetchLeafReactorStatus, fetchLeafReactorTriggers,
   previewLeafReactorRule, saveLeafReactorRule,
 } from "../../lib/stores.js";
-import { sessionStore } from "../../lib/sessionStore.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { LeafAbsent, LeafLoading, LeafNotice, LeafUnreadable, useLeafResource } from "./leafOverviewKit.jsx";
 import { RuleInterview, fmtMinutes, fmtSeconds } from "./reactor/RuleInterview.jsx";
 import { Sentence } from "./reactor/StepEditor.jsx";
@@ -70,11 +70,9 @@ function wakesWords(rule) {
 }
 
 function ReactorRules({ hostId, leafId }) {
-  // The leaf page's gate is the aggregate one — admin anywhere reaches it — so the tier that decides
-  // whether these are editable is the one held on THIS node. Reading is operator; changing what a
-  // daemon is permitted to do to your servers is admin.
-  const live = !!hostId && sessionStore.isLive();
-  const canEdit = live && sessionStore.tierOf() === "admin";
+  // Changing what a daemon is permitted to do to your servers is the reactor's own action, asked of
+  // THIS node.
+  const canEdit = !!hostId && may(ACTIONS.REACTOR_RULES_WRITE, { hostId });
 
   const { state, data, error, reload } =
     useLeafResource(hostId, leafId, (h) => fetchLeafReactorStatus(h));

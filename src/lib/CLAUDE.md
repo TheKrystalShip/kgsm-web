@@ -47,8 +47,11 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   `api.sessions` resolve through it per call; `api.sessions` is an administrator's view of somebody
   else's sessions, scoped under their account, so ending one asks "is this session that person's"
   rather than "does this session exist". A person's OWN sessions are the provider's account page's.
-  A call to the provider leaves the connection signal alone: it is not a node this panel drives, and
-  its reachability is not a node's.
+  `api.authority` goes through the same door: the authority the management pages read, one edit at a
+  time against the version it was read at (a stale one answers `409` with the authority as it stands,
+  on `e.body`), the rules' verdict on edits nobody has made (`check`), and the caller's own `auth:*`
+  answer. A call to the provider leaves the connection signal alone: it is not a node this panel
+  drives, and its reachability is not a node's.
 - `liveStream.js` — fetch-based SSE. One
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
@@ -190,17 +193,16 @@ re-exports `stores/` — import from either.
   provider, keeps its one node in storage and never runs any of this.
 - `sessionStore.js` — **ONE session**, and `clusterCredential`, which is that session as something a
   call can be authorized BY. The provider mints it and renews it through the refresh grant; every
-  member accepts it by verifying the provider's signature against the published key and resolves
-  the tier from its own replica; no member ever issues this browser a credential or extends one — a
-  member that could would be a second door to the same session on every machine in the cluster,
-  permanently. `restore` and `completeSignIn` settle it at boot, `signIn` and `signOut` leave for the
-  provider, `anchorOrigin()` is the provider's origin the account surfaces address, and
-  `accountPage()` is where a person changes their own credentials.
-  It also holds the LIVE half of the tier: the primary stream's `me` topic carries `{tier, status}`
-  whenever the account is regraded, and `applyMePatch` writes it as given, so a demotion lands
-  exactly like a promotion. `onTierChange` reports a genuine delta to the two things a re-render
-  cannot cover: the shell (which says so, and leaves a route the role can no longer occupy) and the
-  dashboard's default arrangement.
+  member accepts it by verifying the provider's signature against the published key; no member ever
+  issues this browser a credential or extends one — a member that could would be a second door to the
+  same session on every machine in the cluster, permanently. `restore` and `completeSignIn` settle it
+  at boot, `signIn` and `signOut` leave for the provider, `anchorOrigin()` is the provider's origin the
+  account surfaces address, and `accountPage()` is where a person changes their own credentials.
+  **A session proves who, never what.** It holds where the account stands (`accountOf`: active,
+  pending, unknown) and nothing about what it may do. A provider session is active by construction —
+  the provider gives one to nothing else — so a member's own view of the account never turns the panel
+  away: a member that has no account for this person has said nothing about the account, and a
+  `me.patch` saying `unknown` is ignored. What the person may do is `stores/access.js`.
   **A member's refusal is not the session's.** `nodes` records who is currently honouring it, which
   is a different fact: a member verifies a signature offline but can only say what somebody may do
   once its replica carries their account, so one that has just joined refuses a good session. A
@@ -209,11 +211,24 @@ re-exports `stores/` — import from either.
 - `authStorage.js` — the app-shell user read/write, and the two one-shots the gate reads after a
   navigation: what the provider said when it sent the browser back without a session, and that a
   session ended while the panel was open.
-- `persona.js` — the authorization **policy, single source of truth**. Roles
-  `admin｜operator｜viewer｜none`, one tier cluster-wide. `can(cap)` is the only question there is: a
-  scoped variant would let a surface ask "may they do this *here*" and receive a cluster answer that
-  only looks scoped. Where a surface needs to know whether a MEMBER will honour that answer, that is
-  `sessionStore.nodeRefusal(id)` and a different fact. `resolveRoute()` is the routing chokepoint.
+- `access.js` — looking an action up in the members' `/me/access` answers. Each browser-facing member
+  answers for what it holds, already evaluated: a node for its own components' actions at the cluster,
+  itself and each instance (keyed `<node>/<id>#<install nonce>`), the auth anchor for `auth:*`. `allows`
+  asks the member that answers for the action — the anchor for `auth:*`, the target's node otherwise,
+  every node for a question about anywhere — and `owner` in a report is the one answer a list cannot
+  give: an Owner performs actions no manifest declares. **Holds no copy of the rules**, and imports
+  nothing.
+- `actions.js` — every action the panel gates a control on, in one table. An action no installed
+  manifest declares is an Owner's until its component declares it, so a gate on one is correct before
+  the declaration exists.
+- `persona.js` — the authorization **policy**, over `access.js`. `may(action, target)` is the
+  question; a target is what the caller has in hand — nothing (anywhere, what a nav entry asks),
+  `{ hostId }`, `{ server }` or `{ cluster: true }` — and asking with the narrowest one in hand is what
+  lets a grant on one server open that server's controls and no other's. `can(cap, target)` names the
+  actions behind a navigation or control capability, `serverOperable`/`serverAssignable` are the two
+  per-server questions, `isOwner()` the one no action list answers. Where a surface needs to know
+  whether a MEMBER will honour the session at all, that is `sessionStore.nodeRefusal(id)` and a
+  different fact. `resolveRoute()` is the routing chokepoint.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
   `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of the two
   places an assistant is found; `assistants.js` joins it with the cluster's, and there is no central
