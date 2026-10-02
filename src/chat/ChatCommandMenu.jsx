@@ -1,6 +1,6 @@
 // ChatCommandMenu — the completion list that opens over the composer when a message starts with a
 // slash. It renders what the leaf said this person can type, and nothing else: the catalog arrives
-// already filtered to their tier, so a command they cannot run never reaches this component and
+// already filtered to what they hold, so a command they cannot run never reaches this component and
 // there is no disabled row to explain.
 //
 // Portaled and placed above the composer rather than inside it, because the composer sits at the

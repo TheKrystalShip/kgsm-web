@@ -400,7 +400,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
 
   // ---- connect addresses ---------------------------------------------------
   // Fleet-wide as well as scoped, because "copy factorio" is what somebody types when a friend asks
-  // for the address — and unlike a verb, this is something a viewer can do.
+  // for the address — and unlike a verb, this is something anybody who can see the server can do.
   for (const s2 of servers || []) {
     push(copyAddressEntry(s2, {
       id: "copy." + s2.id,

@@ -4,11 +4,10 @@
 // (GET /library/scaffold), so the manual path and the assistant's authoring lane
 // start from one template — the SPA never carries a skeleton of its own.
 //
-// Two audiences on one page (§7.4):
-//   Admin    — full editor, Save writes POST /library, assistant hand-off optional.
-//   Operator — the same editor read-only, with the assistant hand-off as the
-//              primary action. Creation is admin-only server-side, so the editor
-//              is a launchpad for an operator, not a dead end.
+// Two audiences on one page, decided by whether `POST /library` may be sent:
+//   may       — full editor, Save writes POST /library, assistant hand-off optional.
+//   may not   — the same editor read-only, with the assistant hand-off as the primary
+//               action, so the editor is a launchpad rather than a dead end.
 //
 // A blueprint file lives on ONE host's disk, so the host is explicit: auto-selected
 // when only one qualifies, picked otherwise.
@@ -137,7 +136,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
             <h1>New blueprint</h1>
           </div>
           <div className="library-head__sub">
-            You don’t have permission to author blueprints on any connected host. Ask an admin.
+            Needs kgsm:blueprints.write on a connected host
           </div>
         </div>
         <button className="fb-editor__btn fb-editor__btn--secondary" onClick={onBrowse}>
@@ -174,15 +173,13 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
         </button>
       </div>
 
-      {/* Operators can't POST — say so, and point at the path they DO have (§7.4). */}
+      {/* The write is not held — say so, and point at the path there is. */}
       {!canWrite && (
         <div className="bp-create__banner">
           <Icon name="info" size={13} />
           <span>
-            Operators create blueprints through the assistant. The editor below is read-only —
-            {hasAssistant
-              ? " use “Ask the assistant” to have it research, draft and test-install one."
-              : " this host has no assistant, so ask an admin to author it."}
+            Read-only — needs kgsm:blueprints.write
+            {hasAssistant ? ". “Ask the assistant” drafts and test-installs one." : ""}
           </span>
         </div>
       )}

@@ -21,8 +21,8 @@ import { fmtRelative, parseTs } from "../lib/formatting.js";
 //
 // The input sends an arbitrary console command (POST /servers/{id}/console) to a running NATIVE
 // server; the response, if any, streams back on the same WS topic (no local echo — we never
-// fabricate console output, only show real stdout). The input is shown only to operators on native
-// servers; otherwise an honest read-only note explains why (container / no permission).
+// fabricate console output, only show real stdout). The input is shown only on native servers, to
+// somebody who may send the console request; otherwise an honest read-only note explains why.
 
 // Non-"Live" pill copy, keyed by the FE run-state vocabulary (online maps to "Live" directly;
 // anything missing falls back to "Unknown").
@@ -248,7 +248,7 @@ function ConsolePanel({ server, extraLines = [], readOnly }) {
     : { label: PILL_LABEL[live ? server.status : "unknown"] || "Unknown", live: false };
 
   // The command channel is native-only (the watchdog owns a native process's stdin; Docker owns a
-  // container's), needs operator permission ON THIS host, requires the server to actually be running,
+  // container's), needs the console request held for THIS server, requires it to actually be running,
   // and is hidden in a forced read-only view (the player tab). The backend re-checks all of this —
   // this only decides whether to show the input vs. an honest note explaining why it's unavailable.
   const isNative = live && server.runtime === "native";

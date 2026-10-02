@@ -2444,7 +2444,7 @@ try {
   }
 
   // ---- Phase 7: integrations wiring ---------------------------------------
-  // A real persistent round-trip through the host-scoped client (admin under
+  // A real persistent round-trip through the host-scoped client (a synthetic Owner under
   // auth-disabled), against the notification provider this API actually registers.
   // NON-DESTRUCTIVE: every mutation is reverted; baseline here is an unconfigured
   // webhook, so the set→clear leaves it as found.
@@ -2503,7 +2503,7 @@ try {
     `integrations /test: unconfigured webhook → honest 409, never a faked ok (code=${testErr && testErr.code})`);
 
   // ---- Phase 7b: Files (file browser & editor — Tier 3 #12) --------------
-  // The operator-gated GET/PUT /servers/{id}/files surface behind the FileBrowser
+  // The GET/PUT /servers/{id}/files surface behind the FileBrowser
   // page. Proofs: (1) the page RENDERS the real working-dir tree in the app (view,
   // full stack); (2) a live round-trip through the host-scoped client's new
   // get/put seam — list (dirs-first) → read (etag) → save-back IDENTICAL bytes
@@ -2866,7 +2866,7 @@ try {
   // ready-guard. Exercise it purely (refresh() is a thin api.host→adaptServices wrapper, proven above).
   // Use the live rows when present; fall back to synthetic rows so these PURE store/reconcile checks stay
   // deterministic (and never deref undefined) when the live fetch is empty — e.g. the backend under test
-  // has auth ON, so the operator-gated /services 401s (this harness sends no bearer). The live endpoint
+  // has auth ON, so /services 401s (this harness sends no bearer). The live endpoint
   // itself is validated separately with a real token; here we exercise the client store/WS logic.
   const svcRows = svc.length ? svc : [
     { id: "monitor", displayName: "Monitor", role: "", unit: "kgsm-monitor.service", state: "active", onDemand: false, provisioned: true, subState: "running", enabled: true, since: null, mainPid: 1, memoryBytes: null, health: { status: "operational", message: null } },
@@ -2976,7 +2976,7 @@ try {
   }
 
   // The bot's Overview reads a leaf payload that is a LIST of Discord servers — a KGSM host announces
-  // into as many as an admin has run /setup in, and none until one has. Every field on that page moved
+  // into as many as somebody has run /setup in, and none until one has. Every field on that page moved
   // when the leaf went guild-agnostic, and a stale field name renders as an empty cell rather than a
   // crash, so assert the page prints what the socket actually said: the guild's own name, and one row
   // per instance→channel binding the leaf reports.

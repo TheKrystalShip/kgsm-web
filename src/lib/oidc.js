@@ -110,7 +110,7 @@ function createClient({ issuer, redirectPath, postLogoutPath, prefix }) {
 }
 
 // The claims an access token carries, read without verifying anything: the members verify it, and
-// this is only which tier it was minted with. Null for anything that is not a JWT.
+// this only reads what the token says about itself. Null for anything that is not a JWT.
 function claimsOf(token) {
   try {
     const seg = String(token).split(".")[1];

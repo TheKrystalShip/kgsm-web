@@ -191,7 +191,7 @@ function PlayersTab({ server, readOnly, roster }) {
       } },
   ];
 
-  // Moderation is an operator action, so the read-only (player-facing) overview
+  // Moderation changes the server, so the read-only (player-facing) overview
   // never gets the column. The capability block decides the rest: a game that
   // declares no moderation commands gets no column at all rather than an empty
   // one implying the feature is merely unavailable right now.

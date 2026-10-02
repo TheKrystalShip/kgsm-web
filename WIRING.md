@@ -40,12 +40,13 @@ and counts separately, never sums as 0.)
 ## 1. Architecture: per-host, not a mismatch
 
 `kgsm-api` is **per-host / single-tenant**: `GET /hosts` returns an array of *one*
-(this host), there is no fleet endpoint, auth + WebSocket are per-host. The SPA is
-a **multi-host fleet client** that fans out and aggregates client-side. This is the
-documented design (`system-architecture.md` O5, kgsm-api CLAUDE.md "per-host
-aggregator"), and the FE is already built for it: `api.host(id)`, per-host
-`tier`/`authDenied`, per-host sockets, the 401/403/`login_required` state machine
-in `sessionStore.js`. **Do not "reconcile" this — it's correct on both sides.**
+(this host), there is no fleet endpoint, and each host streams on its own. The SPA is
+a **multi-host fleet client** that fans out and aggregates client-side, holding one
+cluster session from the auth anchor for every host. This is the documented design
+(`system-architecture.md` O5, kgsm-api CLAUDE.md "per-host aggregator"), and the FE is
+built for it: `api.host(id)`, per-host streams, per-host `authDenied`, and each host's
+own `/me/access` and operations in `stores/access.js`. **Do not "reconcile" this —
+it's correct on both sides.**
 
 **The one genuinely open piece — host discovery.** The mock pre-knows the fleet via
 a single `GET /hosts`. In production there is no registry endpoint; each host is its
@@ -95,24 +96,26 @@ All BE routes are under `/api/v1`. ✓ aligned · ! remap needed · ✗ gap.
 
 | FE call (`apiClient.js`) | Backend endpoint | Status | Notes |
 |---|---|---|---|
-| `GET /servers` | `GET /api/v1/servers` (Viewer) | ! | path prefix + **schema differs heavily** (§5) |
-| `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` (Operator) | ✓ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is a verb (Tier-1 ops); the chip lights only when the update-check probe found a newer version, and the server reads `Updating…` for the whole run |
-| `GET /hosts` | `GET /api/v1/hosts` (Viewer) | ! | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
-| `GET /library` | `GET /api/v1/library?q=&category=` (Viewer) | ! | **path agrees** (not `/catalog`); schema differs (§5) |
-| `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=&since=&category=` (Viewer) | ✓ **DONE (audit paging + filters slice)** | `adaptAudit` preserves the `{data,nextCursor}` envelope; the store **walks the keyset cursor** (1000-row cap) so events older than the first page are reachable (the real bug — LIVE fetched ONE page) + `loadMore()`; page discloses incompleteness + "Load older events", omits counts in LIVE. **Structured filters PUSH DOWN** (severity incl. `attention`→`warn,danger`, serverId, actor, range→`since`, category→action-prefix) so the cursor walks the FILTERED log; free-text search stays client-side. **kgsm-api extended:** multi-value severity + `since` + `category` params + a `Ts`→ticks value-converter (SQLite can't translate `DateTimeOffset >=`) |
+| `GET /servers` | `GET /api/v1/servers` | ! | path prefix + **schema differs heavily** (§5) |
+| `POST /servers/{id}/commands {verb,origin}` | `POST /api/v1/servers/{id}/commands {verb,origin?}` | ✓ **DONE (slice 6)** | wired via `commandServer` with `origin:"ui"`; status + job ride the `servers`/`jobs` WS. `update` is a verb (Tier-1 ops); the chip lights only when the update-check probe found a newer version, and the server reads `Updating…` for the whole run |
+| `GET /hosts` | `GET /api/v1/hosts` | ! | returns array-of-one per host; schema differs (§5); fan-out is FE-side |
+| `GET /library` | `GET /api/v1/library?q=&category=` | ! | **path agrees** (not `/catalog`); schema differs (§5) |
+| `GET /audit` | `GET /api/v1/audit?cursor=&limit=&severity=&serverId=&actor=&since=&category=` | ✓ **DONE (audit paging + filters slice)** | `adaptAudit` preserves the `{data,nextCursor}` envelope; the store **walks the keyset cursor** (1000-row cap) so events older than the first page are reachable (the real bug — LIVE fetched ONE page) + `loadMore()`; page discloses incompleteness + "Load older events", omits counts in LIVE. **Structured filters PUSH DOWN** (severity incl. `attention`→`warn,danger`, serverId, actor, range→`since`, category→action-prefix) so the cursor walks the FILTERED log; free-text search stays client-side. **kgsm-api extended:** multi-value severity + `since` + `category` params + a `Ts`→ticks value-converter (SQLite can't translate `DateTimeOffset >=`) |
 | `GET /.well-known/oauth-protected-resource` (on the serving origin, or any member's) | `{resource, authorization_servers:[issuer]}` (anon), `503` while no provider is known | ✓ | how a surface finds its cluster's sign-in provider (`lib/oidc.js` `discoverProvider`) |
 | `oidc-client-ts` → the provider's `/authorize`, `/token`, `/sign-out` | the auth anchor's OpenID Connect endpoints (`hosted-sign-in-plan.md` §9) | ✓ | `authorization_code` + PKCE, public client, client id = the page origin's host (`-port` when named); renewal is the refresh grant; landing route `/signed-in` |
-| `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` (Viewer) | ✓ | both exist; detail adds `network` block |
+| `GET /servers/{id}` (defined, unused) | `GET /api/v1/servers/{id}` | ✓ | both exist; detail adds `network` block |
 | `PATCH /alerts/{id}` (defined, **unused**) | — (alerts read-only) | ✓ | FE never calls it; fine |
 | `POST /api/v1/hosts/{id}/assistant/chat` (raw fetch, **outside seam**, Ollama-shaped) | `POST {leaf}/turn {prompt,think?,tools?,conversationId?}` (SSE, on the assistant leaf's own origin) | ✓ **DONE (slice 9a + 9b + 9c)** | rewritten onto `api.host(id).turn()` (SSE through the seam); streams `text.delta`/`tool.start`/`tool.result`/`error`/`done` → existing chat roles. **9b:** `command.proposed`→fork (a) (Confirm → `confirmCommand` = `POST /servers/{id}/commands {verb,origin:"assistant"}`)→SPA-composed `command.verified` from the job outcome. **9c (per-chat context):** the body now carries the local `conversationId` (the chat's `uid()`), forwarded by the API as `X-Relay-Conversation-Id` so the assistant keys memory `web:<userId>:<conversationId>` — each "New chat" is a fresh context window (was a single per-user thread that leaked across chats) |
-| — (history was localStorage-only) | `GET {leaf}/conversations` → `[{id,title,createdAt,lastActivityAt,turnCount,think,autorun}]` (Viewer) | ✓ **DONE (slice 9d — reverse path)** | the caller's own past chats, server-side (so a fresh browser/device shows history, not just localStorage). API relays the assistant's list verbatim, scoped to the verified Discord id (`web:<userId>` — never client-supplied). `ChatPage` folds these into its conversation list (`mergeServerConversations`); join is by `id` == the chat's `uid()`. Each row carries the conversation's **effective** `think`/`autorun` (resolved at the leaf against its configured default), which is what the composer's two toggles read: the merge lets them overwrite a cached value where title and host only fill a gap, and the list is re-read whenever the surface returns to the foreground, so a chat opened on the panel and picked up in the installed app shows the switches the next turn will run on |
-| — | `GET {leaf}/conversations/{id}` → `{id,entries:[{kind:turn\|checkpoint,createdAt,turn?,checkpointSummary?}]}` (Viewer) | ✓ **DONE (slice 9d)** | one chat's full transcript, oldest-first (turns + non-destructive compaction checkpoints). Turn DTO reuses the §5·a vocabulary (`prompt`/`final`/`think`/`thinking`/`tools[{tool,arguments,summary,result}]`/`usage`/`outcome`), so `ChatPage.scaffoldHistory` rebuilds the thread through the SAME render path a live turn uses — no second schema. Loaded lazily when a server-only chat is opened |
-| — (a turn belonged to the POST that asked for it) | `POST {leaf}/events/attach {conversationId}` → `204`; `DELETE {leaf}/turns/{turnId}` → `204`; frames `turn.attach` / `turn.queue` (Viewer) | ✓ **DONE** | a turn is a SHARED SESSION at the leaf: every surface attached to that conversation receives the same verbatim frames, and any of them can stop it. `POST /turn` (SSE) is itself the first attach, so its wire shape is unchanged and kgsm-api's peer relay is untouched. `ChatPage` derives `busy` from the conversation rather than the surface; `scaffoldLiveTurn` renders a turn from a `turn.attach` snapshot (replacing, never merging); the sender skips the stream's copy of its own frames while its POST is open. One turn at a time per conversation — a second prompt queues (cap 3, then `409 queue_full`) and shows as a chip with a discard |
-| — (no push channel; surfaces diverged until one refetched) | `GET {leaf}/events` → SSE `hello` / `conversation.switches` / `conversation.feedback` / `conversation.started` / `conversation.deleted` / `conversation.activity` (Viewer) | ✓ **DONE** | the caller's OWN conversation changes, pushed from the leaf so a chat open in two places agrees with itself. Held by `src/chat/useConversationStream.js` (reconnect with capped backoff; every reconnection re-reads the listing, since nothing is buffered while a stream is down). `conversation.switches` and `conversation.feedback` travel by value — the rest name a conversation and are answered by re-reading, so the transcript keeps ONE way to be obtained. A switch frame states where BOTH switches stand and the client diffs to know which moved, writing that line into the transcript on every surface; a verdict is applied by turn id, which addresses one bubble wherever it is rendered. The stream names itself in `hello`; `assistantClient` sends that id back as `X-Assistant-Origin` on every call and drops events stamped with it, so a surface never re-applies its own change |
-| — (delete was localStorage-only → resurrected) | `DELETE {leaf}/conversations/{id}` → `204` (Viewer) | ✓ **DONE (slice 9d — soft-delete)** | **soft**-delete: the assistant appends a tombstone that hides the chat from `GET /conversations` while keeping the full transcript in the append-only history (the self-improvement corpus is never destroyed). Scoped to the verified Discord id (own-conversation only). `ChatPage.deleteChat` fires this for the chat's owning host so a deleted chat doesn't reappear from server history on the next "Chat history" open; idempotent + best-effort (a later turn on the same id un-hides it) |
-| — (FE doesn't call) | `GET /api/v1/me` → `{user,tier,scopes}` | + | FE currently derives tier from the callback; could/should use `/me` |
+| — (history was localStorage-only) | `GET {leaf}/conversations` → `[{id,title,createdAt,lastActivityAt,turnCount,think,autorun}]` | ✓ **DONE (slice 9d — reverse path)** | the caller's own past chats, server-side (so a fresh browser/device shows history, not just localStorage). API relays the assistant's list verbatim, scoped to the session's account (never client-supplied). `ChatPage` folds these into its conversation list (`mergeServerConversations`); join is by `id` == the chat's `uid()`. Each row carries the conversation's **effective** `think`/`autorun` (resolved at the leaf against its configured default), which is what the composer's two toggles read: the merge lets them overwrite a cached value where title and host only fill a gap, and the list is re-read whenever the surface returns to the foreground, so a chat opened on the panel and picked up in the installed app shows the switches the next turn will run on |
+| — | `GET {leaf}/conversations/{id}` → `{id,entries:[{kind:turn\|checkpoint,createdAt,turn?,checkpointSummary?}]}` | ✓ **DONE (slice 9d)** | one chat's full transcript, oldest-first (turns + non-destructive compaction checkpoints). Turn DTO reuses the §5·a vocabulary (`prompt`/`final`/`think`/`thinking`/`tools[{tool,arguments,summary,result}]`/`usage`/`outcome`), so `ChatPage.scaffoldHistory` rebuilds the thread through the SAME render path a live turn uses — no second schema. Loaded lazily when a server-only chat is opened |
+| — (a turn belonged to the POST that asked for it) | `POST {leaf}/events/attach {conversationId}` → `204`; `DELETE {leaf}/turns/{turnId}` → `204`; frames `turn.attach` / `turn.queue` | ✓ **DONE** | a turn is a SHARED SESSION at the leaf: every surface attached to that conversation receives the same verbatim frames, and any of them can stop it. `POST /turn` (SSE) is itself the first attach, so its wire shape is unchanged and kgsm-api's peer relay is untouched. `ChatPage` derives `busy` from the conversation rather than the surface; `scaffoldLiveTurn` renders a turn from a `turn.attach` snapshot (replacing, never merging); the sender skips the stream's copy of its own frames while its POST is open. One turn at a time per conversation — a second prompt queues (cap 3, then `409 queue_full`) and shows as a chip with a discard |
+| — (no push channel; surfaces diverged until one refetched) | `GET {leaf}/events` → SSE `hello` / `conversation.switches` / `conversation.feedback` / `conversation.started` / `conversation.deleted` / `conversation.activity` | ✓ **DONE** | the caller's OWN conversation changes, pushed from the leaf so a chat open in two places agrees with itself. Held by `src/chat/useConversationStream.js` (reconnect with capped backoff; every reconnection re-reads the listing, since nothing is buffered while a stream is down). `conversation.switches` and `conversation.feedback` travel by value — the rest name a conversation and are answered by re-reading, so the transcript keeps ONE way to be obtained. A switch frame states where BOTH switches stand and the client diffs to know which moved, writing that line into the transcript on every surface; a verdict is applied by turn id, which addresses one bubble wherever it is rendered. The stream names itself in `hello`; `assistantClient` sends that id back as `X-Assistant-Origin` on every call and drops events stamped with it, so a surface never re-applies its own change |
+| — (delete was localStorage-only → resurrected) | `DELETE {leaf}/conversations/{id}` → `204` | ✓ **DONE (slice 9d — soft-delete)** | **soft**-delete: the assistant appends a tombstone that hides the chat from `GET /conversations` while keeping the full transcript in the append-only history (the self-improvement corpus is never destroyed). Scoped to the session's account (own-conversation only). `ChatPage.deleteChat` fires this for the chat's owning host so a deleted chat doesn't reappear from server history on the next "Chat history" open; idempotent + best-effort (a later turn on the same id un-hides it) |
+| `GET /me` | `GET /api/v1/me` → `{user,scopes,recentLogins,status}` | ✓ | who the session is and the account's standing |
+| `GET /me/access` | `GET /api/v1/me/access` → `{version,current,owner,cluster,nodes,instances}` | ✓ | the caller's effective actions on this node, per target; `stores/access.js`, replaced live by the `me` topic's `me.access` |
+| `GET /operations` | `GET /api/v1/operations` → `OperationManifest` | ✓ | every gated route and the action it needs (`kgsm-docs/reference/operation-manifest.md`); read beside `/me/access`, so a control is gated on the request it sends |
 | `GET /alerts` (slice 3) | `GET /api/v1/alerts?status=&since=` → `{data:[Alert]}` | ✓ | `alertsStore.refresh()` hydrates firing + 24h resolved on LIVE boot (was fixtures+stream only) |
-| `DiscordPage` (was 100% mock) | `GET/PATCH /api/v1/integrations/discord`, `POST …/test` (Admin) | ✓ **DONE (integrations slice)** | DiscordPage LIVE branch wired via `api.host(id)`: GET renders the server's 6-event catalog + masked webhook hint; toggles = sparse `{events:[{id,enabled}]}` PATCH; Save = `buildIntegrationPatch` (webhook only if user-typed); real `/test`. **Slack** provider (also built) not surfaced (FE has no Slack UI) |
+| `DiscordPage` (was 100% mock) | `GET/PATCH /api/v1/integrations/discord`, `POST …/test` | ✓ **DONE (integrations slice)** | DiscordPage LIVE branch wired via `api.host(id)`: GET renders the server's 6-event catalog + masked webhook hint; toggles = sparse `{events:[{id,enabled}]}` PATCH; Save = `buildIntegrationPatch` (webhook only if user-typed); real `/test`. **Slack** provider (also built) not surfaced (FE has no Slack UI) |
 
 **The assistant is a second backend, not a `kgsm-api` surface.** `{leaf}` above is the assistant's own
 public origin, which the SPA reads from the host's assistant capability (`info.url`) and calls directly
@@ -242,7 +245,7 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 
 ## 7b. Live findings (probed against a running kgsm-api, 2026-06-20)
 Backend was live at `http://127.0.0.1:8097` with `KGSM_API_AUTH_DISABLED` (so `/me`
-→ `dev (auth disabled)`, admin). Real responses **confirmed the schemas in §5**.
+→ `dev (auth disabled)`, a synthetic Owner). Real responses **confirmed the schemas in §5**.
 Surprises found by probing:
 - ~~**`GET /api/v1/audit` → HTTP 500**~~ **RESOLVED (slice 3, 2026-06-21).** Root cause
   confirmed: the running `:8097` instance (a manually-launched dev backend, env replicated
@@ -261,12 +264,6 @@ Surprises found by probing:
 - `GET /servers/{id}` detail correctly carries the `network` block
   (`firewall:"absent"`, `required:[{port,proto,open:null}]`). Host detail omits
   `network` honestly when the firewall is absent.
-- **Frontend persona is tier `none` until auth lands** — with no cluster session,
-  `resolveRoute` sends admin/operator surfaces (dashboard, fleet) to the viewer home
-  (servers). So pre-auth, only the viewer-reachable read path (servers list + server
-  detail) renders through the UI; the fleet/host read path is built + crash-safe but
-  gated until the auth slice. (Backend auth being disabled doesn't change this — the
-  FE must learn its tier, e.g. from `GET /me`.)
 
 ## 8. Sequenced plan
 Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), then auth, then realtime.
@@ -307,51 +304,6 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 >   `network.required[]`, but the FE never calls the detail endpoint (list omits
 >   `network`; the detail GET is defined-but-unused, §3). Needs the detail-GET wired
 >   first → its own slice (6, with `network.patch`).
-
-> **Slice 4 — Auth/Me (FE half) — DONE (2026-06-21).** Wires the per-host tier from
-> `GET /me` so the persona/route gate works against the live backend (no more forced
-> "Preview as admin" lens). Files: `adapters.js` (`adaptMe` — honest passthrough,
-> tier→`none` secure-by-default), `apiClient.js` (live transport injects the bearer of
-> the node the call names — `liveBearer()`; null under
-> `KGSM_API_AUTH_DISABLED`, so calls go out unauthenticated and that mode accepts
-> them; adapt `/me`), `sessionStore.js` (LIVE `bootstrap` resolves tier from `/me`
-> instead of the fake callback; **reactive bootstrap as hosts hydrate** — seed runs
-> before the live host exists, the mirror of the game-name timing fix; `seed` never
-> fabricates a tier/token in LIVE; `scheduleRefresh` guarded to token-only so an
-> auth-disabled host doesn't fire a spurious refresh; `refresh` re-confirms via
-> `/me`; new `tokenOf`). Verified: build + mock smoke green; live smoke drops the
-> persona force and proves `GET /me` → `hotrod: admin` ungates fleet/host-deep-dive
-> on its own (and the admin tier now renders the operator lifecycle controls).
-> **THE BACKEND GAP (decision owed — see §6).** A real Discord login can't complete
-> from the SPA: `/auth/discord/start` 302s to Discord, but the callback
-> (`AuthController.cs:120`) returns `CallbackResult` **as JSON** with no handoff back
-> to the SPA — the browser lands on the API origin showing raw JSON, and the minted
-> access+refresh tokens never reach the SPA. So today the live FE only works against
-> an **auth-disabled** backend. Closing this is a **kgsm-api change** (sign-off
-> required, security-sensitive): the callback should `302` to an allowlisted SPA URL
-> with tokens in the **fragment** (`#access=…&refresh=…` — fragments never hit server
-> logs / Referer), or a popup + `postMessage`. The FE session layer above is already
-> shaped for it (`bootstrap`/`tokenOf`/refresh) — only token *acquisition* is missing.
-
-> **Slice 4b — OAuth fragment handoff — BUILT (2026-06-21; one manual browser
-> login owed).** Closes the gap above (chosen mechanism: fragment redirect).
-> **kgsm-api** (`feat/oauth-frontend-redirect` `56e5aa8`): `KGSM_API_AUTH_FRONTEND_URL`
-> + the callback 302s to it with the session in the URL **fragment**
-> (`#access=…&refresh=…` | `#error=…`), never the query; single fixed target (no
-> open-redirect); CSRF gate unchanged; blank → unchanged JSON (215/215 tests green,
-> +2 redirect tests). **kgsm-web**: `authRedirect.js` (capture+strip the fragment
-> before the hash router reads it; `completeOAuthLogin` resolves the app-shell
-> identity from `/me` before mount → no LoginPage flash), `main.jsx` (async boot),
-> `sessionStore` (adopts the handed-back token for the lone host before its `/me`
-> tier call — single-host; multi-host token routing still deferred), `LoginPage`
-> (LIVE Discord button → full-page `…/auth/discord/start`; surfaces a captured
-> `#error`). Verified MECHANICALLY: build + mock smoke green; live smoke parses/
-> strips/one-shot-stashes the fragment + the error. **OWED — one human browser
-> login** (real Discord consent can't be driven headlessly). **Still deferred:**
-> refresh-token *rotation* — sessions are valid for the 15-min access TTL, then a
-> re-login (the FE stores the refresh token but doesn't yet call the rotation
-> endpoint; that's the fast-follow). Multi-host token routing (which host issued a
-> token) — single-host only today.
 
 > **Slice 7 — Diagnostics B-enrichment — DONE + LIVE-VALIDATED (2026-06-21).** Surfaces the rest
 > of the monitor `Snapshot` the host deep-dive needs, the §9 "B" bucket (measured upstream, API
@@ -517,7 +469,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 
 > **Integrations (Discord) — DONE + LIVE-VALIDATED 2026-06-21** (picked up while kgsm-llm work — and so
 > slice 9b — proceeds in parallel). `DiscordPage` was 100% mock (hardcoded webhook string, fake toggles,
-> dead buttons); now its LIVE branch is wired to the host's `kgsm-api /integrations/discord` (admin-gated),
+> dead buttons); now its LIVE branch is wired to the host's `kgsm-api /integrations/discord` (`api:integrations.manage`),
 > with the bundled demo kept for `!LIVE`. **GET** renders the **server-defined** catalog — the honest **6**
 > events (online/offline/crash/update/installed/backup), dropping the mock's fabricated `join`/`lowdisk`
 > (no player/threshold source upstream) — plus the masked webhook hint, channel label, and the `enabled`
@@ -527,7 +479,7 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 > the Save body and includes `webhook` **only when the user typed a new non-empty value** (clearing is a
 > separate explicit affordance → `""`); the masked hint can never round-trip and silently wipe the secret
 > (the one place a naive form-serialize = data loss). **`/test`** is a real send. Mutating controls gate on
-> the admin tier (`sessionStore.tierOf`); the `bot` block stays honestly null (the slash-command list is
+> the PATCH they send, as the node's operations name it; the `bot` block stays honestly null (the slash-command list is
 > illustrative — control commands are kgsm-bot's surface, not this webhook). New `adaptIntegration`
 > (passthrough + `events:[]` hardening) wired into `adaptResponse`. **Validated** against the live
 > *persistent* backend (unlike 9a's fetch-capture): `smoke:live` Phase 7 = the `buildIntegrationPatch`
@@ -594,8 +546,11 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
    only). `adaptResponse` now matches on the base path (`split("?")[0]`) so filtered/paged
    reads still hit their adapter. Verified: build green, mock smoke green, `smoke:live` green
    (+icon-derive, +alerts-hydrate, +audit/alerts live render).
-4. **Auth** — real OAuth (`start`/`callback`/`refresh` + bearer + refresh store),
-   tier from `/me`, the 401/403/`login_required` machine on real responses.
+4. **Auth** — **DONE.** The panel is an OpenID Connect client of the cluster's auth anchor
+   (`lib/oidc.js`, `sessionStore.js`); every authenticated call goes through
+   `authorizedFetch.js`, which renews on a refusal. What the caller may do is each member's
+   `/me/access` and operations (`stores/access.js`), and every control is gated on the request it
+   sends (`persona.js`).
 5. **Realtime** — **DONE (2026-06-21).** Real WS client (`liveStream.js`) on
    `/api/v1/stream`, subscribe protocol, `adaptStreamMessage` reshape, topic/type remaps
    (`server.patch` upsert, `server.removed`, `job`↔`job.patch`, `audit.append`,
@@ -605,8 +560,8 @@ Prove the pipe on a read-only slice first (backend `KGSM_API_AUTH_DISABLED=1`), 
 6. **Commands + ports + install/uninstall** — `commands {verb,origin}`, `open_ports`,
    `POST/DELETE /servers`; reconcile job/`network.patch` streams.
 7. **Assistant** — **9a + 9b done** (streaming turn through the seam + the command-confirm half: `command.proposed`→fork (a)→SPA-composed `command.verified`).
-8. **Multi-host fan-out** — the node registry, one cluster session, per-node sockets, cluster rollup. The Cluster page reads the real `/members` roster and "Cluster" is the canon name for the fleet view. Sign-in has two entry paths and a browser classifies which by asking the address itself — `GET /auth/identity` names an auth anchor, and a node that answers `/auth/providers` holds its own accounts while one inside a cluster refuses with the holder's name. Nothing is discovered through a member. Every member accepts an anchor-minted session by verifying its signature. Administering accounts follows the same answer — `accountDoor` sends `api.users` and `api.identities` to the anchor when one holds them and to the node when none does, while sessions and sign-out stay with the member that holds the rows. Authority for the remaining cluster work is `../cluster-panel-plan.md` and `../cluster-auth-plan.md`.
-9. **Integrations + settings** — **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, admin-gated, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
+8. **Multi-host fan-out** — the node registry, one cluster session, per-node sockets, cluster rollup. The Cluster page reads the real `/members` roster and "Cluster" is the canon name for the fleet view. The provider names the cluster's members, and the panel keeps no node list between loads. Every member accepts the anchor's session by verifying its signature. Administering accounts and who may do what goes to the auth anchor, through its admin API with the session the panel holds. Authority: `../hosted-sign-in-plan.md` (signing in), `../cluster-auth-plan.md` (accounts and sessions), `kgsm-docs/systems/authorization/` (access).
+9. **Integrations + settings** — **Discord DONE** (DiscordPage → `/integrations/discord` GET/PATCH/test, gated on `api:integrations.manage`, live round-trip-validated). Remaining: **Slack** provider UI + the rest of Settings (`/settings` not built upstream).
 10. **Degrade** — console unavailable; capability-driven panel hiding; honest-unknown everywhere.
 
 ---
@@ -715,13 +670,12 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `addedAt`, `hosts[]` | — | **D** | drop / FE registry |
 | `cover`/`art` | `cover` reserved null | **D** | FE gradient fallback |
 
-### Me / Auth (`LoginPage`, persona/tier)
+### Me / Auth (`AuthGate`, `persona.js`)
 | FE | BE | Bucket | Action |
 |---|---|---|---|
-| tier from callback | `GET /me {user,tier,scopes}` | **A** | wire `/me` for tier |
-| callback `user_id` | `userId` | **A** | rename |
-| no refresh store | `refresh` JWT + `POST /auth/session/refresh` (bearer) | **A** | add refresh-token store |
-| `?host=&prompt=` callback | real `start`→`callback?code=&state=` | **A** | replace flow |
+| the session | the anchor's OIDC `/authorize` + `/token`, refresh grant | ✓ | `lib/oidc.js`, `sessionStore.js` |
+| who and standing | `GET /me {user,scopes,recentLogins,status}` | ✓ | read by the shell |
+| what may be done | `GET /me/access` + `GET /operations` on each member | ✓ | `stores/access.js`; every gate in `persona.js` |
 
 ### Whole-surface gaps (no current backend source — call out, don't bury)
 | Surface | Needs | Bucket | Note |
@@ -730,11 +684,11 @@ kgsm-api DTOs (`src/Api/Contracts/*.cs`) + the monitor contract
 | `PlayersTab` | player roster + per-player ping/playtime | **C** | presence mid-build (`player.join/leave` audit exist; no roster/count). |
 | `ConsolePanel`/`LogConsole` | `GET /servers/{id}/console?tail&before` + `/console/download` + the per-server topic | ✓ **DONE** | window hydrate + live follow; `before` takes the byte cursor the response reports, so reading back reaches the start of the run; download streams the whole run. Native-only — a container's console belongs to Docker. |
 | `BackupsList` | backup list + restore command | **C** | only `backup.*` audit; no list/command API. |
-| `ServerNotice` (server note) | `GET/PUT/DELETE /servers/{id}/note` + `note` on the `Server` DTO | ✓ **DONE** | operator-gated write, viewer read; note rides the list DTO + `server.patch` so the dashboard tile needs no detail fetch; byline from the backend's attribution, blank when it recorded none. |
-| `FileBrowser` | `GET/PUT /servers/{id}/files…` | ✓ **DONE** | Tier 3 #12: lazy working-dir tree + raw read + etag save, operator-gated. `put` seam added. binary/too-large/symlink/jail handled honestly. |
+| `ServerNotice` (server note) | `GET/PUT/DELETE /servers/{id}/note` + `note` on the `Server` DTO | ✓ **DONE** | each request gated on its own action; note rides the list DTO + `server.patch` so the dashboard tile needs no detail fetch; byline from the backend's attribution, blank when it recorded none. |
+| `FileBrowser` | `GET/PUT /servers/{id}/files…` | ✓ **DONE** | Tier 3 #12: lazy working-dir tree + raw read + etag save, each gated on its own action. `put` seam added. binary/too-large/symlink/jail handled honestly. |
 | `ServerSettings`/`SettingsPage` | config/file read+write API | **C** | no `/settings` endpoint (config is `/servers/{id}/config`; settings panel still WIP). |
 | `ChatPage` (assistant) | `POST /assistant/turn` SSE | ✓ **9a done** | rewritten onto `api.host(id).turn()` SSE through the seam (streaming half). 9b = command.proposed→verify. |
-| `DiscordPage`/integrations | `/integrations` (built) | ✓ **DONE** | DiscordPage LIVE branch wired to `/integrations/discord` (GET catalog+masked hint / sparse PATCH / real test), admin-gated, round-trip-validated. Slack UI = follow-on. |
+| `DiscordPage`/integrations | `/integrations` (built) | ✓ **DONE** | DiscordPage LIVE branch wired to `/integrations/discord` (GET catalog+masked hint / sparse PATCH / real test), gated on `api:integrations.manage`, round-trip-validated. Slack UI = follow-on. |
 
 ## 10. Per-surface rollup (what unblocks each screen)
 
@@ -744,7 +698,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Realtime (SSE, migrated from WS 2026-07-02)** — **DONE (slice 5, 2026-06-21; transport swapped to SSE 2026-07-02).** `liveStream.js` fetch-based SSE stream on `/api/v1/stream`; `servers`/`jobs`/`audit`/`alerts` topics live with per-frame adaptation + drop→reconnect→re-subscribe→rehydrate. **`host.metrics` now live too** (slice 7 follow-on, 2026-06-21 — deep-dive-scoped subscribe + clobber-safe merge). Still deferred: `metrics.tick` (per-server, same shape, wire when per-server tiles need live numbers) + `capabilities.patch` (FE reads capability status from REST hydrate/rehydrate today); `network.patch` → slice 6; console = permanent gap.
 - **Dashboard** — **wire-able now** (A: servers/hosts/library/audit rollups; now also live via the WS). `ping_ms` = B (client RTT); `region` = D.
 - **Audit / Alerts / Library** — **DONE (slice 3, 2026-06-21).** Dev DB recreated → the audit/integrations 500s are cleared; audit + library live-verified; alerts hydrate from `GET /alerts` (firing + 24h resolved) with a derived display icon. Live `audit.append`/`alert.*` prepend now wired (slice 5). Remaining (later): audit keyset paging.
-- **Auth / Me** — **DONE** (slices 4 + 4b): `/me`-driven per-host tier ungates fleet/dashboard; bearer injected when held; OAuth **fragment handoff** built across kgsm-api + kgsm-web (mechanically verified). **Owed:** one manual browser login; refresh-token *rotation* (15-min sessions until then); multi-host token routing.
+- **Auth / Me** — **DONE**: one cluster session from the auth anchor, renewed through the refresh grant; each member's `/me/access` and operations gate every control on the request it sends.
 - **Diagnostics (host)** — **B-enrichment DONE (slice 7, 2026-06-21), live-validated.** The
   per-core/load/swap/disk-fs/IO/iface/hostname/uptime block is now surfaced by kgsm-api (additive,
   against the **already-cached** monitor Snapshot — zero extra scrape; present on BOTH `/hosts` list
@@ -765,7 +719,7 @@ Cheap-wins-first falls out of the buckets above:
 - **Console / Backups / Settings** — **C/deferred**: Backups DONE; Console/Settings have no API; degrade to honest-unavailable.
 - **Assistant chat** — **9a + 9b DONE (2026-06-21):** `ChatPage` streams a real turn via `api.host(id).turn()` SSE through the seam (text/tool frames → existing roles; honest degrade). **9b** adds the command-confirm half: `command.proposed`→Confirm→`confirmCommand` (M3 path, `origin:"assistant"`)→SPA-composed `command.verified` from the job outcome (job-outcome primary + locally-composed honest headline; API-backed verbs run, the rest render disabled; the mock double-write landmark guarded off in LIVE). OWED: real-leaf (Ollama) + real engine round-trip.
 - **Assistant history (reverse path)** — **9d DONE + LIVE-VALIDATED (2026-06-26):** chat history now lives server-side (assistant SQLite, keyed `web:<userId>:<chatId>`), not only in localStorage. On a usable host, `ChatPage` fetches `GET /assistant/conversations` and folds the caller's own past chats into its list (`mergeServerConversations`, join by `id`); opening a server-only chat lazily fetches `GET /assistant/conversations/{id}` and `scaffoldHistory` rebuilds the thread through the SAME message vocabulary a live turn produces (§5·a schema reuse — no second renderer; a compaction checkpoint renders as a quiet divider). API relays both verbatim, scoped to the verified Discord id. Live-validated end-to-end on hotrod (real gemma4:12b): two seeded chats listed newest-first with derived titles + turn counts; a 2-turn transcript returned §5·a-shaped incl. the `google_search` tool; per-chat isolation held. **Delete is now a server-side SOFT-delete** (`DELETE /assistant/conversations/{id}` → `204`): `deleteChat` fires it for the chat's owning host so a removed chat doesn't resurrect from server history; the assistant tombstones the row (hidden from the list) but keeps the transcript — the append-only corpus is never destroyed. **Card-casing fix (same date):** the assistant's stored §5·a card is now serialized camelCase (Web defaults), byte-identical to the live SSE card, so a replayed card renders through the same path as a live one.
-- **Integrations** — **Discord DONE (2026-06-21):** DiscordPage rewritten from pure-mock onto the live `/integrations/discord` (GET the server-defined 6-event catalog + masked webhook hint; per-event sparse-PATCH toggles; `buildIntegrationPatch` Save that sends `webhook` only when user-typed; real `/test`; admin-gated). Round-trip-validated against the live persistent backend (toggle persist+restore, webhook set→secret-never-echoes→clear, unconfigured-test→409). Remaining: **Slack** provider UI; the broader `/settings` surface (not built upstream).
+- **Integrations** — **Discord DONE (2026-06-21):** DiscordPage rewritten from pure-mock onto the live `/integrations/discord` (GET the server-defined 6-event catalog + masked webhook hint; per-event sparse-PATCH toggles; `buildIntegrationPatch` Save that sends `webhook` only when user-typed; real `/test`; gated on `api:integrations.manage`). Round-trip-validated against the live persistent backend (toggle persist+restore, webhook set→secret-never-echoes→clear, unconfigured-test→409). Remaining: **Slack** provider UI; the broader `/settings` surface (not built upstream).
 
 **Suggested order** (each is a clean component-by-component slice): ~~Server/Dashboard
 **A** remaps~~ (slice 2a) → ~~**Auth/Me**~~ (slices 4/4b) → ~~recreate the backend DB to

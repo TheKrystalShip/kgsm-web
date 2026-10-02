@@ -313,7 +313,7 @@
   line-height: 1.45;
 }
 
-/* empty-state invitation (operators only) */
+/* empty-state invitation (whoever may write the note) */
 .motd__empty {
   display: block;
   width: 100%;
@@ -416,7 +416,7 @@
   color: var(--fg-inverse);
 }
 
-/* ---- Console read-only strip (viewers) ---- */
+/* ---- Console read-only strip (no console input held, or none possible) ---- */
 .console-card__readonly {
   display: flex;
   align-items: center;

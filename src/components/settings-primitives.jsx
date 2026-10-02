@@ -24,7 +24,7 @@ function SettingsRow({ icon, title, sub, tone, children }) {
 }
 
 // `disabled` renders the switch inert and faded — for a setting that exists but cannot be changed
-// from here (one an admin has turned off host-wide, say). It stays visible rather than being hidden,
+// from here (one turned off host-wide, say). It stays visible rather than being hidden,
 // because a missing row reads as "no such setting" when the truth is "not yours to change"; give the
 // row a `sub` saying which.
 function Toggle({ on, onChange, disabled = false, label }) {

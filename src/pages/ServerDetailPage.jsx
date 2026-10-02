@@ -48,8 +48,8 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // clicking a sub-tab navigates, and Back/Forward move between tabs.
   const tab = tabProp || "overview";
   const setTab = onTabChange || (() => {});
-  // Can this user operate the host? Players get a stripped overview (note + Join
-  // + status) and none of the operator sub-tabs.
+  // May this person operate the server? Somebody who may not gets a stripped overview
+  // (note + Join + status) and none of the sub-tabs that operate it.
   const canOps = serverOperable(server);
   // Active alerts anchored to this server, grouped by the tab they concern.
   const srvAlerts = anchoredAlerts(an => an.surface === "server" && an.serverId === server.id);

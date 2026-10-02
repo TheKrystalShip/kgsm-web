@@ -1239,7 +1239,7 @@ a.game-fact:hover {
   min-height: 1024px;
 }
 
-/* Says why the editor is read-only for an operator, and where their path is. */
+/* Says why the editor is read-only for somebody who may not write blueprints, and where their path is. */
 .bp-create__banner {
   padding: 10px 16px;
   background: var(--info-bg);

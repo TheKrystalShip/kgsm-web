@@ -61,7 +61,7 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
-  // "Add node" federates through one node's peer roster (admin-only) as part of
+  // "Add node" federates through one node's peer roster (`api:members.manage`) as part of
   // the unified add flow. The modal names that node itself — a sole manageable
   // node is it, otherwise it asks — so the flow never guesses where to federate.
   const canFederate = manageable.length > 0 && !!clusterAdmin;

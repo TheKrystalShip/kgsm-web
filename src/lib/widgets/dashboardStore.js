@@ -44,7 +44,7 @@ const DEFAULT_LAYOUT = [
   { type: "library.catalog", w: 12, h: 4 },
 ];
 
-// Capabilities the seed needs to check. Kept beside the list because a seeded widget the viewer
+// Capabilities the seed needs to check. Kept beside the list because a seeded widget its reader
 // cannot see is the one bug this filter exists to prevent.
 const SEED_CAP = {
   "cluster.nodes": "nav.cluster",

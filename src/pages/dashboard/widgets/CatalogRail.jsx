@@ -50,7 +50,7 @@ function CatalogRail() {
       onViewAll={() => nav.library()}
       // No `onDeploy`: an install is a form — a node, a name, a port — and the rail has nowhere to
       // put one. The card reads "View" and the game's own page is where the deploy lives, which is
-      // the same answer it gives a viewer on the Catalog page.
+      // the same answer it gives somebody who may not install, on the Catalog page.
       renderItem={g => <GameCard game={g} addedNow={now} headroom={headroom} onPick={() => nav.openGame(g.id)} />}
     />
   );

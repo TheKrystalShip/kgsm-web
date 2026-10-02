@@ -36,8 +36,8 @@ function AlertSeverityTag({ severity }) {
 // of thing this verb answers, and nothing more. So everything that decides whether the
 // button would actually work is re-derived here:
 //
-//   · tier   — serverOperable; a viewer sees the card without the control, never a
-//              button that 403s.
+//   · access — serverOperable; somebody who may not operate the server sees the card
+//              without the control, never a button that 403s.
 //   · state  — verbGuard, the SAME answer the hero and the tile use. A running server
 //              with an update pending renders Update DISABLED, saying "Server must be
 //              stopped before updating", because that is exactly what kgsm-api's

@@ -1,10 +1,10 @@
 // reviewAuthority — how the two assistant review tabs read a failed request, shared so they cannot
 // tell the operator two different stories about the same failure.
 //
-// The leaf's review surface is admin-gated, and it resolves that gate by asking Discord which roles
-// the caller holds. Discord being briefly unreachable is therefore a way for these tabs to fail that
-// has nothing to do with the assistant, the host, or the caller's permissions — and rendering it as
-// "the assistant didn't answer" sends someone to check a service that is running perfectly.
+// The leaf's review surface is gated on `assistant:conversations.read-any`, evaluated from the
+// assistant's replica of the cluster's authority. A replica the assistant cannot read is therefore a
+// way for these tabs to fail that has nothing to do with the caller's access — and rendering it as
+// "the assistant didn't answer" sends someone to check a service that is running.
 //
 // So the leaf reports that case apart, as 502 + `authority_unavailable`, and this module is where the
 // SPA agrees to keep the distinction: an outage says "couldn't check" and offers a retry, a denial
@@ -12,7 +12,7 @@
 
 import { Icon } from "../../components/Icon.jsx";
 
-// The leaf's wire code for "Discord could not be asked what you hold". Matches AdminOnlyFilter's
+// The leaf's wire code for "the access could not be checked". Matches AssistantActionFilter's
 // UnavailableCode; it is a stable part of that contract precisely so this branch can exist.
 const AUTHORITY_UNAVAILABLE = "authority_unavailable";
 
@@ -28,18 +28,15 @@ function reviewErrorState(e) {
   return "error";
 }
 
-/// Discord wouldn't answer, so the leaf couldn't check the caller's access. Deliberately says which
-/// upstream failed and that permissions are not what changed — the two things that stop an operator
-/// going to look at the wrong thing — and offers the retry that usually just works.
+/// The assistant couldn't read its replica of the cluster's authority, so it couldn't check the
+/// caller's access. Says which thing failed and offers the retry.
 function ReviewAuthorityUnavailable({ onRetry }) {
   return (
     <div className="chat-brief">
       <div className="chat-brief__empty chat-brief__empty--neutral">
         <div className="chat-brief__empty-title">Couldn’t check your access</div>
         <div className="chat-brief__empty-sub">
-          Discord didn’t answer when the assistant asked which roles you hold, so it can’t open the
-          review surface. The assistant itself is fine and your permissions haven’t changed — this
-          usually clears in a moment.
+          The assistant couldn’t read who may do what.
         </div>
         {onRetry && (
           <button className="chip" style={{ marginTop: 10 }} onClick={onRetry}>
@@ -59,7 +56,7 @@ function ReviewForbidden() {
       <div className="chat-brief__empty chat-brief__empty--neutral">
         <div className="chat-brief__empty-title">You don’t have access to this</div>
         <div className="chat-brief__empty-sub">
-          Reading other people’s conversations needs the administrator role on this host.
+          Needs assistant:conversations.read-any
         </div>
       </div>
     </div>

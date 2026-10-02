@@ -10,8 +10,8 @@
 // and the host journal beside them. So this page is discovery and framing, and the settings
 // themselves are the same body an anchor's page mounts.
 //
-// Admin-only, end to end: kgsm-api's leaf controller is Admin-policy, so `persona.ROUTE_CAP` gates
-// the route on `host.manage` and an operator never reaches it.
+// Reached through the node's services board, so `persona.ROUTE_CAP` gates the route on that read
+// (`host.services`); each leaf's configuration is gated on its own read and write.
 
 import React from "react";
 import { ConsoleView } from "../../components/ConsoleView.jsx";

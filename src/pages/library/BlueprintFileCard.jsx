@@ -13,8 +13,8 @@ import { blueprintFileStore } from "../../lib/stores.js";
 // same Rollup chunk, zero material bundle cost.
 const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));
 
-// BlueprintFileCard — a BriefCard on the game detail page that lets admins
-// view and edit a blueprint's raw .bp.yaml through Monaco. One card per game;
+// BlueprintFileCard — a BriefCard on the game detail page that shows a
+// blueprint's raw .bp.yaml through Monaco, and edits it for whoever may. One card per game;
 // the host is auto-selected when only one offering host exists, or picked from
 // a dropdown when several do.
 //
@@ -22,7 +22,8 @@ const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));
 // ReversablePortal (full-screen pop-out, same editor instance across the toggle),
 // and the etag/412 handling pattern from FileBrowser.
 // §5.2: host resolution via offeringHosts (passed from GamePage).
-// §5.3: gating — Operator+ reads, Admin writes, non-readers see no card.
+// Gating — the file's read and its write are each their own request; without the read there is
+// no card.
 
 function BlueprintFileCard({ game, offeringHosts }) {
   const name = game && game.id;

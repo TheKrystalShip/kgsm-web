@@ -334,8 +334,8 @@ function UserModal({ hostId, view, user, onClose, onSaved }) {
 // to, so an administrator acts on somebody they have already named rather than on an opaque id.
 //
 // Signing somebody out is deliberately NOT the same act as disabling them: the sessions end and the
-// account is untouched, so they can sign straight back in. The confirmation says so, because an
-// admin reaching for this during an incident is usually reaching for the other one.
+// account is untouched, so they can sign straight back in. The confirmation says so, because
+// somebody reaching for this during an incident is usually reaching for the other one.
 function UserSessions({ hostId, user, disabled }) {
   // An anchor's recency is the last token rotation, not a person's last request — see the same note
   // on the Devices card. It follows the DOOR rather than the cluster, because it describes where

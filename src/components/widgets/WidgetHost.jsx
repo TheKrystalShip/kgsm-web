@@ -173,9 +173,9 @@ function WidgetHost({ descriptor, editing, onRemove, onGripDown, onResize }) {
   }
 
   // Not permitted. Renders NOTHING — not a locked placeholder, which would leak both that the thing
-  // exists and what it is called. It stays in the stored layout on purpose: a role is per host and
-  // can be restored, and silently dropping widgets on a demotion would mean a re-promoted admin
-  // rebuilding their dashboard by hand.
+  // exists and what it is called. It stays in the stored layout on purpose: access is granted per
+  // scope and can be granted again, and silently dropping widgets when it is taken away would mean
+  // somebody given it back rebuilding their dashboard by hand.
   if (!widgetPermitted(entry, params)) return null;
 
   const title = widgetTitle(entry, descriptor);

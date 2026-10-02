@@ -9,7 +9,7 @@
 // A row states what a node is carrying and navigates to it: status dot, name, round
 // trip, the three capacity meters with their absolute readings, and how much is
 // running on it. Beneath that sits the federation strip — membership badges, the
-// member controls an admin holds (`clusterActions.jsx`, shared with the Anchors card)
+// member controls, each gated on its own request (`clusterActions.jsx`, shared with the Anchors card)
 // and this node's own menu.
 //
 // Card height is therefore a function of the node count and nothing else, which is

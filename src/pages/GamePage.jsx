@@ -21,7 +21,7 @@ const BlueprintFileCard = React.lazy(() => import("./library/BlueprintFileCard.j
 //   overview   what it is, and whether the cluster has room for it
 //   blueprint  everything the blueprint declares, structured and read-only
 //   servers    the instances already running from it
-//   file       the raw .bp.yaml, in Monaco — operator reads, admin writes
+//   file       the raw .bp.yaml, in Monaco — its read and its write gated apart
 //
 // The tab lives in the URL (#/library/<id>/<tab>), the same contract the server
 // detail page uses, so Back/Forward and deep links work across tabs too.
@@ -34,9 +34,9 @@ function GamePage({ game, tab: tabProp, onTabChange, onCreate, onOpenServer, onA
   const offered = offeringHosts(game, allHosts);
   const hostRestricted = offered.length > 0 && offered.length < allHosts.length;
   // Creating a server is its own capability, scoped per host: it's offered iff
-  // the user can create on at least one host that offers this blueprint
-  // (architecture.html §3·f·1). A read-only viewer never sees the entry point —
-  // and the install modal's host picker is filtered to the same set.
+  // the person may install on at least one host that offers this blueprint.
+  // Somebody who may not never sees the entry point — and the install modal's
+  // host picker is filtered to the same set.
   const canCreate = offered.some(h => can("server.create", { hostId: h.id }));
   // The blueprint FILE is offered where its read may be made. The card gates the write half itself.
   const canReadFile = offered.some(h => mayCall({ hostId: h.id }, "GET", "/library/" + encodeURIComponent(game.id) + "/file"));
@@ -45,7 +45,7 @@ function GamePage({ game, tab: tabProp, onTabChange, onCreate, onOpenServer, onA
   const instances = instancesOfBlueprint(game, servers);
 
   // Names and order are shared with the breadcrumb (lib/labels.js); the instance count and the
-  // operator-only File tab are this page's to decide.
+  // read-gated File tab are this page's to decide.
   const tabs = ROUTE_TABS.game
     .filter(t => t.id !== "file" || canReadFile)
     .map(t => (t.id === "servers" && instances.length ? { ...t, badge: instances.length, badgeTone: "info" } : t));

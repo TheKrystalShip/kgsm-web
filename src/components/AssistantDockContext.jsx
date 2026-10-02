@@ -237,7 +237,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   }, [assistantOpen]);
 
   // ===== Review mode (read-only replay of someone else's conversation) =====
-  // An admin reviewing a transcript sees it in THIS dock, rendered by the very same components that
+  // Somebody reviewing a transcript sees it in THIS dock, rendered by the very same components that
   // drew it for the person who had the conversation — the transcript DTO is identical to a user's own
   // history by design, so a second viewer would only be a copy free to drift.
   //

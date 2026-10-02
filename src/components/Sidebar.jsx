@@ -310,9 +310,9 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
           the icons beside it already say, and the collapsed rail has always hidden them — so both
           modes read the same way now rather than each having its own idiom.
 
-          A group this role holds nothing of is ABSENT, not empty: the hairline is drawn between
-          groups, so one left standing would rule off a space with nothing in it. A viewer holds
-          neither the dashboard nor alerts nor the cluster and gets one separator, not a ladder. */}
+          A group the caller holds nothing of is ABSENT, not empty: the hairline is drawn between
+          groups, so one left standing would rule off a space with nothing in it. Somebody holding
+          no server read, alerts or roster gets one group and no separator, not a ladder. */}
       <nav className="sidebar__nav">
         {canDashboard && (
         <div className="sidebar__group">

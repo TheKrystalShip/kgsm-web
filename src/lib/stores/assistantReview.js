@@ -1,4 +1,4 @@
-// assistantReview — the admin-only read path onto one host's assistant corpus: the roll-up behind the
+// assistantReview — the review read path onto one host's assistant corpus: the roll-up behind the
 // leaf page's Overview, and the who → which-conversation → transcript walk behind its Conversations
 // tab.
 //
@@ -8,8 +8,9 @@
 // assistant, which no admin surface needs to watch live. The pages own the request state, exactly as
 // the leaf-config page owns its own (fetchLeafConfig, same shape).
 //
-// Everything is admin-gated by the leaf itself: its /admin group is fail-closed on the tier it
-// derives from the caller's own session, so a non-admin never gets a row.
+// Everything is gated by the leaf itself: its /admin group requires
+// `assistant:conversations.read-any`, evaluated for the caller's own session, so somebody without it
+// never gets a row.
 
 import * as adapt from "../adapters.js";
 import { assistant } from "../assistantClient.js";

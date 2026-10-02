@@ -2693,7 +2693,7 @@ a.ev-search__src:hover {
   background: var(--surface-2);
 }
 
-/* ---------- actions toggle (operator+ only) ---------- */
+/* ---------- actions toggle (shown to whoever may run servers) ---------- */
 /* Lets the assistant suggest + run changes. OFF by default; ON tints amber to signal the
    assistant now has an elevated, change-capable mode (each change is still a confirm-first card). */
 .chat-act-toggle {
@@ -2723,7 +2723,7 @@ a.ev-search__src:hover {
   font-variant-numeric: tabular-nums;
 }
 
-/* Disabled (e.g. Auto-run shown to an operator): visible but clearly inert — dimmed, no hover, the
+/* Disabled (e.g. Auto-run shown without `assistant:autorun`): visible but clearly inert — dimmed, no hover, the
    not-allowed cursor signalling the capability exists but isn't theirs to use. */
 .chat-act-toggle:disabled {
   opacity: .45;
@@ -4133,7 +4133,7 @@ a.ev-search__src:hover {
 .ev-bp__cta:hover {
   background: var(--krystal-teal-hover);
 }
-/* ===== Review mode — an admin replaying someone else's conversation ==========
+/* ===== Review mode — replaying someone else's conversation ==========
    The dock is normally YOUR chat. When it is holding a transcript belonging to
    somebody else that has to be unmissable for as long as it is true, so the
    banner is part of the column rather than something scrolled past, and the

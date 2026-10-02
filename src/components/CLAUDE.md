@@ -68,9 +68,9 @@ into `App.jsx`.
   say what the icons beside it already say, and the collapsed rail had always hidden them, so both
   modes read the same way. The rule is drawn **between** groups (`.sidebar__group+.sidebar__group`),
   which makes a group this role holds nothing of something that must be **absent from the DOM rather
-  than empty** — otherwise the sidebar rules off a space with nothing in it. A viewer holds neither
-  the dashboard nor alerts nor the cluster and sees one group; that is what `sidebar-nav.mjs` in the
-  visual harness drives, because it is invisible to anyone signed in as an admin.
+  than empty** — otherwise the sidebar rules off a space with nothing in it. Somebody holding no
+  server read, alerts or roster sees one group; `p6-panel.mjs` in the visual harness drives the
+  narrower grants, because the failure is invisible to an Owner.
 
   The **foot** is what is yours rather than the fleet's: this browser's notification tray, Settings,
   and the account last — the heaviest row, anchoring the bottom, with its popover opening upward.
@@ -154,8 +154,9 @@ previews live while writing nothing**: arrowing sets `data-theme` on the documen
 
 It also **pins**, **backs up**, **copies a connect address** and **launches an install**. The line
 those four sit on: an entry belongs here when it is one decision. Backing up is one, so it runs
-(armed, like anything that changes the host). Copying an address is one, and it is the only entry a
-**viewer** can run — an address is what a player needs, so it is gated on nothing but the server
+(armed, like anything that changes the host). Copying an address is one, and it is the one entry
+anybody who can see the server can run — an address is what a player needs, so it is gated on nothing
+but the server
 being joinable, and it refuses in `ServerConnect`'s own words (`joinRefusal`, the counterpart to
 `verbGuard` and `moderationOffers`). Installing needs a node, a name and a port, so the entry opens
 the real form — it LAUNCHES, it does not act. Pinning and theme-switching are the two things that

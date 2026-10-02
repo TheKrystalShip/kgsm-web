@@ -67,8 +67,8 @@ function StatusPill({ server, status, uptime, watchdogDown }) {
 
 function ServerHero({ server, onAction }) {
   const nav = useNav();
-  // Can the signed-in user operate this server's host? Players (viewer / consumer
-  // preview) get the Join + connect surface only — no lifecycle controls, no rename.
+  // May the signed-in person operate this server? Somebody who may not gets the Join +
+  // connect surface only — no lifecycle controls, no rename.
   const canOps = serverOperable(server);
   const isFav = useIsFavorite(server.id);
   // Pending work in three states: idle · queued · running. One derivation, shared with the tile and
@@ -104,7 +104,7 @@ function ServerHero({ server, onAction }) {
             {server.name}
             {/* The star is here because this is where a person decides a server is one of theirs —
                 the grid's card is the other place, and reaching it means navigating away from what
-                you are looking at. Ungated: a favourite is a shortcut of your own, and a viewer who
+                you are looking at. Ungated: a favourite is a shortcut of your own, and anybody who
                 may see a server may keep one. */}
             <button
               className={"hero__edit hero__fav" + (isFav ? " is-on" : "")}
@@ -152,9 +152,9 @@ function ServerHero({ server, onAction }) {
               me", which is what somebody pinning from here means. */}
           <PinButton type="server.card" params={{ serverId: server.id }} label={server.name} />
         </div>
-        {/* Frosted control bar: lifecycle actions (operators) on the left, a
-            divider, then the connect/Join group on the right. Players see only
-            the connect group. */}
+        {/* Frosted control bar: lifecycle actions on the left, a divider, then the
+            connect/Join group on the right. Somebody who may not operate the server
+            sees only the connect group. */}
         <div className="hero__bar">
           {canOps && (
             <>

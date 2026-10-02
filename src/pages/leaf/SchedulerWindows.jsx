@@ -12,8 +12,8 @@
 // Postpone, Skip and Run now move a target the daemon holds in memory. The fire after the one acted on
 // lands where it always would have, kgsm config is untouched, and a restart of the daemon brings a
 // deferred fire back — which is what makes them "not tonight" and "just this once" rather than edits.
-// Changing what a window IS is the instance's own settings page, at operator; moving the fleet's
-// appointments about is admin on this node.
+// Changing what a window IS is the instance's own settings page (`kgsm:server.windows.write`); moving
+// the fleet's appointments about is `scheduler:windows.write` on this node.
 
 import React from "react";
 

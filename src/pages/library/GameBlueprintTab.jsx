@@ -6,9 +6,9 @@ import { fmtFootprintMb } from "../../lib/formatting.js";
 // to open the YAML to answer a question about it. Read-only: the file itself is
 // edited on the File tab, which is where the write gate lives.
 //
-// Viewer-visible, deliberately: every field here comes from `GET /library`, which
-// the API serves at viewer. Gating the rendering of a payload the reader already
-// holds would be theatre, not access control.
+// Ungated, deliberately: every field here comes from `GET /library`, which the
+// reader has already been served. Gating the rendering of a payload the reader
+// already holds would be theatre, not access control.
 //
 // The em dash is the whole vocabulary for "the blueprint declares nothing here" —
 // a spec is nullable per blueprint and a missing one is never shown as a zero.

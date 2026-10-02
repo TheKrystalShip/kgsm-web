@@ -2214,7 +2214,7 @@
 
 /* Leaf provisioning row (Services board) — the API↔leaf connection, distinct from the systemd liveness
    shown above. The state chip is honest read-only for everyone; the connect/disconnect + Configure
-   controls are admin-gated. Sits under the facts with a hairline separator. */
+   controls are gated on `api:services.manage`. Sits under the facts with a hairline separator. */
 .svc-card__prov {
   display: flex;
   align-items: center;

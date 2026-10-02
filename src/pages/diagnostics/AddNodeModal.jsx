@@ -11,9 +11,9 @@ import { clusterStore } from "../../lib/stores.js";
 //   1. FEDERATE the backends — POST /peers on ONE node so the two kgsm-api
 //      nodes join one gossip mesh/trust domain. That write edits a specific
 //      node's peer list, so the flow names it: a sole manageable node is it,
-//      and with several the modal asks rather than picking. Admin-only
-//      (`canFederate`, the caller's `can("host.manage")` plus the
-//      cluster's own admin standing).
+//      and with several the modal asks rather than picking. Offered only to
+//      whoever may add members (`canFederate`: the caller's
+//      `can("host.manage")`, and the management roster readable).
 //   2. CONNECT this browser — register the node in the client-side connection
 //      registry and resolve a session on it, exactly like `AddHostPage`.
 // The two steps are independent and each is reported on honestly: a failure
@@ -48,7 +48,7 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
     setConnError(null);
     setGhosted(false);
 
-    // 1. Federate first (admin + checkbox on + not already done for this URL).
+    // 1. Federate first (allowed + checkbox on + not already done for this URL).
     //    Federation and connection are independent — a federate failure is
     //    surfaced but never blocks the connect attempt that follows.
     let didFederate = federated;

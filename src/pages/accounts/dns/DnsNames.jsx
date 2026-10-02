@@ -132,7 +132,7 @@ function useRemoveAlias() {
 
 const aliasChip = <span className="cluster-chip cluster-chip--muted" style={{ marginLeft: 6 }}>alias</span>;
 
-// DnsAnchorsTable — every capability's own name and the aliases an admin gave one at the top of the
+// DnsAnchorsTable — every capability's own name and the aliases somebody gave one at the top of the
 // zone, with the "Add alias" action and an alias's removal. Nothing here moves a capability: an anchor
 // is reached through the cluster's Anchors card and changes hands through Settings.
 function DnsAnchorsTable({ onlyBlocked = false }) {

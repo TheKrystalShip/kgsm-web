@@ -263,8 +263,8 @@ function Library({ onOpenGame, onDeploy, initialFilter, onCreateBlueprint }) {
       <div className="library-head">
         <div className="dash-head__row">
           <h1>{KRYSTAL_LABELS.catalog || "Catalog"}</h1>
-          {/* Authoring a blueprint is gated the same way creating a server is — a viewer
-              browses the catalog but gets no entry point. Aggregate (any host), matching
+          {/* Authoring a blueprint is gated the same way creating a server is — somebody who
+              may not browses the catalog but gets no entry point. Aggregate (any host), matching
               ServersPage; the create page itself resolves which host it lands on. */}
           {canCreate && (
             <button className="fb-editor__btn" onClick={onCreateBlueprint}>

@@ -248,9 +248,9 @@ hover state would look identical and silently stop agreeing.
 
 `ServerDetailPage.jsx`, `DiagnosticsPage.jsx` (host detail) and `GamePage.jsx`
 (a library blueprint) render sub-tabs via `route.tab` (`overview` is the default
-and is omitted from the URL). A tab the persona can't reach is left out of the
-strip and `safeTab` falls back to overview, so a stale URL never mounts an empty
-body — the game page's File tab is operator-only on that basis.
+and is omitted from the URL). A tab whose read the caller does not hold is left out
+of the strip and `safeTab` falls back to overview, so a stale URL never mounts an
+empty body — the game page's File tab is offered only on the blueprint read it makes.
 
 **A tab's id, name and place in the strip come from `ROUTE_TABS` in `../lib/labels.js`**,
 because a tab is a URL segment and the breadcrumb above the page names it too. The page

@@ -112,7 +112,7 @@ The reactive store layer:
   each empty until it hydrates from the API.
 - `sessionStore.js`, `capabilities.js`, `alertsApi.js`, `merge.js`,
   `persona.js`, `router.js` — sessions/auth, per-host capabilities, alerts,
-  multi-host merge, RBAC persona, and hash↔route translation.
+  multi-host merge, the authorization policy, and hash↔route translation.
 
 > **Init order note.** A few base-layer modules import upper ones only for
 > deferred, call-time use; those edges are `import(...)`-lazy to keep the ESM

@@ -99,8 +99,8 @@ try {
   console.log(`  reply     : ${JSON.stringify(((bubble && bubble.content) || "").slice(0, 400))}`);
 
   // --- the Actions toggle: the SPA seam forwards `actions` and the assistant proposes a command ---
-  // (Auth-disabled api ⇒ admin tier, so actions:true ⇒ canAct; this proves the SPA body carries the
-  //  toggle and a command.proposed flows back. The viewer/operator tier matrix is validate-action-toggle.sh.)
+  // (Auth-disabled api ⇒ a synthetic Owner, so actions:true ⇒ canAct; this proves the SPA body carries
+  //  the toggle and a command.proposed flows back.)
   // The model's DECISION to call server_command is probabilistic (gemma4:12b), so retry a few times —
   // we're proving the seam forwards the toggle + the backend can propose, not the model's determinism.
   console.log(`\n→ POST /assistant/turn { actions: true }  (operator toggle on; retry until proposed)`);

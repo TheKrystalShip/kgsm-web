@@ -21,7 +21,7 @@ import {
 // this all started with. This tab is about what reaches you when nothing is open.
 //
 // TWO GATES decide whether a notification arrives, and the UI shows both:
-//   the host's rule  — an admin decides what the push channel carries at all
+//   the host's rule  — whoever holds `api:integrations.manage` decides what the push channel carries
 //   your choice      — which of those you want
 // A row the host is not carrying renders its switch inert and says so, rather than letting somebody
 // turn something on and then hear nothing with no explanation.
@@ -144,7 +144,7 @@ function HostNotifications({ host }) {
             : here ? (channelOn
                 ? "On. Choose what you'd like to hear about below."
                 // Subscribed, but nothing will arrive — say so rather than implying it works.
-                : "On for this device, but notifications are switched off for this host by an admin.")
+                : "On for this device, but notifications are switched off for this host.")
             : (others.length
                 ? `Off on this device. ${others.length} of your other device${others.length === 1 ? " is" : "s are"} on.`
                 : "Off. Turn on to get notified with the panel closed.")
@@ -166,7 +166,7 @@ function HostNotifications({ host }) {
           title={ev.title}
           sub={ev.availableOnHost
             ? ev.description
-            : "Switched off for this host by an admin — you won't get this one even with it on."}
+            : "Switched off for this host — you won't get this one even with it on."}
           tone={ev.availableOnHost ? undefined : "muted"}
         >
           <Toggle

@@ -163,7 +163,7 @@ function SignInCard({
                   type="button"
                   className="btn-link"
                   style={{ fontSize: 11, letterSpacing: 0, textTransform: "none" }}
-                  onClick={() => setFormError("Ask an administrator to reset it.")}>
+                  onClick={() => setFormError("Ask whoever manages accounts on this cluster to reset it.")}>
                   Forgot?
                 </button>
               ) : null}>

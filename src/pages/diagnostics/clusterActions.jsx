@@ -1,4 +1,4 @@
-// clusterActions.jsx — the two decisions an admin can make about a member, and the dialogs that
+// clusterActions.jsx — the two decisions there are to make about a member, and the dialogs that
 // take them: whether a member is still in the cluster, and who holds a capability.
 //
 // Both are deliberate acts with no automatic equivalent. Nothing promotes itself — an
@@ -101,7 +101,7 @@ function MemberRemoveDialog({ hostId, member, onClose }) {
 
 // Moving a capability. The candidates are the cluster's members verbatim, each with the
 // membership it actually has, because the backend accepts a member that is unreachable
-// on purpose: reassigning is what an admin does when the holder is GONE, and refusing on
+// on purpose: reassigning is what somebody does when the holder is GONE, and refusing on
 // liveness would block the operation at the only moment it is needed. Showing the state
 // rather than filtering on it leaves that judgement where it belongs.
 //
@@ -115,7 +115,7 @@ function CapabilityAssignDialog({ hostId, capability, currentMemberId, members, 
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState(null);
   // A member that has LEFT is not a destination. The backend accepts an UNREACHABLE target on
-  // purpose — reassigning is exactly what an admin does when the holder cannot be reached — but a
+  // purpose — reassigning is exactly what somebody does when the holder cannot be reached — but a
   // member that is gone would take the capability with it and orphan it on the next read.
   const candidates = (members || []).filter(m => m.nodeId && m.membership !== "left");
 

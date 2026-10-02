@@ -49,7 +49,7 @@ function pickGreeting() {
 // assistant's memory AND the corpus its tuning is judged from), so a user should
 // never discover after the fact that an administrator can read one back.
 const CHAT_PRIVACY_NOTICE =
-  "Conversations are saved and may be reviewed by an administrator to improve the assistant.";
+  "Conversations are saved and may be reviewed to improve the assistant.";
 
 // What a conversation with nothing said in it is called.
 //

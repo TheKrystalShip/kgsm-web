@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — every closed control and refusal names the action it needs (3.2.2)
+
+- Auto-run's disabled toggle, the blueprint editor's read-only banner and the assistant review's
+  forbidden state say `Needs <action>`. The review's outage state says the assistant couldn't read who
+  may do what. Notification and bot copy name no role.
+- Comments and docs (`WIRING.md`, the area `CLAUDE.md`s) describe each gate by the request it makes
+  and the action that request needs.
+
 ### Fixed — the dev panel boots against an auth-disabled seed (3.2.1)
 
 `npm run dev` against an auth-disabled `VITE_API_BASE` opens the host's session before the shell

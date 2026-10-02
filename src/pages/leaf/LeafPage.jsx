@@ -20,8 +20,8 @@
 // Commands tab is the one that registers itself — it follows the manifest a leaf ships rather than a
 // list of leaves kept here, so it arrives with the file.
 //
-// Admin-only end to end (persona.ROUTE_CAP.leaf = host.manage): every surface it aggregates — the
-// service row, the config, the assistant's conversation review — is Admin-policy in kgsm-api.
+// Reached through the node's services board (persona.ROUTE_CAP.leaf = host.services), and each tab
+// inside is offered on its own read — the config, the journal, the assistant's conversation review.
 
 import React from "react";
 

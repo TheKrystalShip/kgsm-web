@@ -334,7 +334,7 @@ function fetchLeafMonitorStats(hostId) {
   return fetchLeafOverview(hostId, "monitor", "stats");
 }
 
-// The Discord bot's live gateway/guild/channel state, one row per Discord server an admin set up with
+// The Discord bot's live gateway/guild/channel state, one row per Discord server somebody set up with
 // `/setup`. Relayed verbatim, and deliberately not reduced: a row whose `name` is null is a guild the
 // client never populated — configured, connected, and unable to post — which is the failure this whole
 // payload exists to expose, and collapsing it into a boolean here would erase it.
@@ -382,7 +382,8 @@ function fetchLeafReactorTriggers(hostId, days) {
 // sentence it would record, with the figures filled in from the live world.
 //
 // A read that carries a body. The leaf stores nothing, dispatches nothing and writes no decision, which
-// is why this is an operator-tier call rather than an admin one: previewing a rule is not having one.
+// is why it needs `reactor:rules.read` rather than `reactor:rules.write`: previewing a rule is not
+// having one.
 function previewLeafReactorRule(hostId, rule, subject) {
   if (!hostId) return Promise.reject(new Error("previewLeafReactorRule: hostId required"));
   return api.host(hostId).post(
@@ -429,7 +430,7 @@ function fetchLeafReactorDecisions(hostId, days) {
 // in neither.
 //
 // Every open offer carries a `handle`, and the handle is the capability rather than a name for one:
-// anything holding it can ask for the action. That is why the call is operator-tier, and why nothing
+// anything holding it can ask for the action. That is why the call is gated, and why nothing
 // here should put one in a URL, a log line or a shared link.
 function fetchLeafReactorProposals(hostId, days) {
   const q = days > 0 ? "?days=" + days : "";

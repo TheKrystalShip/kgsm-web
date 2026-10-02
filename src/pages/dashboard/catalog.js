@@ -63,9 +63,9 @@ TILE("tile.services", "Services", "boxes", "Needs me", "TileServices");
 // are separate because the members are, so each is pinned on its own — a dashboard can carry the
 // capacity of the machines, the cluster's anchors, or both.
 //
-// Admin-only, and cluster-wide rather than per-member: each card renders EVERY member of its kind
-// at once, so the aggregate check is the right one — a viewer on one node has no business seeing
-// the rest.
+// Gated on the roster read (`nav.cluster`), and cluster-wide rather than per-member: each card
+// renders EVERY member of its kind at once, so the aggregate check is the right one — somebody who
+// holds a read on one node has no business seeing the rest.
 //
 // A row span is a MINIMUM (`grid-auto-rows: minmax(--widget-row, auto)`), so the smallest span is
 // what lets a card state its own height: one member or four, the cell is what the rows measure and
@@ -122,8 +122,9 @@ registerWidget({
 // person started, and the nodes' shares of it are inside. `host.jobs.queued`/`host.jobs.running`
 // answer the other question ("what is THIS node doing") and are bound for that reason.
 //
-// No `cap`: the reads behind it are viewer-gated on every node, the same as the servers and jobs a
-// viewer can already see. Cancelling is the operator half, and the board asks per node for it.
+// No `cap`: each node answers the read behind it for whoever may see its runs, the same as the
+// servers and jobs they can already see. Cancelling is its own request, which the board asks per
+// node.
 registerWidget({
   type: "fleet.runs",
   label: "Runs",
@@ -190,9 +191,9 @@ registerWidget({
   label: "Leaf journal",
   icon: "scroll-text",
   group: "Nodes",
-  // Per NODE, not fleet-wide: an admin on one node and a viewer on another must not see the second
-  // node's journal because the first made them an admin somewhere. persona.js calls this
-  // "aggregate for reach, scoped for action".
+  // Per NODE, not fleet-wide: somebody granted a node's journal on one node must not see another
+  // node's because they hold it somewhere. persona.js calls this "aggregate for reach, scoped for
+  // action".
   cap: "host.manage",
   scope: "host",
   params: ["hostId", "leafId"],
@@ -306,8 +307,8 @@ registerWidget({
 const SERVER_WIDGET = (type, label, icon, comp, size) => registerWidget({
   type, label, icon,
   group: "Servers",
-  // Per SERVER, which resolves to per host: an operator on one node must not reach another node's
-  // server because they hold the verb somewhere. WidgetHost looks the server's host up to decide.
+  // Per SERVER: somebody who may operate one server must not reach another because they hold the
+  // verb somewhere. WidgetHost looks the server's host up to decide.
   cap: "server.operate",
   scope: "server",
   params: ["serverId"],
@@ -323,8 +324,8 @@ SERVER_WIDGET("server.performance", "Performance", "activity", "ServerPerformanc
 // ---- The dns anchor's cards ------------------------------------------------
 // Every one of these is keyed by the CAPABILITY (empty params, never repeatable), not by which
 // member currently holds it — a pin follows a failover instead of pointing at a member that has
-// stopped answering for the capability. Admin-only, the same gate the Cluster page's own member
-// cards use: reaching the anchor's page at all already needs `nav.cluster`.
+// stopped answering for the capability. Gated on `nav.cluster`, the same as the Cluster page's own
+// member cards: reaching the anchor's page at all already needs it.
 const DNS_TILE = (type, label, icon, comp) => registerWidget({
   type, label, icon, group: "Nodes", cap: "nav.cluster",
   describe: () => label,

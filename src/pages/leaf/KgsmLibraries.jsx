@@ -1,5 +1,6 @@
 // KgsmLibraries — the Library tab of the engine's page: the named roots this node places game
-// servers in, and (for an admin) registering, renaming and deregistering them.
+// servers in, and (for whoever holds `kgsm:libraries.manage`) registering, renaming and
+// deregistering them.
 //
 // A library is engine domain, not host telemetry — a root somebody declared, not a filesystem the
 // monitor found. One node can hold several libraries on one disk, and a mounted disk kgsm knows

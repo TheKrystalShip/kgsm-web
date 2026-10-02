@@ -16,7 +16,7 @@ import { Modal } from "./Modal.jsx";
 //   "admin-all" — every one of another person's, on every device
 //
 // The admin variants take `targetName` so the copy names who is affected. A destructive action
-// against another person is never anonymous: an admin about to sign somebody out is owed the name
+// against another person is never anonymous: whoever is about to sign somebody out is owed the name
 // they will have to explain it to.
 function ConfirmRevokeDialog({ mode, targetName, busy, onConfirm, onClose }) {
   const isAdmin = mode === "admin-one" || mode === "admin-all";

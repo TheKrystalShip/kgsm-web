@@ -32,7 +32,7 @@ import { useConversationStream } from "./useConversationStream.js";
 // ChatPage renders a conversation with ONE assistant leaf. Everything that is true of the surface
 // around it rather than of the conversation arrives as a prop, because the two surfaces that render
 // it differ in exactly those things: the Control Panel drives a cluster (several leaves, a picker,
-// a server roster, per-host roles, an admin review mode), while the standalone assistant is one leaf
+// a server roster, per-host access, a review mode for other people's chats), while the standalone assistant is one leaf
 // with none of that. Defaults describe the smaller surface, so the standalone one passes almost
 // nothing and gets a chat.
 //
@@ -60,13 +60,13 @@ function ChatPage({
   // `connection` is the header badge and the usable gate, already decided: the panel folds a
   // capability into it, the standalone surface knows it is talking to itself.
   connection,
-  // Tier capabilities for THIS leaf. The panel reads its per-host persona; the standalone surface
-  // reads the tier its own session carries.
+  // What the caller may do with THIS leaf: see staged actions, and run them without confirming. Both
+  // surfaces ask the assistant they talk to (`lib/assistantGate.js`).
   canSeeActions = false, canUseActions = false,
   // The server roster, for the opening suggestions and for naming a command's target. Empty is a
   // fine answer — the suggestions fall back to generic ones and a target is named by its id.
   servers = [],
-  // Admin review of someone else's conversation. Absent ⇒ the surface has no review mode.
+  // Review of someone else's conversation. Absent ⇒ the surface has no review mode.
   loadTranscript = null,
   // Cluster chrome, injected because it means nothing with one leaf.
   BriefingPanel = null, HostPicker = null,
@@ -124,7 +124,7 @@ function ChatPage({
     }));
   }, []);
 
-  // What this person may type at THIS leaf, in the leaf's own words. Already filtered to their tier,
+  // What this person may type at THIS leaf, in the leaf's own words. Already filtered to what they hold,
   // so nothing here is a policy decision made in the browser — a command they cannot run never
   // arrives, and there is no disabled row to explain. An unreachable or unauthenticated leaf leaves
   // the catalog empty, which turns the whole surface off rather than offering something that would
@@ -437,7 +437,7 @@ function ChatPage({
   }, [activeId, assistantHost && assistantHost.id, assistantAuthed, activeStale, busy]);
 
   // ===== Review mode =====
-  // Replaying someone ELSE's conversation, read-only. The admin transcript DTO is deliberately the
+  // Replaying someone ELSE's conversation, read-only. The review transcript DTO is deliberately the
   // same shape as the caller's own history, so it goes through the very same scaffoldHistory →
   // ChatThread path — a reviewer sees what that person saw, drawn by the same components, and there
   // is no second renderer able to drift from this one.
@@ -1118,7 +1118,7 @@ function ChatPage({
   const greeting = React.useMemo(() => pickGreeting(), [activeId]);
 
   // What the assistant can do for you, phrased to match what THIS caller may actually
-  // ask of it: a viewer can't have it act, so promising start/stop would be a promise
+  // ask of it: somebody who may not run servers can't have it act, so promising start/stop would be a promise
   // the composer's own gating then breaks.
   const primer = canSeeActions
     ? "I can check server health, dig through logs and configuration, start or stop a server, and help work out what’s going wrong."
@@ -1137,7 +1137,7 @@ function ChatPage({
   React.useEffect(() => { setRailOpen(false); }, [activeId]);
 
   // Review mode replaces the whole surface: no rail (there is no "your chats" here), no composer
-  // (there is no admin write, and a disabled input would still invite typing), and a banner that
+  // (there is no review write, and a disabled input would still invite typing), and a banner that
   // cannot be scrolled away — a dock that is usually YOUR chat now holds someone else's, and that has
   // to be unmissable for as long as it is true.
   if (review && review.conversation) {
@@ -1392,7 +1392,7 @@ function ChatPage({
                     onClick={canUseActions ? toggleActions : undefined}
                     disabled={!canUseActions}
                     title={!canUseActions
-                      ? "Auto-run is admin-only. As an operator you can still have the assistant propose actions and confirm them yourself."
+                      ? "Needs assistant:autorun"
                       : autoAcceptActive
                         ? "Auto-run ON \u2014 the assistant carries out start/stop/restart actions immediately, no confirmation. Click to turn off."
                         : "Auto-run OFF \u2014 the assistant proposes actions for you to confirm. Turn on to let it run them automatically."}

@@ -2,25 +2,24 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { AuthShell } from "./AuthChrome.jsx";
 
-// PendingPage — signed in, and allowed to do nothing yet.
+// PendingPage — an account the anchor knows, waiting to be let in.
 //
 // Proving who you are and being let in are two different things, and this is the gap
-// between them. Someone here holds a real cluster session: the anchor knows
-// exactly who they are, it simply has no authority on their account. Every screen behind
-// this one would be an empty roster and a wall of 403s.
+// between them: the anchor knows exactly who this is, and a pending account holds nothing
+// until somebody holding `auth:accounts.approve` approves it. The anchor's wait page
+// (`authui/WaitApp.jsx`) renders this.
 //
-// Two states wear the same `none` tier and they are not the same sentence:
-//   • pending — the cluster has an account for them, awaiting an administrator.
+// Two states and they are not the same sentence:
+//   • pending — the cluster has an account for them, awaiting approval.
 //   • unknown — the cluster has no account for them at all. Nothing is coming.
 // Guessing between them would tell half of these people to wait for something that will
-// never happen, which is why the backend reports the account state beside the tier.
+// never happen.
 //
 // ── Why this polls ──────────────────────────────────────────────────────────────────
 // Approval happens on somebody else's screen, minutes or days from now, and this browser
-// has to notice. It cannot be told: a pending account is tier `none`, /api/v1/stream is
-// viewer-gated, and the stream hub has no per-user delivery — there is literally nothing
-// to subscribe to. So it re-reads GET /me, which is bare-authorized precisely so a
-// tierless caller can ask what it is waiting for.
+// has to notice, with nothing it could subscribe to: a pending account holds no session
+// yet. So `onCheck` asks again — the anchor's wait answers whether the request in flight
+// can go on.
 //
 // The cadence is cheap and polite: every POLL_MS while the tab is visible, paused while
 // it is hidden (nobody is watching a background tab for a redirect), and resumed with an
@@ -41,7 +40,7 @@ function PendingPage({ account, user, onCheck, onLogout }) {
   }, [onCheck]);
 
   // Nothing is coming for a stranger, so there is nothing to poll for. Someone waiting on
-  // an admin is the only case where the answer can change without them doing anything.
+  // approval is the only case where the answer can change without them doing anything.
   React.useEffect(() => {
     if (!waiting) return undefined;
 

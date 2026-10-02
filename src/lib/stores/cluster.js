@@ -1,9 +1,9 @@
 // stores/cluster.js — the converged cluster-roster store for the Cluster page.
 //
-// Two backend surfaces feed the same shape: the admin roster
-// (GET /members, full management rows) and the viewer-safe converged
-// roster (GET /members/roster). refresh() tries admin first and
-// falls back to the viewer roster on a 403 — the store never fabricates a
+// Two backend surfaces feed the same shape: the management roster
+// (GET /members, full management rows, `api:members.manage`) and the converged
+// roster (GET /members/roster, `api:members.read`). refresh() tries the management
+// roster first and falls back to the converged one on a 403 — the store never fabricates a
 // value either code path doesn't provide (honest null/"unknown").
 
 import { adaptLocation } from "../adapters.js";
@@ -34,7 +34,7 @@ const clusterStore = createStore({
   rosterFrom: null,
 });
 
-// Admin MemberView row → normalized node. A cluster member is a node or an
+// Management MemberView row → normalized node. A cluster member is a node or an
 // anchor; `kind` carries which, so a surface can tell them apart without
 // guessing from whether servers came back.
 function fromPeerRow(row) {
@@ -57,7 +57,7 @@ function fromPeerRow(row) {
   };
 }
 
-// Viewer ClusterMemberView row → normalized node.
+// Converged ClusterMemberView row → normalized node.
 function fromClusterNodeRow(row) {
   return {
     nodeId: row.memberId,
@@ -80,8 +80,8 @@ function isForbidden(err) {
   return !!err && (err.code === 403 || err.status === 403);
 }
 
-// Read one node's view of the roster: the admin peer list, falling back to the
-// viewer-safe converged roster on a 403. Resolves { nodes, admin }.
+// Read one node's view of the roster: the management peer list, falling back to the
+// converged roster on a 403. Resolves { nodes, admin }, `admin` saying which answered.
 function fetchRoster(hostId) {
   return api.members(hostId).list()
     .then(rows => ({ nodes: rows.map(fromPeerRow), admin: true }))
@@ -93,7 +93,7 @@ function fetchRoster(hostId) {
 
 // One roster read, applied. Every path that obtains a roster lands here, so the node
 // set the app drives is updated by the same act that updates what the Cluster page
-// shows — an admin removing a peer sees it leave the fan-out on the click, rather
+// shows — somebody removing a peer sees it leave the fan-out on the click, rather
 // than at whatever point the discovery timer next happens to fire.
 // The assignments are read wherever the roster is, and never gate it: a cluster whose
 // capability list could not be read is still a cluster whose members are known, and
@@ -209,8 +209,8 @@ fleetStore.subscribe(() => {
 // converged roster and register the peers it names; the connection set grows in
 // place, so every surface fans out over them from the next read on.
 //
-// Runs for every tier — a viewer resolves the same roster through the
-// viewer-safe path inside fetchRoster. Nodes are tried in order and the FIRST
+// Runs for everybody — somebody without the management roster resolves the
+// same roster through the converged path inside fetchRoster. Nodes are tried in order and the FIRST
 // that answers wins: the roster is converged, so any reachable node's view is
 // the cluster's view. All nodes failing is not an error state here — an
 // unreachable cluster is already surfaced by the connection banner, and a

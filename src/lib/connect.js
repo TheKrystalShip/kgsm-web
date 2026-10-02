@@ -185,9 +185,9 @@ export function reconcileRosterToRegistry(nodes, opts = {}) {
   // member's own graceful departure, held as a tombstone so the leave propagates,
   // and driving a connection through that window opens a stream to a node that is
   // gone and calls an API that answers 401.
-  // `enabled: false` is the admin's own off switch — the viewer roster omits such a
-  // node entirely, so honouring it here is also what keeps an admin's node set and a
-  // viewer's the same. It stays on the Cluster page, which reads the roster rather
+  // `enabled: false` is the member's off switch — the converged roster omits such a
+  // node entirely, so honouring it here is also what keeps the node set the same for
+  // whoever reads it through either roster. It stays on the Cluster page, which reads the roster rather
   // than the connection set, and turning it back on re-registers it.
   // Anchors are deliberately absent from this set, so one already registered by an
   // older build — or by a roster read before this rule existed — is dropped on the

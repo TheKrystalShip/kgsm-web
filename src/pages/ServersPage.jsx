@@ -281,9 +281,9 @@ function ServersPage({ onOpenServer, onAction, onLibrary, initialStatus, initial
   const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageItems = ordered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  // Creating a server is gated (architecture.html §3·f·1): a read-only viewer
+  // Creating a server is gated on its own request: somebody who may not install
   // sees the inventory but no "New server" entry point. Aggregate — shown if the
-  // user can create on any host.
+  // person may install on any host.
   const canCreate = can("server.create");
 
   // ---- Selection (a gesture over this list, never persisted) ----

@@ -78,7 +78,7 @@ function ServerNotice({ server, canEdit }) {
     );
   }
 
-  // Operator, no note yet → an invitation to add one.
+  // May write the note, no note yet → an invitation to add one.
   if (!notice && canEdit) {
     return (
       <BriefCard

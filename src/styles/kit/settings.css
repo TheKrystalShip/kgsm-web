@@ -240,7 +240,7 @@
 .settings-notice--ok { color: var(--success); }
 .settings-notice--warn { color: var(--warning-fg); }
 
-/* An account's live sessions, inside the admin's edit modal for that account. */
+/* An account's live sessions, inside the edit modal for that account. */
 .settings-users__sessions {
   margin-top: 14px;
   padding-top: 12px;

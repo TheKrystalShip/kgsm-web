@@ -115,8 +115,8 @@ function ServerTile({ server, onOpen, onAction, showHost, selectable, selected, 
   // on the card costs nothing. Online, the row goes back to Play and the chip carries it alone.
   const hasUpdate = !!server.update_available && server.status !== "updating";
   const canUpdateNow = hasUpdate && !guard.update.disabled;
-  // Players (viewer / consumer preview) can't operate this host — the quick
-  // lifecycle row is replaced with a Join / connect button instead.
+  // Somebody who may not operate this server gets a Join / connect button in place of
+  // the quick lifecycle row.
   const canOps = serverOperable(server);
   // Open-on-click is scoped to the art, name and notice regions only — NOT the
   // whole tile. The quick-action buttons and the Join control live in the body
@@ -277,7 +277,7 @@ function ServerTile({ server, onOpen, onAction, showHost, selectable, selected, 
             <ServerActionButton verb="stop"    disabled={guard.stop.disabled}    reason={guard.stop.reason}    {...job} onRun={(v, o) => onAction(server.id, v, o)} />
           </div>
         )}
-        {/* Join / connect — shown to everyone (operators play too), below their lifecycle controls.
+        {/* Join / connect — shown to everyone (whoever runs a server plays on it too), below the lifecycle controls.
             An applicable update takes this row outright rather than sitting beside it: everything
             ServerConnect would render here is inert on a stopped server (nothing to launch, no address
             to copy), so pairing a live CTA with a disabled Play/Copy would only add noise. Players

@@ -2,7 +2,7 @@
 //
 // The DNS anchor is never a leaf: it serves exactly one cluster-wide capability, so this browser
 // always reaches it with the CLUSTER session (`clusterCredential`), the same credential every other
-// admin surface already holds, and mints or renews nothing of its own — the anchor verifies that
+// cluster surface already holds, and mints or renews nothing of its own — the anchor verifies that
 // session itself (kgsm-dns's `ClusterBearer`).
 //
 // The origin is resolved through the capability ASSIGNMENT (`clusterStore.holderOf`) rather than

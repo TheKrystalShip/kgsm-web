@@ -6,7 +6,7 @@ import { clusterStore } from "../lib/stores/cluster.js";
 // reach them.
 //
 // Two facts, and keeping them apart is the whole point. `anchored` says the accounts are the
-// CLUSTER's: one set, one tier everywhere, administered on the anchor's page and on no node's.
+// CLUSTER's: one set, administered on the anchor's page and on no node's.
 // `anchor` says where THIS browser can read and write them — the door it signed in through — and it
 // is empty for a session opened at a node, whatever the cluster has since become.
 //

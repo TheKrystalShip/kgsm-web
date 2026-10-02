@@ -96,7 +96,7 @@ assert(stored().join() === "hotrod", "and the stored registry forgets it too", s
 r = reconcileRosterToRegistry([], LOCAL);
 assert(r.removed === 0 && ids().join() === "hotrod", "the local node survives an empty roster");
 
-// 9. An admin's disable switch stops the fan-out, matching what a viewer's roster shows.
+// 9. A member's disable switch stops the fan-out, matching what the converged roster shows.
 reconcileRosterToRegistry([node("hotrod-b")], LOCAL);
 r = reconcileRosterToRegistry([node("hotrod-b", { enabled: false })], LOCAL);
 assert(r.removed === 1 && ids().join() === "hotrod", "a disabled peer is not driven", ids().join());

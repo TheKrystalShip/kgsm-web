@@ -772,7 +772,7 @@ const ANCHOR_PATHS = {
     };
   }
 
-  // api.sessions() — an administrator's view of somebody else's sessions, at the provider, which
+  // api.sessions() — somebody else's sessions, at the provider, which
   // mints every session and so holds every row. Funneled (not the meWith bypass) because every call
   // site here wants the live cluster bearer plus the same 401→expire→replay heal hostScoped gives
   // REST calls. A person's OWN sessions are the account page's, not this panel's.
@@ -787,10 +787,10 @@ const ANCHOR_PATHS = {
       list: (userId) => withRetry(() => accountDoor().then((d) => doorFetch("GET", under(d, userId, ""), null, d)))
         .then(adapt.adaptSessions),
       // End ONE of somebody's sessions — a different decision from signing them out everywhere, and
-      // the narrow one is the one an admin reaches for when they have a single suspicious session.
-      // Scoped under the account, which makes the question "is this session that person's" rather
-      // than "does this session exist": an admin with the wrong account open is told so instead of
-      // being shown a stranger's row.
+      // the narrow one is the one to reach for with a single suspicious session. Scoped under the
+      // account, which makes the question "is this session that person's" rather than "does this
+      // session exist": somebody with the wrong account open is told so instead of being shown a
+      // stranger's row.
       revokeSid: (userId, sid) => withRetry(() => accountDoor().then((d) =>
         doorFetch("POST", under(d, userId, "/" + encodeURIComponent(sid) + "/revoke"), {}, d))),
       // Sign somebody out everywhere.
@@ -800,10 +800,10 @@ const ANCHOR_PATHS = {
   }
 
   // api.users() — the cluster's accounts, at the provider. Root-routed (these live at the bare
-  // origin, not under /api/v1) and admin-gated server-side throughout.
+  // origin, not under /api/v1), each request gated on its own `auth:*` action there.
   //
   // Deliberately NOT behind a reactive store. Every other domain here is polled or
-  // streamed because something else changes it; accounts change only when an admin
+  // streamed because something else changes it; accounts change only when somebody
   // changes them, on this screen, and a cached list is then a list that can be stale
   // about who may do what. Each screen reads, and re-reads after it writes.
   function usersScoped() {
@@ -847,8 +847,8 @@ const ANCHOR_PATHS = {
     };
   }
 
-  // api.members(id) — the cluster membership surface (/api/v1/members…): admin CRUD over
-  // this host's peer roster + the viewer-safe converged roster. v1-routed (get/
+  // api.members(id) — the cluster membership surface (/api/v1/members…): managing this
+  // host's peer roster + the converged roster. v1-routed (get/
   // post/patch/del, not rootGet/rootPost) because these live under /api/v1, not
   // at the bare origin. Mirrors sessionsScoped's withRetry verbatim (see its
   // comment) rather than sharing it — each scoped surface owns its own closure.
@@ -860,23 +860,23 @@ const ANCHOR_PATHS = {
       return call();
     });
     return {
-      // Admin: this host's full membership roster.
+      // This host's full membership roster, with its management fields.
       list: () => withRetry(() => get("/members", id)).then(j => (j && j.members) || []),
-      // Viewer-safe: the converged member list (no management fields).
+      // The converged member list (no management fields).
       roster: () => withRetry(() => get("/members/roster", id)).then(j => (j && j.members) || []),
-      // Admin: add a member by seed URL (+ optional nickname); returns the raw added row.
+      // Add a member by seed URL (+ optional nickname); returns the raw added row.
       add: (url, nickname) => withRetry(() => post("/members", { url, nickname: nickname || null }, id)),
-      // Admin: drop a member from this host's roster.
+      // Drop a member from this host's roster.
       remove: (memberId) => withRetry(() => del("/members/" + encodeURIComponent(memberId), id)),
-      // Admin: enable/disable a member (the trust gate), without removing it.
+      // Enable/disable a member (the trust gate), without removing it.
       setEnabled: (memberId, enabled) => withRetry(() => patch("/members/" + encodeURIComponent(memberId), { enabled: !!enabled }, id)),
-      // Admin: on-demand latency probe for one member.
+      // On-demand latency probe for one member.
       latency: (memberId) => withRetry(() => get("/members/" + encodeURIComponent(memberId) + "/latency", id)),
-      // Viewer: which member holds each of the cluster's capabilities. Viewer-visible because it is
+      // Which member holds each of the cluster's capabilities, read beside the roster because it is
       // what makes a member with no servers legible — it is not a broken node, it is the one holding
       // the accounts.
       capabilities: () => withRetry(() => get("/members/capabilities", id)).then(j => (j && j.capabilities) || []),
-      // Admin: move a capability to another member. The deliberate failover — nothing promotes
+      // Move a capability to another member. The deliberate failover — nothing promotes
       // itself, so this is the only way one moves. An empty member id records "deliberately nobody".
       assign: (capability, memberId) => withRetry(() =>
         put("/members/capabilities/" + encodeURIComponent(capability), { memberId: memberId || "" }, id)),

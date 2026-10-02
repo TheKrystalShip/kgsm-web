@@ -855,7 +855,7 @@ export function adaptMePatch(be) {
 }
 
 // ---- Sessions (GET /auth/sessions, root-routed) ------------------------
-// A caller's (or, admin-scoped, another user's) active session list. Hardens
+// A caller's (or another person's, for whoever may manage their account) active session list. Hardens
 // every row against a partial/missing field — honest null, never invented —
 // and guards the envelope itself so a malformed/empty response renders as no
 // sessions instead of crashing the settings UI.

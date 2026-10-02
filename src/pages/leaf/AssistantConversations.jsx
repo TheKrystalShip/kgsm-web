@@ -6,7 +6,7 @@
 // `dev`/probe actors: the corpus is what it is, and quietly filtering it would misrepresent what the
 // assistant has actually been asked.
 //
-// There is no write here of any kind. The backend has no admin write — no editing, deleting or
+// There is no write here of any kind. The backend has no review write — no editing, deleting or
 // compacting someone else's conversation — and this surface must not imply one exists.
 
 import React from "react";

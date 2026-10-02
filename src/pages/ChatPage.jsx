@@ -11,8 +11,8 @@ import { auditEventHost, fetchAssistantTranscript, hostsStore, serversStore } fr
 // The Control Panel's chat: the shared conversation surface (`src/chat/`) wired to a CLUSTER.
 //
 // Everything here is the difference between this surface and the standalone assistant — several
-// assistants and a picker to choose between them, a server roster, an admin review
-// mode, and node attribution on evidence rows. The conversation itself is the same code in both,
+// assistants and a picker to choose between them, a server roster, a review mode for
+// other people's conversations, and node attribution on evidence rows. The conversation itself is the same code in both,
 // which is the point: a divergence between the dock and the standalone SPA would be a bug, not a
 // variant, so there is nowhere for one to drift from the other.
 

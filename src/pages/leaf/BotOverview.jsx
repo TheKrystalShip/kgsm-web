@@ -6,8 +6,8 @@
 // So the resolved guilds, not the connection state, are the headline here: a guild that is set up and
 // unresolved is called out as a fault in its own right.
 //
-// The bot works in any number of Discord servers and posts in none of them until an admin runs `/setup`
-// there. So "no guilds" is a real, deliberate state and not a fault — the page says which it is rather
+// The bot works in any number of Discord servers and posts in none of them until somebody holding
+// `bot:announcements.manage` runs `/setup` there. So "no guilds" is a real, deliberate state and not a fault — the page says which it is rather
 // than flagging silence as broken.
 //
 // The second thing it answers is "why didn't that server announce". That is a guild the bot can't
@@ -78,7 +78,7 @@ function BotOverview({ hostId, leafId }) {
     attention.push({
       key: "no-guild", tone: "warn", icon: "circle-help",
       title: "No Discord server is set up",
-      detail: "the bot is silent by design until an admin runs /setup announce in a Discord server — "
+      detail: "the bot is silent by design until /setup announce runs in a Discord server — "
         + "being invited somewhere grants it nothing",
     });
   }
@@ -260,7 +260,7 @@ function BotOverview({ hostId, leafId }) {
         rows={guilds}
         getKey={r => r.guildId}
         defaultSort={{ key: "name", dir: "asc" }}
-        empty="No Discord server is set up — an admin runs /setup announce in the one that should hear about this host." />
+        empty="No Discord server is set up — /setup announce runs in the one that should hear about this host." />
 
       <CardTable
         icon="hash" title="Server channels" count={channels.length}

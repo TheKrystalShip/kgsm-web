@@ -1,5 +1,5 @@
-// PlacementSection — which disk this server's files are on, and (for an admin) moving them onto
-// another one.
+// PlacementSection — which disk this server's files are on, and (for whoever may move it) moving
+// them onto another one.
 //
 // Self-contained: it reads the node's library set out of hostsStore itself rather than taking it from
 // the settings form, because placement is not a setting. Every other row on that page is a value saved

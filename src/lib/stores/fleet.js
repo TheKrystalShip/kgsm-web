@@ -46,8 +46,8 @@ function readHost(hostId) {
     .then(rows => adaptServices(Array.isArray(rows) ? rows : []))
     .catch(() => null);
   // What the node is watching its own numbers against — the monitor's threshold policy, which the API
-  // relays rather than owns. It is OPERATOR-gated, so a viewer gets a 403 here and the alerts card
-  // falls back to saying only that nothing is firing. That is the right degradation: the rule list
+  // relays rather than owns. It needs `monitor:thresholds.read`, so somebody without it gets a 403
+  // here and the alerts card falls back to saying only that nothing is firing. That is the right degradation: the rule list
   // exists to prove the engine is armed, and someone who cannot read the policy cannot be shown it.
   const thresholds = api.host(hostId)
     .get("/hosts/" + hostId + "/thresholds")
