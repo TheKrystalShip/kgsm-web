@@ -35,18 +35,23 @@ async function boot() {
   // Dev convenience: when `npm run dev` seeds an auth-DISABLED local kgsm-api
   // (.env.development → VITE_API_BASE), sign in automatically so dev boots straight
   // into the app instead of stalling in front of it. Gated to dev builds → DCE'd in production; a
-  // no-op against an auth-ENABLED seed. See connect.js devSeedAutoConnect.
-  if (import.meta.env.DEV && !sessionStore.isLive()) {
+  // no-op against an auth-ENABLED seed. See connect.js devSeedAutoConnect. An auth-disabled host has no
+  // session to restore — its session is opened against it — so it is opened here, on every dev load,
+  // before the identity check below reads one.
+  let openedSeed = false;
+  if (import.meta.env.DEV && !sessionStore.isLive() && import.meta.env.VITE_API_BASE) {
     try {
       const { devSeedAutoConnect } = await import("./lib/connect.js");
       await devSeedAutoConnect(import.meta.env.VITE_API_BASE);
+      openedSeed = true;
+      await sessionStore.authorize();
     } catch {}
   }
   // The stored identity mounts the shell, and the session record is what the shell settles on. An
   // identity with no record behind it — the library's session removed by a refused renewal, or no
   // provider recorded at all — is a shell nothing will ever authorize, so it is dropped here and the
-  // gate, which can sign somebody in, takes the load instead.
-  if (!sessionStore.getState().session) writeStoredUser(null);
+  // gate, which can sign somebody in, takes the load instead. So is one whose dev seed did not open.
+  if (!sessionStore.getState().session || (openedSeed && !sessionStore.isLive())) writeStoredUser(null);
   createRoot(document.getElementById("root")).render(
     <React.StrictMode>
       <ErrorBoundary

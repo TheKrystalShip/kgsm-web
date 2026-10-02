@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the dev panel boots against an auth-disabled seed (3.2.1)
+
+`npm run dev` against an auth-disabled `VITE_API_BASE` opens the host's session before the shell
+mounts, on every load. The identity the seed connected with is kept only while that session is live,
+so the shell no longer sits on an empty sign-in gate.
+
 ### Changed — every gate asks about a request, and the panel names no action (3.2.0)
 
 - **Each member says which action a request needs.** The access store reads every member's published
