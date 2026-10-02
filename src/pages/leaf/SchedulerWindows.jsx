@@ -22,6 +22,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { fmtUntil } from "../../lib/formatting.js";
+import { useAccountName } from "../../lib/hooks/useAccountName.js";
 import { ACTIONS, may } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { controlLeafWindow, fetchLeafSchedules } from "../../lib/stores.js";
@@ -63,6 +64,12 @@ const POSTPONE_SPANS = [
   { value: "240", label: "4 hours" },
   { value: "720", label: "12 hours" },
 ];
+
+// Who a window runs as, named by the node the board was read from.
+function RunsAs({ hostId, account }) {
+  const name = useAccountName(hostId, account);
+  return <span className="mw-board__tz">{name ? "as " + name : "no author"}</span>;
+}
 
 function SchedulerWindows({ hostId, leafId }) {
   // Moving a window is the scheduler's own action, asked of THIS node.
@@ -129,6 +136,7 @@ function SchedulerWindows({ hostId, leafId }) {
           {r.kind === "appointment" && (
             <span className="mw-board__tz">{r.timezone || "host default"}</span>
           )}
+          <RunsAs hostId={hostId} account={r.author} />
         </span>
       ),
     },
@@ -150,11 +158,13 @@ function SchedulerWindows({ hostId, leafId }) {
     {
       // Sorts on the raw instant, not the rendered text — a null sinks to the bottom either way.
       key: "next", label: "Next", width: "110px", align: "right", sort: r => r.next, defaultDir: "asc",
-      render: r => (r.next
-        ? <span title={r.next.toLocaleString()}>{fmtUntil(r.next, now)}</span>
-        : !r.valid
-          ? <span className="cluster-chip cluster-chip--danger">invalid</span>
-          : <span className="svc-fact svc-fact--unit">not due</span>),
+      render: r => (!r.valid
+        ? <span className="cluster-chip cluster-chip--danger">invalid</span>
+        : r.blocked
+          ? <span className="cluster-chip cluster-chip--warn" title={r.blocked}>blocked</span>
+          : r.next
+            ? <span title={r.next.toLocaleString()}>{fmtUntil(r.next, now)}</span>
+            : <span className="svc-fact svc-fact--unit">not due</span>),
     },
     {
       key: "lastRun", label: "Last run", width: "150px", align: "right", sort: r => r.ranAt,

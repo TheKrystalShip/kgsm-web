@@ -20,6 +20,7 @@ import {
   Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer,
 } from "../../components/Toolbar.jsx";
 import { copyText } from "../../lib/clipboard.js";
+import { actionRefusal } from "../../lib/persona.js";
 import { ComponentConfigRow } from "./ComponentConfigRow.jsx";
 import { ComponentConfigReview } from "./ComponentConfigReview.jsx";
 import {
@@ -115,7 +116,12 @@ function ComponentConfiguration({ surface, onConfigChange, onApplied, restartWar
   }, [surfaceKey, hydrate]);
 
   const fields = (config && config.fields) || [];
-  const editable = !!(config && config.editable);
+  // Two separate answers: whether this host can deliver a change at all (the component's own
+  // `editable`), and whether this person holds the component's config action. Either closes the page.
+  const writeRefusal = surface && surface.configWrite
+    ? actionRefusal(surface.configWrite.action, surface.configWrite.target)
+    : null;
+  const editable = !!(config && config.editable) && !writeRefusal;
   const staged = dirtyFields(fields, drafts, resets);
 
   const setField = React.useCallback((key, val) => {
@@ -220,10 +226,10 @@ function ComponentConfiguration({ surface, onConfigChange, onApplied, restartWar
         </div>
       )}
 
-      {config && !editable && config.editableReason && (
+      {config && !editable && (config.editableReason || writeRefusal) && (
         <div className="lcf-note lcf-note--lock">
           <Icon name="lock" size={15} />
-          <span><b>Read-only.</b> {config.editableReason}</span>
+          <span><b>Read-only.</b> {config.editableReason || writeRefusal}</span>
         </div>
       )}
 
@@ -279,7 +285,7 @@ function ComponentConfiguration({ surface, onConfigChange, onApplied, restartWar
                     action={edited ? <span className="lcf-group__edits">{edited} edited</span> : null}>
                     <div className="lcf-group__body">
                       {g.fields.map(f => (
-                        <ComponentConfigRow key={f.key} f={f} editable={editable}
+                        <ComponentConfigRow key={f.key} f={f} hostId={surface && surface.hostId} editable={editable}
                           drafts={drafts} resets={resets}
                           onChange={setField} onToggleReset={toggleReset}
                           onCopy={copyEnv} copyState={copyState} />

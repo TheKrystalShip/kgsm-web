@@ -44,19 +44,21 @@ const CADENCES = [
   { value: "monthly", label: "Monthly" },
 ];
 
-// How a run ended, in the four words the daemon records it with. `ok` and `failed` are the pair a
-// boolean would carry; the other two are the reason there is no boolean. `skipped` is a task that did
-// not apply to the instance as it stood — a measurement, recorded with its reason — and `aborted` is one
-// that never got its turn because an earlier task in the same window failed. Painting either as a
-// failure states an outcome the daemon did not record.
+// How a run ended, in the words the daemon records it with. `ok` and `failed` are the pair a boolean
+// would carry; the others are the reason there is no boolean. `skipped` is a task that did not apply to
+// the instance as it stood — a measurement, recorded with its reason — `aborted` is one that never got
+// its turn because an earlier task in the same window failed, and `blocked` is one refused because the
+// window's author, or the scheduler's own account, does not hold what it does on that server. Painting
+// any of them as a failure states an outcome the daemon did not record.
 const OUTCOMES = {
   ok: { label: "ok", tone: "ok", icon: "circle-check" },
   failed: { label: "failed", tone: "danger", icon: "circle-x" },
   skipped: { label: "skipped", tone: "muted", icon: "circle-slash" },
   aborted: { label: "aborted", tone: "warn", icon: "octagon-x" },
+  blocked: { label: "blocked", tone: "warn", icon: "shield-x" },
 };
 
-// The vocabulary entry for one recorded outcome. A word outside the four is the daemon saying something
+// The vocabulary entry for one recorded outcome. A word outside these is the daemon saying something
 // this surface has no reading of, which is unrecorded rather than any of them.
 function outcomeOf(word) {
   return OUTCOMES[String(word || "").toLowerCase()]

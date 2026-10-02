@@ -207,6 +207,7 @@ function PlayersTab({ server, readOnly, roster }) {
       key: "actions", label: "", width: "minmax(84px, auto)", align: "right",
       render: (p) => (
         <PlayerModeration
+          server={server}
           player={p}
           moderation={mod}
           serverRunning={serverRunning}

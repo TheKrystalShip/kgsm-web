@@ -1,10 +1,10 @@
-import { moderationOffers } from "../PlayerModeration.jsx";
+import { MODERATION_ACTION, moderationOffers } from "../PlayerModeration.jsx";
 import { verbGuard } from "../ServerActions.jsx";
 import { joinRefusal } from "../ServerConnect.jsx";
 import { widgetPermitted } from "../widgets/WidgetHost.jsx";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { leafIcon } from "../../lib/leaves.js";
-import { can, serverJoin, serverOperable } from "../../lib/persona.js";
+import { ACTIONS, can, may, nodeTabOffered, serverJoin, serverOperable, serverTabOffered, verbRefusal } from "../../lib/persona.js";
 import { copyText } from "../../lib/clipboard.js";
 import { toast } from "../../lib/toasts.js";
 import { backupServer, runServerAction } from "../../lib/serverActions.js";
@@ -139,6 +139,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
 
     if (operable) {
       for (const v of VERBS) {
+        if (verbRefusal(server, v.verb)) continue;
         const guard = verbGuard(server, v.verb);
         const consequence = consequenceOf(v.verb, server);
         push({
@@ -159,7 +160,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
 
     // Backing up is a lifecycle-adjacent action rather than a verb: kgsm has no "backup" command,
     // so it does not go through verbGuard. It arms like everything else that changes the host.
-    if (operable) {
+    if (may(ACTIONS.SERVER_BACKUPS_CREATE, { server })) {
       push({
         id: "scope.backup",
         kind: "action", group: "Actions",
@@ -180,6 +181,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
     }));
 
     for (const tab of ROUTE_TABS.server) {
+      if (!serverTabOffered(server, tab.id)) continue;
       push({
         id: "scope.tab." + tab.id,
         kind: "nav", group: "Tabs",
@@ -200,12 +202,14 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
     // `moderationOffers`, the same answer the roster's own menu uses. A palette that said "Kick"
     // where the menu says "the server isn't running" would be two answers to one question.
     const roster = (players && players.status === "ready") ? players : null;
-    if (operable && roster) {
+    if (roster) {
       const running = server.status === "online";
       for (const p of roster.players || []) {
         const name = p.playerName || p.playerAddr || p.playerIdentity;
-        for (const offer of moderationOffers(running, p, roster.moderation)) {
+        for (const offer of moderationOffers(running, p, roster.moderation, server)) {
           const verb = offer.action;
+          // An entry this person may not act on is never built.
+          if (!may(MODERATION_ACTION[verb], { server })) continue;
           push({
             id: "scope.mod." + verb + "." + p.playerIdentity,
             kind: "action", group: "Players",
@@ -372,6 +376,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
   for (const s of servers || []) {
     if (!serverOperable(s)) continue;
     for (const v of VERBS) {
+      if (verbRefusal(s, v.verb)) continue;
       const guard = verbGuard(s, v.verb);
       const consequence = consequenceOf(v.verb, s);
       push({
@@ -423,7 +428,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
         chin: "Open " + h.id,
         run: () => nav.openHost(h.id),
       });
-      push({
+      if (nodeTabOffered(h.id, "logs")) push({
         id: "node." + h.id + ".logs",
         kind: "nav", group: "Nodes",
         title: h.id + " · Logs",
@@ -435,6 +440,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
       });
       for (const tab of ROUTE_TABS.cluster) {
         if (tab.id !== "resources" && tab.id !== "services" && tab.id !== "jobs") continue;
+        if (!nodeTabOffered(h.id, tab.id)) continue;
         push({
           id: "node." + h.id + "." + tab.id,
           kind: "nav", group: "Nodes",
@@ -466,7 +472,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
   // Only what a node has actually reported. A leaf list is per host and arrives when that host's
   // services are read, so before then this contributes nothing rather than guessing at a roster.
   for (const [hostId, entry] of Object.entries(services || {})) {
-    if (!entry || !entry.everLoaded || !can("host.manage", { hostId })) continue;
+    if (!entry || !entry.everLoaded || !can("host.services", { hostId })) continue;
     for (const svc of entry.list || []) {
       push({
         id: "leaf." + hostId + "." + svc.id,

@@ -5,7 +5,7 @@ import { useNav } from "../NavContext.jsx";
 import { SERVER_ACTION } from "../ServerActions.jsx";
 import { cancelRun } from "../../lib/batchRun.js";
 import { fmtRelative, ordinal } from "../../lib/formatting.js";
-import { can } from "../../lib/persona.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { batchesStore, hostsStore, runsFrom, serversStore } from "../../lib/stores.js";
 
@@ -199,9 +199,9 @@ function RunCard({ run, hosts, nameOf, openOf }) {
   const [result, setResult] = React.useState(null);
   const def = verbMeta(run.verb);
 
-  // Per NODE, because that is how the permission is held: a run can contain servers this person may
-  // not operate on one node while operating freely on another.
-  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId && can("server.operate", { hostId: b.hostId }));
+  // Per NODE, because cancelling a batch is each node's own action: a run can span nodes where this
+  // person may cancel and nodes where they may not.
+  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId && may(ACTIONS.BATCHES_CANCEL, { hostId: b.hostId }));
   const theirs = run.batches.filter((b) => b.state !== "settled").length - mine.length;
 
   const fire = () => {

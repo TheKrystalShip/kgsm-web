@@ -1,13 +1,15 @@
 // stores/access.js — what the caller may do, as every member they reach has answered it.
 //
 // One answer per member, kept apart: each node's `GET /api/v1/me/access` (its own actions, at the
-// cluster, at itself and at each of its instances) and the auth anchor's `GET /me/access` (`auth:*`,
-// wherever the caller holds a role). `../access.js` looks an action up across them; this store only
-// holds them and keeps them fresh.
+// cluster, at itself and at each of its instances), the auth anchor's `GET /me/access` (`auth:*`,
+// wherever the caller holds a role), and each other anchor's own (`dns:*`, `assistant:*`, read from the
+// capability's holder by `../anchorAccess.js`). `../access.js` looks an action up across them; this
+// store only holds them and keeps them fresh.
 //
 // Fresh by two routes. A node pushes `me.access` on the `me` topic whenever its replica takes a change,
-// and the frame replaces that node's answer. The anchor pushes nothing to a browser, so its answer is
-// read again whenever this tab comes back into view and after every change made from this panel.
+// and the frame replaces that node's answer. An anchor pushes nothing to a browser, so its answer is
+// read again whenever this tab comes back into view, after every change made from this panel, and —
+// for the other anchors — whenever a capability changes holder.
 //
 // A member's answer is one of: `ok` with its report; `unavailable` (it could not read its replica —
 // an outage, never "you may do nothing"); `refused` (it has no account for this session, or the
@@ -18,9 +20,11 @@
 // paint until then, because a route resolved against no answers would bounce a deep link home.
 
 import { api } from "../apiClient.js";
-import { ANCHOR_SOURCE, nodeSource } from "../access.js";
+import { ANCHOR_SOURCE, anchorSource, nodeSource } from "../access.js";
+import { ANCHORED_NAMESPACES, readAnchorAccess } from "../anchorAccess.js";
 import { readProvider } from "../provider.js";
 import { createStore } from "../store.js";
+import { clusterStore } from "./cluster.js";
 import { hostsStore } from "./hosts.js";
 
 const accessStore = createStore({ sources: {}, settled: false });
@@ -72,9 +76,30 @@ function refreshAnchor() {
   );
 }
 
+// The other anchors — each capability's holder answering for its own namespace. A capability nobody
+// holds leaves no answer behind, so a holder that moves away stops answering for it.
+function refreshAnchors() {
+  return Promise.allSettled(ANCHORED_NAMESPACES.map((ns) => readAnchorAccess(ns).then(
+    (report) => {
+      if (report) put(anchorSource(ns), { state: "ok", report, reason: null });
+      else forgetSource(anchorSource(ns));
+    },
+    (err) => put(anchorSource(ns), outcomeOf(err)),
+  )));
+}
+
+function forgetSource(key) {
+  if (!(key in accessStore.getState().sources)) return;
+  accessStore.setState((s) => {
+    const next = { ...s.sources };
+    delete next[key];
+    return { ...s, sources: next };
+  });
+}
+
 function refresh() {
   const ids = (hostsStore.getState().list || []).map((h) => h.id).filter(Boolean);
-  return Promise.allSettled([...ids.map(refreshNode), refreshAnchor()]).then(() => {
+  return Promise.allSettled([...ids.map(refreshNode), refreshAnchor(), refreshAnchors()]).then(() => {
     if (!accessStore.getState().settled) accessStore.setState((s) => ({ ...s, settled: true }));
   });
 }
@@ -108,8 +133,16 @@ function start() {
     const sources = accessStore.getState().sources;
     list.forEach((h) => { if (h.id && !sources[nodeSource(h.id)] && !asking.has(h.id)) refreshNode(h.id); });
   }));
+  // A capability changing holder is a different member answering for it.
+  let holders = "";
+  stopFns.push(clusterStore.subscribe(() => {
+    const now = ANCHORED_NAMESPACES.map((ns) => clusterStore.holderOf(ns) || "").join("|");
+    if (now === holders) return;
+    holders = now;
+    refreshAnchors();
+  }));
   if (typeof document !== "undefined" && document.addEventListener) {
-    const visible = () => { if (document.visibilityState === "visible") refreshAnchor(); };
+    const visible = () => { if (document.visibilityState === "visible") { refreshAnchor(); refreshAnchors(); } };
     document.addEventListener("visibilitychange", visible);
     stopFns.push(() => document.removeEventListener("visibilitychange", visible));
   }
@@ -123,6 +156,7 @@ function stop() {
 accessStore.refresh = refresh;
 accessStore.refreshNode = refreshNode;
 accessStore.refreshAnchor = refreshAnchor;
+accessStore.refreshAnchors = refreshAnchors;
 accessStore.onChange = onChange;
 accessStore.start = start;
 accessStore.stop = stop;

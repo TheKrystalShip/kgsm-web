@@ -76,6 +76,13 @@ function SchedulerOverview({ hostId, leafId }) {
       title: w.instance + " — a window won’t fire",
       detail: (w.error || "the scheduler gave no reason") + " · " + w.id,
     })),
+    // A window the scheduler would refuse to run: its author, or the scheduler's own account, does
+    // not hold what it does on that server. It fires and does nothing disruptive until that changes.
+    ...windows.filter(w => w.valid && w.blocked).map(w => ({
+      key: w.key + ":blocked", tone: "warn", icon: "shield-x",
+      title: w.instance + " — a window is blocked",
+      detail: w.blocked + " · " + w.words,
+    })),
   ];
 
   const next = upcoming[0] || null;

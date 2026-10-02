@@ -2,7 +2,7 @@
 //
 // Every browser-facing member answers for what it holds: a node for itself and its instances, over
 // the actions its own components perform; the auth anchor for `auth:*`, at every scope the caller holds
-// a role in. Each answer is already evaluated — the caller's effective actions, per target — so this
+// a role in; another anchor for its own namespace (`dns:*`, `assistant:*`). Each answer is already evaluated — the caller's effective actions, per target — so this
 // module looks things up and decides nothing. It holds no copy of the rules and so cannot disagree with
 // them.
 //
@@ -12,9 +12,12 @@
 //
 // Imports nothing, so a script can load it outside a browser.
 
-// The answer for one member, keyed so the node and anchor answers never collide.
+// The answer for one member, keyed so the node and anchor answers never collide. An anchor's answer
+// is keyed by the action namespace it answers for: `anchor:auth` for the auth anchor, `anchor:dns` and
+// `anchor:assistant` for the holders of those capabilities.
 const nodeSource = (hostId) => "node:" + hostId;
-const ANCHOR_SOURCE = "anchor:auth";
+const anchorSource = (namespace) => "anchor:" + namespace;
+const ANCHOR_SOURCE = anchorSource("auth");
 
 // The key a report names an instance by, or null when the server has not said its install nonce: a
 // grant on a server is a grant on that install, and without the nonce it cannot be told from a
@@ -60,12 +63,19 @@ function reportAllows(r, action, tg) {
   }
 }
 
-// Which members answer for `action` at a target. `auth:*` is the anchor's; everything else is the
-// node the target is on, or every node for a question about anywhere or the cluster.
+// Which members answer for `action` at a target. `auth:*` is the auth anchor's alone. An action whose
+// namespace an anchor answers for (`dns:*`, `assistant:*`) is that anchor's, beside the nodes: a
+// component standing as a leaf is answered for by its node instead, and both read one authority, so
+// either one saying yes is the same yes. Everything else is the node the target is on, or every node
+// for a question about anywhere or the cluster.
 function answerersOf(sources, action, tg) {
-  if (String(action).startsWith("auth:")) return [sources[ANCHOR_SOURCE]];
-  if (tg.hostId) return [sources[nodeSource(tg.hostId)]];
-  return Object.keys(sources).filter((k) => k.startsWith("node:")).map((k) => sources[k]);
+  const namespace = String(action).split(":")[0];
+  if (namespace === "auth") return [sources[ANCHOR_SOURCE]];
+  const anchor = namespace ? sources[anchorSource(namespace)] : undefined;
+  const nodes = tg.hostId
+    ? [sources[nodeSource(tg.hostId)]]
+    : Object.keys(sources).filter((k) => k.startsWith("node:")).map((k) => sources[k]);
+  return anchor ? [anchor, ...nodes] : nodes;
 }
 
 // Whether the caller may perform `action` at `target`, by the answers held in `sources`
@@ -94,4 +104,4 @@ function actionsHeld(sources) {
   return [...out].sort();
 }
 
-export { ANCHOR_SOURCE, actionsHeld, allows, instanceKey, isOwner, nodeSource, targetOf };
+export { ANCHOR_SOURCE, actionsHeld, allows, anchorSource, instanceKey, isOwner, nodeSource, targetOf };

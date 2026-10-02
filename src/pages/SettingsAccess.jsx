@@ -62,7 +62,9 @@ function SettingsAccess() {
     const s = (servers || []).find((x) => x.hostId === m[1] && x.id === m[2]);
     return (s ? s.name : m[2]) + " on " + nodeLabel(m[1], hosts);
   };
-  const memberName = (k) => (k === ANCHOR_SOURCE ? "The auth anchor" : nodeLabel(k.slice(5), hosts));
+  const memberName = (k) => (k === ANCHOR_SOURCE ? "The auth anchor"
+    : k.startsWith("anchor:") ? "The " + k.slice(7) + " anchor"
+    : nodeLabel(k.slice(5), hosts));
   const list = (set) => [...set].sort().join(", ");
 
   return (

@@ -11,7 +11,8 @@ import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { checkZoneNow } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";
 import { LeafFacts } from "../../leaf/leafOverviewKit.jsx";
-import { useDnsStatus } from "./dnsKit.jsx";
+import { ACTIONS } from "../../../lib/actions.js";
+import { dnsRefusal, useDnsStatus } from "./dnsKit.jsx";
 
 function DnsPublishing() {
   const { data } = useDnsStatus();
@@ -29,7 +30,9 @@ function DnsPublishing() {
   };
 
   const action = (
-    <button type="button" className="dash-section__more" onClick={check} disabled={busy || !standing}>
+    <button type="button" className="dash-section__more" onClick={check}
+      disabled={busy || !standing || !!dnsRefusal(ACTIONS.DNS_ZONE_CHECK)}
+      title={dnsRefusal(ACTIONS.DNS_ZONE_CHECK) || "Check zone now"}>
       <Icon name="refresh-cw" size={11} strokeWidth={2.2} className={busy ? "cluster-spin" : ""} />
       {busy ? "Checking…" : "Check zone now"}
     </button>

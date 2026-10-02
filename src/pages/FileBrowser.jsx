@@ -2,6 +2,7 @@ import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { ReversablePortal } from "../components/ReversablePortal.jsx";
+import { ACTIONS, actionRefusal } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
@@ -115,6 +116,9 @@ function FileTreeRow({ entry, parent, depth, dirs, expanded, activePath, onOpenF
 function FileBrowser({ server }) {
   const serverId = server.id;
   const hostId = (server && server.hostId) || null;
+  // Reading files is what opens this tab; writing one is its own action, and without it the editor
+  // opens read-only with Save closed and naming the action.
+  const refusedWrite = actionRefusal(ACTIONS.SERVER_FILES_WRITE, { server });
 
   // The cached tree + open file for this server (survives tab switches). The
   // selector returns a stable ref until this server's slice changes.
@@ -306,7 +310,7 @@ function FileBrowser({ server }) {
               </div>
               <div className="fb-editor__monaco-wrap">
                 <React.Suspense fallback={<div className="fb-editor__empty"><span className="oauth-spinner" /> Loading editor…</div>}>
-                  <CodeEditor value={draft} onChange={setDraft} path={open.path} />
+                  <CodeEditor value={draft} onChange={setDraft} path={open.path} readOnly={!!refusedWrite} />
                 </React.Suspense>
               </div>
               <div className="fb-editor__foot">
@@ -320,7 +324,8 @@ function FileBrowser({ server }) {
                 <button className="fb-editor__btn fb-editor__btn--secondary" type="button" onClick={reset} disabled={!dirty || saving}>
                   <Icon name="rotate-ccw" size={14} /> Reset
                 </button>
-                <button className="fb-editor__btn" type="button" onClick={save} disabled={!dirty || saving}>
+                <button className="fb-editor__btn" type="button" onClick={save} disabled={!dirty || saving || !!refusedWrite}
+                  title={refusedWrite || undefined}>
                   {saving ? <><span className="oauth-spinner" /> Saving…</> : <><Icon name="check" size={14} strokeWidth={2.4} /> Save changes</>}
                 </button>
               </div>

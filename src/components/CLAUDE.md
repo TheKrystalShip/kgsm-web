@@ -56,6 +56,13 @@ into `App.jsx`.
   each carries a dot and a tooltip saying which of the three readings it is: that is the whole of what
   the chrome reports about node health, and it says which node rather than how many.
 
+  Below the nodes, **`SidebarAnchor`** is one row for the auth anchor, drawn only for somebody who can
+  act on what it waits for — approving accounts, filing unmapped actions, deciding a service's
+  requirements, or as an Owner seeing what it approved on its own. Its count is
+  `stores/anchorAttention.js`, the same items the anchor's overview lists in its *Needs a look* card,
+  and the row opens that overview. It is the one anchor in the chrome because it is the one that waits
+  on a person; those items are not toasts or tray entries, which report only what this browser did.
+
   **The nav is four groups, separated by a hairline and named by nothing:** Home · Servers with its
   favourites and Catalog · Alerts and the Audit log · Cluster with its nodes. A label cost a row to
   say what the icons beside it already say, and the collapsed rail had always hidden them, so both
@@ -270,9 +277,10 @@ is the button (confirm-first arming, the job state, one `variant` per surface's 
 **`verbGuard(server, verb)` is whether that verb can run right now and the sentence explaining why
 not**. The hero, the server tile and an alert card's suggested action all ask it, which is the point
 — a card offering Update while the hero refuses it would be two answers to one question. It checks
-the watchdog, the observed run state, and (for `update`) whether there is anything to apply; it
-deliberately does **not** check tier, which decides whether the control renders at all
-(`serverOperable`), a different question.
+the verb's own action on that server first (`verbRefusal` in `lib/persona.js` — somebody may hold
+start and not restart), then the watchdog, the observed run state, and (for `update`) whether there
+is anything to apply. Whether any lifecycle control renders at all is `serverOperable`, a different
+question.
 
 **Pending work is THREE states, not two: idle · queued · running.** A queued job is one a node has
 accepted and not yet reached, which a batch can leave sitting for as long as the work ahead of it

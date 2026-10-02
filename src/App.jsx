@@ -11,7 +11,7 @@ import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
 import { KRYSTAL_LABELS } from "./lib/labels.js";
-import { can, homeKind, resolveRoute, serverAssignable, serverOperable } from "./lib/persona.js";
+import { can, homeKind, resolveRoute, serverTabOffered } from "./lib/persona.js";
 import { KrystalRouter } from "./lib/router.js";
 import { runServerAction } from "./lib/serverActions.js";
 import { CONNECTIONS, subscribeConnections } from "./lib/config.js";
@@ -467,10 +467,9 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   const sidebarCtx = {
     serverName: serverForRender ? serverForRender.name : null,
-    // The server's operator tabs are hidden from a player, and the page falls back to the overview
-    // for one — so the breadcrumb has to know, or it would name a tab that isn't on screen.
-    serverOperable: serverForRender ? serverOperable(serverForRender) : false,
-    serverAssignable: serverForRender ? serverAssignable(serverForRender) : false,
+    // A server tab whose read this person lacks is hidden, and the page falls back to the overview —
+    // so the breadcrumb has to know, or it would name a tab that isn't on screen.
+    serverTabOffered: serverForRender ? serverTabOffered(serverForRender, route.tab || "overview") : false,
     gameName: activeGame ? activeGame.name : null,
     // A cluster route names a MEMBER, and a member is a node or an anchor. A node is in the
     // connection set with a friendly name; an anchor is not driven by this browser at all and is

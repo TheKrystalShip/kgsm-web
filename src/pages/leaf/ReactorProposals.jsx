@@ -37,6 +37,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { useConfirmAction } from "../../components/ServerActions.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
+import { ACTIONS, actionRefusal } from "../../lib/persona.js";
 import { answerLeafReactorProposal, fetchLeafReactorProposals } from "../../lib/stores.js";
 import {
   LeafAbsent, LeafBriefEmpty, LeafLoading, LeafUnreadable, useLeafResource,
@@ -118,7 +119,7 @@ function fmtStanding(openedAt, now) {
 // The arming is not theatre, and it is the panel's own: `useConfirmAction` is what every destructive
 // lifecycle verb here uses, so confirming an offer feels like confirming anything else. A single click
 // would make authorising a real action indistinguishable from clearing a notification.
-function Offer({ offer, busy, onAnswer, now }) {
+function Offer({ offer, busy, refused, onAnswer, now }) {
   const { armed, trigger } = useConfirmAction(() => onAnswer(offer.handle, true));
   const left = fmtLeft(offer.expiresAt, now);
   const standing = fmtStanding(offer.openedAt, now);
@@ -158,13 +159,14 @@ function Offer({ offer, busy, onAnswer, now }) {
 
       <div className="alert-card__actions">
         <button className={"alert-btn alert-btn--primary" + (armed ? " is-armed" : "")}
-          disabled={busy} onClick={trigger}
-          title={armed ? "Click again to confirm" : "Authorise this action"}>
+          disabled={busy || !!refused} onClick={trigger}
+          title={refused || (armed ? "Click again to confirm" : "Authorise this action")}>
           {busy
             ? <><span className="act-spin"></span> Working</>
             : <><Icon name="check" size={13} strokeWidth={armed ? 2.6 : 2.2} /> {armed ? "Confirm?" : "Confirm"}</>}
         </button>
-        <button className="alert-btn" disabled={busy} onClick={() => onAnswer(offer.handle, false)}>
+        <button className="alert-btn" disabled={busy || !!refused} title={refused || undefined}
+          onClick={() => onAnswer(offer.handle, false)}>
           <Icon name="circle-slash" size={13} /> Dismiss
         </button>
       </div>
@@ -270,7 +272,8 @@ function ReactorProposals({ hostId, leafId }) {
         ) : (
           <div className="chat-brief__list">
             {open.map(o => (
-              <Offer key={o.handle} offer={o} now={now} busy={busy === o.handle} onAnswer={onAnswer} />
+              <Offer key={o.handle} offer={o} now={now} busy={busy === o.handle} onAnswer={onAnswer}
+                refused={actionRefusal(ACTIONS.REACTOR_RULES_WRITE, { hostId })} />
             ))}
           </div>
         )}

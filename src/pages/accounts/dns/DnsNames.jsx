@@ -21,7 +21,8 @@ import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { removeAlias } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";
 import { AddAliasModal } from "./AddAliasModal.jsx";
-import { fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
+import { ACTIONS } from "../../../lib/actions.js";
+import { dnsRefusal, fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
 import { DnsRowActions } from "./dnsRowActions.jsx";
 
 const NAME_STATE_META = {
@@ -117,6 +118,7 @@ function useRemoveAlias() {
 
   const action = (row) => ({
     icon: "trash-2", label: "Remove alias", tone: "danger", pending: pending === row.name,
+    reason: dnsRefusal(ACTIONS.DNS_ALIASES_WRITE),
     onRun: () => {
       setErr(null);
       setPending(row.name);
@@ -151,7 +153,9 @@ function DnsAnchorsTable({ onlyBlocked = false }) {
       <CardTable icon="anchor" title="Anchors" count={rows.length}
         pin={<PinButton type="dns.anchors" params={{}} label="Anchors" />}
         action={(
-          <button className="dash-section__more" onClick={() => setAdding(true)}>
+          <button className="dash-section__more" onClick={() => setAdding(true)}
+            disabled={!!dnsRefusal(ACTIONS.DNS_ALIASES_WRITE)}
+            title={dnsRefusal(ACTIONS.DNS_ALIASES_WRITE) || "Add alias"}>
             <Icon name="plus" size={11} strokeWidth={2.4} /> Add alias
           </button>
         )}
@@ -212,7 +216,9 @@ function DnsServersTable({ onlyBlocked = false }) {
       <CardTable icon="server" title="Servers" count={rows.length}
         pin={<PinButton type="dns.servers" params={{}} label="Servers" />}
         action={(
-          <button className="dash-section__more" onClick={() => setAdding(true)}>
+          <button className="dash-section__more" onClick={() => setAdding(true)}
+            disabled={!!dnsRefusal(ACTIONS.DNS_ALIASES_WRITE)}
+            title={dnsRefusal(ACTIONS.DNS_ALIASES_WRITE) || "Add alias"}>
             <Icon name="plus" size={11} strokeWidth={2.4} /> Add alias
           </button>
         )}

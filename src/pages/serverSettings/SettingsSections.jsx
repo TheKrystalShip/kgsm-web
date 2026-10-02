@@ -13,6 +13,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { Select } from "../../components/Select.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "../../components/settings-primitives.jsx";
 import { fmtUntil } from "../../lib/formatting.js";
+import { useAccountName } from "../../lib/hooks/useAccountName.js";
 import { previewMaintenanceWindow } from "../../lib/stores.js";
 import {
   CADENCES, DOW, TASK_ORDER, UNITS,
@@ -80,9 +81,10 @@ const CONTAINER_RULE =
 
 function ScheduleSection({
   schedulerDown, schedulerLed, hostId, serverId, isContainer,
-  windows, setWindows, savedWindows, timezone, setTimezone,
+  windows, setWindows, savedWindows, windowsAuthor, windowsChanged, windowsRefused, timezone, setTimezone,
   backupRetention, setBackupRetention,
 }) {
+  const authorName = useAccountName(hostId, windowsAuthor);
   // A window is identified by its schedule, so what is saved is found by expression: an edited card
   // stops matching the moment its schedule moves, which is exactly when the node has to be asked
   // again rather than the leaf's own reading being reused.
@@ -112,6 +114,8 @@ function ScheduleSection({
 
           {windows.length === 0 && <div className="settings-notice">No maintenance windows.</div>}
 
+          <WindowsAuthorNotice count={windows.length} authorName={authorName} changed={windowsChanged} />
+
           {windows.map((draft) => (
             <WindowRow key={draft.uid} draft={draft} hostId={hostId} serverId={serverId}
               timezone={timezone} isContainer={isContainer} saved={saved}
@@ -119,7 +123,8 @@ function ScheduleSection({
           ))}
 
           <div className="mw-add">
-            <button type="button" className="lcf-btn lcf-btn--ghost" onClick={addWindow}>
+            <button type="button" className="lcf-btn lcf-btn--ghost" onClick={addWindow}
+              disabled={!!windowsRefused} title={windowsRefused || undefined}>
               <Icon name="plus" size={14} /> Add window
             </button>
           </div>
@@ -149,6 +154,32 @@ function ScheduleSection({
         </>
       )}
     </SettingsSection>
+  );
+}
+
+// Who every window runs as. The scheduler fires a window's tasks only while this person, and the
+// scheduler itself, still hold what they do on the server, so a list nobody is recorded for runs
+// nothing. Saving the list makes the saver that person, which an edit has to say before it happens.
+function WindowsAuthorNotice({ count, authorName, changed }) {
+  if (changed && count > 0) {
+    return (
+      <div className="settings-notice">
+        <Icon name="user-pen" size={13} /> Runs as you once saved
+      </div>
+    );
+  }
+  if (count === 0 || changed) return null;
+  if (!authorName) {
+    return (
+      <div className="settings-notice settings-notice--warn">
+        <Icon name="user-x" size={13} /> No author recorded · blocked until saved
+      </div>
+    );
+  }
+  return (
+    <div className="settings-notice">
+      <Icon name="user-check" size={13} /> Runs as {authorName}
+    </div>
   );
 }
 
@@ -183,6 +214,9 @@ function WindowRow({ draft, hostId, serverId, timezone, isContainer, saved, onCh
   const valid = savedRow ? savedRow.valid : (preview ? preview.valid : true);
   const error = savedRow ? savedRow.error : (preview ? preview.error : null);
   const nextFire = savedRow?.nextFireUtc || preview?.fires?.[0] || null;
+  // The scheduler's own reason it would not run this window's disruptive tasks now. Only a saved,
+  // untouched window has one: a draft has no author yet to be refused.
+  const blocked = (valid && savedRow && savedRow.blocked) || null;
 
   const toggleTask = (task) => {
     const held = new Set(draft.tasks);
@@ -191,7 +225,8 @@ function WindowRow({ draft, hostId, serverId, timezone, isContainer, saved, onCh
   };
 
   return (
-    <div className={"chat-brief__item chat-brief__item--static mw-row" + (valid ? "" : " chat-brief__item--danger")}>
+    <div className={"chat-brief__item chat-brief__item--static mw-row"
+      + (!valid ? " chat-brief__item--danger" : blocked ? " chat-brief__item--warn" : "")}>
       <span className="chat-brief__icon">
         <Icon name={draft.kind === "interval" ? "timer" : "calendar-clock"} size={14} />
       </span>
@@ -199,9 +234,10 @@ function WindowRow({ draft, hostId, serverId, timezone, isContainer, saved, onCh
         <span className="chat-brief__item-title">
           <span className="chat-brief__titletext">{describeWindow(draft)}</span>
           {!valid && <span className="thr-tag">invalid</span>}
+          {blocked && <span className="thr-tag">blocked</span>}
         </span>
         <span className="chat-brief__detail" style={{ whiteSpace: "normal" }}>
-          {detailOf({ valid, error, nextFire, previewing, previewError })}
+          {detailOf({ valid, error, blocked, nextFire, previewing, previewError })}
         </span>
 
         <div className="mw-fields">
@@ -307,8 +343,9 @@ function WindowRow({ draft, hostId, serverId, timezone, isContainer, saved, onCh
 
 // The line under a window's name: what stops it firing, or when it fires next. Never both, and never
 // a time this browser worked out for itself.
-function detailOf({ valid, error, nextFire, previewing, previewError }) {
+function detailOf({ valid, error, blocked, nextFire, previewing, previewError }) {
   if (!valid) return error || "This window will not fire.";
+  if (blocked) return blocked;
   if (previewError) return previewError;
   if (nextFire) {
     const when = new Date(nextFire);

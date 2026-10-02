@@ -7,7 +7,7 @@ import { Icon } from "../components/Icon.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { useAlerts } from "../components/NeedsAttention.jsx";
 import { SubTabs } from "../components/SubTabs.jsx";
-import { can } from "../lib/persona.js";
+import { can, nodeTabOffered } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { useStore } from "../lib/store.js";
 import { clusterStore, hostsStore, subscribeHostMetrics } from "../lib/stores.js";
@@ -287,24 +287,29 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   // The strip's names and order are shared with the breadcrumb (lib/labels.js); what belongs to this
   // page is the alert count each tab carries.
   const tabBadges = { resources: badge(resourceAlerts), services: badge(serviceAlerts) };
-  const tabs = ROUTE_TABS.cluster.map(t => ({ ...t, ...(tabBadges[t.id] || {}) }));
+  // A tab whose actions this person holds none of on this node is left out of the strip, and a stale
+  // one in the URL lands on the first that is offered.
+  const tabs = ROUTE_TABS.cluster
+    .filter(t => nodeTabOffered(host.id, t.id))
+    .map(t => ({ ...t, ...(tabBadges[t.id] || {}) }));
+  const shown = tabs.some(t => t.id === tab) ? tab : (tabs[0] ? tabs[0].id : null);
 
   return (
     <>
       {headerChrome}
-      <SubTabs tabs={tabs} active={tab} onChange={setTab} />
-      {tab === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onRun={onRunAlertAction} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewServices={() => setTab("services")} />}
-      {tab === "resources" && <DiagResources host={host} fresh={fresh} />}
-      {tab === "services"  && <DiagServices host={host} onOpenLeaf={(leaf, leafTab) => onOpenLeaf && onOpenLeaf(host.id, leaf, leafTab)} />}
-      {tab === "jobs"      && (
+      <SubTabs tabs={tabs} active={shown} onChange={setTab} />
+      {shown === "overview"  && <DiagOverview host={host} fresh={fresh} onAsk={onAsk} onRun={onRunAlertAction} onViewAlerts={onViewAlerts} onViewAudit={onViewAudit} onViewServices={() => setTab("services")} />}
+      {shown === "resources" && <DiagResources host={host} fresh={fresh} />}
+      {shown === "services"  && <DiagServices host={host} onOpenLeaf={(leaf, leafTab) => onOpenLeaf && onOpenLeaf(host.id, leaf, leafTab)} />}
+      {shown === "jobs"      && (
         // The page arranges them; neither component knows the other exists.
         <div className="jobq-grid">
           <QueuedJobs host={host} />
           <RunningJobs host={host} />
         </div>
       )}
-      {tab === "logs"      && <DiagLogs host={host} />}
-      {tab === "settings"  && <MemberSettings host={host} member={memberRow ? memberRow.fed : null} />}
+      {shown === "logs"      && <DiagLogs host={host} />}
+      {shown === "settings"  && <MemberSettings host={host} member={memberRow ? memberRow.fed : null} />}
       {modals}
     </>
   );

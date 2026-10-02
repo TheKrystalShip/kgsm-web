@@ -365,10 +365,13 @@ function host(hostId) {
   return {
     hostId,
     hasRoute: () => assistantSession.hasRoute(hostId),
-    // Who the assistant says this bearer is: { userId, displayName, tier, canPerformActions }.
+    // Who the assistant says this bearer is: { userId, displayName, canPerformActions, status }.
     // Authority is the assistant's answer, re-derived from its replica of the accounts per request —
     // never read off the token here.
     me: (opts) => json(hostId, "GET", "/me", null, opts),
+    // What the caller may do with this assistant — its own `assistant:*` actions, already evaluated
+    // from its replica of the cluster's authority. Looked up with `lib/access.js`.
+    access: (opts) => json(hostId, "GET", "/me/access", null, opts),
     // What this host's speech engine can do: `{ hear, speak }`. Asked before a microphone is offered,
     // because a recording made on a host that cannot listen is one nobody can read. Both are the same
     // optional leaf, and a host without it answers false to both rather than failing.
@@ -395,8 +398,8 @@ function host(hostId) {
     deleteMemory: (key) => json(hostId, "DELETE", "/memories/" + encodeURIComponent(key)),
     // The commands this caller may type, and running one. The leaf performs every command it lists,
     // so the catalog is authoritative rather than advisory: a name that appears here is a name the
-    // POST below will honour. Both are gated by the leaf, and the listing is filtered to the caller's
-    // tier — a command above it never arrives, so the composer cannot offer what would be refused.
+    // POST below will honour. Both are gated by the leaf, and the listing is filtered to the actions the
+    // caller holds — a command they lack never arrives, so the composer cannot offer what would be refused.
     commands: (opts) => json(hostId, "GET", "/commands", null, opts),
     // Point this browser's event stream at a conversation, so it receives that conversation's turn
     // frames and no others. What it attached to comes back ON the stream, not here.

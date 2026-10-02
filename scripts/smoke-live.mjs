@@ -2960,16 +2960,19 @@ try {
   // the live endpoint, so this asserts the page prints what the file says rather than a fixture.
   const botCmds = await fetch(API + "/api/v1/hosts/" + hmId + "/services/bot/commands")
     .then(r => (r.ok ? r.json() : null));
-  if (botCmds) {
-    // The manifest is keyed by the gate that admits each command, so the whole catalog is every
-    // bucket's contents — a reader that knew only one bucket would print a partial list.
-    const all = Object.values(botCmds.gates || {}).flat();
+  if (botCmds && botCmds.schemaVersion === 3) {
+    // Every command names the action that admits it, and the tab groups by that action — so the
+    // whole catalog is every group's contents, and every action the manifest names is a heading.
+    const all = (botCmds.commands || []).filter(c => c && c.action);
     const acts = all.filter(c => c.mutates);
+    const actions = [...new Set(all.map(c => c.action))];
     const cmdHtml = await nav(`#/cluster/member/${hmId}/services/bot/commands`);
     assert(cmdHtml.includes("leaf-cmd__usage") && all.every(c => cmdHtml.includes("/" + c.name)),
       `leaf Commands tab: every command the bot's manifest declares is rendered (${all.length}, ${acts.length} of them acting)`);
-    assert(acts.length > 0 && cmdHtml.includes("acts") && Object.keys(botCmds.gates).every(g => cmdHtml.toLowerCase().includes(g)),
-      "leaf Commands tab: grouped by the gate that admits each command, every bucket the manifest carries");
+    assert(acts.length > 0 && cmdHtml.includes("acts") && actions.every(a => cmdHtml.includes(a)),
+      `leaf Commands tab: grouped by the action that admits each command, every action the manifest names (${actions.length})`);
+  } else if (botCmds) {
+    console.log(`  · leaf Commands tab: the bot serves schema ${botCmds.schemaVersion} — this panel reads 3, check skipped`);
   }
 
   // The bot's Overview reads a leaf payload that is a LIST of Discord servers — a KGSM host announces

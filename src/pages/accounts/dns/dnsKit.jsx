@@ -4,6 +4,7 @@
 
 import { fmtRelative, fmtUntil } from "../../../lib/formatting.js";
 import { useKeyedResource } from "../../../lib/keyedResource.js";
+import { may } from "../../../lib/persona.js";
 import { useStore } from "../../../lib/store.js";
 import { DNS_KEY, dnsStore } from "../../../lib/stores/dns.js";
 
@@ -80,4 +81,10 @@ function NameCell({ name, sub, badge }) {
   );
 }
 
-export { daysUntil, fmtDateTime, fmtNext, fmtShortDate, fmtSince, NameCell, shortName, toDate, useDnsStatus };
+// Why the caller cannot perform a DNS action, or null when they can. Every DNS action is the cluster's,
+// answered by the DNS anchor itself; a control it refuses stays on screen, closed, naming the action.
+function dnsRefusal(action) {
+  return may(action, { cluster: true }) ? null : "Needs " + action;
+}
+
+export { daysUntil, dnsRefusal, fmtDateTime, fmtNext, fmtShortDate, fmtSince, NameCell, shortName, toDate, useDnsStatus };

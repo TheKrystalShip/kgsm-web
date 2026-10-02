@@ -15,7 +15,8 @@ import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { checkZoneNow, renewCertificate } from "../../../lib/dnsClient.js";
 import { useNav } from "../../../components/NavContext.jsx";
 import { dnsStore } from "../../../lib/stores/dns.js";
-import { fmtSince, shortName, useDnsStatus } from "./dnsKit.jsx";
+import { ACTIONS } from "../../../lib/actions.js";
+import { dnsRefusal, fmtSince, shortName, useDnsStatus } from "./dnsKit.jsx";
 import { LeafBriefEmpty, LeafBriefItem } from "../../leaf/leafOverviewKit.jsx";
 
 function DnsAttention() {
@@ -60,7 +61,8 @@ function DnsAttention() {
       key: "zone", tone: "danger", icon: "refresh-cw", title: "Zone unreachable",
       detail: [zone.lastPass.error, fmtSince(zone.lastPass.startedAt) ? "since " + fmtSince(zone.lastPass.startedAt) : null]
         .filter(Boolean).join(" · "),
-      action: "Check now", onClick: () => run("zone", checkZoneNow),
+      // Offered only to somebody who may do it; the item stands either way.
+      ...(dnsRefusal(ACTIONS.DNS_ZONE_CHECK) ? {} : { action: "Check now", onClick: () => run("zone", checkZoneNow) }),
     });
   }
   for (const name of contested) {
@@ -84,7 +86,9 @@ function DnsAttention() {
       title: shortName(order.name, zoneName) + " certificate failed",
       detail: [order.failure, fmtSince(order.finishedAt) ? fmtSince(order.finishedAt) : null]
         .filter(Boolean).join(" · "),
-      action: "Renew now", onClick: () => run("cert:" + order.name, () => renewCertificate(order.name)),
+      ...(dnsRefusal(ACTIONS.DNS_CERTIFICATES_RENEW)
+        ? {}
+        : { action: "Renew now", onClick: () => run("cert:" + order.name, () => renewCertificate(order.name)) }),
     });
   }
 

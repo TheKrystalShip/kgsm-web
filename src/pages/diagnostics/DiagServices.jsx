@@ -27,7 +27,8 @@ function DiagServices({ host, onOpenLeaf }) {
   const hostId = host && host.id;
   const entry = useStore(servicesStore, s => (hostId ? s.byHost[hostId] : null));
   const status = entry ? entry.status : "loading";
-  const canManage = hostId ? can("host.manage", { hostId }) : false;
+  // Connecting and disconnecting a leaf is the node's own action; reading the board is what opened it.
+  const canManage = hostId ? can("host.connect", { hostId }) : false;
   const f = useFilters({ search: "", state: "all", link: "all" });
 
   useKeyedResource(

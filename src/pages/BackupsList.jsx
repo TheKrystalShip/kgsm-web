@@ -7,12 +7,14 @@ import { awaitJob } from "../lib/stores.js";
 import { formatBytes, fmtRelative } from "../lib/formatting.js";
 import { requestBackup } from "../lib/serverActions.js";
 import { useConfirmAction } from "../components/ServerActions.jsx";
+import { ACTIONS, actionRefusal } from "../lib/persona.js";
 
 // Backups list — one row per snapshot. Rendered through the shared BriefCard
 // shell; each entry uses the same .chat-brief__item row style as the dashboard's
-// Alerts / Recent activity cards. The whole tab is operator-gated upstream
-// (App.ServerDetailPage hides it for viewers), so the create/restore actions are
-// safe to show here without a second gate.
+// Alerts / Recent activity cards. The tab is offered to whoever reads this server's backups; each
+// control inside asks for its own action — taking one, restoring one, managing them (pin, delete),
+// and downloading one, which is reading the server's files — and stays on screen, closed, naming
+// the action when it is not held.
 //
 // The backend (GET /servers/{id}/backups) reports each backup's id as `name`
 // plus whatever its manifest recorded — size, creation time, captured version.
@@ -79,15 +81,15 @@ function metaFor(b) {
 // Its own component because the arm/fire state is a hook, and a hook cannot live inside the row map.
 // Armed, it shows a check and says so — the icon changing is the only thing telling a user their first
 // click did something other than nothing.
-function DeleteBackupButton({ name, busy, deleting, onDelete }) {
+function DeleteBackupButton({ name, busy, deleting, refused, onDelete }) {
   const { armed, trigger } = useConfirmAction(() => onDelete(name));
   return (
     <button
       className={"icon-btn icon-btn--danger" + (armed ? " is-armed" : "")}
-      title={armed ? "Click again to delete — this cannot be undone" : "Delete"}
+      title={refused || (armed ? "Click again to delete — this cannot be undone" : "Delete")}
       aria-label={armed ? "Confirm delete" : "Delete"}
       onClick={trigger}
-      disabled={!!busy}
+      disabled={!!busy || !!refused}
     >
       {deleting ? <span className="oauth-spinner" />
         : <Icon name={armed ? "check" : "trash-2"} size={14} strokeWidth={armed ? 2.6 : 2} />}
@@ -98,6 +100,11 @@ function DeleteBackupButton({ name, busy, deleting, onDelete }) {
 function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
+  const target = { server };
+  const refusedCreate = actionRefusal(ACTIONS.SERVER_BACKUPS_CREATE, target);
+  const refusedRestore = actionRefusal(ACTIONS.SERVER_BACKUPS_RESTORE, target);
+  const refusedManage = actionRefusal(ACTIONS.SERVER_BACKUPS_MANAGE, target);
+  const refusedDownload = actionRefusal(ACTIONS.SERVER_FILES_READ, target);
   const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | "download:<name>" | "delete:<name>" | null
 
   const load = React.useCallback(() => {
@@ -193,7 +200,8 @@ function BackupsList({ server }) {
       countTone="neutral"
       meta="Snapshots taken by the engine · newest first"
       action={
-        <button className="fb-editor__btn" onClick={createBackup} disabled={busy === "create"}>
+        <button className="fb-editor__btn" onClick={createBackup} disabled={busy === "create" || !!refusedCreate}
+          title={refusedCreate || undefined}>
           {busy === "create"
             ? (<><span className="oauth-spinner" /> &nbsp;Backing up…</>)
             : (<><Icon name="plus" size={14} strokeWidth={2.2} /> &nbsp;Back up now</>)}
@@ -240,27 +248,28 @@ function BackupsList({ server }) {
                   {metaFor(b) && <span className="chat-brief__detail">{metaFor(b)}</span>}
                 </div>
                 <div className="backup-row__actions">
-                  <button className="icon-btn" title="Restore" onClick={() => restoreBackup(b.name)} disabled={!!busy}>
+                  <button className="icon-btn" title={refusedRestore || "Restore"} onClick={() => restoreBackup(b.name)}
+                    disabled={!!busy || !!refusedRestore}>
                     {restoring ? <span className="oauth-spinner" /> : <Icon name="rotate-ccw" size={14} />}
                   </button>
                   <button
                     className="icon-btn"
-                    title={canDownload
+                    title={refusedDownload || (canDownload
                       ? "Download"
-                      : "Download — this backup is an uncompressed folder, not a single file"}
+                      : "Download — this backup is an uncompressed folder, not a single file")}
                     onClick={() => downloadBackup(b.name)}
-                    disabled={!!busy || !canDownload}
+                    disabled={!!busy || !canDownload || !!refusedDownload}
                   >
                     {downloading ? <span className="oauth-spinner" /> : <Icon name="download" size={14} />}
                   </button>
                   <button
                     className={"icon-btn" + (b.pinned ? " is-armed" : "")}
-                    title={b.pinned
+                    title={refusedManage || (b.pinned
                       ? "Unpin — let retention delete this backup again"
-                      : "Pin — keep retention from deleting this backup"}
+                      : "Pin — keep retention from deleting this backup")}
                     aria-label={b.pinned ? "Unpin backup" : "Pin backup"}
                     onClick={() => setPinned(b.name, !b.pinned)}
-                    disabled={!!busy}
+                    disabled={!!busy || !!refusedManage}
                   >
                     {pinning ? <span className="oauth-spinner" /> : <Icon name={b.pinned ? "pin-off" : "pin"} size={14} />}
                   </button>
@@ -268,6 +277,7 @@ function BackupsList({ server }) {
                     name={b.name}
                     busy={busy}
                     deleting={deleting}
+                    refused={refusedManage}
                     onDelete={deleteBackup}
                   />
                 </div>

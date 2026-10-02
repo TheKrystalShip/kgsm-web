@@ -13,7 +13,9 @@ const MENU_WIDTH = 196;
 
 // action: { icon, label, tone: "safe"|"danger", onRun, pending, disabled, reason }
 function DnsRowActionButton({ action }) {
-  const { icon, label, tone, onRun, pending, disabled, reason } = action;
+  const { icon, label, tone, onRun, pending, reason } = action;
+  // A reason is a refusal: the control stays on screen, closed, saying why.
+  const disabled = action.disabled || !!reason;
   const click = (e) => {
     e.stopPropagation();
     if (disabled || pending) return;

@@ -48,6 +48,7 @@ function edit(change) {
     (result) => {
       refresh().catch(() => {});
       accessStore.refreshAnchor();
+      accessStore.refreshAnchors();
       return { ok: true, createdId: (result && result.createdId) || null };
     },
     (e) => {

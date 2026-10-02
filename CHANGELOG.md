@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Changed — every control on its own action; automations name who they run as (3.1.0)
+
+- **Each control asks for the action kgsm-api checks.** `actions.js` names kgsm-api's whole action
+  map. A server's tabs are offered on their own reads (Files `kgsm:server.files.read`, Backups
+  `kgsm:server.backups.read`, Settings `kgsm:server.config.read`) and a node's the same way; leaf pages
+  open on `api:services.read`. A write control whose action is not held stays on screen, closed, naming
+  the action: each lifecycle verb (`verbGuard` asks `verbRefusal` first), backups, file saves, settings,
+  uninstall, moderation, a component's configuration, reactor offers, batch preflight, run cancel, a
+  node's name and its removal.
+- **Every anchor answers for its own actions.** The access store reads the DNS and assistant anchors'
+  `/me/access` beside the nodes' and the auth anchor's; the DNS page closes each action on `dns:*`, and
+  the standalone assistant gates on `assistant:chat` and `assistant:autorun` from its own
+  `/me/access`.
+- **The Commands tab reads schema 3**: one card per action, each saying whether it is held.
+- **Maintenance windows name who they run as.** The server's Settings tab shows the windows' author
+  and each window's `blocked` reason, and says that saving makes you the author; the list is sent only
+  when it changed. The scheduler's board and overview show `blocked`, which joins the outcomes.
+- **A leaf's automation settings are tagged**, with the account that switched each on.
+- **The auth anchor's row under the nodes** counts what it waits on a person for — pending accounts,
+  unmapped actions, service requirements, the past week's automatic approvals — and its overview lists
+  them in a *Needs a look* card.
+- **Authors are shown by name**, through the node's `GET /accounts/names` (`stores/accountNames.js`).
 
 ## [3.0.0]
 

@@ -394,6 +394,12 @@
   color: var(--danger-fg);
 }
 
+/* A setting that switches automated behaviour on — not a risk, a fact about who it runs as. */
+.lcf-risk--automates {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
 /* ---- The provenance chain -------------------------------------------------- */
 .lcf-chain {
   display: flex;

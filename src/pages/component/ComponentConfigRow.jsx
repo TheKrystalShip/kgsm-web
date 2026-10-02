@@ -9,6 +9,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { Select } from "../../components/Select.jsx";
 import { Toggle } from "../../components/settings-primitives.jsx";
+import { useAccountName } from "../../lib/hooks/useAccountName.js";
 import { SOURCE_TITLE, boolish, draftOf, isBlank, isDirty, isOverridden, valueText } from "./componentConfigHelpers.js";
 
 const RISK = {
@@ -173,7 +174,22 @@ function Control({ f, editable, draft, rawDraft, willReset, onChange, onCopy, co
   );
 }
 
-function ComponentConfigRow({ f, editable, drafts, resets, onChange, onToggleReset, onCopy, copyState }) {
+// A setting that switches automated behaviour on runs as whoever set it, so the row names them. The
+// name is asked of the node the surface is on; an anchor's row names the account id.
+function AutomationBadge({ f, hostId }) {
+  const name = useAccountName(hostId, f.automationAuthor || null);
+  if (!f.automates) return null;
+  return (
+    <>
+      <span className="lcf-risk lcf-risk--automates">
+        <Icon name="bot" size={10} strokeWidth={2.2} /> automation
+      </span>
+      <span className="lcf-row__dep">{name ? "set by " + name : "no author"}</span>
+    </>
+  );
+}
+
+function ComponentConfigRow({ f, hostId, editable, drafts, resets, onChange, onToggleReset, onCopy, copyState }) {
   const willReset = resets.has(f.key);
   const dirty = isDirty(f, drafts, resets);
   const cls = "lcf-row" + (willReset ? " is-reset" : dirty ? " is-dirty" : "");
@@ -186,6 +202,7 @@ function ComponentConfigRow({ f, editable, drafts, resets, onChange, onToggleRes
         <div className="lcf-row__top">
           <span className="lcf-row__label">{f.label}</span>
           <RiskBadge risk={f.risk} />
+          <AutomationBadge f={f} hostId={hostId} />
           <span className={"lcf-prov lcf-prov--" + sourceTone} title={SOURCE_TITLE[f.source] || ""}>
             {sourceLabel}
           </span>

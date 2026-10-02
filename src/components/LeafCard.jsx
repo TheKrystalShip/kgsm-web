@@ -179,9 +179,9 @@ function LeafCard({ svc, hostId, canManage, onOpen, onConfigure }) {
           </div>
         )}
 
-        {canManage && !engine && (
+        {!engine && (
           <div className="svc-card__prov">
-            {svc.provisioned != null && <LeafProvisionControl svc={svc} hostId={hostId} />}
+            {canManage && svc.provisioned != null && <LeafProvisionControl svc={svc} hostId={hostId} />}
             {/* Configuration is one tab of the leaf's own page — the all-leaves config page is
                 still its own route at #/config/{host}. */}
             <button className="svc-cfg-btn svc-card__cfg" onClick={onConfigure} title={"Configure " + svc.displayName}>

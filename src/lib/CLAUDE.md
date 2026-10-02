@@ -177,7 +177,10 @@ re-exports `stores/` — import from either.
   on its signature and nothing a member says makes it more so.
 - `componentSurface.js` — a COMPONENT's own configuration, unit, journal and command manifest,
   behind one shape whichever transport reaches it. A component owns all of that wherever it runs;
-  what differs is only how a browser gets to it, and this is the whole of that difference.
+  what differs is only how a browser gets to it, and this is the whole of that difference. Each
+  surface also says what a change on it needs (`configWrite`: the leaf's `<leaf>:config.write` on its
+  node, the engine's `kgsm:engine.config.write`, or an anchor's own at the cluster), so the shared
+  configuration page closes itself for anybody lacking it.
   `anchorSurface({address, capability})` calls the member's own origin with `clusterCredential`,
   under the route prefix that capability serves — a capability with no entry there has no
   browser-reachable surface, and the page says so rather than guessing a path that would 404 on
@@ -213,22 +216,34 @@ re-exports `stores/` — import from either.
   session ended while the panel was open.
 - `access.js` — looking an action up in the members' `/me/access` answers. Each browser-facing member
   answers for what it holds, already evaluated: a node for its own components' actions at the cluster,
-  itself and each instance (keyed `<node>/<id>#<install nonce>`), the auth anchor for `auth:*`. `allows`
-  asks the member that answers for the action — the anchor for `auth:*`, the target's node otherwise,
-  every node for a question about anywhere — and `owner` in a report is the one answer a list cannot
-  give: an Owner performs actions no manifest declares. **Holds no copy of the rules**, and imports
-  nothing.
-- `actions.js` — every action the panel gates a control on, in one table. An action no installed
-  manifest declares is an Owner's until its component declares it, so a gate on one is correct before
-  the declaration exists.
+  itself and each instance (keyed `<node>/<id>#<install nonce>`), the auth anchor for `auth:*`, and
+  every other anchor for its own namespace (`dns:*`, `assistant:*`, read from the capability's holder
+  by `anchorAccess.js`). `allows` asks the member that answers for the action — the auth anchor alone
+  for `auth:*`; an anchor holding the action's namespace beside the nodes, since a component standing
+  as a leaf is answered for by its node; the target's node otherwise, every node for a question about
+  anywhere — and `owner` in a report is the one answer a list cannot give: an Owner performs actions no
+  manifest declares. **Holds no copy of the rules**, and imports nothing, which is what lets the
+  standalone assistant gate on its own `/me/access` with it.
+- `actions.js` — every action the panel gates a control on, in one table, named as kgsm-api's action
+  map and each component's manifest name them; `VERB_ACTION` maps each lifecycle verb to its action and
+  `configWriteOf` names a component's config action. An action no installed manifest declares is an
+  Owner's until its component declares it, so a gate on one is correct before the declaration exists.
 - `persona.js` — the authorization **policy**, over `access.js`. `may(action, target)` is the
   question; a target is what the caller has in hand — nothing (anywhere, what a nav entry asks),
   `{ hostId }`, `{ server }` or `{ cluster: true }` — and asking with the narrowest one in hand is what
   lets a grant on one server open that server's controls and no other's. `can(cap, target)` names the
-  actions behind a navigation or control capability, `serverOperable`/`serverAssignable` are the two
-  per-server questions, `isOwner()` the one no action list answers. Where a surface needs to know
+  actions behind a navigation or control capability; `serverTabOffered` and `nodeTabOffered` say which
+  tabs a server or a node offers, each tab behind its own read; `serverOperable`/`serverAssignable`
+  are the two per-server questions; `isOwner()` the one no action list answers. **A write control
+  whose action is not held stays on screen, closed, naming the action** — `actionRefusal(action,
+  target)` is that sentence, and `verbRefusal(server, verb)` is it for a lifecycle verb, which
+  `verbGuard` asks first. A tab is hidden when its read is not held; a control inside one never is.
+  Where a surface needs to know
   whether a MEMBER will honour the session at all, that is `sessionStore.nodeRefusal(id)` and a
   different fact. `resolveRoute()` is the routing chokepoint.
+- `anchorAccess.js` — what the caller may do with an anchor holding a capability other than `auth`:
+  `GET /me/access` at the capability holder's own origin, with the cluster session. The holder comes
+  from the capability assignment, so an answer follows a failover.
 - `capabilities.js` — per-host services (metrics / assistant / watchdog), each
   `provisioned` (offered?) × `status` (live health). A node's assistant capability is one of the two
   places an assistant is found; `assistants.js` joins it with the cluster's, and there is no central

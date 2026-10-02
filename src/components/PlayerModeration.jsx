@@ -2,6 +2,15 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
 import { useConfirmAction } from "./ServerActions.jsx";
+import { ACTIONS } from "../lib/actions.js";
+import { may } from "../lib/persona.js";
+
+// The action each moderation verb performs. Lifting a ban is the ban action's other half.
+const MODERATION_ACTION = {
+  kick: ACTIONS.SERVER_PLAYERS_KICK,
+  ban: ACTIONS.SERVER_PLAYERS_BAN,
+  unban: ACTIONS.SERVER_PLAYERS_BAN,
+};
 
 // PlayerModeration — the per-row kick/ban/unban controls in the player roster.
 //
@@ -57,7 +66,7 @@ const KIND_LABEL = { ip: "an IP address", name: "a player name", id: "an account
 /// declare is absent entirely; an action it declares is always PRESENT and carries its reason, because
 /// a control that vanishes tells an operator nothing while a disabled one that says why distinguishes
 /// "this game can't" from "not right now".
-function moderationOffers(serverRunning, player, moderation) {
+function moderationOffers(serverRunning, player, moderation, server) {
   if (!moderation || !player) return [];
   const banned = player.status === "banned";
   const online = player.status === "online";
@@ -76,10 +85,12 @@ function moderationOffers(serverRunning, player, moderation) {
   const identityReason = "This game moderates by "
     + (KIND_LABEL[moderation.targetKind] || "an identity") + ", which this player has none of.";
 
-  // Broadest gate first, so the reason names the thing the operator would have to change first.
+  // Broadest gate first, so the reason names the thing the operator would have to change first:
+  // holding the action at all, then the server, then the player.
   return offered.map((action) => ({
     action,
-    reason: !serverRunning ? "The server isn't running, so there's no console to send this to."
+    reason: server && !may(MODERATION_ACTION[action], { server }) ? "Needs " + MODERATION_ACTION[action]
+      : !serverRunning ? "The server isn't running, so there's no console to send this to."
       : !usable ? identityReason
         : action === "kick" && !online ? "This player isn't connected — there's nobody to disconnect."
           : null,
@@ -225,12 +236,12 @@ function ModerationMenu({ anchorRef, items, shared, pending, onRun, onClose }) {
 // player: the roster row · moderation: the capability block · serverRunning: is
 // the instance up · pending: the action currently in flight for THIS player (or
 // null) · onRun(action)
-function PlayerModeration({ player, moderation, serverRunning, pending, onRun }) {
+function PlayerModeration({ server, player, moderation, serverRunning, pending, onRun }) {
   const [open, setOpen] = React.useState(false);
   const triggerRef = React.useRef(null);
   const close = React.useCallback(() => setOpen(false), []);
 
-  const items = moderationOffers(serverRunning, player, moderation);
+  const items = moderationOffers(serverRunning, player, moderation, server);
 
   // Close the menu if this row's action set empties out from under it (a ban
   // landing turns "kick/ban" into "unban" while the panel is open).
@@ -268,4 +279,4 @@ function PlayerModeration({ player, moderation, serverRunning, pending, onRun })
   );
 }
 
-export { PlayerModeration, hasTargetIdentity, moderationOffers };
+export { MODERATION_ACTION, PlayerModeration, hasTargetIdentity, moderationOffers };

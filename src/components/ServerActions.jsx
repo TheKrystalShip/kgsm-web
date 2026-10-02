@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "./Icon.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { ordinal } from "../lib/formatting.js";
+import { verbRefusal } from "../lib/persona.js";
 
 // ServerActions.jsx — confirm-first, job-aware lifecycle buttons.
 //
@@ -36,6 +37,8 @@ const SERVER_ACTION = {
 // tile and an alert card's suggested action all ask here, so the same server can
 // never offer Update in one place and refuse it in another. The gates, in order:
 //
+//   0. The verb's own action, held on this server (`verbRefusal`). Somebody may hold
+//      start and not restart; the control stays on screen, closed, naming the action.
 //   1. The watchdog mediates every lifecycle verb — with it down the supervisor
 //      can't start, stop, restart or update anything.
 //   2. The observed run state. kgsm refuses to update a RUNNING instance (the files
@@ -43,10 +46,12 @@ const SERVER_ACTION = {
 //      here and say why rather than letting the click fail.
 //   3. For update only: whether there is anything to apply.
 //
-// It deliberately does NOT check tier — that gates whether the control renders at
-// all (serverOperable), which is a different question from whether it would work.
+// Whether any lifecycle control renders at all is `serverOperable`, a different question.
 function verbGuard(server, verb) {
   if (!server) return { disabled: true, reason: null };
+
+  const refused = verbRefusal(server, verb);
+  if (refused) return { disabled: true, reason: refused };
 
   const status = server.status;
   const isOnline = status === "online";

@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
+import { ACTIONS, actionRefusal } from "../lib/persona.js";
 import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";
 import { draftFromExpression, expressionOf } from "./serverSettings/maintenanceWindow.js";
 import { StartupSection, ScheduleSection, ResourcesSection } from "./serverSettings/SettingsSections.jsx";
@@ -35,6 +36,23 @@ function ServerSettings({ server, onDeleted }) {
   // the editor shows for a window nobody has touched and stops using the moment its schedule moves.
   const [windows, setWindows] = React.useState([]);
   const [savedWindows, setSavedWindows] = React.useState([]);
+  // The account the saved windows run as, which the engine records with them. Every window runs as
+  // this person, so writing the list again makes whoever writes it the author.
+  const [windowsAuthor, setWindowsAuthor] = React.useState(null);
+  const windowsChanged = React.useMemo(() => {
+    const draft = windows.map(expressionOf);
+    const saved = savedWindows.map((w) => w.expression);
+    return draft.length !== saved.length || draft.some((e, i) => e !== saved[i]);
+  }, [windows, savedWindows]);
+
+  // Reading the settings is what opens this tab. Saving them, changing the windows on top of that,
+  // and deleting the server are each their own action, and a control whose action is not held stays
+  // on screen, closed, naming it.
+  const target = { server };
+  const refusedSave = actionRefusal(ACTIONS.SERVER_CONFIG_WRITE, target);
+  const refusedWindows = actionRefusal(ACTIONS.SERVER_WINDOWS_WRITE, target);
+  const refusedDelete = actionRefusal(ACTIONS.SERVER_UNINSTALL, target);
+  const saveRefusal = refusedSave || (windowsChanged ? refusedWindows : null);
 
   // ---- Save / Reset state ----
   const [saving, setSaving] = React.useState(false);
@@ -68,6 +86,7 @@ function ServerSettings({ server, onDeleted }) {
         setTimezone(data.timezone ?? "");
         setBackupRetention(data.backupRetention ?? 5);
         adoptWindows(data.maintenanceWindows);
+        setWindowsAuthor(data.maintenanceWindowsAuthor || null);
         setLoadState("ready");
       },
       (err) => {
@@ -86,8 +105,9 @@ function ServerSettings({ server, onDeleted }) {
       autoUpdate, autostart, crashRestart, crashMaxRestarts, cpuPriority, memoryCapMb,
       // Wholesale replace: the list IS the instance's maintenance, so sending it is the only way to
       // express deleting a window. The node reads each expression with the ecosystem's one parser and
-      // refuses the whole list rather than half-applying it.
-      maintenanceWindows: windows.map(expressionOf),
+      // refuses the whole list rather than half-applying it. Sent only when it changed: writing it makes
+      // the writer the person every window runs as, and needs its own action.
+      ...(windowsChanged ? { maintenanceWindows: windows.map(expressionOf) } : {}),
       timezone, backupRetention: Number(backupRetention),
       origin: "ui",
     }).then(
@@ -101,6 +121,7 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
           if (data.settings.maintenanceWindows !== undefined) adoptWindows(data.settings.maintenanceWindows);
+          setWindowsAuthor(data.settings.maintenanceWindowsAuthor || null);
         }
         setSaving(false);
         setSaveMsg({ ok: true, text: "Saved" });
@@ -134,6 +155,7 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
           if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
           if (data.settings.maintenanceWindows !== undefined) adoptWindows(data.settings.maintenanceWindows);
+          setWindowsAuthor(data.settings.maintenanceWindowsAuthor || null);
         }
         setSaving(false);
         setSaveMsg({ ok: true, text: "Reset to defaults" });
@@ -212,6 +234,7 @@ function ServerSettings({ server, onDeleted }) {
       <ScheduleSection schedulerDown={schedulerDown} schedulerLed={schedulerLed}
         hostId={server.hostId} serverId={server.id} isContainer={server.runtime === "container"}
         windows={windows} setWindows={setWindows} savedWindows={savedWindows}
+        windowsAuthor={windowsAuthor} windowsChanged={windowsChanged} windowsRefused={refusedWindows}
         timezone={timezone} setTimezone={setTimezone}
         backupRetention={backupRetention} setBackupRetention={setBackupRetention} />
 
@@ -237,6 +260,7 @@ function ServerSettings({ server, onDeleted }) {
         {deletePhase === "idle" && (
           <button className="icon-btn icon-btn--danger"
             style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}
+            disabled={!!refusedDelete} title={refusedDelete || undefined}
             onClick={handleDelete}>
             <Icon name="trash-2" size={14} />&nbsp;Delete server
           </button>
@@ -264,10 +288,11 @@ function ServerSettings({ server, onDeleted }) {
             {saveMsg.text}
           </span>
         )}
-        <button className="icon-btn" disabled={saving}
+        <button className="icon-btn" disabled={saving || !!refusedSave} title={refusedSave || undefined}
           style={{ width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 600 }}
           onClick={handleReset}>Reset to defaults</button>
-        <button className="fb-editor__btn" disabled={saving} onClick={handleSave}>
+        <button className="fb-editor__btn" disabled={saving || !!saveRefusal} title={saveRefusal || undefined}
+          onClick={handleSave}>
           {saving ? "Saving…" : "Save changes"}
         </button>
       </div>

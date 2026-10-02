@@ -17,7 +17,7 @@ import React from "react";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { api } from "../../lib/apiClient.js";
-import { can } from "../../lib/persona.js";
+import { ACTIONS, can, may } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { CapabilityAssignDialog, MemberRemoveDialog, memberRemoval } from "./clusterActions.jsx";
@@ -154,17 +154,21 @@ function MemberSettings({ member, host }) {
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
   const roster = useStore(clusterStore, s => s.nodes);
+  // Each card is its own action: naming the node is the node's, moving a capability is the cluster's
+  // membership management, and removing a member is its own.
   const canManage = can("host.manage") && !!clusterAdmin && !!rosterFrom;
+  const canRemove = may(ACTIONS.MEMBERS_REMOVE, { cluster: true }) && !!clusterAdmin && !!rosterFrom;
+  const canRename = !!host && may(ACTIONS.HOSTS_WRITE, { hostId: host.id });
 
   const isAnchor = !!member && member.kind === "anchor";
 
   return (
     <div className="member-settings">
-      {host && <NodeIdentity host={host} />}
+      {canRename && <NodeIdentity host={host} />}
       {isAnchor && member && (
         <AnchorCapability member={member} rosterFrom={rosterFrom} members={roster} canManage={canManage} />
       )}
-      {canManage && member && <MemberMembership member={member} rosterFrom={rosterFrom} />}
+      {canRemove && member && <MemberMembership member={member} rosterFrom={rosterFrom} />}
     </div>
   );
 }

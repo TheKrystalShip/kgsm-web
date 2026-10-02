@@ -12,7 +12,7 @@
 
 import { verbGuard } from "../ServerActions.jsx";
 import { capacityHint } from "../../lib/capacity.js";
-import { serverOperable } from "../../lib/persona.js";
+import { verbRefusal } from "../../lib/persona.js";
 
 // The noun a verb is called by when a refusal has to name what is already happening. A refusal that
 // does not name the action invites the caller to re-send the identical command.
@@ -28,9 +28,9 @@ const article = (word) => (/^[aeiou]/i.test(word) ? "An " : "A ");
 ///
 /// Three gates, in this order:
 ///
-///   1. PERMISSION, which is not about the verb at all. A node's batch endpoint is Operator-gated for
-///      the whole request, so a row on a node this person cannot operate has to be dropped before
-///      dispatch rather than sent and 403'd — taking every other server on that node down with it.
+///   1. PERMISSION: the verb's own action on that server. A node refuses the members of a batch the
+///      caller may not run the verb on, so a refusal here is one the node would give, said before
+///      anything is sent.
 ///   2. WORK ALREADY IN FLIGHT, before the status gate, because it is the only one that names
 ///      something already under way. "A stop is queued for this server" tells an operator to wait,
 ///      where the status gate's "server is not running" describes the consequence of that same stop
@@ -40,7 +40,8 @@ const article = (word) => (/^[aeiou]/i.test(word) ? "An " : "A ");
 /// The node re-decides all of this on arrival and may order it differently; its answer is what the
 /// result screen reports.
 function refusalFor(server, verb) {
-  if (!serverOperable(server)) return "You can't operate servers on this node";
+  const refused = verbRefusal(server, verb);
+  if (refused) return refused;
 
   const job = server.job;
   if (job && job.state && job.state !== "done") {

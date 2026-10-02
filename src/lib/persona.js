@@ -1,5 +1,5 @@
 import { allows, isOwner as holdsEverything } from "./access.js";
-import { ACTIONS, SERVER_OPERATE } from "./actions.js";
+import { ACTIONS, SERVER_OPERATE, VERB_ACTION } from "./actions.js";
 import { hostAddressOf } from "./config.js";
 import { KrystalRouter } from "./router.js";
 import { accessStore } from "./stores/access.js";
@@ -37,6 +37,8 @@ import { accessStore } from "./stores/access.js";
     SERVER_OPERATE: "server.operate",
     SERVER_CREATE:  "server.create",
     HOST_MANAGE:    "host.manage",
+    HOST_SERVICES:  "host.services",
+    HOST_CONNECT:   "host.connect",
   };
 
   var CAP_ACTIONS = {
@@ -50,6 +52,8 @@ import { accessStore } from "./stores/access.js";
     "server.operate": SERVER_OPERATE,
     "server.create": [ACTIONS.SERVER_INSTALL],
     "host.manage": [ACTIONS.MEMBERS_MANAGE],
+    "host.services": [ACTIONS.SERVICES_READ],
+    "host.connect": [ACTIONS.SERVICES_CONNECT],
   };
 
   // ── Route → required capability (absent ⇒ open to anybody signed in) ────────
@@ -62,10 +66,10 @@ import { accessStore } from "./stores/access.js";
     cluster:   CAP.NAV_CLUSTER,
     settings:  CAP.NAV_SETTINGS,
     addHost:   CAP.HOST_MANAGE,
-    // A leaf's page and its configuration aggregate surfaces the node serves only to somebody who
-    // manages it, so a lower grant would reach them and meet a refusal on every read.
-    leafConfig: CAP.HOST_MANAGE,
-    leaf: CAP.HOST_MANAGE,
+    // A leaf's page and its configuration sit on the node's services board, which is what reaching
+    // them takes; each tab inside asks for the leaf's own action.
+    leafConfig: CAP.HOST_SERVICES,
+    leaf: CAP.HOST_SERVICES,
   };
 
   const sources = () => accessStore.getState().sources;
@@ -106,6 +110,51 @@ import { accessStore } from "./stores/access.js";
   // Operating: any lifecycle verb, anywhere or on one server.
   function canOperate() { return mayAny(SERVER_OPERATE); }
   function serverOperable(server) { return server ? mayAny(SERVER_OPERATE, { server: server }) : false; }
+
+  // The sentence a control closed for want of `action` at `target` carries, or null when it is held.
+  // A refused control stays on screen, disabled, naming the action — never hidden from somebody who
+  // can see what it would act on.
+  function actionRefusal(action, target) {
+    return may(action, target) ? null : "Needs " + action;
+  }
+
+  // One lifecycle verb on one server: whether its action is held there, and the sentence when not.
+  function verbRefusal(server, verb) {
+    var action = VERB_ACTION[verb];
+    if (!server || !action) return null;
+    return actionRefusal(action, { server: server });
+  }
+
+  // ── A server's tabs → the read each one is ──────────────────────────────────
+  // Overview is open to anybody who can see the server; Access is for whoever may assign roles on it.
+  var SERVER_TAB_ACTION = {
+    performance: ACTIONS.SERVER_READ,
+    files: ACTIONS.SERVER_FILES_READ,
+    backups: ACTIONS.SERVER_BACKUPS_READ,
+    settings: ACTIONS.SERVER_CONFIG_READ,
+  };
+  // ── A node's tabs → the actions behind each ─────────────────────────────────
+  // Jobs lists the node's work on servers, each row filtered by the node to the servers this person
+  // reads; Settings holds the node's name and its membership, any of which opens it.
+  var NODE_TAB_ACTIONS = {
+    overview: [ACTIONS.HOSTS_READ],
+    resources: [ACTIONS.MONITOR_METRICS_READ],
+    services: [ACTIONS.SERVICES_READ],
+    jobs: [ACTIONS.SERVER_READ],
+    logs: [ACTIONS.LOGS_READ],
+    settings: [ACTIONS.HOSTS_WRITE, ACTIONS.MEMBERS_MANAGE, ACTIONS.MEMBERS_REMOVE],
+  };
+  function nodeTabOffered(hostId, tab) {
+    var actions = NODE_TAB_ACTIONS[tab];
+    return !!(hostId && actions && mayAny(actions, { hostId: hostId }));
+  }
+
+  function serverTabOffered(server, tab) {
+    if (tab === "overview") return true;
+    if (tab === "access") return serverAssignable(server);
+    var action = SERVER_TAB_ACTION[tab];
+    return !!(server && action && may(action, { server: server }));
+  }
   // Assigning roles on one server: `auth:roles.assign` held there or wider, which only an install
   // whose nonce is known can be looked up for.
   function serverAssignable(server) {
@@ -176,4 +225,4 @@ import { accessStore } from "./stores/access.js";
 
   const krystalPolicy = { CAP: CAP, CAP_ACTIONS: CAP_ACTIONS, ROUTE_CAP: ROUTE_CAP };
 
-export { ACTIONS, can, canOperate, canReach, homeKind, isOwner, krystalPolicy, may, mayAny, resolveRoute, serverAssignable, serverJoin, serverOperable };
+export { ACTIONS, actionRefusal, can, canOperate, canReach, homeKind, isOwner, krystalPolicy, may, mayAny, resolveRoute, nodeTabOffered, serverAssignable, serverJoin, serverOperable, serverTabOffered, verbRefusal };

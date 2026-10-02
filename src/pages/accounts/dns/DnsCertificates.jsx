@@ -15,7 +15,8 @@ import { dnsStore } from "../../../lib/stores/dns.js";
 import {
   DnsKpiCertExpiry, DnsKpiCertFailed, DnsKpiCertInFlight, DnsKpiCertWeek,
 } from "./dnsKpis.jsx";
-import { daysUntil, fmtDateTime, fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
+import { ACTIONS } from "../../../lib/actions.js";
+import { daysUntil, dnsRefusal, fmtDateTime, fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
 import { DnsRowActions } from "./dnsRowActions.jsx";
 
 const ORDER_STATE_META = {
@@ -43,6 +44,7 @@ function DnsCertificatesTable() {
 
   const renewAction = (order) => ({
     icon: "refresh-cw", label: "Renew now", tone: "safe", pending: pending === order.name,
+    reason: dnsRefusal(ACTIONS.DNS_CERTIFICATES_RENEW),
     onRun: () => {
       setErr(null);
       setPending(order.name);

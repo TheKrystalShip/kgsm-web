@@ -9,7 +9,7 @@ import { RecentActivity } from "../components/RecentActivity.jsx";
 import { ServerHero } from "../components/ServerHero.jsx";
 import { ServerNotice } from "../components/ServerNotice.jsx";
 import { StatTiles } from "../components/StatTiles.jsx";
-import { serverAssignable, serverOperable } from "../lib/persona.js";
+import { ACTIONS, may, serverOperable, serverTabOffered } from "../lib/persona.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 import { serversStore } from "../lib/stores.js";
 import { BackupsList } from "./BackupsList.jsx";
@@ -58,12 +58,10 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
   // Names and order are shared with the breadcrumb (lib/labels.js); the alert count on a tab is
   // this page's to add.
   const allTabs = ROUTE_TABS.server.map(t => ({ ...t, ...badge(t.id) }));
-  // Files / Backups / Settings / Performance are operator surfaces — hidden for
-  // players, not merely disabled. Access is for whoever may assign roles on this server. safeTab
-  // keeps a stale tab in the URL from rendering an empty body when the tab isn't available.
-  const canAssign = serverAssignable(server);
-  const tabs = allTabs.filter(t => t.id === "overview"
-    || (t.id === "access" ? canAssign : canOps));
+  // Each tab is offered to whoever holds its read on this server — hidden otherwise, not merely
+  // disabled — and Access to whoever may assign roles on it. safeTab keeps a stale tab in the URL from
+  // rendering an empty body when the tab isn't available.
+  const tabs = allTabs.filter(t => serverTabOffered(server, t.id));
   const safeTab = tabs.some(t => t.id === tab) ? tab : "overview";
 
   // ---- Overview layout customization (client-side, per-browser) -----------
@@ -111,7 +109,8 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         )}
       </div>
       {safeTab === "overview" && (() => {
-        const notice = <ServerNotice server={server} canEdit={canOps} />;
+        const notice = <ServerNotice server={server} canEdit={may(ACTIONS.SERVER_CONFIG_WRITE, { server })} />;
+        const canReadConsole = may(ACTIONS.SERVER_CONSOLE_READ, { server });
         // Player overview: the operator's note, an at-a-glance status strip, then
         // the roster and console — both READ-ONLY (no kick/ban, no command input).
         // Joining lives in the hero above; no ops feed or arrange mode.
@@ -121,7 +120,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
               {notice}
               <StatTiles server={server} playerCounts={playerCounts} />
               <PlayersTab server={server} readOnly roster={roster.status === "ready" ? roster : undefined} />
-              <ConsolePanel server={server} readOnly />
+              {canReadConsole && <ConsolePanel server={server} readOnly />}
             </>
           );
         }
@@ -143,7 +142,7 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
             )
           },
           { id: "players", label: "Players", node: <PlayersTab server={server} roster={roster.status === "ready" ? roster : undefined} /> },
-          { id: "console", label: "Console", node: <ConsolePanel server={server} /> },
+          ...(canReadConsole ? [{ id: "console", label: "Console", node: <ConsolePanel server={server} /> }] : []),
         ];
         return (
           <>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { ChatPage } from "../chat/ChatPage.jsx";
+import { allows, anchorSource } from "../lib/access.js";
 import { assistant } from "../lib/assistantClient.js";
 import { useStore } from "../lib/store.js";
 import { Toasts } from "../components/Toasts.jsx";
@@ -18,38 +19,42 @@ import { soloSession } from "./session.js";
 // wide and is its own (`route.js`), because the panel's router is a cluster vocabulary resolved
 // through a per-node policy.
 
-// Authority comes from the assistant's own answer about this bearer, re-derived from its replica of
-// the accounts per request. Proposing an action needs operator; auto-run needs admin — the same
-// ladder every other surface reads, so a person cannot hold a power here that they lack in the panel.
-const TIER_RANK = { none: 0, viewer: 1, operator: 2, admin: 3 };
-const rankOf = (tier) => TIER_RANK[String(tier || "none").toLowerCase()] || 0;
+// Authority is the assistant's own answer about this bearer, evaluated from its replica of the
+// cluster's authority per request: `/me` says who this is and whether they may change a server
+// anywhere it reaches, `/me/access` which of the assistant's own actions they hold. The same actions
+// gate the panel's dock, so a person cannot hold a power here that they lack there.
+const CHAT = "assistant:chat";
+const AUTORUN = "assistant:autorun";
 
 function App() {
   const session = useStore(soloSession);
   const signedIn = session.status === "live";
   const [route, go] = useRoute();
 
-  // Who the assistant says we are. Fetched once a session exists — the token carries a tier, but the
-  // display name is the assistant's to tell us, and asking is one request against a surface we are
-  // already talking to.
+  // Who the assistant says we are, and what it says we may do with it. Fetched once a session exists.
   const [me, setMe] = React.useState(null);
+  const [access, setAccess] = React.useState(null);
   React.useEffect(() => {
-    if (!signedIn) { setMe(null); return undefined; }
+    if (!signedIn) { setMe(null); setAccess(null); return undefined; }
     let cancelled = false;
     assistant.host(SELF).me().then(
       (m) => { if (!cancelled) setMe(m || null); },
+      () => {});
+    assistant.host(SELF).access().then(
+      (r) => { if (!cancelled) setAccess({ [anchorSource("assistant")]: { report: r } }); },
+      // An assistant that could not read its replica has said nothing about this person, which is
+      // not "holds nothing": the access stays unknown and the assistant refuses each turn itself.
       () => {});
     return () => { cancelled = true; };
   }, [signedIn]);
 
   if (!signedIn) return <SignedOut session={session} />;
 
-  // Signed in, and the cluster grants this account nothing. The assistant knows exactly who this is,
-  // so it says so rather than opening a conversation that can answer nothing about their servers.
-  // `me` is still loading on the first paint, which is not the same as holding nothing.
-  if (me && (me.tier || "none") === "none") return <NoAccess me={me} />;
+  // Signed in, and nothing here may be asked of this assistant. It knows exactly who this is, so it
+  // says so rather than opening a conversation that can answer nothing. Either answer still loading
+  // on the first paint is not the same as holding nothing.
+  if (me && access && !allows(access, CHAT, { cluster: true })) return <NoAccess me={me} />;
 
-  const tier = (me && me.tier) || session.tier || "none";
   const user = {
     name: (me && me.displayName) || "You",
     display: (me && me.displayName) || null,
@@ -72,8 +77,8 @@ function App() {
           user={user}
           assistantHost={{ id: SELF, name: "Assistant" }}
           connection={{ tone: "online", label: "Connected", usable: true, message: null }}
-          canSeeActions={rankOf(tier) >= TIER_RANK.operator}
-          canUseActions={rankOf(tier) >= TIER_RANK.admin}
+          canSeeActions={!!(me && me.canPerformActions)}
+          canUseActions={!!(access && allows(access, AUTORUN, { cluster: true }))}
           pageClass="chat-page--solo"
           onOpenSettings={() => go({ kind: "settings" })}
         />
@@ -115,7 +120,7 @@ function NoAccess({ me }) {
       <div className="chat-empty">
         <span className="chat-empty__logo"><Icon name="user-x" size={26} /></span>
         <h2>No access</h2>
-        <p>You’re signed in, and this cluster grants your account nothing.</p>
+        <p>Signed in · {CHAT} not held</p>
         {me && me.displayName && <p className="assistant-signin__who">{me.displayName}</p>}
         <button className="chat-suggestion" type="button" onClick={() => soloSession.signOut()}>
           Sign out

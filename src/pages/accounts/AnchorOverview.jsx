@@ -25,8 +25,9 @@ import { useStore } from "../../lib/store.js";
 import { authorityStore } from "../../lib/stores/authority.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
+import { AnchorAttention } from "./AnchorAttention.jsx";
 
-function AnchorOverview({ member, address, showsAccounts }) {
+function AnchorOverview({ member, address, showsAccounts, onSelectTab }) {
   const [accounts, setAccounts] = React.useState(null);   // null = not read
   const [reachable, setReachable] = React.useState(true);
 
@@ -77,6 +78,8 @@ function AnchorOverview({ member, address, showsAccounts }) {
             tone={unmapped ? "warn" : "muted"} />
         </div>
       )}
+
+      {showsAccounts && <AnchorAttention onSelectTab={onSelectTab} />}
 
       <BriefCard icon="anchor" title="Membership">
         <LeafFacts rows={[

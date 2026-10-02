@@ -19,7 +19,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { useAssistantFor } from "../../components/AssistantDockContext.jsx";
-import { ACTIONS, can, may } from "../../lib/persona.js";
+import { ACTIONS, may } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
 
@@ -34,11 +34,11 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
   const allHosts = useStore(hostsStore, s => s.list);
 
   // ---- host selection ------------------------------------------------------
-  // A host qualifies when the user can at least operate on it: an admin creates
-  // here, an operator hands off to that host's assistant. Either way the file
-  // lands on the host chosen here.
+  // A host qualifies when the user reads its library: somebody holding kgsm:blueprints.write there
+  // creates here, anybody else hands off to that host's assistant. Either way the file lands on the
+  // host chosen here.
   const hosts = React.useMemo(
-    () => (allHosts || []).filter(h => can("server.operate", { hostId: h.id })),
+    () => (allHosts || []).filter(h => may(ACTIONS.LIBRARY_READ, { hostId: h.id })),
     [allHosts],
   );
   // A sole qualifying node is taken because it is the only one. With several,

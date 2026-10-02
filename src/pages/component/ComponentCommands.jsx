@@ -2,14 +2,16 @@
 // The list comes from the manifest its deploy ships, passed through by whoever served it, so it is
 // the command set the running build registers rather than a list written here that would rot the
 // moment one was renamed. Nothing on this page is typed here: everything an operator reads —
-// the name, what it does, its options, and whether it acts — is the component's own word.
+// the name, what it does, its options, and the action it needs — is the component's own word.
 //
-// Split into what READS and what ACTS, because that is the question someone opens the list with. The
-// acting half carries what the component checks before running one, which is a fact about it and not
-// about this panel: it is stated, never softened.
+// Grouped by the action each command needs, because that is the question someone opens the list
+// with: what does it take to run these. The action is what the component checks when a command is
+// run; this panel cannot verify that check, so it prints the action and whether the reader holds it,
+// and softens nothing.
 
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
+import { may } from "../../lib/persona.js";
 
 // Where a person types these. The subject differs per surface — the bot is spoken to in Discord, the
 // assistant in its chat box — so each is stated whole rather than assembled from the component id.
@@ -33,46 +35,18 @@ function usage(cmd) {
   return "/" + cmd.name + (options ? " " + options : "");
 }
 
-// What the component requires of whoever runs the commands in a gate bucket. `none` is not "unknown"
-// — it is the component stating that it checks nothing, which is worth saying plainly rather than
-// leaving blank. Every other value is a tier from the ecosystem's shared role map, printed as its own
-// claim: this panel cannot verify a check it does not implement, so it states it and softens nothing.
-function gateNote(gate, surface) {
-  if (gate === "none") {
-    return surface === "discord"
-      ? "The bot states the gate none — it checks no role before running these, so anyone Discord lets "
-        + "use the command can. Restrict them per-command in the server’s Integrations settings if that "
-        + "is not what you want."
-      : "The component states the gate none — it checks nothing before running these.";
+// The commands under each action, in the order the manifest lists them. A group that only reads comes
+// before one that acts, so the list opens on what is safe to try; within that, by action id.
+function byAction(commands) {
+  const groups = new Map();
+  for (const cmd of commands || []) {
+    if (!cmd || !cmd.action) continue;
+    if (!groups.has(cmd.action)) groups.set(cmd.action, []);
+    groups.get(cmd.action).push(cmd);
   }
-  if (gate === "viewer") return "Anyone with a KGSM account on this host can run these.";
-  if (gate === "operator") return "Only an operator or an admin can run these.";
-  if (gate === "admin") return "Only an admin can run these.";
-  return null;
-}
-
-// The gates in the order an operator wants to read them: what anyone can do, down to what almost
-// nobody can. A bucket the manifest does not carry simply does not appear.
-const GATE_ORDER = ["none", "viewer", "operator", "admin"];
-
-// The heading for a bucket: the tier itself, spelled the way the Users admin spells it, so the
-// bucket a command sits in and the tier somebody holds are visibly the same word. A tier this build
-// does not know keeps the component's own word as its heading, because printing an unfamiliar tier is
-// better than hiding the commands under it.
-const GATE_TITLE = {
-  none: "Unrestricted",
-  viewer: "Viewer",
-  operator: "Operator",
-  admin: "Admin",
-};
-
-function orderedGates(gates) {
-  return Object.keys(gates || {}).sort((a, b) => {
-    const ai = GATE_ORDER.indexOf(a), bi = GATE_ORDER.indexOf(b);
-    // A tier this build does not know sorts last rather than being dropped — the component said it, and
-    // hiding a command because its gate is unfamiliar would be worse than printing the word.
-    return (ai < 0 ? GATE_ORDER.length : ai) - (bi < 0 ? GATE_ORDER.length : bi) || a.localeCompare(b);
-  });
+  return [...groups.entries()]
+    .map(([action, list]) => ({ action, list, acts: list.some(c => c.mutates) }))
+    .sort((a, b) => Number(a.acts) - Number(b.acts) || a.action.localeCompare(b.action));
 }
 
 function CommandRow({ cmd }) {
@@ -106,36 +80,36 @@ function CommandRow({ cmd }) {
   );
 }
 
+// Whether the reader holds the action anywhere they reach. A command acting on one server is checked at
+// that server when it runs, so "held" here says the reader can run it somewhere, not on every server.
+function HeldChip({ action }) {
+  return may(action)
+    ? <span className="cluster-chip cluster-chip--ok" title="You hold this action on at least one target">held</span>
+    : <span className="cluster-chip cluster-chip--muted" title="You hold this action nowhere you can reach">not held</span>;
+}
+
 // The manifest arrives from the page rather than being fetched here: the same read decides whether
 // this tab exists at all, so there is no state in which it is open without one, and no way for the
 // tab and its contents to disagree about what the component takes.
 function ComponentCommands({ commands: manifest }) {
-  const gates = (manifest && manifest.gates) || {};
   const surface = (manifest && manifest.surface) || null;
   const where = (surface && SURFACE_WHERE[surface]) || null;
-  const total = Object.values(gates).reduce((n, list) => n + (list || []).length, 0);
+  const groups = byAction(manifest && manifest.commands);
 
   return (
     <div className="leaf-cmds">
-      {orderedGates(gates).map((gate) => {
-        const list = gates[gate] || [];
-        if (list.length === 0) return null;
-
-        // Within a bucket, what reads comes before what acts — the same question an operator opens
-        // the list with, now asked inside each level of access rather than across the whole leaf.
+      {groups.map(({ action, list, acts }) => {
+        // Within a group, what reads comes before what acts.
         const rows = [...list].sort((a, b) => Number(!!a.mutates) - Number(!!b.mutates));
-        const acts = list.some(c => c.mutates);
-        const meta = [where, gateNote(gate, surface)].filter(Boolean).join(" ");
-
         return (
-          <BriefCard key={gate} icon={acts ? "zap" : "search"}
-            title={GATE_TITLE[gate] || gate}
-            count={list.length} countTone="neutral" meta={meta || null}>
+          <BriefCard key={action} icon={acts ? "zap" : "search"}
+            title={action} count={list.length} countTone="neutral"
+            meta={where} action={<HeldChip action={action} />}>
             <div className="leaf-cmd__list">{rows.map(c => <CommandRow key={c.name} cmd={c} />)}</div>
           </BriefCard>
         );
       })}
-      {total === 0 && (
+      {groups.length === 0 && (
         <div className="chat-brief__empty chat-brief__empty--neutral">
           <div className="chat-brief__empty-title">Nothing registered</div>
           <div className="chat-brief__empty-sub">The component ships a command list and it is empty.</div>

@@ -21,7 +21,7 @@
 // #/cluster/members becomes a page of its own.
 
 import React from "react";
-import { can } from "../lib/persona.js";
+import { can, nodeTabOffered } from "../lib/persona.js";
 import { anchorOffersTab, tabLabel } from "../lib/labels.js";
 
 function breadcrumbTrail(route, ctx) {
@@ -39,10 +39,9 @@ function breadcrumbTrail(route, ctx) {
     case "server":    trail.push(
                         { label: "Servers", to: { kind: "servers" } },
                         { label: ctx.serverName || "Server", to: { kind: "server", id: route.id } });
-                      // Files / Backups / Settings / Performance are operator surfaces the page hides
-                      // from a player, landing them on the overview — so there is no crumb to add.
-                      tab("server", route.tab === "overview"
-                        || (route.tab === "access" ? ctx.serverAssignable : ctx.serverOperable));
+                      // A tab whose read this person lacks is hidden and lands them on the overview —
+                      // so there is no crumb to add.
+                      tab("server", route.tab === "overview" || ctx.serverTabOffered);
                       break;
     case "library":   trail.push({ label: ctx.catalogLabel }); break;
     case "library-create": trail.push({ label: ctx.catalogLabel, to: { kind: "library" } }, { label: "New blueprint" }); break;
@@ -63,8 +62,11 @@ function breadcrumbTrail(route, ctx) {
                         // An anchor's strip is its CAPABILITY's, so a tab it does not serve
                         // resolves back to the overview on the page — and a crumb naming it would
                         // announce a place that is not on screen.
+                        // A node's tab this person holds nothing for is left out the same way.
                         tab(ctx.memberKind === "anchor" ? "anchor" : "cluster",
-                          ctx.memberKind !== "anchor" || anchorOffersTab(ctx.memberCapability, route.tab));
+                          ctx.memberKind === "anchor"
+                            ? anchorOffersTab(ctx.memberCapability, route.tab)
+                            : nodeTabOffered(route.hostId, route.tab || "overview"));
                       } else if (route.tab) {
                         // The cluster's own tabs. One crumb deeper than the bare page, and named
                         // from its own strip rather than a member's — the two share the URL word

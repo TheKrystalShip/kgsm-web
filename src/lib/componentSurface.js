@@ -10,6 +10,7 @@
 // So a page takes a surface rather than a host id and a leaf id. It cannot tell which kind it has,
 // which is what stops the two from drifting into two implementations of one page.
 
+import { ACTIONS, configWriteOf } from "./actions.js";
 import { authorized } from "./authorizedFetch.js";
 import { clusterCredential } from "./sessionStore.js";
 import { applyLeafConfig, fetchLeafCommands, fetchLeafConfig } from "./stores.js";
@@ -71,6 +72,8 @@ function anchorSurface({ address, capability, label }) {
     kind: "anchor",
     key: "anchor:" + origin + base,
     label: label || capability || "This anchor",
+    // What a change here needs: the anchor's own config action, which is the cluster's.
+    configWrite: { action: configWriteOf(capability), target: { cluster: true } },
 
     async readConfig({ fetchImpl = fetch, signal } = {}) {
       const res = await authorized(clusterCredential, { fetchImpl })
@@ -153,6 +156,11 @@ function leafSurface({ hostId, leafId, label }) {
     label: label || leafId,
     hostId,
     leafId,
+    // What a change here needs, on this node: the leaf's own config action, or the engine's.
+    configWrite: {
+      action: leafId === "kgsm" ? ACTIONS.ENGINE_CONFIG_WRITE : configWriteOf(leafId),
+      target: { hostId },
+    },
 
     readConfig: () => fetchLeafConfig(hostId, leafId),
     applyConfig: (body) => applyLeafConfig(hostId, leafId, body),

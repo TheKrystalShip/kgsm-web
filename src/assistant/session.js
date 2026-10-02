@@ -1,4 +1,4 @@
-import { claimsOf, createClient, discoverProvider, renew } from "../lib/oidc.js";
+import { createClient, discoverProvider, renew } from "../lib/oidc.js";
 import { createStore } from "../lib/store.js";
 
 // session.js — the standalone assistant's session: a client of the cluster's sign-in provider.
@@ -8,9 +8,9 @@ import { createStore } from "../lib/store.js";
 // the same session every other surface of the cluster holds, which is why opening the assistant after
 // the panel returns signed in with nothing typed: the provider recognises the browser.
 //
-// It speaks the credential shape `lib/assistantSession.js` relays — `statusOf`, `tokenOf`, `tierOf`,
-// `isLive`, `rotate`, `authorize` and `subscribe` — so the chat below it cannot tell which surface
-// it is on.
+// It speaks the credential shape `lib/assistantSession.js` relays — `statusOf`, `tokenOf`, `isLive`,
+// `rotate`, `authorize` and `subscribe` — so the chat below it cannot tell which surface it is on. A
+// session proves who; what that person may do is the assistant's `/me/access`.
 //
 // Status:
 //   none         nothing asked yet
@@ -18,7 +18,7 @@ import { createStore } from "../lib/store.js";
 //   expired      the session could not be renewed; `error` says whether it ended or went unanswered
 //   unavailable  the assistant names no provider, so there is nowhere to sign in
 
-const store = createStore({ status: "none", token: null, tier: null, error: null });
+const store = createStore({ status: "none", token: null, error: null });
 const set = (patch) => store.setState((s) => ({ ...s, ...patch }));
 
 let client = null;
@@ -27,7 +27,7 @@ let inflight = null;
 
 function adopt(user) {
   held = !!user.refresh_token;
-  set({ status: "live", token: user.access_token, tier: (claimsOf(user.access_token) || {}).tier || "none", error: null });
+  set({ status: "live", token: user.access_token, error: null });
 }
 
 // Where the provider is, asked of the assistant that served this page.
@@ -106,9 +106,8 @@ async function start() {
 
 const statusOf = () => store.getState().status;
 const tokenOf = () => (statusOf() === "live" ? store.getState().token : null);
-const tierOf = () => store.getState().tier;
 const isLive = () => statusOf() === "live";
 
-const soloSession = Object.assign(store, { authorize, isLive, rotate, signIn, signOut, start, statusOf, tierOf, tokenOf });
+const soloSession = Object.assign(store, { authorize, isLive, rotate, signIn, signOut, start, statusOf, tokenOf });
 
 export { soloSession };

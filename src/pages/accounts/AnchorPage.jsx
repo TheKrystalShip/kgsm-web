@@ -206,7 +206,7 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
     if (active === "overview") {
       return (
         <>
-          <AnchorOverview member={member} address={address} showsAccounts={isDoor} />
+          <AnchorOverview member={member} address={address} showsAccounts={isDoor} onSelectTab={onSelectTab} />
           {own.overview ? own.overview(ownProps) : null}
         </>
       );

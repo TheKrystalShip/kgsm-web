@@ -8,7 +8,7 @@ import { sessionStore } from "../lib/sessionStore.js";
 import { coverArtBg } from "../lib/art.js";
 import { OAuthIcon, signInMethodLabel } from "./host-helpers.jsx";
 import { useStore } from "../lib/store.js";
-import { favoritesStore, serversStore } from "../lib/stores.js";
+import { anchorAttentionStore, clusterStore, favoritesStore, serversStore, startAnchorAttention, stopAnchorAttention } from "../lib/stores.js";
 
 // Sidebar component — brand, primary nav, quick actions.
 
@@ -191,6 +191,40 @@ function SidebarNodes({ hosts, activeHostId, onOpen }) {
   );
 }
 
+/// SidebarAnchor — the auth anchor, under the nodes, for somebody who can act on what it waits for:
+/// approving accounts, filing actions, deciding a service's requirements, or — for an Owner —
+/// seeing what it approved on its own. The count is `anchorAttentionStore`'s, the same items the
+/// anchor's overview lists, and the row opens that overview. Absent from the DOM for anybody else, and
+/// while no member holds the cluster's accounts.
+function SidebarAnchor({ activeHostId, onOpen }) {
+  React.useEffect(() => { startAnchorAttention(); return stopAnchorAttention; }, []);
+  const items = useStore(anchorAttentionStore, s => s.items);
+  const holder = useStore(clusterStore, s => {
+    const found = (s.capabilities || []).find(c => c.capability === "auth");
+    return found && found.held ? found.memberId : null;
+  });
+  const member = useStore(clusterStore, s => (holder ? (s.nodes || []).find(n => n.nodeId === holder) || null : null));
+  if (!holder || items === null || !anchorAttentionStore.concerned()) return null;
+
+  const count = items.length;
+  const tone = items.some(i => i.tone === "warn") ? "warn" : "info";
+  const name = (member && (member.name || member.nodeId)) || holder;
+  const tip = name + " — " + (count ? count + " waiting" : "nothing waiting");
+  return (
+    <div className="sidebar__nodes">
+      <div
+        className={"node-row" + (activeHostId === holder ? " node-row--active" : "")}
+        onClick={() => onOpen(holder)}
+        data-tip={tip}
+        title={tip}>
+        <span className="node-row__icon"><Icon name="anchor" size={13} /></span>
+        <span className="node-row__name">{name}</span>
+        {count > 0 && <span className={"nav-item__badge nav-item__badge--" + tone}>{count}</span>}
+      </div>
+    </div>
+  );
+}
+
 // SidebarAccount — the signed-in user, pinned in the sidebar foot above
 // Settings. Replaces the old top-bar account menu now that the top bar is
 // gone; its popover opens UPWARD (it lives at the very bottom of the panel).
@@ -335,6 +369,9 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
           </div>
           <SidebarNodes
             hosts={hosts}
+            activeHostId={route.kind === "cluster" ? route.hostId : null}
+            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
+          <SidebarAnchor
             activeHostId={route.kind === "cluster" ? route.hostId : null}
             onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
         </div>
