@@ -11,7 +11,8 @@
 // Every other refusal is the rules' own — `code`, the anchor's sentence, and for a subset refusal the
 // actions not held — and is handed back to the page that asked, to show beside the control.
 
-import { api } from "../apiClient.js";
+import { ANCHOR_PATHS, api } from "../apiClient.js";
+import { callRefusal } from "../persona.js";
 import { createStore } from "../store.js";
 import { accessStore } from "./access.js";
 
@@ -71,4 +72,17 @@ authorityStore.refresh = refresh;
 authorityStore.edit = edit;
 authorityStore.check = check;
 
-export { authorityStore, refusalOf };
+// Why the caller cannot make an authority edit of `kind`, or null when they can — the edits request
+// asked of the anchor, which publishes the action each kind needs. An assignment edit is asked at the
+// scope it is about (`target`, as `persona.js` takes one).
+function editRefusal(kind, target) {
+  return callRefusal("auth", "POST", ANCHOR_PATHS.edits, { body: { kind }, target });
+}
+
+// The same question for a request on the accounts: `sub` under the users route (`/_` for any account)
+// and the body it would carry.
+function userRefusal(method, sub, body) {
+  return callRefusal("auth", method, ANCHOR_PATHS.users + (sub || ""), { body });
+}
+
+export { authorityStore, editRefusal, refusalOf, userRefusal };

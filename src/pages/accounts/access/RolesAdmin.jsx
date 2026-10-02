@@ -12,8 +12,7 @@ import React from "react";
 
 import { Icon } from "../../../components/Icon.jsx";
 import { SettingsSection } from "../../../components/settings-primitives.jsx";
-import { ACTIONS, may } from "../../../lib/persona.js";
-import { authorityStore } from "../../../lib/stores/authority.js";
+import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { Locked, RefusalNote, authorityGate, useAuthority, useChecks } from "./accessKit.jsx";
 
 const PEOPLES = new Set(["owner", "custom", "everyone"]);
@@ -21,7 +20,7 @@ const PEOPLES = new Set(["owner", "custom", "everyone"]);
 function RolesAdmin() {
   const state = useAuthority();
   const view = state.view;
-  const canEdit = may(ACTIONS.ROLES_EDIT, { cluster: true });
+  const canEdit = !editRefusal("role.create");
 
   const roles = React.useMemo(
     () => (view ? view.roles.filter((r) => PEOPLES.has(r.kind)).sort((a, b) => a.rank - b.rank) : []),

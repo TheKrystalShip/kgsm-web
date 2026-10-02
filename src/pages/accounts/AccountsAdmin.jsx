@@ -28,17 +28,15 @@ import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { SettingsSection } from "../../components/settings-primitives.jsx";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
-import { ADMINISTER_ACCESS } from "../../lib/actions.js";
 import { api } from "../../lib/apiClient.js";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
-import { ACTIONS, isOwner, may, mayAny } from "../../lib/persona.js";
+import { isOwner, mayAnythingAt } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
-import { authorityStore, refusalOf } from "../../lib/stores/authority.js";
+import { authorityStore, refusalOf, userRefusal } from "../../lib/stores/authority.js";
 import { Assignments } from "./access/Assignments.jsx";
 import { RefusalNote, roleName } from "./access/accessKit.jsx";
 
 const STATUS_LABEL = { active: "Active", pending: "Awaiting approval", disabled: "Disabled" };
-const CLUSTER = { cluster: true };
 
 // The providers an account signs in with, from the credential handles it holds (`provider:subject`).
 const providersOf = (u) => (u.identities || []).map((i) => (typeof i === "string" ? i.split(":")[0] : i.provider));
@@ -50,7 +48,7 @@ function AccountsAdmin({ hostId }) {
   const reachable = anchor ? true : !!hostId;
   // Checked before asking, because a table that 403s tells the reader less than a sentence naming
   // what they would need.
-  const administers = reachable && (isOwner() || mayAny(ADMINISTER_ACCESS));
+  const administers = reachable && (isOwner() || mayAnythingAt("auth"));
 
   const [rows, setRows] = React.useState(null);          // null = not loaded yet
   const [refusal, setRefusal] = React.useState(null);
@@ -89,8 +87,8 @@ function AccountsAdmin({ hostId }) {
     );
   }
 
-  const canApprove = may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER);
-  const canCreate = may(ACTIONS.ACCOUNTS_CREATE, CLUSTER);
+  const canApprove = !userRefusal("PATCH", "/_", { status: "active" });
+  const canCreate = !userRefusal("POST", "");
   const waiting = (rows || []).filter((u) => u.status === "pending").length;
   // People waiting first. They are the only rows on this screen that need something done, and a
   // cluster with twenty accounts would otherwise bury them.
@@ -214,10 +212,10 @@ function UserModal({ hostId, view, user, onClose, onSaved }) {
   const [refusal, setRefusal] = React.useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const canCreate = may(ACTIONS.ACCOUNTS_CREATE, CLUSTER);
-  const canApprove = may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER);
-  const canDisable = may(ACTIONS.ACCOUNTS_DISABLE, CLUSTER);
-  const canDelete = may(ACTIONS.ACCOUNTS_DELETE, CLUSTER);
+  const canCreate = !userRefusal("POST", "");
+  const canApprove = !userRefusal("PATCH", "/_", { status: "active" });
+  const canDisable = !userRefusal("PATCH", "/_", { status: "disabled" });
+  const canDelete = !userRefusal("DELETE", "/_");
   // Which statuses this person may move the account to: approving and returning to the queue are one
   // action, switching off and on another.
   const statusAllowed = (to) => {

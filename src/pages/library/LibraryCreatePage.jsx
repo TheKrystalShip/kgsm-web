@@ -19,7 +19,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { useAssistantFor } from "../../components/AssistantDockContext.jsx";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
 
@@ -34,11 +34,11 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
   const allHosts = useStore(hostsStore, s => s.list);
 
   // ---- host selection ------------------------------------------------------
-  // A host qualifies when the user reads its library: somebody holding kgsm:blueprints.write there
+  // A host qualifies when the user may read its library: somebody who may create a blueprint there
   // creates here, anybody else hands off to that host's assistant. Either way the file lands on the
   // host chosen here.
   const hosts = React.useMemo(
-    () => (allHosts || []).filter(h => may(ACTIONS.LIBRARY_READ, { hostId: h.id })),
+    () => (allHosts || []).filter(h => mayCall({ hostId: h.id }, "GET", "/library")),
     [allHosts],
   );
   // A sole qualifying node is taken because it is the only one. With several,
@@ -52,7 +52,7 @@ function LibraryCreatePage({ onBrowse, onOpenGame, onAskAssistant }) {
 
   const hostId = selectedHostId;
   const hostObj = hostId ? hosts.find(h => h.id === hostId) || null : null;
-  const canWrite = hostId ? may(ACTIONS.BLUEPRINTS_WRITE, { hostId }) : false;
+  const canWrite = hostId ? mayCall({ hostId }, "POST", "/library") : false;
 
   // The assistant hand-off is offered only where one would actually answer about the host the
   // blueprint lands on — the dock's own answer, so the button and the dock behind it cannot disagree

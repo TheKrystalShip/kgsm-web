@@ -10,12 +10,11 @@ import React from "react";
 
 import { CardTable } from "../../../components/CardTable.jsx";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
-import { renewCertificate } from "../../../lib/dnsClient.js";
+import { DNS_WRITES, renewCertificate } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";
 import {
   DnsKpiCertExpiry, DnsKpiCertFailed, DnsKpiCertInFlight, DnsKpiCertWeek,
 } from "./dnsKpis.jsx";
-import { ACTIONS } from "../../../lib/actions.js";
 import { daysUntil, dnsRefusal, fmtDateTime, fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
 import { DnsRowActions } from "./dnsRowActions.jsx";
 
@@ -44,7 +43,7 @@ function DnsCertificatesTable() {
 
   const renewAction = (order) => ({
     icon: "refresh-cw", label: "Renew now", tone: "safe", pending: pending === order.name,
-    reason: dnsRefusal(ACTIONS.DNS_CERTIFICATES_RENEW),
+    reason: dnsRefusal(DNS_WRITES.renew(order.name)),
     onRun: () => {
       setErr(null);
       setPending(order.name);

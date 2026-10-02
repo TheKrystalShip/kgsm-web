@@ -3542,6 +3542,16 @@ try {
       "cluster page renders with two connections and no selection");
   }
 
+  // Every gate asks about a request this panel sends, and the member that would answer it publishes
+  // which action it needs. A gate asking about one the member does not publish is a route the two
+  // disagree about — closed in the panel, and silently so — which is the drift this check catches.
+  {
+    const { unpublishedRequests } = await vite.ssrLoadModule("/src/lib/persona.js");
+    const missing = unpublishedRequests();
+    assert(missing.length === 0,
+      "every gate asks about a request its member publishes" + (missing.length ? " — not published: " + missing.join(", ") : ""));
+  }
+
   root.unmount();
 } finally {
   console.error = origErr;

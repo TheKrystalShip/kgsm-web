@@ -11,6 +11,10 @@
 // read again whenever this tab comes back into view, after every change made from this panel, and —
 // for the other anchors — whenever a capability changes holder.
 //
+// Beside each answer, the operations that member publishes (`../operations.js`) — which action each of
+// its requests needs — so a control is gated on the request it would make, and this panel names no
+// action of its own.
+//
 // A member's answer is one of: `ok` with its report; `unavailable` (it could not read its replica —
 // an outage, never "you may do nothing"); `refused` (it has no account for this session, or the
 // account is switched off); `unreachable`. Only `ok` carries a report, and a member that has not
@@ -21,7 +25,7 @@
 
 import { api } from "../apiClient.js";
 import { ANCHOR_SOURCE, anchorSource, nodeSource } from "../access.js";
-import { ANCHORED_NAMESPACES, readAnchorAccess } from "../anchorAccess.js";
+import { ANCHORED_NAMESPACES, readAnchorAccess, readAnchorOperations } from "../anchorAccess.js";
 import { readProvider } from "../provider.js";
 import { createStore } from "../store.js";
 import { clusterStore } from "./cluster.js";
@@ -36,9 +40,13 @@ const grantsOf = (r) => (r ? JSON.stringify([!!r.owner, !!r.current, r.cluster, 
 const listeners = new Set();
 function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
+// An entry carries the member's report and the operations it publishes (`../operations.js`): which
+// action each of its requests needs. A pushed report arrives without the operations, which are a fact
+// about the member's build rather than about the caller, so they are kept.
 function put(key, entry) {
   const before = accessStore.getState().sources[key];
-  accessStore.setState((s) => ({ ...s, sources: { ...s.sources, [key]: entry } }));
+  const merged = entry.operations === undefined ? { ...entry, operations: before ? before.operations : null } : entry;
+  accessStore.setState((s) => ({ ...s, sources: { ...s.sources, [key]: merged } }));
   if (!accessStore.getState().settled || !before || !before.report || !entry.report) return;
   if (grantsOf(before.report) === grantsOf(entry.report)) return;
   for (const fn of listeners) { try { fn(key); } catch { /* one listener must not stop the rest */ } }
@@ -51,6 +59,15 @@ function outcomeOf(err) {
   return { state: "unreachable", report: null, reason: null };
 }
 
+// A member's answer and its operations, read together and kept together. Operations that could not be
+// read are null, which closes every control gated on that member rather than guessing at one.
+function answer(key, reportRead, operationsRead) {
+  return Promise.all([reportRead, Promise.resolve(operationsRead).catch(() => null)]).then(
+    ([report, operations]) => put(key, { state: "ok", report, reason: null, operations: operations || null }),
+    (err) => put(key, outcomeOf(err)),
+  );
+}
+
 // One read per node at a time: the roster emits on every change it takes, and a node that has not
 // answered yet would otherwise be asked again on each one.
 const asking = new Map();
@@ -58,10 +75,8 @@ const asking = new Map();
 function refreshNode(hostId) {
   if (!hostId) return Promise.resolve();
   if (asking.has(hostId)) return asking.get(hostId);
-  const p = api.host(hostId).get("/me/access").then(
-    (report) => put(nodeSource(hostId), { state: "ok", report, reason: null }),
-    (err) => put(nodeSource(hostId), outcomeOf(err)),
-  ).finally(() => asking.delete(hostId));
+  const p = answer(nodeSource(hostId), api.host(hostId).get("/me/access"), api.host(hostId).get("/operations"))
+    .finally(() => asking.delete(hostId));
   asking.set(hostId, p);
   return p;
 }
@@ -70,18 +85,18 @@ function refreshNode(hostId) {
 // and its nodes answer for everything there is.
 function refreshAnchor() {
   if (!readProvider()) return Promise.resolve();
-  return api.authority().access().then(
-    (report) => put(ANCHOR_SOURCE, { state: "ok", report, reason: null }),
-    (err) => put(ANCHOR_SOURCE, outcomeOf(err)),
-  );
+  return answer(ANCHOR_SOURCE, api.authority().access(), api.authority().operations());
 }
 
 // The other anchors — each capability's holder answering for its own namespace. A capability nobody
 // holds leaves no answer behind, so a holder that moves away stops answering for it.
 function refreshAnchors() {
-  return Promise.allSettled(ANCHORED_NAMESPACES.map((ns) => readAnchorAccess(ns).then(
-    (report) => {
-      if (report) put(anchorSource(ns), { state: "ok", report, reason: null });
+  return Promise.allSettled(ANCHORED_NAMESPACES.map((ns) => Promise.all([
+    readAnchorAccess(ns),
+    readAnchorOperations(ns).catch(() => null),
+  ]).then(
+    ([report, operations]) => {
+      if (report) put(anchorSource(ns), { state: "ok", report, reason: null, operations: operations || null });
       else forgetSource(anchorSource(ns));
     },
     (err) => put(anchorSource(ns), outcomeOf(err)),

@@ -8,10 +8,9 @@ import React from "react";
 import { BriefCard } from "../../../components/BriefCard.jsx";
 import { Icon } from "../../../components/Icon.jsx";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
-import { checkZoneNow } from "../../../lib/dnsClient.js";
+import { DNS_WRITES, checkZoneNow } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";
 import { LeafFacts } from "../../leaf/leafOverviewKit.jsx";
-import { ACTIONS } from "../../../lib/actions.js";
 import { dnsRefusal, useDnsStatus } from "./dnsKit.jsx";
 
 function DnsPublishing() {
@@ -31,8 +30,8 @@ function DnsPublishing() {
 
   const action = (
     <button type="button" className="dash-section__more" onClick={check}
-      disabled={busy || !standing || !!dnsRefusal(ACTIONS.DNS_ZONE_CHECK)}
-      title={dnsRefusal(ACTIONS.DNS_ZONE_CHECK) || "Check zone now"}>
+      disabled={busy || !standing || !!dnsRefusal(DNS_WRITES.zoneCheck())}
+      title={dnsRefusal(DNS_WRITES.zoneCheck()) || "Check zone now"}>
       <Icon name="refresh-cw" size={11} strokeWidth={2.2} className={busy ? "cluster-spin" : ""} />
       {busy ? "Checking…" : "Check zone now"}
     </button>

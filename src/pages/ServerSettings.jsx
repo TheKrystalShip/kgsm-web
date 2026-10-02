@@ -2,7 +2,7 @@ import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
-import { ACTIONS, actionRefusal } from "../lib/persona.js";
+import { serverCallRefusal } from "../lib/persona.js";
 import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";
 import { draftFromExpression, expressionOf } from "./serverSettings/maintenanceWindow.js";
 import { StartupSection, ScheduleSection, ResourcesSection } from "./serverSettings/SettingsSections.jsx";
@@ -45,14 +45,13 @@ function ServerSettings({ server, onDeleted }) {
     return draft.length !== saved.length || draft.some((e, i) => e !== saved[i]);
   }, [windows, savedWindows]);
 
-  // Reading the settings is what opens this tab. Saving them, changing the windows on top of that,
-  // and deleting the server are each their own action, and a control whose action is not held stays
-  // on screen, closed, naming it.
-  const target = { server };
-  const refusedSave = actionRefusal(ACTIONS.SERVER_CONFIG_WRITE, target);
-  const refusedWindows = actionRefusal(ACTIONS.SERVER_WINDOWS_WRITE, target);
-  const refusedDelete = actionRefusal(ACTIONS.SERVER_UNINSTALL, target);
-  const saveRefusal = refusedSave || (windowsChanged ? refusedWindows : null);
+  // Reading the settings is what opens this tab. Saving them is the settings request, and one carrying
+  // the windows asks for more; deleting the server is its own request. A control whose request is
+  // refused stays on screen, closed, saying what it needs.
+  const refusedSave = serverCallRefusal(server, "PATCH", "/settings", {});
+  const refusedWindows = serverCallRefusal(server, "PATCH", "/settings", { maintenanceWindows: [] });
+  const refusedDelete = serverCallRefusal(server, "DELETE", "");
+  const saveRefusal = windowsChanged ? refusedWindows : refusedSave;
 
   // ---- Save / Reset state ----
   const [saving, setSaving] = React.useState(false);

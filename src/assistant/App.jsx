@@ -1,8 +1,8 @@
 import React from "react";
 import { Icon } from "../components/Icon.jsx";
 import { ChatPage } from "../chat/ChatPage.jsx";
-import { allows, anchorSource } from "../lib/access.js";
 import { assistant } from "../lib/assistantClient.js";
+import { useAssistantGate } from "../lib/assistantGate.js";
 import { useStore } from "../lib/store.js";
 import { Toasts } from "../components/Toasts.jsx";
 import { SettingsPage } from "./SettingsPage.jsx";
@@ -21,39 +21,33 @@ import { soloSession } from "./session.js";
 
 // Authority is the assistant's own answer about this bearer, evaluated from its replica of the
 // cluster's authority per request: `/me` says who this is and whether they may change a server
-// anywhere it reaches, `/me/access` which of the assistant's own actions they hold. The same actions
-// gate the panel's dock, so a person cannot hold a power here that they lack there.
-const CHAT = "assistant:chat";
-const AUTORUN = "assistant:autorun";
-
+// anywhere it reaches, and its operations with `/me/access` (`lib/assistantGate.js`) whether a request
+// may be made — a turn, switching on auto-run. The panel's dock asks the same, so a person cannot hold
+// a power here that they lack there.
 function App() {
   const session = useStore(soloSession);
   const signedIn = session.status === "live";
   const [route, go] = useRoute();
+  const gate = useAssistantGate(signedIn ? SELF : null);
 
-  // Who the assistant says we are, and what it says we may do with it. Fetched once a session exists.
+  // Who the assistant says we are. Fetched once a session exists.
   const [me, setMe] = React.useState(null);
-  const [access, setAccess] = React.useState(null);
   React.useEffect(() => {
-    if (!signedIn) { setMe(null); setAccess(null); return undefined; }
+    if (!signedIn) { setMe(null); return undefined; }
     let cancelled = false;
     assistant.host(SELF).me().then(
       (m) => { if (!cancelled) setMe(m || null); },
-      () => {});
-    assistant.host(SELF).access().then(
-      (r) => { if (!cancelled) setAccess({ [anchorSource("assistant")]: { report: r } }); },
-      // An assistant that could not read its replica has said nothing about this person, which is
-      // not "holds nothing": the access stays unknown and the assistant refuses each turn itself.
       () => {});
     return () => { cancelled = true; };
   }, [signedIn]);
 
   if (!signedIn) return <SignedOut session={session} />;
 
-  // Signed in, and nothing here may be asked of this assistant. It knows exactly who this is, so it
-  // says so rather than opening a conversation that can answer nothing. Either answer still loading
-  // on the first paint is not the same as holding nothing.
-  if (me && access && !allows(access, CHAT, { cluster: true })) return <NoAccess me={me} />;
+  // Signed in, and no turn may be asked of this assistant. It knows exactly who this is, so it says so
+  // rather than opening a conversation that can answer nothing. An answer still loading, or one the
+  // assistant could not give, is not the same as holding nothing: the assistant refuses each turn
+  // itself then.
+  if (me && gate.ready && !gate.mayCall("POST", "/turn")) return <NoAccess me={me} />;
 
   const user = {
     name: (me && me.displayName) || "You",
@@ -78,7 +72,7 @@ function App() {
           assistantHost={{ id: SELF, name: "Assistant" }}
           connection={{ tone: "online", label: "Connected", usable: true, message: null }}
           canSeeActions={!!(me && me.canPerformActions)}
-          canUseActions={!!(access && allows(access, AUTORUN, { cluster: true }))}
+          canUseActions={gate.mayCall("POST", "/commands/autorun")}
           pageClass="chat-page--solo"
           onOpenSettings={() => go({ kind: "settings" })}
         />
@@ -120,7 +114,7 @@ function NoAccess({ me }) {
       <div className="chat-empty">
         <span className="chat-empty__logo"><Icon name="user-x" size={26} /></span>
         <h2>No access</h2>
-        <p>Signed in · {CHAT} not held</p>
+        <p>Signed in · this assistant takes no turns from you</p>
         {me && me.displayName && <p className="assistant-signin__who">{me.displayName}</p>}
         <button className="chat-suggestion" type="button" onClick={() => soloSession.signOut()}>
           Sign out

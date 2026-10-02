@@ -8,15 +8,14 @@ import React from "react";
 
 import { Icon } from "../../../components/Icon.jsx";
 import { SettingsSection } from "../../../components/settings-primitives.jsx";
-import { ACTIONS, may } from "../../../lib/persona.js";
-import { authorityStore } from "../../../lib/stores/authority.js";
+import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { DeleteButton } from "./RolesAdmin.jsx";
 import { Locked, RefusalNote, authorityGate, componentOf, roleName, useAuthority, useChecks } from "./accessKit.jsx";
 
 function PermissionsAdmin() {
   const state = useAuthority();
   const view = state.view;
-  const canEdit = may(ACTIONS.PERMISSIONS_EDIT, { cluster: true });
+  const canEdit = !editRefusal("permission.create");
 
   const permissions = React.useMemo(
     () => (view ? [...view.permissions].sort((a, b) => a.name.localeCompare(b.name)) : []), [view]);

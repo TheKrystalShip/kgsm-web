@@ -20,7 +20,7 @@ import {
   Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer,
 } from "../../components/Toolbar.jsx";
 import { copyText } from "../../lib/clipboard.js";
-import { actionRefusal } from "../../lib/persona.js";
+import { callRefusal } from "../../lib/persona.js";
 import { ComponentConfigRow } from "./ComponentConfigRow.jsx";
 import { ComponentConfigReview } from "./ComponentConfigReview.jsx";
 import {
@@ -117,10 +117,9 @@ function ComponentConfiguration({ surface, onConfigChange, onApplied, restartWar
 
   const fields = (config && config.fields) || [];
   // Two separate answers: whether this host can deliver a change at all (the component's own
-  // `editable`), and whether this person holds the component's config action. Either closes the page.
-  const writeRefusal = surface && surface.configWrite
-    ? actionRefusal(surface.configWrite.action, surface.configWrite.target)
-    : null;
+  // `editable`), and whether this person may make the change request. Either closes the page.
+  const w = surface && surface.configWrite;
+  const writeRefusal = w ? callRefusal(w.member, w.method, w.path) : null;
   const editable = !!(config && config.editable) && !writeRefusal;
   const staged = dirtyFields(fields, drafts, resets);
 

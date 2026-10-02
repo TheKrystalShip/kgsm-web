@@ -22,7 +22,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { CAP_ORDER, hostCapability } from "../../lib/capabilities.js";
 import { compareNodeNames } from "../../lib/nodeLabel.js";
-import { can } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
@@ -90,7 +90,8 @@ function ClusterCapabilities({ hovered, onHover, onSelect }) {
     return [...seen.values()].sort((a, b) => a.capability.localeCompare(b.capability));
   }, [capabilities]);
 
-  const canReassign = can("host.manage") && !!clusterAdmin && !!rosterFrom;
+  const canReassign = !!clusterAdmin && !!rosterFrom
+    && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
 
   if (!rows.length) {
     return (

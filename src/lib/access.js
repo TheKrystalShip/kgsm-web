@@ -104,4 +104,4 @@ function actionsHeld(sources) {
   return [...out].sort();
 }
 
-export { ANCHOR_SOURCE, actionsHeld, allows, anchorSource, instanceKey, isOwner, nodeSource, targetOf };
+export { ANCHOR_SOURCE, actionsHeld, allows, anchorSource, instanceKey, isOwner, nodeSource, reportAllows, targetOf };

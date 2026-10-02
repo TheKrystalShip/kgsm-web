@@ -372,6 +372,8 @@ function host(hostId) {
     // What the caller may do with this assistant — its own `assistant:*` actions, already evaluated
     // from its replica of the cluster's authority. Looked up with `lib/access.js`.
     access: (opts) => json(hostId, "GET", "/me/access", null, opts),
+    // Which action each of this assistant's gated requests needs (`lib/operations.js`).
+    operations: (opts) => json(hostId, "GET", "/operations", null, opts),
     // What this host's speech engine can do: `{ hear, speak }`. Asked before a microphone is offered,
     // because a recording made on a host that cannot listen is one nobody can read. Both are the same
     // optional leaf, and a host without it answers false to both rather than failing.

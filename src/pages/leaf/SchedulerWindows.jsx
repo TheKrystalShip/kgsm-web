@@ -23,7 +23,7 @@ import { Modal } from "../../components/Modal.jsx";
 import { Select } from "../../components/Select.jsx";
 import { fmtUntil } from "../../lib/formatting.js";
 import { useAccountName } from "../../lib/hooks/useAccountName.js";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { callRefusal } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { controlLeafWindow, fetchLeafSchedules } from "../../lib/stores.js";
 import { OutcomeChip, TaskChips, flattenWindows } from "./schedulerBoard.jsx";
@@ -72,9 +72,12 @@ function RunsAs({ hostId, account }) {
 }
 
 function SchedulerWindows({ hostId, leafId }) {
-  // Moving a window is the scheduler's own action, asked of THIS node.
+  // Moving a window is a request to the scheduler, asked of THIS node.
   const live = !!hostId && sessionStore.isLive();
-  const canEdit = live && may(ACTIONS.SCHEDULER_WINDOWS_WRITE, { hostId });
+  const editRefusal = live
+    ? callRefusal({ hostId }, "POST", "/hosts/" + encodeURIComponent(hostId) + "/services/scheduler/windows/postpone")
+    : null;
+  const canEdit = live && !editRefusal;
 
   const { state, data, error, reload } = useLeafResource(hostId, leafId, (h) => fetchLeafSchedules(h));
 
@@ -203,8 +206,7 @@ function SchedulerWindows({ hostId, leafId }) {
 
       {!canEdit && (
         <div className="thr-notice">
-          These are the appointments this host keeps. Postponing, skipping or running one needs{" "}
-          {ACTIONS.SCHEDULER_WINDOWS_WRITE} on this node.
+          These are the appointments this host keeps. {editRefusal}
         </div>
       )}
 

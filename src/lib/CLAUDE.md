@@ -214,33 +214,43 @@ re-exports `stores/` — import from either.
 - `authStorage.js` — the app-shell user read/write, and the two one-shots the gate reads after a
   navigation: what the provider said when it sent the browser back without a session, and that a
   session ended while the panel was open.
-- `access.js` — looking an action up in the members' `/me/access` answers. Each browser-facing member
+- `access.js` — looking an action up in a member's `/me/access` answer. Each browser-facing member
   answers for what it holds, already evaluated: a node for its own components' actions at the cluster,
   itself and each instance (keyed `<node>/<id>#<install nonce>`), the auth anchor for `auth:*`, and
   every other anchor for its own namespace (`dns:*`, `assistant:*`, read from the capability's holder
-  by `anchorAccess.js`). `allows` asks the member that answers for the action — the auth anchor alone
-  for `auth:*`; an anchor holding the action's namespace beside the nodes, since a component standing
-  as a leaf is answered for by its node; the target's node otherwise, every node for a question about
-  anywhere — and `owner` in a report is the one answer a list cannot give: an Owner performs actions no
-  manifest declares. **Holds no copy of the rules**, and imports nothing, which is what lets the
-  standalone assistant gate on its own `/me/access` with it.
-- `actions.js` — every action the panel gates a control on, in one table, named as kgsm-api's action
-  map and each component's manifest name them; `VERB_ACTION` maps each lifecycle verb to its action and
-  `configWriteOf` names a component's config action. An action no installed manifest declares is an
-  Owner's until its component declares it, so a gate on one is correct before the declaration exists.
-- `persona.js` — the authorization **policy**, over `access.js`. `may(action, target)` is the
-  question; a target is what the caller has in hand — nothing (anywhere, what a nav entry asks),
-  `{ hostId }`, `{ server }` or `{ cluster: true }` — and asking with the narrowest one in hand is what
-  lets a grant on one server open that server's controls and no other's. `can(cap, target)` names the
-  actions behind a navigation or control capability; `serverTabOffered` and `nodeTabOffered` say which
-  tabs a server or a node offers, each tab behind its own read; `serverOperable`/`serverAssignable`
-  are the two per-server questions; `isOwner()` the one no action list answers. **A write control
-  whose action is not held stays on screen, closed, naming the action** — `actionRefusal(action,
-  target)` is that sentence, and `verbRefusal(server, verb)` is it for a lifecycle verb, which
-  `verbGuard` asks first. A tab is hidden when its read is not held; a control inside one never is.
-  Where a surface needs to know
-  whether a MEMBER will honour the session at all, that is `sessionStore.nodeRefusal(id)` and a
-  different fact. `resolveRoute()` is the routing chokepoint.
+  by `anchorAccess.js`). `owner` in a report is the one answer a list cannot give: an Owner performs
+  actions no manifest declares. **Holds no copy of the rules**, and imports nothing, which is what lets
+  the standalone assistant gate on its own `/me/access` with it.
+- `operations.js` — which action a request needs, as the member serving it publishes. Every member
+  publishes its operations from the metadata it enforces with — kgsm-api at `GET /api/v1/operations`,
+  the auth anchor at `GET /auth/cluster/operations`, the DNS anchor and the assistant at
+  `GET /operations` — and `requirementOf(manifest, method, path, body)` returns the entries a request
+  matches, each filled from the path. A literal route segment is more specific than a parameter, an
+  entry with a `field` applies when the body carries it, and every entry matched must be held. **The
+  panel names no action**: the only string it shares with a member is the route it already calls.
+  Imports nothing, for the same reason as `access.js`.
+- `assistantGate.js` — `useAssistantGate(targetId)`: one assistant's operations and `/me/access`,
+  read together, and `mayCall(method, path, body)` over them. The dock and the standalone page both ask
+  the assistant they are talking to, so a person holds the same power on either.
+- `persona.js` — the authorization **policy**, over `operations.js` and `access.js`.
+  `mayCall(member, method, path, opts)` is the question, asked about the request a control would make;
+  a member is `{ hostId }` or an anchor's namespace (`"auth"`, `"dns"`), and `opts` carries the `body`,
+  the `server` a server route is about (its install is the target), a `target` for a request scoped by
+  its own body (an assignment's), or `anywhere: true` for what a nav entry asks. A segment the question
+  does not care about is `_`. Asking with the server in hand is what lets a grant on one server open
+  that server's controls and no other's. `can(cap, target)` names the request behind a navigation or
+  control capability (`CAP_REQUESTS`); `serverTabOffered` and `nodeTabOffered` say which tabs a server
+  or a node offers, each behind the read it makes; `serverOperable`/`serverAssignable` are the two
+  per-server questions; `isOwner()` the one no operation answers. **A write control whose request is
+  not held stays on screen, closed, naming the action the member published** — `callRefusal` is that
+  sentence, `serverCallRefusal(server, method, subpath, body)` it for a server route, and
+  `verbRefusal(server, verb)` it for the command request a lifecycle verb sends, which `verbGuard`
+  asks first. A tab is hidden when its read is not held; a control inside one never is. A request the
+  member does not publish is closed and recorded (`unpublishedRequests()`), and the smoke fails on any
+  — that is what makes a gate that drifted from its member impossible to ship. `may(action)` remains
+  only for an action a member hands over as data. Where a surface needs to know whether a MEMBER will
+  honour the session at all, that is `sessionStore.nodeRefusal(id)` and a different fact.
+  `resolveRoute()` is the routing chokepoint.
 - `anchorAccess.js` — what the caller may do with an anchor holding a capability other than `auth`:
   `GET /me/access` at the capability holder's own origin, with the cluster session. The holder comes
   from the capability assignment, so an answer follows a failover.

@@ -14,11 +14,10 @@ import React from "react";
 
 import { Icon } from "../../../components/Icon.jsx";
 import { Select } from "../../../components/Select.jsx";
-import { ACTIONS, may } from "../../../lib/persona.js";
-import { authorityStore } from "../../../lib/stores/authority.js";
+import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, parseInstance, roleName, useChecks, useScopeOptions, useScopeText } from "./accessKit.jsx";
 
-// A scope as the target `/me/access` is looked up at.
+// A scope as the target an assignment edit is asked at.
 function targetOf(scope) {
   if (!scope || scope === "cluster") return { cluster: true };
   if (scope.startsWith("node:")) return { hostId: scope.slice(5) };
@@ -45,7 +44,8 @@ function Assignments({ view, accountId, scope, compact }) {
   const [role, setRole] = React.useState("");
   const account = accountId || who;
   const at = scope || where;
-  const canAssign = may(ACTIONS.ROLES_ASSIGN, targetOf(at));
+  const assignRefusal = editRefusal("assign", targetOf(at));
+  const canAssign = !assignRefusal;
 
   // The rules' verdict on each role for the chosen account and scope, and on revoking each held one.
   const probes = React.useMemo(() => [
@@ -90,7 +90,7 @@ function Assignments({ view, accountId, scope, compact }) {
                   title={closed ? v.message : undefined}>
                   <b>{roleName(view, a.roleId)}</b>
                   <span className="access-chip__scope">{accountId ? scopeText(a.scope) : nameOf(a.accountId)}</span>
-                  {!closed && may(ACTIONS.ROLES_ASSIGN, targetOf(a.scope)) && (
+                  {!closed && !editRefusal("revoke", targetOf(a.scope)) && (
                     <button type="button" className="access-chip__x" aria-label={"Take " + roleName(view, a.roleId) + " away"}
                       disabled={busy} onClick={() => run({ kind: "revoke", assignmentId: a.id })}>
                       <Icon name="x" size={11} />
@@ -136,7 +136,7 @@ function Assignments({ view, accountId, scope, compact }) {
       )}
       {!canAssign && account && (
         <div className="access-refusal access-refusal--compact">
-          <Icon name="lock" size={13} /><span>Assigning roles at {scopeText(at)} needs {ACTIONS.ROLES_ASSIGN} there.</span>
+          <Icon name="lock" size={13} /><span>Assigning roles at {scopeText(at)} · {assignRefusal}</span>
         </div>
       )}
     </div>

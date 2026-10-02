@@ -2,8 +2,9 @@ import React from "react";
 import { NeedsAttention } from "../components/NeedsAttention.jsx";
 import { AssistantHostPicker } from "../chat/AssistantHostPicker.jsx";
 import { ChatPage as SharedChatPage } from "../chat/ChatPage.jsx";
+import { useAssistantGate } from "../lib/assistantGate.js";
 import { usableTargets } from "../lib/assistants.js";
-import { ACTIONS, canOperate, may } from "../lib/persona.js";
+import { canOperate } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { auditEventHost, fetchAssistantTranscript, hostsStore, serversStore } from "../lib/stores.js";
 
@@ -34,9 +35,10 @@ function ChatPage(props) {
       };
 
   // Staged actions are shown to whoever operates servers anywhere; carrying one out without
-  // confirmation is an action the assistant declares, which an Owner holds until it is granted.
+  // confirmation is switching on auto-run, a request the assistant being talked to answers for.
+  const gate = useAssistantGate(assistantHost ? assistantHost.id : null);
   const canSeeActions = !!(assistantHost && canOperate());
-  const canUseActions = !!(assistantHost && may(ACTIONS.ASSISTANT_AUTORUN));
+  const canUseActions = !!(assistantHost && gate.mayCall("POST", "/commands/autorun"));
 
   // Evidence rows name the node an event belongs to, which needs the roster and the store-aware
   // derivation (an event with only a serverId resolves through the server roster).

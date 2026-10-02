@@ -30,7 +30,7 @@ import {
   deleteLeafReactorRule, fetchLeafReactorCatalog, fetchLeafReactorStatus, fetchLeafReactorTriggers,
   previewLeafReactorRule, saveLeafReactorRule,
 } from "../../lib/stores.js";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { LeafAbsent, LeafLoading, LeafNotice, LeafUnreadable, useLeafResource } from "./leafOverviewKit.jsx";
 import { RuleInterview, fmtMinutes, fmtSeconds } from "./reactor/RuleInterview.jsx";
 import { Sentence } from "./reactor/StepEditor.jsx";
@@ -70,9 +70,9 @@ function wakesWords(rule) {
 }
 
 function ReactorRules({ hostId, leafId }) {
-  // Changing what a daemon is permitted to do to your servers is the reactor's own action, asked of
-  // THIS node.
-  const canEdit = !!hostId && may(ACTIONS.REACTOR_RULES_WRITE, { hostId });
+  // Changing what a daemon is permitted to do to your servers is writing a rule, asked of THIS node.
+  const canEdit = !!hostId
+    && mayCall({ hostId }, "PUT", "/hosts/" + encodeURIComponent(hostId) + "/services/reactor/rules/_");
 
   const { state, data, error, reload } =
     useLeafResource(hostId, leafId, (h) => fetchLeafReactorStatus(h));

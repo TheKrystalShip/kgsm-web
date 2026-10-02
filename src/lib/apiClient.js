@@ -29,6 +29,13 @@ import("./stores.js").then((m) => {
   }
 });
 
+// The auth anchor's routes this panel writes to, named once: the calls below send them, and a page asks
+// whether one may be made (`persona.callRefusal("auth", …)`) with the same path.
+const ANCHOR_PATHS = {
+  users: "/auth/cluster/users",
+  edits: "/auth/cluster/authority/edits",
+};
+
 // apiClient.js — the single seam between the client and the backend.
 //
 // Everything that talks to the server goes through `api`: REST over fetch
@@ -390,7 +397,7 @@ import("./stores.js").then((m) => {
       if (sessionStore && sessionStore.resolveAnchor) url = await sessionStore.resolveAnchor();
     } catch { url = ""; }
     if (!url) throw apiError(503, { error: { code: "no_provider", message: "This panel knows of no sign-in provider." } });
-    return { origin: url, users: "/auth/cluster/users" };
+    return { origin: url, users: ANCHOR_PATHS.users };
   }
 
   // A call to the provider leaves the connection signal alone: the provider is not a node this panel
@@ -831,10 +838,12 @@ import("./stores.js").then((m) => {
       accountDoor().then((d) => doorFetch(method, path, body, d));
     return {
       read: () => withRetry(() => at("GET", "/auth/cluster/authority")),
-      edit: (version, edit) => withRetry(() => at("POST", "/auth/cluster/authority/edits", { ...edit, version })),
+      edit: (version, edit) => withRetry(() => at("POST", ANCHOR_PATHS.edits, { ...edit, version })),
       check: (edits) => withRetry(() => at("POST", "/auth/cluster/authority/checks", { edits }))
         .then((r) => (r && r.results) || []),
       access: () => withRetry(() => at("GET", "/me/access")),
+      // Which action each of the anchor's gated requests needs (`../operations.js`).
+      operations: () => withRetry(() => at("GET", "/auth/cluster/operations")),
     };
   }
 
@@ -916,4 +925,4 @@ import("./stores.js").then((m) => {
     __topics: () => GLOBAL_TOPICS.slice(),
   };
 
-export { api, connectionStore, reachStore, realtimeStore };
+export { ANCHOR_PATHS, api, connectionStore, reachStore, realtimeStore };

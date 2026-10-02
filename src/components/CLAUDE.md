@@ -139,8 +139,8 @@ capability, never a second implementation of it. That is also what makes it chea
 a keyboard over things that already work.
 
 **Permission is applied when entries are BUILT, not at render.** An entry a role may not act on is
-never constructed, so it cannot be matched, ranked, arrowed onto or run. Everything asks `can` —
-there is one tier, so there is one question.
+never constructed, so it cannot be matched, ranked, arrowed onto or run. Each entry asks about the
+request it would make (`mayCall` and `can` in `lib/persona.js`), of the member that would answer it.
 
 `palette/score.js` is the matcher: subsequence, not substring, so `mcsrv` finds `minecraft_survival`.
 It **imports nothing**, deliberately — ranking is exactly the kind of logic that rots silently, and
@@ -277,8 +277,8 @@ is the button (confirm-first arming, the job state, one `variant` per surface's 
 **`verbGuard(server, verb)` is whether that verb can run right now and the sentence explaining why
 not**. The hero, the server tile and an alert card's suggested action all ask it, which is the point
 — a card offering Update while the hero refuses it would be two answers to one question. It checks
-the verb's own action on that server first (`verbRefusal` in `lib/persona.js` — somebody may hold
-start and not restart), then the watchdog, the observed run state, and (for `update`) whether there
+the command request that verb sends against that server first (`verbRefusal` in `lib/persona.js` —
+somebody may hold start and not restart), then the watchdog, the observed run state, and (for `update`) whether there
 is anything to apply. Whether any lifecycle control renders at all is `serverOperable`, a different
 question.
 

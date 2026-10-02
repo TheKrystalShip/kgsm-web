@@ -219,7 +219,11 @@ B = backend could add.** Honest-unknown is the default for every missing value.
 ### Sign-in — the provider's, not a node's
 - No node signs anybody in. The session is the auth anchor's, obtained through OpenID Connect by
   `lib/oidc.js`. The token says who, never what: what the caller may do is each member's
-  `GET /me/access` (`lib/stores/access.js`), and the `me` topic's `me.access` keeps it live.
+  `GET /me/access` (`lib/stores/access.js`), and the `me` topic's `me.access` keeps it live. Which
+  action a request needs is the same member's published operations (`GET /api/v1/operations` on a
+  node, `GET /auth/cluster/operations` on the auth anchor, `GET /operations` on the DNS anchor and an
+  assistant), read beside it; the panel gates every control on the request it would send and names no
+  action itself.
 
 ## 6. True gaps & rewrites (not simple remaps)
 1. **Console** — no backend topic at all (deferred). `ConsolePanel` must degrade to "unavailable," not be wired.

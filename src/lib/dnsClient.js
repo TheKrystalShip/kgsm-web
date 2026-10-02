@@ -83,40 +83,28 @@ async function dnsEvents(limit) {
 // Writes. `once` — none of these may be sent twice: a zone check and a certificate renewal both ask
 // something outside this browser to act, and a certificate order is rate-limited by the issuer, so a
 // refusal here is reported as it stands rather than replayed after a silent token renewal.
-async function checkZoneNow() {
-  const base = originOf();
-  if (!base) throw noRoute();
-  const res = await http().once(base + "/api/v1/cluster/dns/zone/check",
-    { method: "POST", headers: { Accept: "application/json" } });
-  if (!res.ok) throw refusal(res);
-}
+// Each write, as the method and path it is sent with — named once, so the page asking whether one may
+// be made (`persona.callRefusal("dns", …)`) asks about exactly the request that is sent.
+const DNS_WRITES = {
+  zoneCheck: () => ["POST", "/api/v1/cluster/dns/zone/check"],
+  renew: (name) => ["POST", "/api/v1/cluster/dns/certificates/" + encodeURIComponent(name || "_") + "/renew"],
+  addAlias: () => ["POST", "/api/v1/cluster/dns/aliases"],
+  removeAlias: (name) => ["DELETE", "/api/v1/cluster/dns/aliases/" + encodeURIComponent(name || "_")],
+};
 
-async function renewCertificate(name) {
+async function send([method, path], body) {
   const base = originOf();
   if (!base) throw noRoute();
-  const res = await http().once(base + "/api/v1/cluster/dns/certificates/" + encodeURIComponent(name) + "/renew",
-    { method: "POST", headers: { Accept: "application/json" } });
-  if (!res.ok) throw refusal(res);
-}
-
-async function addAlias(server, label) {
-  const base = originOf();
-  if (!base) throw noRoute();
-  const res = await http().once(base + "/api/v1/cluster/dns/aliases", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ server, label }),
-  });
+  const res = await http().once(base + path, body === undefined
+    ? { method, headers: { Accept: "application/json" } }
+    : { method, headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw refusal(res);
   return res.body;
 }
 
-async function removeAlias(name) {
-  const base = originOf();
-  if (!base) throw noRoute();
-  const res = await http().once(base + "/api/v1/cluster/dns/aliases/" + encodeURIComponent(name),
-    { method: "DELETE", headers: { Accept: "application/json" } });
-  if (!res.ok) throw refusal(res);
-}
+const checkZoneNow = () => send(DNS_WRITES.zoneCheck()).then(() => {});
+const renewCertificate = (name) => send(DNS_WRITES.renew(name)).then(() => {});
+const addAlias = (server, label) => send(DNS_WRITES.addAlias(), { server, label });
+const removeAlias = (name) => send(DNS_WRITES.removeAlias(name)).then(() => {});
 
-export { addAlias, checkZoneNow, dnsEvents, dnsStatus, originOf as dnsOrigin, removeAlias, renewCertificate };
+export { DNS_WRITES, addAlias, checkZoneNow, dnsEvents, dnsStatus, originOf as dnsOrigin, removeAlias, renewCertificate };

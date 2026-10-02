@@ -7,14 +7,13 @@ import { awaitJob } from "../lib/stores.js";
 import { formatBytes, fmtRelative } from "../lib/formatting.js";
 import { requestBackup } from "../lib/serverActions.js";
 import { useConfirmAction } from "../components/ServerActions.jsx";
-import { ACTIONS, actionRefusal } from "../lib/persona.js";
+import { serverCallRefusal } from "../lib/persona.js";
 
 // Backups list — one row per snapshot. Rendered through the shared BriefCard
 // shell; each entry uses the same .chat-brief__item row style as the dashboard's
-// Alerts / Recent activity cards. The tab is offered to whoever reads this server's backups; each
-// control inside asks for its own action — taking one, restoring one, managing them (pin, delete),
-// and downloading one, which is reading the server's files — and stays on screen, closed, naming
-// the action when it is not held.
+// Alerts / Recent activity cards. The tab is offered to whoever may read this server's backups; each
+// control inside is asked as the request it sends — taking one, restoring one, deleting or pinning
+// one, starting a download — and stays on screen, closed, saying what it needs when it is refused.
 //
 // The backend (GET /servers/{id}/backups) reports each backup's id as `name`
 // plus whatever its manifest recorded — size, creation time, captured version.
@@ -100,11 +99,12 @@ function DeleteBackupButton({ name, busy, deleting, refused, onDelete }) {
 function BackupsList({ server }) {
   const [list, setList] = React.useState(null);   // null = loading, [] = none
   const [error, setError] = React.useState(null);
-  const target = { server };
-  const refusedCreate = actionRefusal(ACTIONS.SERVER_BACKUPS_CREATE, target);
-  const refusedRestore = actionRefusal(ACTIONS.SERVER_BACKUPS_RESTORE, target);
-  const refusedManage = actionRefusal(ACTIONS.SERVER_BACKUPS_MANAGE, target);
-  const refusedDownload = actionRefusal(ACTIONS.SERVER_FILES_READ, target);
+  // Each control is the request it sends, asked of the node first; a row's controls are the same for
+  // every backup, so they are asked about any one.
+  const refusedCreate = serverCallRefusal(server, "POST", "/backups");
+  const refusedRestore = serverCallRefusal(server, "POST", "/backups/restore");
+  const refusedManage = serverCallRefusal(server, "DELETE", "/backups/_");
+  const refusedDownload = serverCallRefusal(server, "POST", "/backups/_/download-ticket");
   const [busy, setBusy] = React.useState(null);   // "create" | "restore:<name>" | "download:<name>" | "delete:<name>" | null
 
   const load = React.useCallback(() => {

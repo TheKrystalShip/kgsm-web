@@ -37,7 +37,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { useConfirmAction } from "../../components/ServerActions.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
-import { ACTIONS, actionRefusal } from "../../lib/persona.js";
+import { callRefusal } from "../../lib/persona.js";
 import { answerLeafReactorProposal, fetchLeafReactorProposals } from "../../lib/stores.js";
 import {
   LeafAbsent, LeafBriefEmpty, LeafLoading, LeafUnreadable, useLeafResource,
@@ -273,7 +273,8 @@ function ReactorProposals({ hostId, leafId }) {
           <div className="chat-brief__list">
             {open.map(o => (
               <Offer key={o.handle} offer={o} now={now} busy={busy === o.handle} onAnswer={onAnswer}
-                refused={actionRefusal(ACTIONS.REACTOR_RULES_WRITE, { hostId })} />
+                refused={callRefusal({ hostId }, "POST", "/hosts/" + encodeURIComponent(hostId)
+                  + "/services/reactor/proposals/" + encodeURIComponent(o.handle) + "/confirm")} />
             ))}
           </div>
         )}

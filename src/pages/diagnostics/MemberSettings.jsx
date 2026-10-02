@@ -17,7 +17,7 @@ import React from "react";
 import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { api } from "../../lib/apiClient.js";
-import { ACTIONS, can, may } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { CapabilityAssignDialog, MemberRemoveDialog, memberRemoval } from "./clusterActions.jsx";
@@ -154,11 +154,13 @@ function MemberSettings({ member, host }) {
   const clusterAdmin = useStore(clusterStore, s => s.admin);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
   const roster = useStore(clusterStore, s => s.nodes);
-  // Each card is its own action: naming the node is the node's, moving a capability is the cluster's
-  // membership management, and removing a member is its own.
-  const canManage = can("host.manage") && !!clusterAdmin && !!rosterFrom;
-  const canRemove = may(ACTIONS.MEMBERS_REMOVE, { cluster: true }) && !!clusterAdmin && !!rosterFrom;
-  const canRename = !!host && may(ACTIONS.HOSTS_WRITE, { hostId: host.id });
+  // Each card is the request it sends: naming the node to that node, moving a capability and removing
+  // a member to the node the roster is read through.
+  const viaRoster = !!clusterAdmin && !!rosterFrom;
+  const canManage = viaRoster && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
+  const canRemove = viaRoster && !!member
+    && mayCall({ hostId: rosterFrom }, "DELETE", "/members/" + encodeURIComponent(member.nodeId));
+  const canRename = !!host && mayCall({ hostId: host.id }, "PATCH", "/hosts/" + encodeURIComponent(host.id));
 
   const isAnchor = !!member && member.kind === "anchor";
 

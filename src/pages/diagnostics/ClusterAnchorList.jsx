@@ -24,7 +24,7 @@ import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { formatLatency } from "../../lib/nodeLabel.js";
-import { can } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
@@ -146,7 +146,8 @@ function ClusterAnchorList({ hovered, onHover }) {
   // serves it, and it goes back to whichever member answered the roster on screen. Removing a
   // member is addressed with `peerId`, which only that member's peer table holds. Nothing is
   // selected here; the panel belongs to no member.
-  const canReassign = can("host.manage") && !!clusterAdmin && !!rosterFrom;
+  const canReassign = !!clusterAdmin && !!rosterFrom
+    && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
 
   const orphaned = (capabilities || []).filter(c => c.orphaned);
   const hover = onHover || NOOP;

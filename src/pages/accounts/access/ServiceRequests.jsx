@@ -11,8 +11,7 @@ import React from "react";
 import { Icon } from "../../../components/Icon.jsx";
 import { SettingsSection } from "../../../components/settings-primitives.jsx";
 import { Select } from "../../../components/Select.jsx";
-import { ACTIONS, may } from "../../../lib/persona.js";
-import { authorityStore } from "../../../lib/stores/authority.js";
+import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, authorityGate, useAuthority, useScopeOptions, useScopeText } from "./accessKit.jsx";
 
 const STATE_LABEL = { approved: "Approved", waiting: "Waiting", revoked: "Revoked" };
@@ -20,7 +19,7 @@ const STATE_LABEL = { approved: "Approved", waiting: "Waiting", revoked: "Revoke
 function ServiceRequests() {
   const state = useAuthority();
   const view = state.view;
-  const canManage = may(ACTIONS.SERVICES_MANAGE, { cluster: true });
+  const canManage = !editRefusal("requirement.approve");
   const scopeText = useScopeText();
   const scopes = useScopeOptions();
   const [refusal, setRefusal] = React.useState(null);

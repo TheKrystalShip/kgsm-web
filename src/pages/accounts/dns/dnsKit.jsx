@@ -4,7 +4,7 @@
 
 import { fmtRelative, fmtUntil } from "../../../lib/formatting.js";
 import { useKeyedResource } from "../../../lib/keyedResource.js";
-import { may } from "../../../lib/persona.js";
+import { callRefusal } from "../../../lib/persona.js";
 import { useStore } from "../../../lib/store.js";
 import { DNS_KEY, dnsStore } from "../../../lib/stores/dns.js";
 
@@ -81,10 +81,11 @@ function NameCell({ name, sub, badge }) {
   );
 }
 
-// Why the caller cannot perform a DNS action, or null when they can. Every DNS action is the cluster's,
-// answered by the DNS anchor itself; a control it refuses stays on screen, closed, naming the action.
-function dnsRefusal(action) {
-  return may(action, { cluster: true }) ? null : "Needs " + action;
+// Why the caller cannot make a DNS write (`DNS_WRITES` in `dnsClient.js`), or null when they can —
+// asked of the DNS anchor, which publishes the action each of its requests needs. A control it refuses
+// stays on screen, closed, saying what it needs.
+function dnsRefusal([method, path]) {
+  return callRefusal("dns", method, path);
 }
 
 export { daysUntil, dnsRefusal, fmtDateTime, fmtNext, fmtShortDate, fmtSince, NameCell, shortName, toDate, useDnsStatus };

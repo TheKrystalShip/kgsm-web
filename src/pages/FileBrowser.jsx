@@ -2,7 +2,7 @@ import React from "react";
 import { BriefCard } from "../components/BriefCard.jsx";
 import { Icon } from "../components/Icon.jsx";
 import { ReversablePortal } from "../components/ReversablePortal.jsx";
-import { ACTIONS, actionRefusal } from "../lib/persona.js";
+import { serverCallRefusal } from "../lib/persona.js";
 import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
@@ -116,9 +116,9 @@ function FileTreeRow({ entry, parent, depth, dirs, expanded, activePath, onOpenF
 function FileBrowser({ server }) {
   const serverId = server.id;
   const hostId = (server && server.hostId) || null;
-  // Reading files is what opens this tab; writing one is its own action, and without it the editor
-  // opens read-only with Save closed and naming the action.
-  const refusedWrite = actionRefusal(ACTIONS.SERVER_FILES_WRITE, { server });
+  // Reading files is what opens this tab; saving one is its own request, and when it is refused the
+  // editor opens read-only with Save closed, saying what it needs.
+  const refusedWrite = serverCallRefusal(server, "PUT", "/files/content");
 
   // The cached tree + open file for this server (survives tab switches). The
   // selector returns a stable ref until this server's slice changes.

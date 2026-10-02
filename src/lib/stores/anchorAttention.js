@@ -1,10 +1,10 @@
 // stores/anchorAttention.js — what the auth anchor is waiting on a person for.
 //
 // Four things the cluster's access does not settle on its own, each counted only for somebody who
-// can act on it: accounts awaiting approval (`auth:accounts.approve`), actions nobody has filed into a
-// permission yet (`auth:permissions.edit` — until one is, only an Owner performs it), service
-// requirements waiting for a person (`auth:services.manage`), and the requirements the anchor approved
-// on its own this past week (Owners — a grant nobody chose is still a grant somebody sees).
+// can act on it — asked as the request that acts on it: accounts awaiting approval (approving one),
+// actions nobody has filed into a permission yet (filing one — until then only an Owner performs it),
+// service requirements waiting for a person (deciding one), and the requirements the anchor approved on
+// its own this past week (Owners — a grant nobody chose is still a grant somebody sees).
 //
 // Read, never inferred: the accounts and the authority from the anchor, the automatic approvals from
 // the audit feed, which carries the anchor's journal. The anchor pushes nothing to a browser, so the
@@ -14,13 +14,10 @@
 // Started by its consumers and REFCOUNTED, like `fleet.js`: balance every start with one stop.
 
 import { api } from "../apiClient.js";
-import { ACTIONS } from "../actions.js";
-import { isOwner, may, mayAny } from "../persona.js";
+import { isOwner } from "../persona.js";
 import { readProvider } from "../provider.js";
 import { createStore } from "../store.js";
-import { authorityStore } from "./authority.js";
-
-const CLUSTER = { cluster: true };
+import { authorityStore, editRefusal, userRefusal } from "./authority.js";
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const CADENCE_MS = 5 * 60 * 1000;
 const APPROVED = "auth.service.requirement.approved";
@@ -28,9 +25,15 @@ const APPROVED = "auth.service.requirement.approved";
 // `items` is null until a read has answered; an empty list is "nothing waiting".
 const anchorAttentionStore = createStore({ items: null });
 
+// What this person can act on, asked as the requests that act on it: approving an account, filing an
+// action into a permission, deciding a service's requirement.
+const approves = () => !userRefusal("PATCH", "/_", { status: "active" });
+const files = () => !editRefusal("permission.actions");
+const decides = () => !editRefusal("requirement.approve");
+
 // Whether this person can act on any of it — what decides whether anything is read at all.
 function concerned() {
-  return isOwner() || mayAny([ACTIONS.ACCOUNTS_APPROVE, ACTIONS.PERMISSIONS_EDIT, ACTIONS.SERVICES_MANAGE], CLUSTER);
+  return isOwner() || approves() || files() || decides();
 }
 
 function automaticApprovals() {
@@ -48,7 +51,7 @@ function automaticApprovals() {
 
 function itemsFrom({ accounts, view, approvals }) {
   const items = [];
-  if (accounts && may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER)) {
+  if (accounts && approves()) {
     for (const a of accounts.filter((x) => x.status === "pending")) {
       items.push({
         key: "pending:" + (a.id || a.username), tab: "users", tone: "warn", icon: "hourglass",
@@ -57,7 +60,7 @@ function itemsFrom({ accounts, view, approvals }) {
       });
     }
   }
-  if (view && may(ACTIONS.PERMISSIONS_EDIT, CLUSTER)) {
+  if (view && files()) {
     const unmapped = view.catalog.filter((c) => c.unmapped);
     if (unmapped.length) {
       items.push({
@@ -67,7 +70,7 @@ function itemsFrom({ accounts, view, approvals }) {
       });
     }
   }
-  if (view && may(ACTIONS.SERVICES_MANAGE, CLUSTER)) {
+  if (view && decides()) {
     for (const svc of view.accounts.filter((a) => a.kind === "service")) {
       const waiting = (svc.requirements || []).filter((q) => q.state === "waiting");
       if (!waiting.length) continue;
@@ -103,8 +106,8 @@ function refresh() {
     return Promise.resolve();
   }
   if (inflight) return inflight;
-  const accounts = may(ACTIONS.ACCOUNTS_APPROVE, CLUSTER) ? api.users().list().catch(() => null) : Promise.resolve(null);
-  const view = mayAny([ACTIONS.PERMISSIONS_EDIT, ACTIONS.SERVICES_MANAGE], CLUSTER)
+  const accounts = approves() ? api.users().list().catch(() => null) : Promise.resolve(null);
+  const view = files() || decides()
     ? authorityStore.refresh().catch(() => null)
     : Promise.resolve(null);
   const approvals = isOwner() ? automaticApprovals().catch(() => null) : Promise.resolve(null);

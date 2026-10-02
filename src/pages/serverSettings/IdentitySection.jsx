@@ -9,7 +9,7 @@
 import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { SettingsRow, SettingsSection } from "../../components/settings-primitives.jsx";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { serverCallRefusal } from "../../lib/persona.js";
 import { DISPLAY_NAME_MAX } from "../../lib/servers.js";
 import { setServerDisplayName } from "../../lib/stores.js";
 
@@ -23,7 +23,7 @@ const engineText = (e, fallback) => {
 };
 
 function IdentitySection({ server }) {
-  const canRename = may(ACTIONS.SERVER_CONFIG_WRITE, { server });
+  const canRename = !serverCallRefusal(server, "PUT", "/display-name");
   // The label as the backend last reported it. Never blank — an unlabelled instance reads as its id —
   // so "is this server named" is the comparison against the id, not an emptiness check.
   const label = server.name || server.id;

@@ -9,7 +9,7 @@ import { RecentActivity } from "../components/RecentActivity.jsx";
 import { ServerHero } from "../components/ServerHero.jsx";
 import { ServerNotice } from "../components/ServerNotice.jsx";
 import { StatTiles } from "../components/StatTiles.jsx";
-import { ACTIONS, may, serverOperable, serverTabOffered } from "../lib/persona.js";
+import { serverCallRefusal, serverOperable, serverTabOffered } from "../lib/persona.js";
 import { ROUTE_TABS } from "../lib/labels.js";
 import { serversStore } from "../lib/stores.js";
 import { BackupsList } from "./BackupsList.jsx";
@@ -109,8 +109,8 @@ function ServerDetailPage({ server, onAction, tab: tabProp, onTabChange, onAsk, 
         )}
       </div>
       {safeTab === "overview" && (() => {
-        const notice = <ServerNotice server={server} canEdit={may(ACTIONS.SERVER_CONFIG_WRITE, { server })} />;
-        const canReadConsole = may(ACTIONS.SERVER_CONSOLE_READ, { server });
+        const notice = <ServerNotice server={server} canEdit={!serverCallRefusal(server, "PUT", "/note")} />;
+        const canReadConsole = !serverCallRefusal(server, "GET", "/console");
         // Player overview: the operator's note, an at-a-glance status strip, then
         // the roster and console — both READ-ONLY (no kick/ban, no command input).
         // Joining lives in the hero above; no ops feed or arrange mode.

@@ -5,7 +5,7 @@ import { useNav } from "../NavContext.jsx";
 import { SERVER_ACTION } from "../ServerActions.jsx";
 import { cancelRun } from "../../lib/batchRun.js";
 import { fmtRelative, ordinal } from "../../lib/formatting.js";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { batchesStore, hostsStore, runsFrom, serversStore } from "../../lib/stores.js";
 
@@ -201,7 +201,8 @@ function RunCard({ run, hosts, nameOf, openOf }) {
 
   // Per NODE, because cancelling a batch is each node's own action: a run can span nodes where this
   // person may cancel and nodes where they may not.
-  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId && may(ACTIONS.BATCHES_CANCEL, { hostId: b.hostId }));
+  const mine = run.batches.filter((b) => b.state !== "settled" && b.hostId
+    && mayCall({ hostId: b.hostId }, "DELETE", "/batches/" + encodeURIComponent(b.id)));
   const theirs = run.batches.filter((b) => b.state !== "settled").length - mine.length;
 
   const fire = () => {

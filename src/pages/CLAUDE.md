@@ -120,8 +120,9 @@ the provider's account page, behind a recent proof only those pages can ask for,
 
 No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
 
-**The access pages hold no copy of the rules.** Every control on them is gated on the caller's own
-`/me/access` (`may` in `../lib/persona.js`), and a control the rules would refuse stays on screen with
+**The access pages hold no copy of the rules.** Every control on them is gated on the request it would
+send to the anchor — an edit by its kind, an account change by its method and body (`editRefusal` and
+`userRefusal` in `../lib/stores/authority.js`, over the anchor's published operations) — and a control the rules would refuse stays on screen with
 the anchor's reason beside it — a role above the assigner's is offered, closed, saying so. The reason
 comes from `authorityStore.check`, which asks the anchor's own rules about edits nobody has made; a
 page that worked a refusal out for itself would be a second implementation of the rules, and the

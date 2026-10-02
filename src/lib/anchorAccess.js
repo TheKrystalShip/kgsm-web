@@ -26,10 +26,15 @@ function originOf(capability) {
 
 // The holder's report, or a rejection carrying `status` the way an apiClient error does — 0 when it
 // could not be reached, the anchor's own status otherwise. Null when no member holds the capability.
-async function readAnchorAccess(capability) {
+const readAnchorAccess = (capability) => readAnchor(capability, "/me/access");
+
+// The holder's operations document (`../operations.js`), on the same terms.
+const readAnchorOperations = (capability) => readAnchor(capability, "/operations");
+
+async function readAnchor(capability, path) {
   const base = originOf(capability);
   if (!base) return null;
-  const res = await authorized(clusterCredential).json(base + "/me/access", { headers: { Accept: "application/json" } });
+  const res = await authorized(clusterCredential).json(base + path, { headers: { Accept: "application/json" } });
   if (res.ok) return res.body;
   const err = new Error((res.body && res.body.error && res.body.error.message) || ("HTTP " + res.status));
   err.status = res.unreachable ? 0 : (res.unauthenticated ? 401 : res.status);
@@ -37,4 +42,4 @@ async function readAnchorAccess(capability) {
   throw err;
 }
 
-export { ANCHORED_NAMESPACES, readAnchorAccess };
+export { ANCHORED_NAMESPACES, readAnchorAccess, readAnchorOperations };

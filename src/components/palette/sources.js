@@ -1,10 +1,10 @@
-import { MODERATION_ACTION, moderationOffers } from "../PlayerModeration.jsx";
+import { moderationOffers, moderationRefusal } from "../PlayerModeration.jsx";
 import { verbGuard } from "../ServerActions.jsx";
 import { joinRefusal } from "../ServerConnect.jsx";
 import { widgetPermitted } from "../widgets/WidgetHost.jsx";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { leafIcon } from "../../lib/leaves.js";
-import { ACTIONS, can, may, nodeTabOffered, serverJoin, serverOperable, serverTabOffered, verbRefusal } from "../../lib/persona.js";
+import { can, nodeTabOffered, serverCallRefusal, serverJoin, serverOperable, serverTabOffered, verbRefusal } from "../../lib/persona.js";
 import { copyText } from "../../lib/clipboard.js";
 import { toast } from "../../lib/toasts.js";
 import { backupServer, runServerAction } from "../../lib/serverActions.js";
@@ -160,7 +160,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
 
     // Backing up is a lifecycle-adjacent action rather than a verb: kgsm has no "backup" command,
     // so it does not go through verbGuard. It arms like everything else that changes the host.
-    if (may(ACTIONS.SERVER_BACKUPS_CREATE, { server })) {
+    if (!serverCallRefusal(server, "POST", "/backups")) {
       push({
         id: "scope.backup",
         kind: "action", group: "Actions",
@@ -209,7 +209,7 @@ function buildEntries({ servers, hosts, library, services, players, themePref, s
         for (const offer of moderationOffers(running, p, roster.moderation, server)) {
           const verb = offer.action;
           // An entry this person may not act on is never built.
-          if (!may(MODERATION_ACTION[verb], { server })) continue;
+          if (moderationRefusal(server, p, verb)) continue;
           push({
             id: "scope.mod." + verb + "." + p.playerIdentity,
             kind: "action", group: "Players",

@@ -4,7 +4,7 @@ import { BriefCard } from "../../components/BriefCard.jsx";
 import { Icon } from "../../components/Icon.jsx";
 import { ReversablePortal } from "../../components/ReversablePortal.jsx";
 import { formatBytes } from "../../lib/formatting.js";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { mayCall } from "../../lib/persona.js";
 import { useStore } from "../../lib/store.js";
 import { blueprintFileStore } from "../../lib/stores.js";
 
@@ -45,10 +45,11 @@ function BlueprintFileCard({ game, offeringHosts }) {
   // ---- gating (§5.3) -------------------------------------------------------
   // The card is offered when the user can read this blueprint on ANY node that
   // holds it; what they can do once a node is picked is that node's own answer.
+  const filePath = "/library/" + encodeURIComponent(name || "_") + "/file";
   const canRead = hostId
-    ? may(ACTIONS.LIBRARY_READ, { hostId })
-    : hosts.some(h => may(ACTIONS.LIBRARY_READ, { hostId: h.id }));
-  const canWrite = hostId ? may(ACTIONS.BLUEPRINTS_WRITE, { hostId }) : false;
+    ? mayCall({ hostId }, "GET", filePath)
+    : hosts.some(h => mayCall({ hostId: h.id }, "GET", filePath));
+  const canWrite = hostId ? mayCall({ hostId }, "PUT", filePath) : false;
 
   // ---- store data -----------------------------------------------------------
   const entry = useStore(blueprintFileStore, s => hostId && name ? s.byKey[hostId + "/" + name] || null : null);

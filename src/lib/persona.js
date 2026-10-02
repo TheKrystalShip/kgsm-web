@@ -1,6 +1,6 @@
-import { allows, isOwner as holdsEverything } from "./access.js";
-import { ACTIONS, SERVER_OPERATE, VERB_ACTION } from "./actions.js";
+import { allows, anchorSource, isOwner as holdsEverything, nodeSource, reportAllows, targetOf } from "./access.js";
 import { hostAddressOf } from "./config.js";
+import { requirementOf } from "./operations.js";
 import { KrystalRouter } from "./router.js";
 import { accessStore } from "./stores/access.js";
 
@@ -8,24 +8,89 @@ import { accessStore } from "./stores/access.js";
 // Steam connect helper.
 //
 // Distinct from the SESSION layer (sessionStore.js), which answers "who are you" and "is your bearer
-// valid". What somebody may do is an ACTION at a TARGET, and every member they reach has already
-// evaluated it: the answers live in `stores/access.js` and are looked up by `access.js`. Nothing here
-// decides access; it names which actions a surface performs and asks.
+// valid". **This panel names no action.** A control is gated on the request it would make — the
+// method, the path and the body it is about to send — and the member that would answer it says which
+// action that is (its operations, `operations.js`) and whether this person holds it (its `/me/access`).
+// Both live per member in `stores/access.js`. Nothing here decides access, and nothing here can drift
+// from what a member enforces: the only string shared with a member is the route the panel already
+// calls, and a request a member does not publish is closed.
 //
 // ── The model ──────────────────────────────────────────────────────────────
-//   may(action, target)     the question — is `action` allowed at `target`
-//   mayAny(actions, target) any of them
-//   can(cap, target)        a navigation or control capability, which names the actions behind it
-//   resolveRoute(r)         the routing chokepoint: forbidden route → the home this person can reach
+//   mayCall(member, method, path, opts)      may this request be made
+//   callRefusal(member, method, path, opts)  the sentence a control closed for it carries, or null
+//   can(cap, target)                         a navigation or control capability, named by its request
+//   resolveRoute(r)                          the routing chokepoint: forbidden route → a reachable home
 //
-// A target is what the caller has in hand: nothing (anywhere — the question a nav entry asks),
-// `{ hostId }` for a node, `{ server }` for a server row, `{ cluster: true }` for cluster-wide only.
-// Asking with the narrowest target in hand is what lets a grant on one server open that server's
-// controls and no other's.
+// A member is `{ hostId }` for a node, or an anchor's namespace — `"auth"`, `"dns"`. `opts` carries the
+// `body` the request would send, the `server` row a server route is about (its install is the target),
+// a `target` for a request whose scope the request names (an assignment's), or `anywhere: true` for a
+// question about anything at all on that member — what a nav entry asks. A path segment the question
+// does not care about may be `_`.
 
-  // ── Capabilities → the actions they are ─────────────────────────────────────
-  // A capability is a surface's name for what it does; the actions are what a member grants. An entry
-  // with no actions is open to anybody signed in.
+  // The answer of one member, keyed as `stores/access.js` keeps it.
+  const sources = () => accessStore.getState().sources;
+  const sourceKeyOf = (member) => (typeof member === "string" ? anchorSource(member) : nodeSource(member && member.hostId));
+
+  // Where one entry of a request is checked: the scope the member published, made concrete.
+  function entryTarget(entry, member, params, opts) {
+    if (opts && opts.anywhere) return null;
+    switch (entry.scope) {
+      case "cluster": return { cluster: true };
+      case "node": return { hostId: member.hostId };
+      case "instance":
+        return opts && opts.server
+          ? { server: opts.server }
+          : { server: { hostId: member.hostId, id: params[entry.target], installNonce: null } };
+      case "request": return (opts && opts.target) || { cluster: true };
+      default: return { cluster: true };
+    }
+  }
+
+  // Every request a gate asked about that the member it was asked of does not publish. A gate is only
+  // ever asked about a request this panel sends, so one appearing here is a route the panel and that
+  // member disagree about — the smoke fails on any.
+  var unpublished = new Set();
+  function unpublishedRequests() { return [...unpublished]; }
+
+  // The verdict on one request: `{ allowed, refusal }`. Every entry it matches must be held. A member
+  // that has not answered, or does not publish the request, closes it.
+  function gate(member, method, path, opts) {
+    var key = sourceKeyOf(member);
+    var src = sources()[key];
+    if (!src || src.state !== "ok" || !src.report) return { allowed: false, refusal: null };
+    var req = requirementOf(src.operations, method, path, opts && opts.body);
+    if (!req.published && src.operations) unpublished.add(key + " " + method + " " + path);
+    if (!req.published) return { allowed: false, refusal: src.operations ? "Not offered here" : null };
+    for (var i = 0; i < req.entries.length; i++) {
+      var e = req.entries[i];
+      if (!reportAllows(src.report, e.action, targetOf(entryTarget(e, member, req.params, opts)))) {
+        return { allowed: false, refusal: "Needs " + e.action };
+      }
+    }
+    return { allowed: true, refusal: null };
+  }
+
+  function mayCall(member, method, path, opts) { return gate(member, method, path, opts).allowed; }
+  function callRefusal(member, method, path, opts) {
+    var v = gate(member, method, path, opts);
+    return v.allowed ? null : (v.refusal || "Not available");
+  }
+
+  // The nodes this browser holds an answer from.
+  function nodeIds() {
+    return Object.keys(sources()).filter(function (k) { return k.startsWith("node:"); })
+      .map(function (k) { return k.slice(5); });
+  }
+  // A request asked of every node, for a question about anywhere: any node allowing it is a yes.
+  function mayCallOnAnyNode(method, path, opts) {
+    return nodeIds().some(function (hostId) {
+      return mayCall({ hostId: hostId }, method, path, Object.assign({ anywhere: true }, opts));
+    });
+  }
+
+  // ── Capabilities → the request each one is ──────────────────────────────────
+  // A capability is a surface's name for what it does; what it takes is the request it makes. `null`
+  // is open to anybody signed in. `_` stands for a segment the question is about any value of.
   var CAP = {
     NAV_DASHBOARD: "nav.dashboard",
     NAV_SERVERS:   "nav.servers",
@@ -41,20 +106,25 @@ import { accessStore } from "./stores/access.js";
     HOST_CONNECT:   "host.connect",
   };
 
-  var CAP_ACTIONS = {
-    "nav.dashboard": [ACTIONS.SERVER_READ],
-    "nav.servers": [ACTIONS.SERVER_READ],
-    "nav.library": [ACTIONS.LIBRARY_READ],
-    "nav.alerts": [ACTIONS.ALERTS_READ],
-    "nav.audit": [ACTIONS.AUDIT_READ],
-    "nav.cluster": [ACTIONS.MEMBERS_READ],
-    "nav.settings": [],
-    "server.operate": SERVER_OPERATE,
-    "server.create": [ACTIONS.SERVER_INSTALL],
-    "host.manage": [ACTIONS.MEMBERS_MANAGE],
-    "host.services": [ACTIONS.SERVICES_READ],
-    "host.connect": [ACTIONS.SERVICES_CONNECT],
+  var CAP_REQUESTS = {
+    // Reading any server is what the server list and the dashboard show; a list itself is filtered by
+    // its member, so the question is asked of one server's read.
+    "nav.dashboard": ["GET", "/servers/_"],
+    "nav.servers": ["GET", "/servers/_"],
+    "nav.library": ["GET", "/library"],
+    "nav.alerts": ["GET", "/alerts"],
+    "nav.audit": ["GET", "/audit"],
+    "nav.cluster": ["GET", "/members/roster"],
+    "nav.settings": null,
+    "server.create": ["POST", "/servers"],
+    "host.manage": ["POST", "/members"],
+    "host.services": ["GET", "/hosts/_/services"],
+    "host.connect": ["POST", "/hosts/_/services/_/connect"],
   };
+
+  // The lifecycle verbs a server is operated with — the values its command request carries.
+  var OPERATE_VERBS = ["start", "stop", "restart"];
+  const commandPath = (server) => "/servers/" + encodeURIComponent(server ? server.id : "_") + "/commands";
 
   // ── Route → required capability (absent ⇒ open to anybody signed in) ────────
   // Servers, a server, the library and a game are browsed by anyone holding their read; the controls
@@ -72,19 +142,36 @@ import { accessStore } from "./stores/access.js";
     leaf: CAP.HOST_SERVICES,
   };
 
-  const sources = () => accessStore.getState().sources;
-
   // ── The questions ──────────────────────────────────────────────────────────
+  // An action a member handed this panel as data — a manifest's own command, say — looked up as it is.
+  // Never for an action this panel would otherwise have to name.
   function may(action, target) { return allows(sources(), action, target); }
-  function mayAny(actions, target) {
-    var s = sources();
-    return (actions || []).some(function (a) { return allows(s, a, target); });
-  }
+
+  // A capability at a target: `{ server }`, `{ hostId }`, or nothing for anywhere.
   function can(cap, target) {
-    var actions = CAP_ACTIONS[cap];
-    if (!actions) return false;          // an unlisted capability is closed
-    if (!actions.length) return true;
-    return mayAny(actions, target);
+    if (cap === CAP.SERVER_OPERATE) {
+      return OPERATE_VERBS.some(function (verb) { return canVerb(target, verb); });
+    }
+    if (!(cap in CAP_REQUESTS)) return false;   // an unlisted capability is closed
+    var req = CAP_REQUESTS[cap];
+    if (!req) return true;
+    var method = req[0];
+    if (target && target.server) {
+      var s = target.server;
+      return mayCall({ hostId: s.hostId }, method, req[1].replace("/servers/_", "/servers/" + encodeURIComponent(s.id)), { server: s });
+    }
+    if (target && target.hostId) {
+      return mayCall({ hostId: target.hostId }, method, req[1].replace("/hosts/_", "/hosts/" + encodeURIComponent(target.hostId)),
+        { anywhere: req[1].indexOf("/servers/_") !== -1 });
+    }
+    return mayCallOnAnyNode(method, req[1]);
+  }
+
+  // One lifecycle verb at a target, as its command request.
+  function canVerb(target, verb) {
+    if (target && target.server) return verbRefusal(target.server, verb) === null;
+    if (target && target.hostId) return mayCall({ hostId: target.hostId }, "POST", commandPath(null), { body: { verb: verb }, anywhere: true });
+    return mayCallOnAnyNode("POST", commandPath(null), { body: { verb: verb } });
   }
   // Whether any member says this person holds every action, declared or not.
   function isOwner() { return holdsEverything(sources()); }
@@ -108,57 +195,74 @@ import { accessStore } from "./stores/access.js";
   }
 
   // Operating: any lifecycle verb, anywhere or on one server.
-  function canOperate() { return mayAny(SERVER_OPERATE); }
-  function serverOperable(server) { return server ? mayAny(SERVER_OPERATE, { server: server }) : false; }
+  function canOperate() { return can(CAP.SERVER_OPERATE); }
+  function serverOperable(server) { return server ? can(CAP.SERVER_OPERATE, { server: server }) : false; }
 
-  // The sentence a control closed for want of `action` at `target` carries, or null when it is held.
+  // A request on one server — the method and the path under it — and the sentence when it is closed.
   // A refused control stays on screen, disabled, naming the action — never hidden from somebody who
   // can see what it would act on.
-  function actionRefusal(action, target) {
-    return may(action, target) ? null : "Needs " + action;
+  function serverCallRefusal(server, method, subpath, body) {
+    if (!server) return "Not available";
+    return callRefusal({ hostId: server.hostId }, method,
+      "/servers/" + encodeURIComponent(server.id) + (subpath || ""), { server: server, body: body });
   }
 
-  // One lifecycle verb on one server: whether its action is held there, and the sentence when not.
+  // One lifecycle verb on one server: whether its command may be sent, and the sentence when not.
   function verbRefusal(server, verb) {
-    var action = VERB_ACTION[verb];
-    if (!server || !action) return null;
-    return actionRefusal(action, { server: server });
+    if (!server) return null;
+    return serverCallRefusal(server, "POST", "/commands", { verb: verb });
   }
 
   // ── A server's tabs → the read each one is ──────────────────────────────────
   // Overview is open to anybody who can see the server; Access is for whoever may assign roles on it.
-  var SERVER_TAB_ACTION = {
-    performance: ACTIONS.SERVER_READ,
-    files: ACTIONS.SERVER_FILES_READ,
-    backups: ACTIONS.SERVER_BACKUPS_READ,
-    settings: ACTIONS.SERVER_CONFIG_READ,
+  var SERVER_TAB_READS = {
+    performance: "/metrics/history",
+    files: "/files",
+    backups: "/backups",
+    settings: "/settings",
   };
-  // ── A node's tabs → the actions behind each ─────────────────────────────────
-  // Jobs lists the node's work on servers, each row filtered by the node to the servers this person
-  // reads; Settings holds the node's name and its membership, any of which opens it.
-  var NODE_TAB_ACTIONS = {
-    overview: [ACTIONS.HOSTS_READ],
-    resources: [ACTIONS.MONITOR_METRICS_READ],
-    services: [ACTIONS.SERVICES_READ],
-    jobs: [ACTIONS.SERVER_READ],
-    logs: [ACTIONS.LOGS_READ],
-    settings: [ACTIONS.HOSTS_WRITE, ACTIONS.MEMBERS_MANAGE, ACTIONS.MEMBERS_REMOVE],
-  };
-  function nodeTabOffered(hostId, tab) {
-    var actions = NODE_TAB_ACTIONS[tab];
-    return !!(hostId && actions && mayAny(actions, { hostId: hostId }));
-  }
-
   function serverTabOffered(server, tab) {
     if (tab === "overview") return true;
     if (tab === "access") return serverAssignable(server);
-    var action = SERVER_TAB_ACTION[tab];
-    return !!(server && action && may(action, { server: server }));
+    var sub = SERVER_TAB_READS[tab];
+    return !!(server && sub) && serverCallRefusal(server, "GET", sub) === null;
   }
-  // Assigning roles on one server: `auth:roles.assign` held there or wider, which only an install
-  // whose nonce is known can be looked up for.
+
+  // ── A node's tabs → the requests behind each ────────────────────────────────
+  // Jobs lists the node's work on servers, each row filtered by the node to the servers this person
+  // reads; Settings holds the node's name and its membership, any of which opens it.
+  var NODE_TAB_REQUESTS = {
+    overview: [["GET", "/hosts/{host}"]],
+    resources: [["GET", "/hosts/{host}/metrics/history"]],
+    services: [["GET", "/hosts/{host}/services"]],
+    jobs: [["GET", "/servers/_", { anywhere: true }]],
+    logs: [["GET", "/hosts/{host}/logs"]],
+    settings: [["PATCH", "/hosts/{host}"], ["PATCH", "/members/{host}"], ["DELETE", "/members/{host}"]],
+  };
+  function nodeTabOffered(hostId, tab) {
+    var reqs = NODE_TAB_REQUESTS[tab];
+    if (!hostId || !reqs) return false;
+    return reqs.some(function (r) {
+      return mayCall({ hostId: hostId }, r[0], r[1].replace("{host}", encodeURIComponent(hostId)), r[2]);
+    });
+  }
+
+  // Assigning roles on one server: the anchor's `assign` edit at that server's install, which only an
+  // install whose nonce is known can be asked about.
   function serverAssignable(server) {
-    return !!(server && server.installNonce) && may(ACTIONS.ROLES_ASSIGN, { server: server });
+    return !!(server && server.installNonce)
+      && mayCall("auth", "POST", "/auth/cluster/authority/edits", { body: { kind: "assign" }, target: { server: server } });
+  }
+
+  // Whether this person may make any request a member publishes — for a surface that is only worth
+  // opening to somebody who can do something there, like the access pages.
+  function mayAnythingAt(member) {
+    var src = sources()[sourceKeyOf(member)];
+    if (!src || src.state !== "ok" || !src.report || !src.operations) return false;
+    if (src.report.owner) return true;
+    return (src.operations.operations || []).some(function (op) {
+      return op.method !== "GET" && reportAllows(src.report, op.action, targetOf(null));
+    });
   }
 
   // ---- Steam launch + connect address --------------------------------------
@@ -223,6 +327,10 @@ import { accessStore } from "./stores/access.js";
     };
   }
 
-  const krystalPolicy = { CAP: CAP, CAP_ACTIONS: CAP_ACTIONS, ROUTE_CAP: ROUTE_CAP };
+  const krystalPolicy = { CAP: CAP, CAP_REQUESTS: CAP_REQUESTS, ROUTE_CAP: ROUTE_CAP };
 
-export { ACTIONS, actionRefusal, can, canOperate, canReach, homeKind, isOwner, krystalPolicy, may, mayAny, resolveRoute, nodeTabOffered, serverAssignable, serverJoin, serverOperable, serverTabOffered, verbRefusal };
+export {
+  callRefusal, can, canOperate, canReach, homeKind, isOwner, krystalPolicy, may, mayAnythingAt, mayCall,
+  mayCallOnAnyNode, nodeTabOffered, resolveRoute, serverAssignable, serverCallRefusal, serverJoin,
+  serverOperable, serverTabOffered, unpublishedRequests, verbRefusal,
+};

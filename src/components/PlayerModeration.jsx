@@ -2,15 +2,14 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon.jsx";
 import { useConfirmAction } from "./ServerActions.jsx";
-import { ACTIONS } from "../lib/actions.js";
-import { may } from "../lib/persona.js";
+import { serverCallRefusal } from "../lib/persona.js";
 
-// The action each moderation verb performs. Lifting a ban is the ban action's other half.
-const MODERATION_ACTION = {
-  kick: ACTIONS.SERVER_PLAYERS_KICK,
-  ban: ACTIONS.SERVER_PLAYERS_BAN,
-  unban: ACTIONS.SERVER_PLAYERS_BAN,
-};
+// Whether this person may send `action` for `player` on `server` — the moderation request itself,
+// asked of the node that answers it — and the sentence when not.
+function moderationRefusal(server, player, action) {
+  if (!server || !player) return null;
+  return serverCallRefusal(server, "POST", "/players/" + encodeURIComponent(player.playerIdentity || "_") + "/" + action);
+}
 
 // PlayerModeration — the per-row kick/ban/unban controls in the player roster.
 //
@@ -89,11 +88,11 @@ function moderationOffers(serverRunning, player, moderation, server) {
   // holding the action at all, then the server, then the player.
   return offered.map((action) => ({
     action,
-    reason: server && !may(MODERATION_ACTION[action], { server }) ? "Needs " + MODERATION_ACTION[action]
-      : !serverRunning ? "The server isn't running, so there's no console to send this to."
+    reason: moderationRefusal(server, player, action)
+      || (!serverRunning ? "The server isn't running, so there's no console to send this to."
       : !usable ? identityReason
         : action === "kick" && !online ? "This player isn't connected — there's nobody to disconnect."
-          : null,
+          : null),
   }));
 }
 
@@ -279,4 +278,4 @@ function PlayerModeration({ server, player, moderation, serverRunning, pending, 
   );
 }
 
-export { MODERATION_ACTION, PlayerModeration, hasTargetIdentity, moderationOffers };
+export { PlayerModeration, hasTargetIdentity, moderationOffers, moderationRefusal };

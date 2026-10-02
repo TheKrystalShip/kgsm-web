@@ -18,10 +18,9 @@ import React from "react";
 import { CardTable } from "../../../components/CardTable.jsx";
 import { Icon } from "../../../components/Icon.jsx";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
-import { removeAlias } from "../../../lib/dnsClient.js";
+import { DNS_WRITES, removeAlias } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";
 import { AddAliasModal } from "./AddAliasModal.jsx";
-import { ACTIONS } from "../../../lib/actions.js";
 import { dnsRefusal, fmtShortDate, NameCell, shortName, useDnsStatus } from "./dnsKit.jsx";
 import { DnsRowActions } from "./dnsRowActions.jsx";
 
@@ -118,7 +117,7 @@ function useRemoveAlias() {
 
   const action = (row) => ({
     icon: "trash-2", label: "Remove alias", tone: "danger", pending: pending === row.name,
-    reason: dnsRefusal(ACTIONS.DNS_ALIASES_WRITE),
+    reason: dnsRefusal(DNS_WRITES.removeAlias(row.name)),
     onRun: () => {
       setErr(null);
       setPending(row.name);
@@ -154,8 +153,8 @@ function DnsAnchorsTable({ onlyBlocked = false }) {
         pin={<PinButton type="dns.anchors" params={{}} label="Anchors" />}
         action={(
           <button className="dash-section__more" onClick={() => setAdding(true)}
-            disabled={!!dnsRefusal(ACTIONS.DNS_ALIASES_WRITE)}
-            title={dnsRefusal(ACTIONS.DNS_ALIASES_WRITE) || "Add alias"}>
+            disabled={!!dnsRefusal(DNS_WRITES.addAlias())}
+            title={dnsRefusal(DNS_WRITES.addAlias()) || "Add alias"}>
             <Icon name="plus" size={11} strokeWidth={2.4} /> Add alias
           </button>
         )}
@@ -217,8 +216,8 @@ function DnsServersTable({ onlyBlocked = false }) {
         pin={<PinButton type="dns.servers" params={{}} label="Servers" />}
         action={(
           <button className="dash-section__more" onClick={() => setAdding(true)}
-            disabled={!!dnsRefusal(ACTIONS.DNS_ALIASES_WRITE)}
-            title={dnsRefusal(ACTIONS.DNS_ALIASES_WRITE) || "Add alias"}>
+            disabled={!!dnsRefusal(DNS_WRITES.addAlias())}
+            title={dnsRefusal(DNS_WRITES.addAlias()) || "Add alias"}>
             <Icon name="plus" size={11} strokeWidth={2.4} /> Add alias
           </button>
         )}

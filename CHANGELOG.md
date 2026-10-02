@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — every gate asks about a request, and the panel names no action (3.2.0)
+
+- **Each member says which action a request needs.** The access store reads every member's published
+  operations beside its `/me/access` — kgsm-api's `/api/v1/operations`, the auth anchor's
+  `/auth/cluster/operations`, the DNS anchor's and the assistant's `/operations` — and
+  `operations.js` matches a request against them. `actions.js` is deleted; no action id is written in
+  the panel's code.
+- **Every control asks about the request it would send.** `mayCall(member, method, path, opts)` and
+  `callRefusal` in `persona.js`; a lifecycle verb is its `POST /commands` with `{verb}`, an access-page
+  edit is its kind at the anchor, a component's configuration is its own write route, and the dock
+  and the standalone assistant ask the assistant they talk to (`assistantGate.js`).
+- **A request no member publishes is closed and recorded**, and the smoke fails on any, so a gate
+  cannot drift from what its member enforces.
+
 ### Changed — every control on its own action; automations name who they run as (3.1.0)
 
 - **Each control asks for the action kgsm-api checks.** `actions.js` names kgsm-api's whole action

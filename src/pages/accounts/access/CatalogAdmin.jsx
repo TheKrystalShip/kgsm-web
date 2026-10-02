@@ -8,14 +8,13 @@ import React from "react";
 
 import { SettingsSection } from "../../../components/settings-primitives.jsx";
 import { Select } from "../../../components/Select.jsx";
-import { ACTIONS, may } from "../../../lib/persona.js";
-import { authorityStore } from "../../../lib/stores/authority.js";
+import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, authorityGate, componentOf, useAuthority } from "./accessKit.jsx";
 
 function CatalogAdmin() {
   const state = useAuthority();
   const view = state.view;
-  const canFile = may(ACTIONS.PERMISSIONS_EDIT, { cluster: true });
+  const canFile = !editRefusal("permission.actions");
   const [onlyUnmapped, setOnlyUnmapped] = React.useState(false);
   const [refusal, setRefusal] = React.useState(null);
   const [busy, setBusy] = React.useState(false);

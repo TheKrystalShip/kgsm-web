@@ -20,7 +20,7 @@ import React from "react";
 import { Icon } from "../../components/Icon.jsx";
 import { SettingsSection, Toggle } from "../../components/settings-primitives.jsx";
 import { api } from "../../lib/apiClient.js";
-import { ACTIONS, may } from "../../lib/persona.js";
+import { callRefusal } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { LeafLoading, LeafNotice } from "./leafOverviewKit.jsx";
 
@@ -43,7 +43,8 @@ const metricOf = (key) => METRICS[key] || { label: key, unit: "", scope: "host" 
 function MonitorThresholds({ hostId }) {
   // Changing what the fleet alerts on is the monitor's own action, asked of THIS node.
   const live = !!hostId && sessionStore.isLive();
-  const canEdit = live && may(ACTIONS.THRESHOLDS_WRITE, { hostId });
+  const editRefusal = live ? callRefusal({ hostId }, "PUT", "/hosts/" + encodeURIComponent(hostId) + "/thresholds") : null;
+  const canEdit = live && !editRefusal;
 
   const [doc, setDoc] = React.useState(null);      // null = not loaded yet
   const [draft, setDraft] = React.useState(null);
@@ -112,7 +113,7 @@ function MonitorThresholds({ hostId }) {
 
       {!canEdit && (
         <div className="thr-notice">
-          These are what this host alerts on. Changing them needs {ACTIONS.THRESHOLDS_WRITE} on this node.
+          These are what this host alerts on. {editRefusal}
         </div>
       )}
 
