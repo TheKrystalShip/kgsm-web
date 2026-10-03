@@ -33,19 +33,19 @@ This spans two repos: **`kgsm-api`** owns the batch, **`kgsm-web`** selects and 
 
 Every per-server mutation `kgsm-api` exposes, and whether a set of servers is a sensible target.
 
-| Action | Endpoint | Tier | Job | Batch |
+| Action | Endpoint | Needs | Job | Batch |
 |---|---|---|---|---|
-| start · stop · restart · update | `POST /servers/{id}/commands` | Operator | ✓ | **yes — the core** |
-| back up now | `POST /servers/{id}/backups` | Operator | ✓ | **yes** |
-| send console input | `POST /servers/{id}/console` | Operator | ✗ | **yes — broadcast** |
-| patch settings | `PATCH /servers/{id}/settings` | Operator | ✗ | **yes — sparse body** |
-| set note | `PUT /servers/{id}/note` | Operator | ✗ | yes, low value |
-| uninstall | `DELETE /servers/{id}` | Operator | ✓ | mechanically yes — **excluded** |
-| install | `POST /servers` | Operator | ✓ | no — needs a name, port and node each |
-| patch `.config.ini` | `PATCH /servers/{id}/config` | Operator | ✗ | no — keys are per-game |
-| write a file | `PUT /servers/{id}/files` | Operator | ✗ | no — content is per-server |
-| kick · ban · unban | `POST /servers/{id}/players/{p}/…` | Operator | ✗ | no — targets a player, not a server |
-| backup restore · delete · pin | `…/backups/{backupId}/…` | Operator | mixed | no — addresses one backup |
+| start · stop · restart · update | `POST /servers/{id}/commands` | `kgsm:server.<verb>` | ✓ | **yes — the core** |
+| back up now | `POST /servers/{id}/backups` | `kgsm:server.backups.create` | ✓ | **yes** |
+| send console input | `POST /servers/{id}/console` | `kgsm:server.console.write` | ✗ | **yes — broadcast** |
+| patch settings | `PATCH /servers/{id}/settings` | `kgsm:server.config.write` | ✗ | **yes — sparse body** |
+| set note | `PUT /servers/{id}/note` | `kgsm:server.config.write` | ✗ | yes, low value |
+| uninstall | `DELETE /servers/{id}` | `kgsm:server.uninstall` | ✓ | mechanically yes — **excluded** |
+| install | `POST /servers` | `kgsm:server.install` | ✓ | no — needs a name, port and node each |
+| patch `.config.ini` | `PATCH /servers/{id}/config` | `kgsm:server.config.write` | ✗ | no — keys are per-game |
+| write a file | `PUT /servers/{id}/files` | `kgsm:server.files.write` | ✗ | no — content is per-server |
+| kick · ban · unban | `POST /servers/{id}/players/{p}/…` | `kgsm:server.players.*` | ✗ | no — targets a player, not a server |
+| backup restore · delete · pin | `…/backups/{backupId}/…` | `kgsm:server.backups.*` | mixed | no — addresses one backup |
 
 ### The four worth building (Tier 1)
 
@@ -61,7 +61,7 @@ Backup takes a job, so it rides the same batch machinery as the four verbs.
 ### The three worth a second pass (Tier 2)
 
 **Broadcast to consoles.** One line to N servers — "restarting in 10 minutes". `sendConsoleInput`
-(`kgsm-web/src/lib/stores/servers.js:313`) exists; the endpoint is Operator-gated. The missing half of
+(`kgsm-web/src/lib/stores/servers.js:313`) exists; the endpoint takes `kgsm:server.console.write`. The missing half of
 a graceful restart, needing no new engine work. Its shape differs from a verb, though: no job, no
 guard, and a per-game command syntax the panel does not know. It is also the one Tier-2 action fast
 enough that durability buys it little — it belongs in its own slice.
@@ -127,7 +127,7 @@ wearing one button.
 
 ### 3a. `kgsm-api` — the batch
 
-**`POST /api/v1/servers/commands`** (Operator). Body `{ verb, serverIds[], runId, origin }`. Responds
+**`POST /api/v1/servers/commands`** (each member's verb action, per server). Body `{ verb, serverIds[], runId, origin }`. Responds
 `202` with `{ batchId, runId, admitted: [serverId], refused: [{ serverId, reason }] }` — the API's
 own preflight, evaluated through `CommandGate` and the in-flight check, so the browser is told what
 will actually run before it commits. Refusals are named on arrival, not discovered one at a time. A
@@ -180,13 +180,13 @@ position is real; a predicted time would not be.
 work is reachable through `activeJob` and the batch reads. A third way to ask the same question is a
 third thing to keep consistent.
 
-**`GET /api/v1/batches?active=true` and `GET /api/v1/batches/{id}`** (Viewer). How a client that
+**`GET /api/v1/batches?active=true` and `GET /api/v1/batches/{id}`** (`api:batches.read`). How a client that
 reconnects — or a *different* client, or a different person — picks up a run in progress. Without
 this the durability is real but invisible, which is the same defect wearing a nicer hat. Every row
 carries its `runId`, so a client fanning this read across the cluster can reassemble a run it never
 dispatched.
 
-**`DELETE /api/v1/batches/{id}`** (Operator) — cancels **pending** members only. A kgsm invocation
+**`DELETE /api/v1/batches/{id}`** (`api:batches.cancel`) — cancels **pending** members only. A kgsm invocation
 already in flight is not interruptible, and the response says which members it could not stop rather
 than implying a clean halt.
 
