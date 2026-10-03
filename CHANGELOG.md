@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the catalog card comes from the design system (3.2.8)
+
+The catalog card's look is `@thekrystalship/krystal-ui` 0.5.0's `ShowcaseCard`, which Krystal Cinema
+shows its films with; `GameCard` still decides everything it says (the host chip, the server count or
+New, players, RAM and disk, the fit or credential gate, Deploy, Manage or View). The card's classes
+are `showcase-card*` and `showcase-spec*`. On the Catalog page at desktop and phone widths and on the
+dashboard's catalog rail, every element's box, computed style and text matches the previous build.
+
 ### Changed — the footer comes from the design system (3.2.7)
 
 The footer is `@thekrystalship/krystal-ui` 0.4.0's `Footer`, which Krystal Cinema ends its pages with

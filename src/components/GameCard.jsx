@@ -1,4 +1,4 @@
-import { Icon, useStore } from "@thekrystalship/krystal-ui";
+import { ShowcaseCard, useStore } from "@thekrystalship/krystal-ui";
 import { can } from "../lib/persona.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
@@ -7,7 +7,8 @@ import { blueprintFit, hostAvailabilityLabel, instancesOfBlueprint } from "../li
 
 // GameCard.jsx — the catalog game card. One card, wherever a blueprint is shown: the Catalog page's
 // grid and the dashboard's catalog rail render the same component with the same props, so a fact
-// added to it appears on both and neither can quietly say less than the other.
+// added to it appears on both and neither can quietly say less than the other. What it says is
+// decided here; how it looks is the design system's ShowcaseCard.
 //
 // `onDeploy` and `headroom` are OPTIONAL, and their absence is a fact rather than a lesser variant.
 // A surface that cannot start an install passes no `onDeploy` and the card's action reads "View"; a
@@ -51,89 +52,39 @@ function GameCard({ game, onPick, onDeploy, addedNow, headroom }) {
       + (fit.hostName ? " · " + fit.hostName : "") + " has " + fit.freeGb + " GB free right now"
       + " — a comparison of two measured figures, not a guarantee";
 
+  // One status slot, one precedence: an installed card reports its servers; otherwise a GATE outranks
+  // a fit, because a blueprint you cannot install without credentials is a different kind of answer
+  // from one that would be a squeeze. An installed card never shows a fit — the question is settled.
+  const status = installed
+    ? (onlineCount > 0
+        ? { tone: "active", live: true, label: onlineCount + " online" }
+        : { tone: "active", label: "Idle · not running" })
+    : gate ? { tone: "notice", icon: "lock", label: gate.label, title: gate.title }
+    : fit ? { tone: fit.tight ? "warning" : "success", icon: fit.tight ? "triangle-alert" : "circle-check",
+              label: fit.tight ? "Tight fit" : "Room for this", title: fitTitle }
+    : null;
+
   return (
-    <article
-      className={"bp-card" + (installed ? " bp-card--installed" : "")}
-      onClick={() => onPick(game)}
-      role="button" tabIndex={0}
-      onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); onPick(game); } }}
-    >
-      <div className="bp-card__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}>
-        {hostLabel && (
-          <span className="bp-card__host" title={"Only available on " + hostLabel.replace(/ only$/, "")}>
-            <Icon name="server" size={11} strokeWidth={2.1} /> {hostLabel}
-          </span>
-        )}
-        {installed ? (
-          <span className="bp-card__run" title={count + " server" + (count === 1 ? "" : "s") + " from this blueprint"}>
-            <span className={"bp-card__rundot" + (onlineCount ? " is-live" : "")}></span>
-            {count} {count === 1 ? "server" : "servers"}
-          </span>
-        ) : isNew ? (
-          <span className="bp-card__new">New</span>
-        ) : null}
-        <div className="bp-card__veil"></div>
-        <h3 className="bp-card__name">{game.name}</h3>
-      </div>
-
-      <div className="bp-card__specs">
-        <div className={"bp-spec" + (game.players == null ? " bp-spec--unknown" : "")}>
-          {/* A blueprint that declares no capacity says so. Rendering the null left an icon with
-              nothing beside it, which reads as a broken card rather than an unknown figure. */}
-          <span className="bp-spec__val"><Icon name="users" size={12} strokeWidth={2} /> {game.players ?? "—"}</span>
-          <span className="bp-spec__lbl">Players</span>
-        </div>
-        <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="memory-stick" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.recommendedRamMb)}</span>
-          <span className="bp-spec__lbl">RAM</span>
-        </div>
-        <div className="bp-spec">
-          <span className="bp-spec__val"><Icon name="hard-drive" size={12} strokeWidth={2} /> {fmtFootprintMb(game.specs && game.specs.baseDiskMb)}</span>
-          <span className="bp-spec__lbl">Disk</span>
-        </div>
-      </div>
-
-      <div className="bp-card__foot">
-        {installed ? (
-          <span className="bp-card__status bp-card__status--on">
-            {onlineCount > 0
-              ? <><span className="bp-card__livedot"></span>{onlineCount} online</>
-              : <>Idle · not running</>}
-          </span>
-        ) : (
-          /* One slot, one precedence: a GATE outranks a fit, because a blueprint you cannot install
-             without credentials is a different kind of answer from one that would be a squeeze.
-             An installed card never shows a fit at all — the question is already settled. */
-          gate ? (
-            <span className="bp-card__status bp-card__status--gate" title={gate.title}>
-              <Icon name="lock" size={11} /> {gate.label}
-            </span>
-          ) : fit ? (
-            <span className={"bp-card__status bp-card__status--" + (fit.tight ? "tight" : "fits")}
-              title={fitTitle}>
-              <Icon name={fit.tight ? "triangle-alert" : "circle-check"} size={11} />
-              {fit.tight ? "Tight fit" : "Room for this"}
-            </span>
-          ) : <span className="bp-card__status"></span>
-        )}
-        {canDeploy ? (
-          <button
-            type="button"
-            className="bp-card__cta bp-card__cta--act"
-            title={"Deploy a new " + game.name + " server"}
-            onClick={e => { e.stopPropagation(); onDeploy(game); }}
-          >
-            Deploy <Icon name="arrow-right" size={13} strokeWidth={2.2} />
-          </button>
-        ) : (
-          <span className="bp-card__cta">
-            {(installed
-              ? (can("server.operate") ? "Manage" : "View")
-              : "View")} <Icon name="arrow-right" size={13} strokeWidth={2.2} />
-          </span>
-        )}
-      </div>
-    </article>
+    <ShowcaseCard
+      name={game.name}
+      art={bg}
+      onPick={() => onPick(game)}
+      corner={hostLabel ? { icon: "server", label: hostLabel, title: "Only available on " + hostLabel.replace(/ only$/, "") } : null}
+      badge={installed
+        ? { tone: "accent", dot: onlineCount ? "live" : "idle", label: count + " " + (count === 1 ? "server" : "servers"),
+            title: count + " server" + (count === 1 ? "" : "s") + " from this blueprint" }
+        : isNew ? { tone: "info", label: "New" } : null}
+      // A blueprint that declares no capacity says so: a null reads as a muted em-dash.
+      specs={[
+        { icon: "users", value: game.players, label: "Players" },
+        { icon: "memory-stick", value: fmtFootprintMb(game.specs && game.specs.recommendedRamMb), label: "RAM" },
+        { icon: "hard-drive", value: fmtFootprintMb(game.specs && game.specs.baseDiskMb), label: "Disk" },
+      ]}
+      status={status}
+      action={canDeploy
+        ? { label: "Deploy", title: "Deploy a new " + game.name + " server", onClick: () => onDeploy(game) }
+        : { label: installed && can("server.operate") ? "Manage" : "View" }}
+    />
   );
 }
 

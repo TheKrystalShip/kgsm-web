@@ -22,6 +22,7 @@
 @import "./kit/page.css";
 @import "@thekrystalship/krystal-ui/styles/hero.css";
 @import "./kit/server.css";
+@import "@thekrystalship/krystal-ui/styles/showcase.css";
 @import "./kit/catalog.css";
 @import "@thekrystalship/krystal-ui/styles/select.css";
 @import "@thekrystalship/krystal-ui/styles/portal.css";
