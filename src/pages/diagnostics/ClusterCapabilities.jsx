@@ -61,7 +61,7 @@ function ClusterCapabilities({ hovered, onHover, onSelect }) {
   const hosts = useStore(hostsStore, s => s.list);
   const roster = useStore(clusterStore, s => s.nodes);
   const capabilities = useStore(clusterStore, s => s.capabilities);
-  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const rosterManaged = useStore(clusterStore, s => s.managed);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
   const pingByHost = useStore(pingStore, s => s.byHost);
   const [assigning, setAssigning] = React.useState(null);
@@ -88,7 +88,7 @@ function ClusterCapabilities({ hovered, onHover, onSelect }) {
     return [...seen.values()].sort((a, b) => a.capability.localeCompare(b.capability));
   }, [capabilities]);
 
-  const canReassign = !!clusterAdmin && !!rosterFrom
+  const canReassign = !!rosterManaged && !!rosterFrom
     && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
 
   if (!rows.length) {

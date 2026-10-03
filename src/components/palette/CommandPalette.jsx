@@ -130,7 +130,7 @@ function Palette({ onClose, onInstall }) {
   // Neither `layout` nor `session` is read here, and both have to re-build the list. Pinning changes
   // the layout and the pin/unpin entries flip with it; a role changes what `sources.js` is allowed to
   // build at all, and permission is applied there rather than at render — so a palette left open
-  // across a regrade would keep offering verbs the node has stopped accepting.
+  // across a change of access would keep offering verbs the node has stopped accepting.
   const layout = useStore(dashboardStore, (s) => s.layout);
   const session = useStore(sessionStore, (s) => s.session);
   const entries = React.useMemo(

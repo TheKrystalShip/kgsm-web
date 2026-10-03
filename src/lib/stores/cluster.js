@@ -24,7 +24,8 @@ const clusterStore = createStore({
   status: "idle",
   error: null,
   everLoaded: false,
-  admin: false,
+  // Whether the management roster answered, which only somebody holding `api:members.manage` gets.
+  managed: false,
   // What one member said, before the anchor's answer was laid over it. Kept so the overlay can be
   // redone when the anchor answers second, which it usually does.
   rosterRows: [],
@@ -53,7 +54,6 @@ function fromPeerRow(row) {
     // block to read, so the roster is the only carrier a map has for it — an anchor above all.
     location: adaptLocation(row.location),
     peerId: row.id,
-    isAdmin: true,
   };
 }
 
@@ -72,7 +72,6 @@ function fromClusterNodeRow(row) {
     apiVersion: null,
     location: adaptLocation(row.location),
     peerId: null,
-    isAdmin: false,
   };
 }
 
@@ -81,13 +80,13 @@ function isForbidden(err) {
 }
 
 // Read one node's view of the roster: the management peer list, falling back to the
-// converged roster on a 403. Resolves { nodes, admin }, `admin` saying which answered.
+// converged roster on a 403. Resolves { nodes, managed }, `managed` saying which answered.
 function fetchRoster(hostId) {
   return api.members(hostId).list()
-    .then(rows => ({ nodes: rows.map(fromPeerRow), admin: true }))
+    .then(rows => ({ nodes: rows.map(fromPeerRow), managed: true }))
     .catch(err => {
       if (!isForbidden(err)) throw err;
-      return api.members(hostId).roster().then(rows => ({ nodes: rows.map(fromClusterNodeRow), admin: false }));
+      return api.members(hostId).roster().then(rows => ({ nodes: rows.map(fromClusterNodeRow), managed: false }));
     });
 }
 
@@ -152,16 +151,15 @@ function withAnchorRoster(rows) {
       apiVersion: null,
       location: said.location || null,
       peerId: null,
-      isAdmin: false,
     });
   }
   return merged;
 }
 
-function applyRoster(hostId, { nodes, admin }) {
+function applyRoster(hostId, { nodes, managed }) {
   clusterStore.setState(s => ({
     ...s, rosterRows: nodes, nodes: withAnchorRoster(nodes),
-    status: "ready", error: null, everLoaded: true, admin, rosterFrom: hostId,
+    status: "ready", error: null, everLoaded: true, managed, rosterFrom: hostId,
   }));
   // Fired alongside, not awaited: the roster is the answer this returns and a slower second
   // read must not hold it up. The store updates when it lands.

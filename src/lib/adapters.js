@@ -894,8 +894,8 @@ export function adaptIntegration(be) {
 }
 
 // ---- Assistant review (the leaf page's Overview + Conversations tabs) -----
-// GET /assistant/admin/conversations/stats|users|?user=…|/{handle}. The assistant leaf owns these
-// shapes and kgsm-api relays them verbatim, so these adapters only HARDEN — they never reshape.
+// GET /review/conversations/stats|users|?user=…|/{handle}, asked of the assistant itself. The
+// assistant owns these shapes, so these adapters only HARDEN — they never reshape.
 //
 // The honesty rule is the whole job here. The leaf deliberately distinguishes a COUNT (0 because the
 // thing did not happen) from an unmeasured DISTRIBUTION (null because nothing was measured), and that

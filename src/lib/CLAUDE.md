@@ -65,7 +65,7 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 **The assistant seam (a separate backend)**
 - `assistantClient.js` — the seam onto an assistant **leaf**, spoken directly on its own
   public origin. `assistant.host(id)` mirrors `api.host(id)`'s shape against the leaf's own
-  unprefixed routes (`/turn`, `/confirm`, `/conversations`, `/events`, `/admin/conversations/…`).
+  unprefixed routes (`/turn`, `/confirm`, `/conversations`, `/events`, `/review/conversations/…`).
   It records the id the leaf's `/events` stream hands out and sends it on **every** call as
   `X-Assistant-Origin`, so the events a call causes come back stamped and the surface that made
   it can decline to re-apply its own change. The id is per-connection, not per-host: it is
@@ -208,10 +208,11 @@ the `check:*` scripts load this layer in Node. `stores.js` re-exports `stores/` 
   away: a member that has no account for this person has said nothing about the account, and a
   `me.patch` saying `unknown` is ignored. What the person may do is `stores/access.js`.
   **A member's refusal is not the session's.** `nodes` records who is currently honouring it, which
-  is a different fact: a member verifies a signature offline but can only say what somebody may do
-  once its replica carries their account, so one that has just joined refuses a good session. A
-  **403** is never about the session (the token validated; the person is unknown there) and is
-  recorded at once; a **401** is ambiguous until a renewal settles it.
+  is a different fact: a member that has not yet heard which key and issuer to verify against
+  refuses a good session with a **401**, which is ambiguous until a renewal settles it and is recorded
+  against the member only once a fresh session is still refused. A **403** names one action the
+  person does not hold for that request; it says nothing about the session or the member and is
+  recorded nowhere.
 - `authStorage.js` — the app-shell user read/write, and the two one-shots the gate reads after a
   navigation: what the provider said when it sent the browser back without a session, and that a
   session ended while the panel was open.

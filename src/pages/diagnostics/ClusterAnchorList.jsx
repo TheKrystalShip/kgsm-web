@@ -132,7 +132,7 @@ function ClusterAnchorList({ hovered, onHover }) {
   const hosts = useStore(hostsStore, s => s.list);
   const members = useStore(clusterStore, s => s.nodes);
   const capabilities = useStore(clusterStore, s => s.capabilities);
-  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const rosterManaged = useStore(clusterStore, s => s.managed);
   const pingByHost = useStore(pingStore, s => s.byHost);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
 
@@ -144,7 +144,7 @@ function ClusterAnchorList({ hovered, onHover }) {
   // serves it, and it goes back to whichever member answered the roster on screen. Removing a
   // member is addressed with `peerId`, which only that member's peer table holds. Nothing is
   // selected here; the panel belongs to no member.
-  const canReassign = !!clusterAdmin && !!rosterFrom
+  const canReassign = !!rosterManaged && !!rosterFrom
     && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
 
   const orphaned = (capabilities || []).filter(c => c.orphaned);

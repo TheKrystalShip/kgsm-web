@@ -72,9 +72,8 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
       return;
     }
     if (res.status === "needs_auth") {
-      // id is null pre-login; a live sibling's post-reload vouch picks this up
-      // if (and only if) the node is now a federated peer — otherwise the app
-      // honestly surfaces the needs-auth/denied state after reload.
+      // id is null until the node answers. After the reload the cluster's session reaches it if
+      // (and only if) it is a member of this cluster — otherwise the app surfaces its refusal.
       addConnection(registryEntry(res.origin, nickname.trim() || res.name, null));
       window.location.reload();
       return;

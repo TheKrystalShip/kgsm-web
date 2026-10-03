@@ -129,11 +129,11 @@ function AccountsAdmin({ hostId }) {
                     {held && (
                       <span className="settings-users__roles">
                         {held.length === 0
-                          ? <span className="settings-users__tier">everyone</span>
+                          ? <span className="settings-users__role">everyone</span>
                           : held.slice(0, 3).map((a) => (
-                            <span key={a.id} className="settings-users__tier">{roleName(view, a.roleId)}</span>
+                            <span key={a.id} className="settings-users__role">{roleName(view, a.roleId)}</span>
                           ))}
-                        {held.length > 3 && <span className="settings-users__tier">+{held.length - 3}</span>}
+                        {held.length > 3 && <span className="settings-users__role">+{held.length - 3}</span>}
                       </span>
                     )}
                     <span className={"settings-users__status settings-users__status--" + u.status}>{STATUS_LABEL[u.status] || u.status}</span>
@@ -355,7 +355,7 @@ function UserSessions({ hostId, user, disabled }) {
 
   const run = () => {
     if (!confirm) return;
-    const all = confirm.mode === "admin-all";
+    const all = confirm.mode === "other-all";
     setBusy(all ? "all" : confirm.sid);
     const call = all
       ? api.sessions(hostId).revokeUser(user.id)
@@ -372,7 +372,7 @@ function UserSessions({ hostId, user, disabled }) {
         {rows && rows.length > 0 && (
           <button type="button" className="settings-users__sessions-all"
             disabled={disabled || busy != null}
-            onClick={() => setConfirm({ mode: "admin-all" })}>
+            onClick={() => setConfirm({ mode: "other-all" })}>
             {busy === "all" ? "Signing out…" : "Sign out everywhere"}
           </button>
         )}
@@ -395,7 +395,7 @@ function UserSessions({ hostId, user, disabled }) {
           <span className="settings-users__session-when">{seenLabel} {rel(s.lastSeen)}</span>
           <button type="button" className="settings-link__btn"
             disabled={disabled || busy != null}
-            onClick={() => setConfirm({ mode: "admin-one", sid: s.sid })}>
+            onClick={() => setConfirm({ mode: "other-one", sid: s.sid })}>
             {busy === s.sid ? "Ending…" : "End"}
           </button>
         </div>

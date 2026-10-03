@@ -1,39 +1,27 @@
 import { Icon, Modal } from "@thekrystalship/krystal-ui";
 
-// ConfirmRevokeDialog — the confirmation in front of ending a session, shared by the two surfaces
-// that end one: your own devices in Settings, and somebody holding auth:accounts.disable acting on
-// another person from the Accounts page. One component because it is one destructive act, and two implementations of
-// "are you sure" is how the two come to promise different things about what they do.
+// ConfirmRevokeDialog — the confirmation in front of ending somebody else's session, for whoever
+// holds auth:accounts.disable on the Accounts page. A person's own sessions are ended on the
+// provider's account page, which asks for its own confirmation.
 //
 // Shaped like RemoveHostDialog (pages/diagnostics/diagHostCards.jsx) — it reuses that dialog's
 // `.host-remove` / `.host-btn` classes rather than adding a parallel set.
 //
-// Four variants over the same markup:
-//   "one"       — self-service, one of the caller's own sessions
-//   "all"       — self-service, every one of them (always includes the caller's current session)
-//   "admin-one" — one of another person's sessions
-//   "admin-all" — every one of another person's, on every device
+// Two variants over the same markup:
+//   "other-one" — one of another person's sessions
+//   "other-all" — every one of another person's, on every device
 //
-// The other-person variants take `targetName` so the copy names who is affected. A destructive action
-// against another person is never anonymous: whoever is about to sign somebody out is owed the name
-// they will have to explain it to.
+// Both take `targetName` so the copy names who is affected. A destructive action against another
+// person is never anonymous: whoever is about to sign somebody out is owed the name they will have
+// to explain it to.
 function ConfirmRevokeDialog({ mode, targetName, busy, onConfirm, onClose }) {
-  const isAdmin = mode === "admin-one" || mode === "admin-all";
-  const isAll = mode === "all" || mode === "admin-all";
+  const isAll = mode === "other-all";
   const who = targetName || "that account";
 
-  let title = "Log out this device?";
-  let text = "This ends the session on that device. If it's your current device, you'll need to sign in again.";
-  if (mode === "all") {
-    title = "Log out everywhere?";
-    text = "This ends every active session on every device, including this one. You'll need to sign in again.";
-  } else if (mode === "admin-one") {
-    title = `End this session for ${who}?`;
-    text = `This ends that one session. ${who}'s other devices stay signed in.`;
-  } else if (mode === "admin-all") {
-    title = `Sign ${who} out everywhere?`;
-    text = `This ends every active session for ${who}, on every device. They can sign in again straight away — this ends the sessions, it does not disable the account.`;
-  }
+  const title = isAll ? `Sign ${who} out everywhere?` : `End this session for ${who}?`;
+  const text = isAll
+    ? `This ends every active session for ${who}, on every device. They can sign in again straight away — this ends the sessions, it does not disable the account.`
+    : `This ends that one session. ${who}'s other devices stay signed in.`;
 
   return (
     <Modal onClose={busy ? undefined : onClose} canClose={!busy}>
@@ -47,9 +35,7 @@ function ConfirmRevokeDialog({ mode, targetName, busy, onConfirm, onClose }) {
           <button className="host-btn host-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
           <button className="host-btn host-btn--danger" onClick={onConfirm} disabled={busy}>
             <Icon name="log-out" size={14} />{" "}
-            {busy
-              ? (isAdmin ? "Working…" : "Logging out…")
-              : (isAdmin ? (isAll ? "Sign out" : "End session") : "Log out")}
+            {busy ? "Working…" : isAll ? "Sign out" : "End session"}
           </button>
         </div>
       </div>

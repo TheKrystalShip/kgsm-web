@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the assistant's review and own surface at its new routes (3.3.0)
+
+The conversation review is asked of the assistant at `/review/conversations…` and an anchor
+assistant's own surface (configuration, unit, journal, commands) at `/component`, the routes
+kgsm-llm 4.0.0 serves; the panel and that release deploy together. A `403` from a node is the one
+action that request needed and is no longer recorded as the node refusing the session, so "Your
+access" lists a node as not served only when it cannot verify the session. The cluster store's
+`managed` says whether the management roster answered, the revoke dialog's two modes are
+`other-one` and `other-all`, and the "Your access" and Accounts chips are `settings-access__state`
+and `settings-users__role`.
+
 ### Fixed — a list's Filters and Sort on a phone (3.2.9)
 
 On a screen 600px or narrower, a list's Filters and Sort popovers hang from the toolbar and span it

@@ -193,7 +193,6 @@ const ICON_TRIE = ns("circle-dot", {
     provision: ns("user-plus"),
     approve:   ns("user-check"),
     disable:   ns("user-x"),
-    tier:      ns("shield-alert"),
     delete:    ns("user-minus"),
     password:  ns("key-round"),
   }),

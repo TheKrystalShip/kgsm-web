@@ -336,8 +336,8 @@ function AppInner({ user, setUser, route, setRoute }) {
     const refusal = refusingNodes[h.id];
     return h.online && can("server.create", { hostId: h.id }) && !(refusal && refusal.accepts === "refusing");
   });
-  // An install nobody may make does not stay on screen with its fields. A role can be regraded while
-  // the form is open, and a form with no node left to install on is one whose button can only be
+  // An install nobody may make does not stay on screen with its fields. What somebody may do can
+  // change while the form is open, and a form with no node left to install on is one whose button can only be
   // refused — so it closes rather than collecting a config for a request that cannot be made.
   React.useEffect(() => {
     if (installing && !installTargets.length) { setInstalling(null); setInstallError(null); }

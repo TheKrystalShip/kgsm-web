@@ -381,9 +381,9 @@ from the sidebar's foot. A toast's `subject` is the id of the server it was abou
 **The rule: a toast reports the outcome of something the user DID, or a change to what
 THIS BROWSER may do — never something that merely happened to the fleet.** Fleet events
 have the Alerts feed, the tiles and Recent activity; routing those here would bury the
-panel during a mass restart. The second half has exactly one occupant: a role regraded
-under somebody mid-session (`sessionStore.onTierChange` → `App.jsx`), which is this panel
-changing under the person reading it rather than news from the fleet.
+panel during a mass restart. The second half has exactly one occupant: what the person may do
+changing mid-session (`accessStore.onChange` → `App.jsx`), which is this panel changing under the
+person reading it rather than news from the fleet.
 
 It exists for the **shell-level** handlers only. Every write path that owns a
 component already renders its error beside the control that failed

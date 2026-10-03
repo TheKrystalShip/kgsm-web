@@ -131,10 +131,10 @@ check(heldN === minted, "the bearer the renewal minted is the one held", String(
 check(stored() && stored().refresh_token === "refresh.2", "and the rotated refresh token replaces the spent one");
 
 // 5. A member refusing is a fact about THAT MEMBER and leaves the session alone.
-sessionStore.markNode("node-b", "refusing", "unknown_here");
+sessionStore.markNode("node-b", "refusing", "unverified_here");
 check(sessionStore.isLive(), "a member refusing does not end the session");
 check(sessionStore.nodeAccepts("hotrod") && !sessionStore.nodeAccepts("node-b"), "it is recorded against that member and no other");
-check(sessionStore.nodeRefusal("node-b").reason === "unknown_here", "carrying WHICH refusal, since the two resolve differently");
+check(sessionStore.nodeRefusal("node-b").reason === "unverified_here", "carrying the refusal it gave");
 
 // 6. A renewed session is re-offered to every member that was refusing it.
 await sessionStore.rotate();

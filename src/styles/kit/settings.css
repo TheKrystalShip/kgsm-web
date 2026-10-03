@@ -305,9 +305,9 @@
   font-size: 11.5px;
 }
 
-/* The role chip on "Your access". Three tones, none of them inventing a state: ok = a real role,
-   warn = waiting on somebody, muted = no role here. */
-.settings-access__tier {
+/* The state chip on "Your access". Three tones, none of them inventing a state: ok = an active
+   account or an Owner, warn = waiting on somebody, muted = a member that has not answered. */
+.settings-access__state {
   padding: 3px 9px;
   border-radius: var(--r-pill);
   font-size: 11px;
@@ -315,17 +315,17 @@
   white-space: nowrap;
 }
 
-.settings-access__tier--ok {
+.settings-access__state--ok {
   background: var(--success-bg);
   color: var(--success-fg);
 }
 
-.settings-access__tier--warn {
+.settings-access__state--warn {
   background: var(--warning-bg);
   color: var(--warning-fg);
 }
 
-.settings-access__tier--muted {
+.settings-access__state--muted {
   background: var(--surface-3);
   color: var(--fg-3);
 }
@@ -517,7 +517,7 @@
   white-space: nowrap;
 }
 
-.settings-users__tier,
+.settings-users__role,
 .settings-users__status {
   flex: 0 0 auto;
   font-size: 11px;
@@ -527,16 +527,6 @@
   background: var(--veil-1);
   color: var(--fg-3);
   white-space: nowrap;
-}
-
-.settings-users__tier--admin {
-  background: var(--danger-bg, rgba(239, 68, 68, .12));
-  color: var(--danger);
-}
-
-.settings-users__tier--operator {
-  background: var(--warn-bg, rgba(245, 158, 11, .12));
-  color: var(--warn, var(--fg-2));
 }
 
 .settings-users__status--active {

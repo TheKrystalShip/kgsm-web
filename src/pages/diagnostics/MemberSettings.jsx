@@ -149,12 +149,12 @@ function MemberMembership({ member, rosterFrom }) {
 // `member` is the roster row — the only thing that carries the peer handle a removal is addressed
 // with. `host` is the connected host behind it, present for a node and absent for an anchor.
 function MemberSettings({ member, host }) {
-  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const rosterManaged = useStore(clusterStore, s => s.managed);
   const rosterFrom = useStore(clusterStore, s => s.rosterFrom);
   const roster = useStore(clusterStore, s => s.nodes);
   // Each card is the request it sends: naming the node to that node, moving a capability and removing
   // a member to the node the roster is read through.
-  const viaRoster = !!clusterAdmin && !!rosterFrom;
+  const viaRoster = !!rosterManaged && !!rosterFrom;
   const canManage = viaRoster && mayCall({ hostId: rosterFrom }, "PUT", "/members/capabilities/_");
   const canRemove = viaRoster && !!member
     && mayCall({ hostId: rosterFrom }, "DELETE", "/members/" + encodeURIComponent(member.nodeId));

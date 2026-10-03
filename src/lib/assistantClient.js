@@ -412,13 +412,13 @@ function host(hostId) {
     runCommand: (name, body) => jsonOnce(hostId, "POST", "/commands/" + encodeURIComponent(name), body || {}),
     feedback: (id, turnId, body) =>
       json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/turns/" + turnId + "/feedback", body),
-    // The conversation review surfaces, on the leaf's own /admin group.
-    reviewUsers: (opts) => json(hostId, "GET", "/admin/conversations/users", null, opts),
-    reviewStats: (query, opts) => json(hostId, "GET", "/admin/conversations/stats" + (query || ""), null, opts),
+    // The conversation review surfaces, on the assistant's own /review group.
+    reviewUsers: (opts) => json(hostId, "GET", "/review/conversations/users", null, opts),
+    reviewStats: (query, opts) => json(hostId, "GET", "/review/conversations/stats" + (query || ""), null, opts),
     reviewConversations: (user, opts) =>
-      json(hostId, "GET", "/admin/conversations?user=" + encodeURIComponent(user), null, opts),
+      json(hostId, "GET", "/review/conversations?user=" + encodeURIComponent(user), null, opts),
     reviewConversation: (handle, opts) =>
-      json(hostId, "GET", "/admin/conversations/" + encodeURIComponent(handle), null, opts),
+      json(hostId, "GET", "/review/conversations/" + encodeURIComponent(handle), null, opts),
     // Web Push, which the leaf owns end to end — its own key, its own devices, its own staged
     // buttons. It announces exactly one thing: an action it staged and is waiting on you for. Fleet
     // events are the Control Panel's, on its own origin, and duplicating them here would notify one

@@ -69,14 +69,14 @@ function SettingsAccess() {
     <SettingsSection icon="shield-check" title="Your access">
       <SettingsRow icon="key-round" title="Account"
         tone={account === "active" || account === "open" ? undefined : "warn"}>
-        <span className={"settings-access__tier settings-access__tier--" + (account === "active" || account === "open" ? "ok" : "warn")}>
+        <span className={"settings-access__state settings-access__state--" + (account === "active" || account === "open" ? "ok" : "warn")}>
           {ACCOUNT_TEXT[account] || "No account"}
         </span>
       </SettingsRow>
 
       {owner && (
         <SettingsRow icon="crown" title="Owner" sub="Every action, everywhere">
-          <span className="settings-access__tier settings-access__tier--ok">Owner</span>
+          <span className="settings-access__state settings-access__state--ok">Owner</span>
         </SettingsRow>
       )}
 
@@ -94,16 +94,14 @@ function SettingsAccess() {
       {silent.map((k) => (
         <SettingsRow key={k} icon="circle-help" title={memberName(k)} tone="warn"
           sub={STATE_TEXT[sources[k].state] || sources[k].state}>
-          <span className="settings-access__tier settings-access__tier--muted">Unknown</span>
+          <span className="settings-access__state settings-access__state--muted">Unknown</span>
         </SettingsRow>
       ))}
 
       {refusing.map((id) => (
         <SettingsRow key={id} icon="server-off" title={nodeLabel(id, hosts)} tone="warn"
-          sub={nodes[id].reason === "unknown_here"
-            ? "This node grants your account nothing."
-            : "This node can’t verify your session yet."}>
-          <span className="settings-access__tier settings-access__tier--muted">Not served</span>
+          sub="This node can’t verify your session yet.">
+          <span className="settings-access__state settings-access__state--muted">Not served</span>
         </SettingsRow>
       ))}
 

@@ -94,8 +94,8 @@ export function setAppUser(user) { try { localStorage.setItem(AUTH_LS_KEY, JSON.
 //
 // JOINING is deliberately conservative: only an enabled node carrying BOTH a
 // nodeId and a clientUrl, and reading BOTH alive (gossip membership) AND reachable
-// (status probe), is registered. That is the one legitimate vouch target, and it is
-// the only state in which adding a URL cannot strand a dead connection that trips
+// (status probe), is registered. That is the only state in which adding a URL
+// cannot strand a dead connection that trips
 // the app-wide banner and never self-heals. A node missing either field, or not yet
 // verified, stays a visible ghost on the Cluster page instead — never fabricated
 // into a connection.

@@ -170,10 +170,9 @@ import { hostsStore } from "./stores.js";
 
   // ---- per-node acceptance ------------------------------------------------
   // Who is currently honouring the one session. Written by the seam, read by the surfaces that name
-  // a node. `refusing` is a fact about that member and carries WHICH refusal it gave:
-  // `unknown_here` for a 403 (it knows the token, not the person) and `unverified_here` for a 401
-  // that survived a renewal (it could not check the token at all). Both clear the moment the member
-  // answers, and a renewed session clears every one of them, since none of them were about it.
+  // a node. `refusing` is a fact about that member: a 401 that survived a renewal, `unverified_here`,
+  // because it could not check the token at all. It clears the moment the member answers, and a
+  // renewed session clears every one of them, since none of them were about it.
   function nodeAccepts(id) { const n = store.getState().nodes[id]; return !n || n.accepts === "ok"; }
   function nodeRefusal(id) { const n = store.getState().nodes[id]; return n && n.accepts === "refusing" ? n : null; }
   function markNode(id, accepts, reason) {

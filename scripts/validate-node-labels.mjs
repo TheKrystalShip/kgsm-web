@@ -43,13 +43,12 @@ assert(!nodeLabel("_cold-boot", hosts).includes("_"),
 assert(isNamedNode("hotrod") && !isNamedNode("_cold-boot") && !isNamedNode(null),
   "a placeholder is not a node this browser drives");
 
-// The source of "null grants your account nothing": a fact recorded against a connection with no
-// id, then rendered by a banner that names the node. The session is no longer keyed by node, so it
-// cannot carry this — but which members are honouring it IS keyed, so the same sentence is one
-// unguarded write away and this is where that write is caught.
-sessionStore.markNode(null, "refusing", "unknown_here");
-sessionStore.markNode(undefined, "refusing", "unknown_here");
-sessionStore.markNode("", "refusing", "unknown_here");
+// A fact recorded against a connection with no id would be rendered by a banner that names the node
+// as "null". Which members are honouring the session is keyed by node, so that sentence is one
+// unguarded write away, and this is where that write is caught.
+sessionStore.markNode(null, "refusing", "unverified_here");
+sessionStore.markNode(undefined, "refusing", "unverified_here");
+sessionStore.markNode("", "refusing", "unverified_here");
 const keys = Object.keys(sessionStore.getState().nodes);
 assert(!keys.includes("null") && !keys.includes("undefined") && !keys.includes(""),
   "a member's refusal is never filed under a missing node id", keys.length ? keys.join(",") : "(none)");

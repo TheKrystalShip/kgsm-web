@@ -731,12 +731,9 @@ const ANCHOR_PATHS = {
       (ok) => { if (sessionStore && sessionStore.markNode) sessionStore.markNode(id, "ok"); return ok; },
       async err => {
         if (!err || !sessionStore) throw err;
-        // 403 is NEVER ambiguous. The member validated the token perfectly well and then resolved
-        // the person to a tier too low — which, for an account its replica does not carry, is
-        // `none`. So a 403 is always a statement about that member's view of this person and never
-        // about the session, and a member that has just joined answers it as a matter of course
-        // while its replica catches up.
-        if (err.code === 403) { if (sessionStore.markNode) sessionStore.markNode(id, "refusing", "unknown_here"); throw err; }
+        // A 403 names one action the person does not hold for that request. The member accepted the
+        // session to say so, so it is neither about the session nor about whether the member honours
+        // it, and it is left to the caller that made the request.
         if (err.code !== 401) throw err;
         // A funnel PRE-FLIGHT 401 (the renewal already failed → the session is dead) is not replayed;
         // re-running it fails identically and it belongs to the sign-in screen.

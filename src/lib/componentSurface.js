@@ -15,16 +15,16 @@ import { clusterCredential } from "./sessionStore.js";
 import { applyLeafConfig, fetchLeafCommands, fetchLeafConfig } from "./stores.js";
 
 // Where a capability's holder serves its own surface. Each anchor mounts the component routes under
-// the group it already gates — the auth anchor beneath the prefix its doors live on, the assistant
-// beneath the /admin group its conversation review is behind — so the prefix is the one thing that is
-// the capability's rather than the component contract's.
+// a prefix of its own — the auth anchor beneath the prefix its doors live on, the assistant under
+// /component — so the prefix is the one thing that is the capability's rather than the component
+// contract's.
 //
 // A capability absent here has no browser-reachable surface, and `anchorSurface` answers null rather
 // than guessing a prefix: a wrong one is a 404 on every tab, which reads as a component that answers
 // nothing instead of one the panel has not been taught to reach.
 const ANCHOR_BASE = {
   auth: "/auth",
-  assistant: "/admin",
+  assistant: "/component",
 };
 
 /** Whether this capability's holder serves a component surface a browser can read. */

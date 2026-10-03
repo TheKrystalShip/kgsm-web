@@ -57,12 +57,12 @@ function ClusterPage({ focusHostId, tab: tabProp, onTabChange, onFocusHost, onAs
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const manageable = hosts.filter(h => can("host.manage", { hostId: h.id }));
   const clusterNodesRaw = useStore(clusterStore, s => s.nodes);
-  const clusterAdmin = useStore(clusterStore, s => s.admin);
+  const rosterManaged = useStore(clusterStore, s => s.managed);
   const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
   // "Add node" federates through one node's peer roster (`api:members.manage`) as part of
   // the unified add flow. The modal names that node itself — a sole manageable
   // node is it, otherwise it asks — so the flow never guesses where to federate.
-  const canFederate = manageable.length > 0 && !!clusterAdmin;
+  const canFederate = manageable.length > 0 && !!rosterManaged;
   const pingByHost = useStore(pingStore, s => s.byHost);
   React.useEffect(() => { startPingLoop(); }, []);
   // The roster has ONE owner: cluster discovery keeps clusterStore current for
