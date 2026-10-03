@@ -1713,22 +1713,6 @@
   color: var(--fg-3);
 }
 
-/* nav badge severity tones */
-.nav-item__badge--danger {
-  background: var(--danger-bg);
-  color: var(--danger-fg);
-}
-
-.nav-item__badge--warn {
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-}
-
-.nav-item__badge--info {
-  background: var(--veil-2);
-  color: var(--fg-2);
-}
-
 .dash-head__src {
   color: var(--fg-4);
 }

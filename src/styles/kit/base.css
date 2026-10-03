@@ -44,25 +44,3 @@ body {
    border: 3px solid transparent;
    background-clip: padding-box;
 }
-
-/* App shell */
-.app {
-   display: grid;
-   grid-template-columns: var(--sidebar-w) 1fr;
-   height: 100vh;
-   background: var(--canvas);
-   box-sizing: border-box;
-   padding-right: var(--dock-push, 0px);
-   transition: grid-template-columns var(--d-base) var(--ease-out), padding-right var(--d-base) var(--ease-out);
-}
-
-.app__main {
-   display: flex;
-   flex-direction: column;
-   min-width: 0;
-   overflow-y: auto;
-   /* Size container: descendants (the footer) collapse on THIS column's width,
-     not the viewport's — so they respond to the pinned dock narrowing the page. */
-   container-type: inline-size;
-   container-name: appmain;
-}

@@ -1,5 +1,7 @@
 import React from "react";
-import { AccountAvatar, Icon, NotificationsPanel, useStore } from "@thekrystalship/krystal-ui";
+import {
+  AccountAvatar, Icon, NavItem, NotificationsPanel, Sidebar as SidebarFrame, SidebarGroup, useStore,
+} from "@thekrystalship/krystal-ui";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
@@ -7,7 +9,8 @@ import { coverArtBg } from "../lib/art.js";
 import { OAuthIcon, signInMethodLabel } from "./host-helpers.jsx";
 import { anchorAttentionStore, clusterStore, favoritesStore, serversStore, startAnchorAttention, stopAnchorAttention } from "../lib/stores.js";
 
-// Sidebar component — brand, primary nav, quick actions.
+// The panel's sidebar: the design system's frame, filled with the panel's nav, the favourites under
+// Servers, the nodes and the auth anchor under Cluster, and the tray, Settings and account in the foot.
 
 // Catalog nav label — read from the shared label map so it can't drift from the
 // dashboard's "Recently added" band or the breadcrumb. See labels.js KRYSTAL_LABELS.
@@ -289,92 +292,17 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
   const canAlerts = can("nav.alerts");
   const canAudit = can("nav.audit");
   const canCluster = can("nav.cluster");
+  // A count is in the rail's tooltip as well as on the badge, because the collapsed rail shrinks
+  // the badge to a pip.
+  const counted = (label, n) => label + (n > 0 ? " · " + n : "");
   return (
-    <aside className={"sidebar" + (open ? " sidebar--open" : "") + (collapsed ? " sidebar--rail" : "")}>
-      <div className="sidebar__brand">
-        <img src="/assets/tks-mark.png" width="32" height="32" alt="" style={{ objectFit: "contain" }} />
-        <span className="sidebar__brand-wordmark">Krystal Ship</span>
-        <button
-          type="button"
-          className="sidebar__collapse"
-          onClick={onToggleCollapse}
-          data-tip={collapsed ? "Expand" : "Collapse"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          <Icon name={collapsed ? "panel-left-open" : "panel-left-close"} size={16} />
-        </button>
-      </div>
-      {/* Four groups, separated by a hairline and named by nothing. A label costs a row to say what
-          the icons beside it already say, and the collapsed rail has always hidden them — so both
-          modes read the same way now rather than each having its own idiom.
-
-          A group the caller holds nothing of is ABSENT, not empty: the hairline is drawn between
-          groups, so one left standing would rule off a space with nothing in it. Somebody holding
-          no server read, alerts or roster gets one group and no separator, not a ladder. */}
-      <nav className="sidebar__nav">
-        {canDashboard && (
-        <div className="sidebar__group">
-          <div className={"nav-item" + (isActive("home") ? " nav-item--active" : "")} onClick={go("home")} data-tip="Home" aria-label="Home">
-            <Icon name="home" size={16} />
-            <span className="nav-item__label">Home</span>
-          </div>
-        </div>
-        )}
-        <div className="sidebar__group">
-          <div className={"nav-item" + (isActive("servers") ? " nav-item--active" : "")} onClick={go("servers")} data-tip={"Servers" + (serversCount > 0 ? " · " + serversCount : "")} aria-label="Servers">
-            <Icon name="server" size={16} />
-            <span className="nav-item__label">Servers</span>
-            {serversCount > 0 && <span className={"nav-item__badge nav-item__badge--" + serversTone}>{serversCount}</span>}
-          </div>
-          {/* The favourites belong to Servers the way the nodes belong to Cluster: each is a shortcut
-              INTO the list above it, not a peer of the links beside it. */}
-          <SidebarFavorites
-            ids={favIds}
-            hostById={favHostById}
-            servers={servers}
-            hosts={hosts}
-            activeId={route.kind === "server" ? route.id : null}
-            onOpen={(id) => onNavigate && onNavigate({ kind: "server", id })}
-            onViewAll={go("servers")} />
-          <div className={"nav-item" + (isActive("library") ? " nav-item--active" : "")} onClick={go("library")} data-tip={CATALOG_LABEL} aria-label={CATALOG_LABEL}>
-            <Icon name="library" size={16} />
-            <span className="nav-item__label">{CATALOG_LABEL}</span>
-          </div>
-        </div>
-        {(canAlerts || canAudit) && (
-        <div className="sidebar__group">
-          {canAlerts && (
-          <div className={"nav-item" + (isActive("attention") ? " nav-item--active" : "")} onClick={go("attention")} data-tip={"Alerts" + (attentionCount > 0 ? " · " + attentionCount : "")} aria-label="Alerts">
-            <Icon name="triangle-alert" size={16} />
-            <span className="nav-item__label">Alerts</span>
-            {attentionCount > 0 && <span className={"nav-item__badge nav-item__badge--" + attentionTone}>{attentionCount}</span>}
-          </div>
-          )}
-          {canAudit && (
-          <div className={"nav-item" + (isActive("audit") ? " nav-item--active" : "")} onClick={go("audit")} data-tip="Audit log" aria-label="Audit log">
-            <Icon name="scroll-text" size={16} />
-            <span className="nav-item__label">Audit log</span>
-          </div>
-          )}
-        </div>
-        )}
-        {canCluster && (
-        <div className="sidebar__group">
-          <div className={"nav-item" + (isActive("cluster") ? " nav-item--active" : "")} onClick={go("cluster")} data-tip={"Cluster" + (clusterCount > 0 ? " · " + clusterCount : "")} aria-label="Cluster">
-            <Icon name="server-cog" size={16} />
-            <span className="nav-item__label">Cluster</span>
-            {clusterCount > 0 && <span className={"nav-item__badge nav-item__badge--" + clusterTone}>{clusterCount}</span>}
-          </div>
-          <SidebarNodes
-            hosts={hosts}
-            activeHostId={route.kind === "cluster" ? route.hostId : null}
-            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
-          <SidebarAnchor
-            activeHostId={route.kind === "cluster" ? route.hostId : null}
-            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
-        </div>
-        )}
-      </nav>
-      <div className="sidebar__foot">
+    <SidebarFrame
+      mark="/assets/tks-mark.png"
+      wordmark="Krystal Ship"
+      open={open}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      foot={<>
         {/* One tray above the account, and it is this browser's own: what YOU did in it, and how it
             went. Fleet-wide work the nodes are executing is the `fleet.runs` widget's, pinned to the
             dashboard by whoever wants it — a second tray here would read as one list with this, and
@@ -382,75 +310,63 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             Monitoring, which is what the AlertEngine says about the fleet. */}
         {/* A toast's subject is the id of the server it was about. */}
         <NotificationsPanel onOpen={(id) => onNavigate && onNavigate({ kind: "server", id })} />
-        <div className={"nav-item" + (isActive("settings") ? " nav-item--active" : "")} onClick={go("settings")} data-tip="Settings" aria-label="Settings">
-          <Icon name="settings" size={16} />
-          <span className="nav-item__label">Settings</span>
-        </div>
+        <NavItem icon="settings" label="Settings" active={isActive("settings")} onClick={go("settings")} />
         {/* Last, because it is the heaviest thing here — an avatar and two lines — and it anchors the
             foot rather than sitting in the middle of it. Its popover opens upward for the same
             reason. */}
         {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
-      </div>
-    </aside>
+      </>}>
+      {/* Four groups, separated by a hairline and named by nothing. A label costs a row to say what
+          the icons beside it already say, and the collapsed rail hides labels anyway, so both modes
+          read the same way.
+
+          A group the caller holds nothing of is ABSENT, not empty: the hairline is drawn between
+          groups, so one left standing would rule off a space with nothing in it. Somebody holding
+          no server read, alerts or roster gets one group and no separator, not a ladder. */}
+      {canDashboard && (
+        <SidebarGroup>
+          <NavItem icon="home" label="Home" active={isActive("home")} onClick={go("home")} />
+        </SidebarGroup>
+      )}
+      <SidebarGroup>
+        <NavItem icon="server" label="Servers" active={isActive("servers")} onClick={go("servers")}
+          badge={serversCount} tone={serversTone} tip={counted("Servers", serversCount)} />
+        {/* The favourites belong to Servers the way the nodes belong to Cluster: each is a shortcut
+            INTO the list above it, not a peer of the links beside it. */}
+        <SidebarFavorites
+          ids={favIds}
+          hostById={favHostById}
+          servers={servers}
+          hosts={hosts}
+          activeId={route.kind === "server" ? route.id : null}
+          onOpen={(id) => onNavigate && onNavigate({ kind: "server", id })}
+          onViewAll={go("servers")} />
+        <NavItem icon="library" label={CATALOG_LABEL} active={isActive("library")} onClick={go("library")} />
+      </SidebarGroup>
+      {(canAlerts || canAudit) && (
+        <SidebarGroup>
+          {canAlerts && (
+            <NavItem icon="triangle-alert" label="Alerts" active={isActive("attention")} onClick={go("attention")}
+              badge={attentionCount} tone={attentionTone} tip={counted("Alerts", attentionCount)} />
+          )}
+          {canAudit && <NavItem icon="scroll-text" label="Audit log" active={isActive("audit")} onClick={go("audit")} />}
+        </SidebarGroup>
+      )}
+      {canCluster && (
+        <SidebarGroup>
+          <NavItem icon="server-cog" label="Cluster" active={isActive("cluster")} onClick={go("cluster")}
+            badge={clusterCount} tone={clusterTone} tip={counted("Cluster", clusterCount)} />
+          <SidebarNodes
+            hosts={hosts}
+            activeHostId={route.kind === "cluster" ? route.hostId : null}
+            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
+          <SidebarAnchor
+            activeHostId={route.kind === "cluster" ? route.hostId : null}
+            onOpen={(id) => onNavigate && onNavigate({ kind: "cluster", hostId: id })} />
+        </SidebarGroup>
+      )}
+    </SidebarFrame>
   );
 }
 
-function TopNav({ tab, onTab, user, onLogout, onMenu, onHome, onAssistant, assistantOpen, onSettings }) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-
-  // Close menu on outside click.
-  const wrapRef = React.useRef(null);
-  React.useEffect(() => {
-    if (!menuOpen) return;
-    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setMenuOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [menuOpen]);
-
-  return (
-    <div className="topbar">
-      <button className="topbar__menu-btn" onClick={onMenu} aria-label="Open menu">
-        <Icon name="menu" size={18} />
-      </button>
-      <span className="topbar__brand-inline" onClick={onHome} style={{ marginRight: 8, cursor: "pointer" }}>
-        <img src="/assets/tks-mark.png" alt="" />
-        <span>Krystal</span>
-      </span>
-      <span className="topbar__spacer"></span>
-      <button
-        className={"topbar__assistant" + (assistantOpen ? " topbar__assistant--on" : "")}
-        onClick={onAssistant}
-        title="Toggle assistant"
-        aria-label="Toggle assistant">
-        <Icon name="bot" size={16} />
-        <span className="topbar__assistant__label">Assistant</span>
-      </button>
-      <div ref={wrapRef} style={{ position: "relative" }}>
-        <span className="topbar__account" onClick={() => setMenuOpen(o => !o)}>
-          <AccountAvatar user={user} size={24} />
-          <span className="topbar__account__label">{user.display || user.name}</span>
-          <Icon name="chevron-down" size={14} />
-        </span>
-        {menuOpen && (
-          <div className="topbar__account-menu">
-            <div className="topbar__account-menu__head">
-              <div className="topbar__account-menu__name">{user.display || user.name}</div>
-              <div className="topbar__account-menu__provider">
-                <OAuthIcon provider={user.provider} size={11} />
-                Signed in with {signInMethodLabel(user.provider)}
-              </div>
-            </div>
-            <div className="topbar__account-menu__item" onClick={() => { setMenuOpen(false); onSettings && onSettings(); }}><Icon name="settings" size={14} />Settings</div>
-            <div className="topbar__account-menu__item" onClick={() => { setMenuOpen(false); onSettings && onSettings(); }}><Icon name="key" size={14} />API tokens</div>
-            <div className="topbar__account-menu__item"><Icon name="circle-help" size={14} />Help & docs</div>
-            <div className="topbar__account-menu__item topbar__account-menu__item--danger" onClick={onLogout}>
-              <Icon name="log-out" size={14} />Sign out
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export { AccountAvatar, ServerListItem, Sidebar, SidebarAccount, SidebarNodes, TopNav };
+export { Sidebar };

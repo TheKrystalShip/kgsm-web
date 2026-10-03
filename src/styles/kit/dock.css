@@ -1,121 +1,7 @@
 /* ============================================================================
-   kit/dock.css — global assistant dock, mobile nav toggle, nav chips
-   Split out of the monolithic kit.css; imported by it in cascade order.
+   kit/dock.css — the assistant's chat inside the design system's dock: the pin
+   toggle, the host picker, the docked chat's header, and navigation chips
    ============================================================================ */
-/* ===============================================================
-   GLOBAL ASSISTANT DOCK
-   =============================================================== */
-.topbar__assistant {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 12px;
-  margin-right: 4px;
-  background: var(--surface-2);
-  border: var(--edge);
-  border-radius: var(--r-sm);
-  color: var(--fg-2);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-weight: 600;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.topbar__assistant:hover {
-  color: var(--fg-1);
-  border-color: var(--border-strong);
-  background: var(--surface-3);
-}
-
-.topbar__assistant--on {
-  background: var(--krystal-teal-dim);
-  border-color: var(--border-accent);
-  color: var(--krystal-teal);
-}
-
-.assistant-dock {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 420px;
-  max-width: 100vw;
-  background: var(--canvas);
-  border-left: 1px solid var(--border-strong);
-  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.4);
-  z-index: 60;
-  transform: translateX(100%);
-  transition: transform var(--d-base) var(--ease-out);
-  display: flex;
-  flex-direction: column;
-  padding: 0px;
-  box-sizing: border-box;
-}
-
-.assistant-dock.assistant-dock--open {
-  transform: translateX(0);
-}
-
-/* Push mode: the open dock reads as a layout column rather than a floating
-   overlay — .app reserves space via --dock-push, so content reflows left, and
-   the dock drops its heavy shadow (the border-left is the divider). */
-.assistant-dock--push {
-  box-shadow: none;
-}
-
-/* Persistent rail variant — always docked on the right, expands to the panel. */
-.assistant-rail {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 56px;
-  z-index: 58;
-  background: var(--surface-0);
-  border-left: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 0;
-}
-
-.assistant-rail__btn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--r-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--krystal-teal-dim);
-  border: var(--edge-accent);
-  color: var(--krystal-teal);
-  cursor: pointer;
-  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
-}
-
-.assistant-rail__btn:hover {
-  background: var(--krystal-teal);
-  color: var(--on-accent);
-}
-
-.assistant-rail__label {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-4);
-  user-select: none;
-}
-
-.assistant-rail__spacer {
-  flex: 1;
-}
-
 /* Pin toggle (dock header) */
 .chat-headbtn--pinned {
   background: var(--krystal-teal-dim);
@@ -125,102 +11,6 @@
 .chat-headbtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* Floating assistant launcher (FAB) — replaces the removed top-bar button.
-   Bottom-right, the same side the dock slides in from. */
-.assistant-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 55;
-  width: 52px;
-  height: 52px;
-  border-radius: var(--r-pill);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--krystal-teal);
-  color: var(--on-accent);
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-  transition: transform var(--d-fast) var(--ease-out), background var(--d-fast) var(--ease-out);
-}
-
-.assistant-fab:hover {
-  background: var(--krystal-teal-hover);
-  transform: translateY(-2px);
-}
-
-.assistant-fab:active {
-  transform: translateY(0);
-}
-
-/* ---------- Mobile nav toggle ---------------------------------------------
-   Visible, tappable opener for the off-canvas sidebar on phones. The left-edge
-   swipe is only a secondary accelerator (and unreliable — browsers steal the
-   edge-drag as "back"), so this is the reliable path. Hidden on desktop and
-   revealed in the ≤768px media query below.
-
-   A slim handle pinned to the middle of the left edge, exactly where the swipe
-   lives, so it reads as "the drawer pulls out from here". */
-.mnav {
-  display: none;
-}
-
-.mnav--edge {
-  position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 45;
-  align-items: center;
-  justify-content: center;
-  /* padding:0 + border-box kill the UA <button> padding that was eating the
-     narrow content box and flex-shrinking the chevron below its 16px. */
-  width: 24px;
-  height: 66px;
-  padding: 0;
-  box-sizing: border-box;
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: var(--edge);
-  border-left: none;
-  /* fg-4 so the chevron matches the Fleet-row "go" chevron (dash-fleet-row__go). */
-  color: var(--fg-4);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 3px 0 14px rgba(0, 0, 0, 0.35);
-  transition: background var(--d-fast) var(--ease-out),
-    color var(--d-fast) var(--ease-out);
-}
-
-.mnav--edge:active {
-  background: var(--surface-2);
-  color: var(--fg-1);
-}
-
-.mnav--edge:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
-}
-
-/* Keep the chevron out of flex-shrink so it renders at its full 16px — identical
-   to the Fleet-row "go" chevron (DashboardPage `dash-fleet-row__go`, also 16px). */
-.mnav--edge>svg {
-  flex: 0 0 auto;
-}
-
-/* Reveal on phones. Placed AFTER the base `.mnav { display: none }` so it wins
-   the cascade (equal specificity → later source order wins; a media query does
-   NOT bump priority on its own). */
-@media (max-width: 768px) {
-  .mnav--edge {
-    display: inline-flex;
-  }
 }
 
 /* Assistant host picker — which host's assistant the dock/page is addressing.
@@ -514,46 +304,6 @@
   padding: 10px;
 }
 
-/* Drag-to-resize handle on the dock's left edge. */
-.assistant-dock__resize {
-  position: absolute;
-  top: 0;
-  left: -3px;
-  bottom: 0;
-  width: 8px;
-  cursor: ew-resize;
-  z-index: 61;
-  touch-action: none;
-}
-
-.assistant-dock__resize::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 2px;
-  width: 3px;
-  height: 36px;
-  margin-top: -18px;
-  border-radius: var(--r-pill);
-  background: var(--border-strong);
-  transition: background var(--d-fast);
-}
-
-.assistant-dock__resize:hover::before,
-.assistant-dock__resize--active::before {
-  background: var(--krystal-teal);
-}
-
-/*
-@supports (padding: max(0px)) {
-  .assistant-dock {
-    padding-top: max(12px, env(safe-area-inset-top));
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
-    padding-right: max(12px, env(safe-area-inset-right));
-  }
-}
-*/
-
 /* ---------- navigation suggestion chips ---------- */
 .chat-navsugg {
   display: flex;
@@ -583,12 +333,7 @@
   border-color: transparent;
 }
 
-/* On phones the dock is full-width with a dimming scrim behind it. */
 @media (max-width: 768px) {
-  .assistant-dock {
-    width: 100vw;
-    border-left: none;
-  }
 
   /* nav + followup chips lose the avatar indent (matches other chat rows) */
   .chat-navsugg {

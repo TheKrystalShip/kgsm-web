@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the frame comes from the design system (3.2.5)
+
+The sidebar with its collapsed rail and phone drawer, the assistant dock with its resize handle, pin
+and launcher, the edge-swipe gesture and the server page's cinematic hero are
+`@thekrystalship/krystal-ui` 0.2.0's `AppShell`, `Sidebar`, `NavItem`, `Dock` and `Hero`. The panel
+fills them with what it shows. Every element's computed style matches on every main route, on
+desktop and phone, in both engines, with the sidebar expanded, collapsed, and beside a pinned dock.
+
+- On a phone, the open drawer dims the page behind it, and a tap there closes it; the edge handle is
+  hidden while the drawer is open.
+- The sidebar's links are reachable with the keyboard and open on Enter or Space; the current page's
+  link says so to a screen reader.
+
 ### Changed — the design system is a package (3.2.4)
 
 The tokens, themes, fonts and the primitives every screen is built from — the briefing card, rail,

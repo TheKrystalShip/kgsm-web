@@ -55,7 +55,9 @@ the panel, and that client imports nothing but the library.
 
 ## The design system is a package
 
-The components, stores and stylesheets every Krystal site is drawn from — the briefing card, rail,
+The components, stores and stylesheets every Krystal site is drawn from — the application frame
+(`AppShell`, the sidebar and its rail and drawer, the dock and its launcher, the cinematic hero,
+the edge-swipe gesture), the briefing card, rail,
 toolbar, paginator, select, modal, sub-tabs, settings furniture, theme picker, toasts and their tray,
 icons, avatar, the assistant's mark, `createStore`/`useStore`, the theme preference, `copyText`, the
 Web Push browser mechanics, and every token — are `@thekrystalship/krystal-ui` (`krystal-ui/` in the
@@ -104,8 +106,7 @@ an upward edge (a store importing a page, a component reaching into a page).
 3. **Big screens live in focused folders and modules — don't monolith.** The
    shell's satellite pieces are their own modules
    (`components/AssistantDockContext.jsx`, `components/Breadcrumb.jsx`,
-   `components/BootLanding.jsx`, `components/MobileNavToggle.jsx`,
-   `hooks/useRouteSync.js`, `hooks/useMobileSwipe.js`, `lib/authStorage.js`);
+   `components/BootLanding.jsx`, `hooks/useRouteSync.js`, `lib/authStorage.js`);
    the chat lives in `chat/` (shared by both surfaces; see above);
    `pages/DiagnosticsPage.jsx` and `pages/PerformanceTab.jsx` are thin entries
    over `pages/diagnostics/` and `pages/performance/`; the stores are domain
@@ -198,7 +199,7 @@ a parameter and **imports nothing** — a shared module reaching `apiClient` wou
 | `lib/` | Data layer + policy: apiClient, adapters, stores, persona, router, config | `lib/CLAUDE.md` |
 | `lib/stores/` | Domain-split reactive stores; `lib/stores.js` re-exports them | `lib/stores/CLAUDE.md` |
 | `components/` | The panel's shared UI over the design system's primitives | `components/CLAUDE.md` |
-| `hooks/` | `useRouteSync` (URL↔route sync), `useMobileSwipe` (drawer/dock gestures), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the account screens move when an anchor joins or leaves) | — |
+| `hooks/` | `useRouteSync` (URL↔route sync), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the account screens move when an anchor joins or leaves) | — |
 | `styles/` | Plain CSS: `kit.css` (barrel over the design system's sheets and `kit/`) → `consumer.css` | `styles/CLAUDE.md` |
 
 ## Guardrails (the ESLint gate)

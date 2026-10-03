@@ -1,7 +1,7 @@
 import React from "react";
 import { answersFor, assistantForHost, assistantTargets, resolveTarget, usableTargets } from "../lib/assistants.js";
 import { PREF_KEYS, prefsStore } from "../lib/stores/prefs.js";
-import { useStore } from "@thekrystalship/krystal-ui";
+import { useDock, useStore } from "@thekrystalship/krystal-ui";
 import { clusterStore } from "../lib/stores.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { serverHostId, serversStore } from "../lib/stores.js";
@@ -53,14 +53,10 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   const clusterCapabilities = useStore(clusterStore, s => s.capabilities);
   const prefsHydrated = useStore(prefsStore, s => s.hydrated);
   // ===== State =====
-  const [assistantOpen, setAssistantOpen] = React.useState(false);
+  // The dock's frame — open, width, pin and the push-or-float decision — is the design system's.
+  const dock = useDock({ storageKey: "krystal:dock", contentFloor: 1000 });
+  const { open: assistantOpen, setOpen: setAssistantOpen } = dock;
   const [assistantSeed, setAssistantSeed] = React.useState(null);
-  const tw = { dockBehavior: "auto", contentFloor: 1000, openByDefault: true };
-  const [manualPin, setManualPin] = React.useState(() => {
-    const v = localStorage.getItem("krystal:dock:pin");
-    return v === "1" ? true : v === "0" ? false : null;
-  });
-  const [vw, setVw] = React.useState(() => window.innerWidth);
   const [assistantHostId, setAssistantHostId] = React.useState(null);
   // The candidates and the current target, readable from the interaction callbacks below — which are
   // defined before either is derived, and read them only after a click. Kept in a ref rather than in
@@ -74,33 +70,8 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     setAssistantHostId(id);
     if (opts && opts.chosen) prefsStore.set(PREF_KEYS.ASSISTANT_TARGET, id || null);
   }, []);
-  const [dockWidth, setDockWidth] = React.useState(() => {
-    const saved = parseInt(localStorage.getItem("krystal:dock:width") || "", 10);
-    return saved && saved >= 320 && saved <= 900 ? saved : 420;
-  });
 
   // ===== Functions =====
-  const dockResize = React.useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = dockWidth;
-    const min = 320, max = Math.min(900, window.innerWidth - 80);
-    const onMove = (ev) => {
-      setDockWidth(Math.max(min, Math.min(max, startW + (startX - ev.clientX))));
-    };
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.body.style.userSelect = "";
-      const handle = document.querySelector(".assistant-dock__resize");
-      if (handle) handle.classList.remove("assistant-dock__resize--active");
-    };
-    document.body.style.userSelect = "none";
-    e.currentTarget.classList.add("assistant-dock__resize--active");
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-  }, [dockWidth]);
-
   const handleAssistantNavigate = React.useCallback((target) => {
     if (!target) return;
     if (target.kind === "server") setRoute({ kind: "server", id: target.serverId, tab: target.tab });
@@ -125,7 +96,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   const askAssistant = React.useCallback((serverId) => {
     if (serverId) scopeAssistant(serverHostId(serverId));
     setAssistantOpen(true);
-  }, [scopeAssistant]);
+  }, [scopeAssistant, setAssistantOpen]);
 
   const askAboutAlert = React.useCallback((item) => {
     if (item && item.serverId) setRoute({ kind: "server", id: item.serverId });
@@ -145,7 +116,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
       serverId: null,
       nonce: Date.now(),
     });
-  }, [scopeAssistant]);
+  }, [scopeAssistant, setAssistantOpen]);
 
   // Hand a NODE to the assistant, from the dashboard's node card. Same contract as every other
   // seeded ask: the dock opens on an assistant that can answer about that node, with an editable
@@ -160,7 +131,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
       serverId: null,
       nonce: Date.now(),
     });
-  }, [scopeAssistant, hosts]);
+  }, [scopeAssistant, setAssistantOpen, hosts]);
 
   // Opening the dock with nothing in hand names no node. The target comes from
   // the subject — the server behind askAssistant, the blueprint behind
@@ -168,26 +139,9 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
   // subject, from the dock's own host picker.
   const openAssistant = React.useCallback(() => {
     setAssistantOpen(true);
-  }, []);
+  }, [setAssistantOpen]);
 
   // ===== Effects =====
-  React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:width", String(dockWidth)); } catch {}
-  }, [dockWidth]);
-
-  React.useEffect(() => {
-    const onResize = () => setVw(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  React.useEffect(() => {
-    try {
-      if (manualPin == null) localStorage.removeItem("krystal:dock:pin");
-      else localStorage.setItem("krystal:dock:pin", manualPin ? "1" : "0");
-    } catch {}
-  }, [manualPin]);
-
   // Every assistant this browser could address, of both standings: the cluster's own, held by the
   // member the `assistant` capability is assigned to, and any node running one of its own. A
   // deployment with no cluster contributes an empty roster and gets exactly the leaf list it had.
@@ -217,24 +171,19 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- adopts the stored choice once, when the mirror lands; assistantHostId is read, not tracked
   }, [prefsHydrated]);
 
-  // Restore dock open/closed state across sessions
-  const storedOpenRef = React.useRef(localStorage.getItem("krystal:dock:open"));
+  // The dock comes back the way it was left, once there is an assistant for it to show — and open,
+  // on a wide screen, for somebody who has never closed it. A phone never opens it unasked: there
+  // it covers the whole page.
   const didInitOpen = React.useRef(false);
   React.useEffect(() => {
     if (didInitOpen.current) return;
     if (assistantHostList.length === 0) return;
     didInitOpen.current = true;
     if (window.innerWidth <= 768) return;
-    const stored = storedOpenRef.current;
-    if (stored === "0") return;
-    if (stored === "1") { openAssistant(); return; }
-    if (tw.openByDefault && tw.dockBehavior !== "rail") openAssistant();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot dock-open init guarded by didInitOpen; tw is a constant literal
+    if (dock.storedOpen === "0") return;
+    openAssistant();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot dock-open init guarded by didInitOpen
   }, [assistantHostList.length]);
-
-  React.useEffect(() => {
-    try { localStorage.setItem("krystal:dock:open", assistantOpen ? "1" : "0"); } catch {}
-  }, [assistantOpen]);
 
   // ===== Review mode (read-only replay of someone else's conversation) =====
   // Somebody reviewing a transcript sees it in THIS dock, rendered by the very same components that
@@ -251,7 +200,7 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
     if (!hostId || !conversation || !conversation.id) return;
     setReview({ hostId, conversation });
     setAssistantOpen(true);
-  }, []);
+  }, [setAssistantOpen]);
 
   // Leave review mode and return the dock to the reviewer's own chat. Called by the banner's exit and
   // whenever the dock is closed, so the dock can never reopen still showing someone else's chat.
@@ -259,39 +208,23 @@ function AssistantDockProvider({ hosts, setRoute, children }) {
 
   React.useEffect(() => { if (!assistantOpen) setReview(null); }, [assistantOpen]);
 
-  // ===== Layout derivations =====
-  const desktop = vw > 768;
-  const canPush = desktop && (vw - dockWidth) >= tw.contentFloor;
-  const effPush = manualPin == null ? canPush : (manualPin && canPush);
-  const pushingPanel = desktop && assistantOpen && (
-    tw.dockBehavior === "auto" ? effPush
-    : tw.dockBehavior === "rail" ? canPush
-    : false
-  );
-  const railMode = tw.dockBehavior === "rail" && desktop;
-
   // ===== Context value =====
   const value = React.useMemo(() => ({
+    dock,
     assistantOpen, setAssistantOpen,
     assistantSeed, setAssistantSeed,
-    manualPin, setManualPin,
-    vw, assistantHostId, setAssistantHostId, chooseAssistant,
-    dockWidth, setDockWidth,
-    tw, desktop, canPush, effPush, pushingPanel, railMode,
+    assistantHostId, setAssistantHostId, chooseAssistant,
     assistantHostList, usableAssistants, assistantHost,
-    dockResize, handleAssistantNavigate, openView,
+    handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, askAboutHost, askCreateBlueprint, openAssistant,
     review, openReview, exitReview,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tw is a fresh-per-render literal with constant contents; depping it would rebuild the context value every render
   }), [
+    dock,
     assistantOpen, setAssistantOpen,
     assistantSeed, setAssistantSeed,
-    manualPin, setManualPin,
-    vw, assistantHostId, setAssistantHostId, chooseAssistant,
-    dockWidth, setDockWidth,
-    desktop, canPush, effPush, pushingPanel, railMode,
+    assistantHostId, setAssistantHostId, chooseAssistant,
     assistantHostList, usableAssistants, assistantHost,
-    dockResize, handleAssistantNavigate, openView,
+    handleAssistantNavigate, openView,
     askAssistant, askAboutAlert, askAboutHost, askCreateBlueprint, openAssistant,
     review, openReview, exitReview,
   ]);

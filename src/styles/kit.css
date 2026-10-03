@@ -15,9 +15,11 @@
 @import "@thekrystalship/krystal-ui/styles/motion.css";
 
 @import "./kit/base.css";
+@import "@thekrystalship/krystal-ui/styles/shell.css";
 @import "./kit/shell.css";
 @import "@thekrystalship/krystal-ui/styles/subtabs.css";
 @import "./kit/page.css";
+@import "@thekrystalship/krystal-ui/styles/hero.css";
 @import "./kit/server.css";
 @import "./kit/catalog.css";
 @import "@thekrystalship/krystal-ui/styles/select.css";
@@ -40,6 +42,7 @@
 @import "@thekrystalship/krystal-ui/styles/settings.css";
 @import "./kit/settings.css";
 @import "@thekrystalship/krystal-ui/styles/assistant-icon.css";
+@import "@thekrystalship/krystal-ui/styles/dock.css";
 @import "./kit/dock.css";
 @import "./kit/hosts.css";
 @import "./kit/cluster.css";

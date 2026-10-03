@@ -7,67 +7,18 @@
    ---------------------------------------------------------------
    Strategy:
    - Desktop is the baseline (everything above already targets it).
-   - At ≤ 1024px (tablet) we shrink the sidebar and gutters.
-   - At ≤ 768px (phone) the sidebar becomes a slide-in drawer
-     triggered by a hamburger button in the topbar, every multi-
-     column grid stacks, the player table becomes vertical cards,
-     and the file browser stacks tree-above-editor.
+   - At ≤ 1024px (tablet) we shrink the gutters. The frame itself — the
+     sidebar's width, its drawer on phones — is the design system's.
+   - At ≤ 768px (phone) every multi-column grid stacks, the player
+     table becomes vertical cards, and the file browser stacks
+     tree-above-editor.
    - At ≤ 480px (small phone) we compact further.
    - Safe-area insets (`env(safe-area-inset-*)`) keep content out
      of iOS notch / home-indicator areas when used standalone.
    =============================================================== */
 
-/* ---------- Hamburger button — hidden on desktop, shown on mobile ---------- */
-.topbar__menu-btn {
-  display: none;
-  background: transparent;
-  border: var(--edge);
-  color: var(--fg-1);
-  width: 36px;
-  height: 36px;
-  border-radius: var(--r-sm);
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.topbar__menu-btn:hover {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
-}
-
-/* Inline brand in the topbar — only visible when the sidebar is off-canvas */
-.topbar__brand-inline {
-  display: none;
-}
-
-/* ---------- Sidebar scrim (visible only when drawer is open) ---------- */
-.sidebar-scrim {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, var(--scrim-base) 60%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 39;
-  animation: k-fade var(--d-base) var(--ease-out);
-}
-
 /* ---------- iOS standalone: pad for status bar + home indicator ---------- */
 @supports (padding: max(0px)) {
-  .topbar {
-    padding-top: env(safe-area-inset-top, 0);
-    padding-left: max(24px, env(safe-area-inset-left, 0));
-    padding-right: max(24px, env(safe-area-inset-right, 0));
-    box-sizing: content-box;
-  }
-
-  .sidebar {
-    padding-top: max(16px, env(safe-area-inset-top, 0));
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 0));
-  }
-
   .content {
     padding-bottom: max(24px, env(safe-area-inset-bottom, 0));
   }
@@ -96,7 +47,6 @@
    ============================================================ */
 @media (max-width: 1024px) {
   :root {
-    --sidebar-w: 220px;
     --gutter: 20px;
   }
 
@@ -134,104 +84,6 @@
    ============================================================ */
 @media (max-width: 768px) {
 
-  /* App shell turns into single-column. Sidebar becomes a drawer. */
-  .app {
-    display: block;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  .app__main {
-    height: 100vh;
-    height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Sidebar: off-canvas drawer */
-  .sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 280px;
-    z-index: 40;
-    transform: translateX(-100%);
-    transition: transform var(--d-base) var(--ease-out);
-    border-right: 1px solid var(--border-strong);
-    box-shadow: var(--shadow-2);
-  }
-
-  .sidebar--open {
-    transform: translateX(0);
-  }
-
-  .sidebar-scrim--open {
-    display: block;
-  }
-
-  /* Topbar: hamburger + brand on left, account on right.
-     Secondary tab links collapse — they live in the sidebar instead. */
-  .topbar {
-    /* min-height instead of height so the bar grows when safe-area-inset-top
-       pushes it down (iOS standalone + black-translucent status bar). */
-    min-height: 56px;
-    padding: 0 16px;
-    /* Re-apply the notch padding that the @supports block set — the shorthand
-       `padding: 0 16px` above would otherwise override it and run content
-       straight into the iPhone status bar. */
-    padding-top: env(safe-area-inset-top, 0);
-    gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-  }
-
-  .topbar__menu-btn {
-    display: inline-flex;
-  }
-
-  .topbar__link {
-    display: none;
-  }
-
-  .topbar__spacer {
-    flex: 1;
-  }
-
-  .topbar__account {
-    padding: 6px 8px;
-    font-size: 13px;
-  }
-
-  /* Hide the username text on phones — avatar + chevron is plenty. */
-  .topbar__account__label {
-    display: none;
-  }
-
-  .topbar__account-menu {
-    right: 0;
-    min-width: 220px;
-  }
-
-  /* Inline brand in the topbar so users still know where they are. */
-  .topbar__brand-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--fg-1);
-    letter-spacing: -0.01em;
-  }
-
-  .topbar__brand-inline img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-  }
-
   /* Content: tighter gutters, bigger taps */
   .content {
     padding: 16px;
@@ -240,18 +92,6 @@
 
   .content__breadcrumb {
     font-size: 12.5px;
-  }
-
-  /* No top bar and no top-anchored button any more — the mobile nav toggle is a
-     left-edge handle (vertically centred), so no top padding is needed to clear
-     it. The .mnav styles + their ≤768px reveal live in the .mnav section. */
-
-  /* Keep the FAB clear of the home indicator and landscape notch cutout. */
-  .assistant-fab {
-    right: max(16px, env(safe-area-inset-right, 0px));
-    bottom: max(16px, env(safe-area-inset-bottom, 0px));
-    width: 48px;
-    height: 48px;
   }
 
   /* Dashboard */
@@ -320,20 +160,6 @@
     width: 100%;
     justify-content: flex-start;
     padding-left: 42px;
-  }
-
-  /* Server hero */
-  .hero {
-    padding: 18px 18px;
-    min-height: 0;
-  }
-
-  .hero>.hero__content {
-    max-width: 100%;
-  }
-
-  .hero__name {
-    font-size: 22px;
   }
 
   .action-row {
@@ -903,11 +729,6 @@
     font-size: 22px;
   }
 
-  /* Discord page */
-  .topbar__account-menu {
-    right: 0;
-  }
-
   /* Forms: bump touch target heights */
   .field,
   .fb-editor__btn,
@@ -952,10 +773,6 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .hero__name {
-    font-size: 19px;
-  }
-
   .chip {
     height: 42px;
     font-size: 11px;
@@ -979,23 +796,12 @@
   .welcome-card__title {
     font-size: 20px;
   }
-
-  .topbar__brand-inline span {
-    display: none;
-  }
-
-  /* icon-only brand on tiny screens */
 }
 
 /* ============================================================
    LANDSCAPE PHONE — small heights
    ============================================================ */
 @media (max-height: 480px) and (max-width: 900px) {
-  .hero {
-    min-height: 0;
-    padding: 14px 18px;
-  }
-
   .console-card {
     min-height: 200px;
   }

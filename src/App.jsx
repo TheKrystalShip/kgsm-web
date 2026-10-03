@@ -5,7 +5,9 @@ import { ColdStartDown } from "./components/ErrorBoundary.jsx";
 import { NavProvider } from "./components/NavContext.jsx";
 import { KrystalFooter } from "./components/Footer.jsx";
 import { InstallModal } from "./components/InstallModal.jsx";
-import { AssistantFabIcon, Modal, Toasts, toast, useStore } from "@thekrystalship/krystal-ui";
+import {
+  AppShell, Dock, DockFab, Modal, Toasts, toast, useEdgeSwipe, useStore, useStoredFlag,
+} from "@thekrystalship/krystal-ui";
 import { alertBuckets, useAlerts } from "./components/NeedsAttention.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { api, connectionStore } from "./lib/apiClient.js";
@@ -27,9 +29,7 @@ import { BootFailed } from "./pages/auth/BootFailed.jsx";
 import { noteSessionEnded, readStoredUser, writeStoredUser } from "./lib/authStorage.js";
 import { Breadcrumb } from "./components/Breadcrumb.jsx";
 import { BootLanding } from "./components/BootLanding.jsx";
-import { MobileNavToggle } from "./components/MobileNavToggle.jsx";
 import { useRouteSync } from "./hooks/useRouteSync.js";
-import { useMobileSwipe } from "./hooks/useMobileSwipe.js";
 import { AppRouter } from "./components/AppRouter.jsx";
 
 // The widget catalog, registered at shell load. It MUST be eager: a pin lives on a card anywhere in
@@ -122,12 +122,11 @@ function App() {
 
 // AppInner — the real app body. Consumes dock state from context.
 function AppInner({ user, setUser, route, setRoute }) {
-  const dock = useAssistantDock();
-  const { assistantOpen, setAssistantOpen, assistantSeed,
+  const assistantDock = useAssistantDock();
+  const { dock, assistantOpen, setAssistantOpen, assistantSeed,
     assistantHost, assistantHostList, chooseAssistant,
-    dockWidth, dockResize, pushingPanel, railMode, desktop, effPush, tw, canPush,
-    openAssistant, openView, handleAssistantNavigate, setManualPin,
-    review, exitReview } = dock;
+    openAssistant, openView, handleAssistantNavigate,
+    review, exitReview } = assistantDock;
   const hosts = useStore(hostsStore, s => s.list);
   const clusterMembers = useStore(clusterStore, s => s.nodes);
   // Which member holds each of the cluster's capabilities. A capability belongs to the cluster
@@ -177,9 +176,7 @@ function AppInner({ user, setUser, route, setRoute }) {
   const [installError, setInstallError] = React.useState(null);
   const [chatFullscreen, setChatFullscreen] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(() => {
-    try { return localStorage.getItem("krystal:sidebar:collapsed") === "1"; } catch { return false; }
-  });
+  const [collapsed, setCollapsed] = useStoredFlag("krystal:sidebar:collapsed");
   const [landingResolved, setLandingResolved] = React.useState(false);
   // The one-time tour of the composable dashboard. Read once, at mount, so it cannot flicker back on
   // when the modal writes the key and closes. It renders below, inside the app frame — past the
@@ -252,10 +249,6 @@ function AppInner({ user, setUser, route, setRoute }) {
 
   useRouteSync(route, setRoute, landingResolved);
 
-  React.useEffect(() => {
-    try { localStorage.setItem("krystal:sidebar:collapsed", collapsed ? "1" : "0"); } catch {}
-  }, [collapsed]);
-
   React.useEffect(() => { setDrawerOpen(false); }, [route, tab]);
 
   React.useEffect(() => {
@@ -263,7 +256,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     if (el) el.scrollTo({ top: 0, behavior: "smooth" });
   }, [route.kind, route.id, route.tab]);
 
-  useMobileSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOpen);
+  useEdgeSwipe(drawerOpen, setDrawerOpen, assistantOpen, setAssistantOpen);
 
   // --- Connection ---
   const retryConnection = React.useCallback(() => {
@@ -457,9 +450,7 @@ function AppInner({ user, setUser, route, setRoute }) {
     return <BootLanding />;
   }
 
-  const sidebarCollapsed = desktop ? collapsed : false;
-  const railReserve = railMode && !assistantOpen ? 56 : 0;
-  const appInset = pushingPanel ? dockWidth : railReserve;
+  const sidebarCollapsed = dock.desktop ? collapsed : false;
 
   const sidebarCtx = {
     serverName: serverForRender ? serverForRender.name : null,
@@ -493,68 +484,46 @@ function AppInner({ user, setUser, route, setRoute }) {
   };
 
   return (
-    <div className="app" style={{ "--dock-push": appInset + "px", ...(collapsed ? { "--sidebar-w": "64px" } : {}) }}>
-      <Sidebar
-        route={route}
-        onNavigate={setRoute}
-        serversCount={serversCount}
-        serversTone={serversTone}
-        clusterCount={diagnosticsCount}
-        clusterTone={diagnosticsTone}
-        attentionCount={attentionCount}
-        attentionTone={attentionTone}
-        user={user}
-        onLogout={handleLogout}
-        hosts={hosts}
-        open={drawerOpen}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setCollapsed(c => !c)}
-      />
-
-      {drawerOpen && <div className="drawer-scrim" onClick={() => setDrawerOpen(false)} />}
-      <MobileNavToggle onOpen={() => setDrawerOpen(true)} />
-
-      <main className="app__main">
-        <div className="content">
-          <Breadcrumb
-            route={route}
-            onNavigate={setRoute}
-            ctx={sidebarCtx} />
-          <AppRouter
-            route={route}
-            setRoute={setRoute}
-            user={user}
-            activeGame={activeGame}
-            serverForRender={serverForRender}
-            handleAction={handleAction}
-            openGame={openGame}
-            handleInstall={handleInstall}
-            handleLogout={handleLogout}
-            setInstalling={setInstalling}
-          />
-        </div>
-        <KrystalFooter />
-      </main>
-
-      <aside className={"assistant-dock" + (assistantOpen ? " assistant-dock--open" : "") + (pushingPanel ? " assistant-dock--push" : "") + (dockWidth < 550 ? " assistant-dock--compact" : "")}
-        style={{ width: window.innerWidth <= 768 ? undefined : dockWidth }}>
-        {assistantOpen && <div className="assistant-dock__resize" onPointerDown={dockResize} title="Drag to resize"></div>}
+    <AppShell
+      collapsed={collapsed}
+      drawerOpen={drawerOpen}
+      onDrawer={setDrawerOpen}
+      dockPush={dock.pushing ? dock.width : 0}
+      sidebar={
+        <Sidebar
+          route={route}
+          onNavigate={setRoute}
+          serversCount={serversCount}
+          serversTone={serversTone}
+          clusterCount={diagnosticsCount}
+          clusterTone={diagnosticsTone}
+          attentionCount={attentionCount}
+          attentionTone={attentionTone}
+          user={user}
+          onLogout={handleLogout}
+          hosts={hosts}
+          open={drawerOpen}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setCollapsed(c => !c)}
+        />
+      }
+      aside={<>
+      <Dock dock={dock}>
         {assistantOpen && (
           <React.Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--fg-3)" }}><span className="oauth-spinner" /></div>}>
           <ChatPage
             user={user}
             docked
-            showPin={tw.dockBehavior === "auto" && desktop}
-            pinned={effPush}
-            pinDisabled={!canPush}
-            onTogglePin={() => setManualPin(!effPush)}
+            showPin={dock.desktop}
+            pinned={dock.pinned}
+            pinDisabled={!dock.canPush}
+            onTogglePin={dock.togglePin}
             seed={assistantSeed}
             onClose={() => setAssistantOpen(false)}
-            onExpand={desktop ? () => { setAssistantOpen(false); setChatFullscreen(true); } : undefined}
+            onExpand={dock.desktop ? () => { setAssistantOpen(false); setChatFullscreen(true); } : undefined}
             onNavigate={handleAssistantNavigate}
             onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
             onOpenView={openView}
-            getServerState={dock.getServerState}
             assistantHost={assistantHost}
             assistantHosts={assistantHostList}
             onSelectAssistantHost={chooseAssistant}
@@ -563,7 +532,7 @@ function AppInner({ user, setUser, route, setRoute }) {
           />
           </React.Suspense>
         )}
-      </aside>
+      </Dock>
 
       {chatFullscreen && (
         <Modal onClose={() => setChatFullscreen(false)} scrimClassName="chat-modal-scrim">
@@ -579,22 +548,12 @@ function AppInner({ user, setUser, route, setRoute }) {
               onOpenServer={(id, tab) => setRoute({ kind: "server", id, tab })}
               onOpenView={openView}
               onNavigate={handleAssistantNavigate}
-              getServerState={dock.getServerState}
             />
           </div>
         </Modal>
       )}
 
-      {railMode && !assistantOpen && (
-        <button className="assistant-rail" onClick={openAssistant} title="Open assistant" aria-label="Open assistant">
-          <span className="assistant-rail__icon"><AssistantFabIcon size={18} /></span>
-        </button>
-      )}
-      {!assistantOpen && (
-        <button className="assistant-fab" onClick={openAssistant} title="Open assistant" aria-label="Open assistant">
-          <AssistantFabIcon size={22} />
-        </button>
-      )}
+      {!assistantOpen && <DockFab onClick={openAssistant} />}
 
       <Toasts />
 
@@ -615,7 +574,27 @@ function AppInner({ user, setUser, route, setRoute }) {
           onClose={() => { setInstalling(null); setInstallError(null); }}
         />
       )}
-    </div>
+      </>}>
+        <div className="content">
+          <Breadcrumb
+            route={route}
+            onNavigate={setRoute}
+            ctx={sidebarCtx} />
+          <AppRouter
+            route={route}
+            setRoute={setRoute}
+            user={user}
+            activeGame={activeGame}
+            serverForRender={serverForRender}
+            handleAction={handleAction}
+            openGame={openGame}
+            handleInstall={handleInstall}
+            handleLogout={handleLogout}
+            setInstalling={setInstalling}
+          />
+        </div>
+        <KrystalFooter />
+    </AppShell>
   );
 }
 

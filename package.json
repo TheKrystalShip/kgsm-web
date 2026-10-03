@@ -1,7 +1,7 @@
 {
   "name": "krystal-control-panel",
   "private": true,
-  "version": "3.2.4",
+  "version": "3.2.5",
   "type": "module",
   "description": "Krystal Control Panel — production React app (migrated from the no-build UI-kit prototype).",
   "scripts": {
@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@thekrystalship/krystal-ui": "0.1.0",
+    "@thekrystalship/krystal-ui": "0.2.0",
     "lucide-react": "^0.460.0",
     "monaco-editor": "^0.55.1",
     "oidc-client-ts": "^3.5.0",

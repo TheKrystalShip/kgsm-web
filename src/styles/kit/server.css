@@ -1,44 +1,8 @@
 /* ============================================================================
-   kit/server.css — server hero (+ cinematic), stat tiles, console, sub-tabs
-   Split out of the monolithic kit.css; imported by it in cascade order.
+   kit/server.css — what a server puts in the design system's hero (its status
+   pill, favourite and rename, lifecycle buttons), stat tiles, console
    ============================================================================ */
 /* ============= Server hero ============= */
-.hero {
-  position: relative;
-  background: var(--surface-1);
-  border: var(--edge);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  min-height: 220px;
-  padding: 24px 28px;
-  isolation: isolate;
-}
-
-.hero__art {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.7;
-}
-
-.hero__veil {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(to right, var(--surface-1) 30%, rgba(17, 22, 29, 0.4) 60%, transparent 100%);
-}
-
-.hero>.hero__content {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 60%;
-}
-
 .hero__status {
   display: inline-flex;
   align-items: center;
@@ -156,17 +120,6 @@
   }
 }
 
-.hero__name {
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--fg-1);
-  letter-spacing: -0.015em;
-  line-height: 1.1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .hero__edit {
   background: transparent;
   border: none;
@@ -190,40 +143,6 @@
 
 .hero__fav.is-on svg {
   fill: currentColor;
-}
-
-/* Small honest-metadata tags under the name (runtime, …). Mirrors the
-   server-tile pill idiom so the chrome reads the same across surfaces. */
-.hero__tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.hero__tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--fg-2);
-  background: var(--surface-2);
-  padding: 3px 9px 3px 7px;
-  border-radius: var(--r-pill);
-  border: var(--edge);
-  text-transform: capitalize;
-}
-
-/* A library's NAME, not a word. It is lowercase by the engine's rule ([a-z0-9-]+) and it is what
-   somebody types into the install form, so capitalizing it would show a name that does not exist. */
-.hero__tag--verbatim {
-  text-transform: none;
-  font-family: var(--font-mono);
-}
-
-.hero__tag>svg {
-  color: var(--fg-3);
 }
 
 /* The instance id beside the label it qualifies — quieter than the tags stating what the server IS,
@@ -378,98 +297,10 @@
   color: var(--krystal-teal);
 }
 
-/* ============= Server hero — cinematic variant (server detail page) =============
-   A full-bleed key-art header with a bottom-up scrim, the status pill floated
-   top-left, and the name + every control collected into one frosted "control bar"
-   anchored at the bottom. Borrows the assistant chat window's language: clear
-   zones, restrained colour (tone lives in the action icons, not in four saturated
-   fills), and glass surfaces. The plain `.hero` above is still used as-is by the
-   game/blueprint page (GamePage) — these rules are additive and scoped to
-   `.hero--cinematic`, so that surface is untouched. */
-.hero.hero--cinematic {
-  min-height: 264px;
-  padding: 0;
-  /* the body provides its own padding */
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-/* Two zones, two palettes. What sits DIRECTLY on the key art — the status pill,
-   the name + its runtime tag, the watchdog note — is theme-invariant: the art is
-   whatever RAWG returns, so those keep the DARK foreground palette in every theme
-   and stay light-on-dark over the scrim. Pin fg / border / semantic-fg here rather
-   than on the hero, so the pin covers exactly the elements that need it.
-   The control bar is the other zone: it brings its own opaque surface, so it runs
-   on the PAGE's tokens and follows the theme like any other panel. */
-.hero__statuspos,
-.hero--cinematic .hero__heading,
-.hero--cinematic .hero__watchdog-note {
-  --fg-1: #F2F5F9;
-  --fg-2: #B8C2D0;
-  --fg-3: #7C8899;
-  --fg-4: #515E70;
-  --fg-inverse: #0B0F14;
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --success-fg: #4ADE80;
-  --warning-fg: #FBBF24;
-  --danger-fg: #FB7185;
-  --update-fg: #FB923C;
-  --info-fg: #7DD3FC;
-  color: var(--fg-1);
-}
-
-.hero--cinematic .hero__art {
-  opacity: 0.92;
-}
-
-/* The photographic vignette: fixed dark stops in every theme, because what it
-   backs (the name and the glass pills) is fixed light. It eases off at the very
-   bottom — the control bar covers that band with its own surface, and a hard dark
-   stop behind a light bar would read as a black chin under it. */
-.hero__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(to top,
-      rgba(7, 11, 15, 0.50) 0%,
-      rgba(7, 11, 15, 0.80) 22%,
-      rgba(7, 11, 15, 0.55) 48%,
-      rgba(7, 11, 15, 0.14) 78%,
-      rgba(7, 11, 15, 0.22) 100%);
-}
-
-.hero__statuspos {
-  position: absolute;
-  top: 16px;
-  left: 18px;
-  z-index: 3;
-}
-
-.hero__body {
-  position: relative;
-  z-index: 2;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.hero__heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.hero--cinematic .hero__name {
-  font-size: 30px;
-  margin: 0;
-  color: var(--fg-1);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
-}
-
+/* ============= Server hero — on the design system's cinematic Hero =============
+   The status pill floats top-left over the art; the name, its favourite and rename
+   and its tags make the heading; the lifecycle and connect groups fill the bar.
+   Tone lives in the action icons, not in four saturated fills. */
 .hero--cinematic .hero__edit {
   color: rgba(255, 255, 255, 0.72);
 }
@@ -485,51 +316,13 @@
   color: var(--warning);
 }
 
-/* Frosted backing for the status pill + meta tag so they stay legible over art.
-   Tone (success/warning/danger) stays in the text + dot from the base classes. */
+/* Frosted backing for the status pill so it stays legible over art. Tone
+   (success/warning/danger) stays in the text + dot from the base classes. */
 .hero__status--glass {
   background: rgba(10, 15, 20, 0.55);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.10);
-}
-
-.hero__tag--glass {
-  background: rgba(10, 15, 20, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--fg-1);
-}
-
-.hero__tag--glass>svg {
-  color: var(--fg-2);
-}
-
-/* The control bar — a themed panel floating on the art, not a hole cut in it.
-   It is the one part of the hero the theme owns: an almost-opaque `--surface-1`
-   (the blur carries the last of the art through) with the page's own borders and
-   text, so the same rules read correctly under all of the light themes and all of
-   the dark ones. The shadow is what lifts it off the picture. */
-.hero__bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  border: var(--edge);
-  box-shadow: var(--shadow-2);
-}
-
-.hero__group {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
 }
 
 /* The connect group fills the rest of the bar so its Join CTA can pin to the far right
@@ -544,50 +337,9 @@
   min-width: 0;
 }
 
-.hero__bardiv {
-  width: 1px;
-  align-self: stretch;
-  background: var(--border-strong);
-}
-
-/* Glass lifecycle button (ServerActionButton variant="glass") — ghost button,
-   tone only in the icon. Shares the chip's confirm-first / pending animations. */
-.gbtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 13px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--fg-1);
-  font-family: var(--font-ui);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--d-fast) var(--ease-out), opacity var(--d-fast) var(--ease-out);
-}
-
-.gbtn:hover:not(:disabled) {
-  background: var(--veil-2);
-}
-
-.gbtn:active:not(:disabled) {
-  background: var(--veil-1);
-}
-
-.gbtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.gbtn__icon {
-  flex-shrink: 0;
-}
-
+/* Lifecycle buttons (ServerActionButton variant="glass") on the design system's
+   `.gbtn`: each verb's tone in its icon, and the chip's confirm-first / pending
+   states. */
 .gbtn--start .gbtn__icon {
   color: var(--success-fg);
 }
@@ -634,13 +386,6 @@
 }
 
 @media (max-width: 680px) {
-  .hero.hero--cinematic {
-    min-height: 0;
-  }
-
-  .hero--cinematic .hero__name {
-    font-size: 21px;
-  }
 
   /* The status pill is absolutely positioned (top:16) over the banner; on mobile
      the hero is content-height, so the title would otherwise rise right under it
@@ -649,17 +394,6 @@
   .hero__body {
     padding: 52px 16px 16px;
     gap: 14px;
-  }
-
-  /* Stack the control bar: the lifecycle group above the connect group. */
-  .hero__bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .hero__bardiv {
-    display: none;
   }
 
   .hero__group--right {
@@ -672,11 +406,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-  }
-
-  .hero__bar .gbtn {
-    height: 42px;
-    justify-content: center;
   }
 
   /* Connect: the address gets its own full-width row, then Copy + Join share the

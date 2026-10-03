@@ -21,9 +21,10 @@ class (`.modal-scrim`, `.k-backdrop`, …), which lives here in `kit/modal.css`.
 Each is its own module, which is what keeps the shell thin. Don't inline them
 into `App.jsx`.
 
-- `AssistantDockContext.jsx` — the assistant dock's state, derived layout, and
-  interaction fns. `AssistantDockProvider` wraps the app; consumers read via
-  `useAssistantDock()` instead of threading dock props through the shell.
+- `AssistantDockContext.jsx` — the assistant dock's state and interaction fns.
+  `AssistantDockProvider` wraps the app; consumers read via `useAssistantDock()`
+  instead of threading dock props through the shell. The dock's frame — open, width,
+  pin, whether it pushes the page — is the design system's `useDock`, exposed as `dock`.
   It holds WHICH assistant is addressed, and keeps two things apart that look alike: a **choice**,
   made in the picker, is the account's and is stored as a preference so it follows them to their
   other devices; a **retarget**, derived from what somebody opened (a server's chat, a conversation
@@ -34,9 +35,11 @@ into `App.jsx`.
   button and the dock behind it read the same list through the same function.
 - `AppRouter.jsx` — routing-only switch (see `../pages/CLAUDE.md`). It lives here
   but is the routing layer, not a presentational component.
-- `Breadcrumb.jsx`, `BootLanding.jsx`, `MobileNavToggle.jsx`, `Sidebar.jsx`,
+- `Breadcrumb.jsx`, `BootLanding.jsx`, `Sidebar.jsx`,
   `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ContentError`/`AppCrash`),
-  `HostConnection.jsx` — the layout chrome.
+  `HostConnection.jsx` — the layout chrome. The frame they sit in (`AppShell`, the sidebar's
+  `Sidebar`/`SidebarGroup`/`NavItem`, the dock, the cinematic `Hero`) is the design system's;
+  `Sidebar.jsx` and `ServerHero.jsx` fill it with what the panel shows.
 
   **Nothing in the chrome reports a connection.** A node's live channel is shown on that node's own
   surfaces (`HostConnection`, the Cluster page and the node cards) and nowhere else, so a degraded
@@ -223,7 +226,7 @@ primary "there is more" affordance, with an edge fade behind it and the arrows t
 
 Two things a caller has to respect:
 
-- **The track carries `data-hswipe`**, which is how `hooks/useMobileSwipe.js` knows
+- **The track carries `data-hswipe`**, which is how the design system's `useEdgeSwipe` knows
   to leave the gesture alone. That hook arms the nav drawer anywhere within 28px of
   the viewport edge, and a rail's leftmost card sits inside that zone — drop the
   attribute and a swipe meant for the rail also opens the drawer.

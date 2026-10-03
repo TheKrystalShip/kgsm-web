@@ -4,6 +4,7 @@ Plain CSS — **no Tailwind, no CSS-modules.** Two files load in order (from
 `../main.jsx`): `kit.css` → `consumer.css`. Everything is driven by the CSS custom properties
 `tokens.css` defines, and `tokens.css` is the **design system's** — `@thekrystalship/krystal-ui`
 (`krystal-ui/` in the workspace), along with the sheets of every component this panel takes from it:
+the application frame (sidebar, rail, drawer and its handle), the dock and its launcher, the hero,
 the briefing card, the rail, the toolbar, the paginator, the select, the sub-tabs, the settings row,
 the toasts, the theme picker and the assistant's mark. The theme *preference* (which palette is active,
 `THEME_OPTS`) is that package's `lib/theme.js`; this file is the panel's CSS side. A token or a theme
@@ -251,8 +252,8 @@ complains.
   `data-theme` before the stylesheet applies — both mirror the design system's `lib/theme.js`;
   keep the three in sync.
 - **Always-dark media surfaces** (cinematic hero over key-art) pin dark tokens
-  **locally** (see `.hero--cinematic` in `kit/server.css`) rather than
-  per-theme special-casing.
+  **locally** (the design system's `.hero--cinematic`, and `.hero__on-art` for anything else
+  set directly on the art) rather than per-theme special-casing.
 - **`npm run check:tokens`** fails on any `var(--…)` that names a property nothing defines. That is
   silent otherwise: an undefined custom property goes invalid-at-computed-value-time, so a border
   falls back to `currentColor` and a radius computes to 0, forever, with no warning from CSS or the

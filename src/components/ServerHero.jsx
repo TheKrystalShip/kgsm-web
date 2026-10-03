@@ -1,4 +1,4 @@
-import { Icon } from "@thekrystalship/krystal-ui";
+import { Hero, Icon } from "@thekrystalship/krystal-ui";
 import { ServerActionButton, verbGuard } from "./ServerActions.jsx";
 import { PinButton } from "./widgets/PinButton.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
@@ -92,9 +92,7 @@ function ServerHero({ server, onAction }) {
   // then to the hero's dark gradient placeholder when neither is available.
   const bg = heroArtBg(server.hero, server.cover);
   return (
-    <section className="hero hero--cinematic">
-      <div className="hero__art" style={{ backgroundImage: bg, backgroundSize: "cover", backgroundPosition: "center" }}></div>
-      <div className="hero__scrim"></div>
+    <Hero art={bg}>
       <div className="hero__statuspos">
         <StatusPill server={server} status={server.status} uptime={server.uptime} watchdogDown={watchdogDown} />
       </div>
@@ -172,12 +170,12 @@ function ServerHero({ server, onAction }) {
           </div>
         </div>
         {canOps && watchdogDown && (
-          <div className="hero__watchdog-note">
+          <div className="hero__watchdog-note hero__on-art">
             <Icon name="power-off" size={13} /> Watchdog unavailable — start, stop, restart and update are paused on this host.
           </div>
         )}
       </div>
-    </section>
+    </Hero>
   );
 }
 

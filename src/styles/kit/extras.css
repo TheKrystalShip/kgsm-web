@@ -1,123 +1,10 @@
 /* ============================================================================
-   kit/extras.css — sidebar-collapse rail, server grouping
-   Split out of the monolithic kit.css; imported by it in cascade order.
+   kit/extras.css — the panel's rows on the sidebar's collapsed rail, server
+   grouping
    ============================================================================ */
-/* ============================================================
-   SIDEBAR COLLAPSE — desktop icon rail
-   The rail is a desktop-only affordance: at or below 768px the
-   sidebar is the off-canvas drawer, so all rail rules are gated
-   to wide viewports and the drawer always shows full labels.
-   ============================================================ */
-
-/* Brand-row collapse toggle — compact icon button at the trailing edge, mirroring
-   the assistant dock's close button so both sit on the same top band. */
-.sidebar__collapse {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--r-sm);
-  color: var(--fg-4);
-  cursor: pointer;
-  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
-}
-
-.sidebar__collapse:hover {
-  background: var(--surface-2);
-  color: var(--fg-2);
-}
-
-.sidebar__collapse>svg {
-  flex-shrink: 0;
-}
-
+/* The rail is a desktop-only affordance: at or below 768px the sidebar is the off-canvas drawer, so
+   these rules are gated to wide viewports, as the design system's own rail rules are. */
 @media (min-width: 769px) {
-  .sidebar--rail {
-    padding-left: 8px;
-    padding-right: 8px;
-    position: relative;
-    z-index: 30;
-  }
-
-  /* Brand → mark stacked above the (now centered) collapse toggle */
-  .sidebar--rail .sidebar__brand {
-    flex-direction: column;
-    gap: 6px;
-    align-items: center;
-    padding: 4px 0 6px;
-  }
-
-  .sidebar--rail .sidebar__brand-wordmark {
-    display: none;
-  }
-
-  .sidebar--rail .sidebar__collapse {
-    margin-left: 0;
-  }
-
-  .sidebar--rail .sidebar__nav {
-    gap: 10px;
-  }
-
-  .sidebar--rail .sidebar__group+.sidebar__group {
-    padding-top: 10px;
-  }
-
-  /* Nav items → centered icon, label hidden, count badge becomes a corner pip */
-  .sidebar--rail .nav-item {
-    justify-content: center;
-    padding: 9px 0;
-    position: relative;
-  }
-
-  .sidebar--rail .nav-item__label {
-    display: none;
-  }
-
-  .sidebar--rail .nav-item--active::before {
-    left: -8px;
-    top: 6px;
-    bottom: 6px;
-  }
-
-  .sidebar--rail .nav-item__badge {
-    position: absolute;
-    top: 1px;
-    right: 2px;
-    margin: 0;
-    width: 14px;
-    min-width: 14px;
-    height: 14px;
-    padding: 0;
-    line-height: 14px;
-    border-radius: var(--r-pill);
-    font-size: 9px;
-    font-weight: 700;
-    text-align: center;
-    border: 1.5px solid var(--surface-0);
-  }
-
-  /* Solid fills so the tiny pip stays legible (the 14%-alpha tone bgs don't) */
-  .sidebar--rail .nav-item__badge--danger {
-    background: var(--danger);
-    color: var(--on-danger);
-  }
-
-  .sidebar--rail .nav-item__badge--warn {
-    background: var(--warning);
-    color: var(--on-warning);
-  }
-
-  .sidebar--rail .nav-item__badge--info {
-    background: var(--fg-3);
-    color: var(--surface-0);
-  }
 
   /* Account → centered avatar; upward menu widened + anchored left */
   .sidebar--rail .sidebar__account {
@@ -209,40 +96,6 @@
     right: 6px;
     bottom: 3px;
     box-shadow: 0 0 0 2px var(--surface-1);
-  }
-
-  /* ---- Tooltip primitive (rail only) ---- */
-  .sidebar--rail [data-tip] {
-    position: relative;
-  }
-
-  .sidebar--rail [data-tip]:hover::after,
-  .sidebar--rail [data-tip]:focus-visible::after {
-    content: attr(data-tip);
-    position: absolute;
-    left: calc(100% + 12px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: var(--surface-1);
-    color: var(--fg-1);
-    border: var(--edge-strong);
-    box-shadow: var(--shadow-2);
-    padding: 5px 9px;
-    border-radius: var(--r-sm);
-    font-size: 12.5px;
-    font-weight: 500;
-    white-space: nowrap;
-    z-index: 70;
-    pointer-events: none;
-    animation: k-fade var(--d-fast) var(--ease-out);
-  }
-}
-
-/* The collapse toggle is desktop-only — the mobile drawer is always expanded.
-   On mobile the brand row keeps just the mark + wordmark. */
-@media (max-width: 768px) {
-  .sidebar__collapse {
-    display: none;
   }
 }
 
