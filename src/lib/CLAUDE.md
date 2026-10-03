@@ -44,7 +44,7 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   read-only replica would be overwritten by the next thing the provider published, so it would
   appear to work and then quietly not have — and every member refuses those calls on that basis. A
   panel knowing no provider refuses the call rather than guessing a member. `api.users` and
-  `api.sessions` resolve through it per call; `api.sessions` is an administrator's view of somebody
+  `api.sessions` resolve through it per call; `api.sessions` is the `auth:accounts.disable` view of somebody
   else's sessions, scoped under their account, so ending one asks "is this session that person's"
   rather than "does this session exist". A person's OWN sessions are the provider's account page's.
   `api.authority` goes through the same door: the authority the management pages read, one edit at a
@@ -152,7 +152,7 @@ re-exports `stores/` — import from either.
   roster no longer names. **Leaving the cluster and being unwell are different
   states and must not be collapsed** — an unreachable or suspect MEMBER keeps its
   connection so the banners and the reach footnote can report it; only absence from
-  the roster (or an admin's `enabled:false`) removes a node. An address a person
+  the roster (or `enabled:false`, set under `api:members.manage`) removes a node. An address a person
   typed is theirs to remove (`via` records which is which). `devSeedAutoConnect`
   for auth-disabled dev.
 

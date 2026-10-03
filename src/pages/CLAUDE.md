@@ -87,7 +87,7 @@ was doing.
 **The panel holds no credential settings.** A password, connected accounts and the list of where
 somebody is signed in are changed on the provider's account page, behind a recent proof only those
 pages can ask for; Settings links there (`SettingsSignIn.jsx`). Administering OTHER people's accounts
-stays in the panel, through the provider's admin API with the bearer it holds.
+stays in the panel, through the provider's account API with the bearer it holds.
 
 **One address, and what answers decides the rest.** Any member of the cluster names its provider,
 and so does the provider itself, so the page does not ask which was typed — `discoverProvider`

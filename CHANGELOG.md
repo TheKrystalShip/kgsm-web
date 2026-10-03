@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — no screen names an administrator (3.2.3)
+
+The waiting screen reads "Your account has to be approved."; Settings says whoever manages accounts on
+this cluster changes the account name and removes an account; an orphaned capability nobody here may
+reassign says it "needs api:members.manage", as does federating a backend from the add-node modal.
+Comments and the `CLAUDE.md`s name the action instead of an administrator.
+
 ### Changed — every closed control and refusal names the action it needs (3.2.2)
 
 - Auto-run's disabled toggle, the blueprint editor's read-only banner and the assistant review's

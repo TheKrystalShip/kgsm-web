@@ -412,7 +412,7 @@ function host(hostId) {
     runCommand: (name, body) => jsonOnce(hostId, "POST", "/commands/" + encodeURIComponent(name), body || {}),
     feedback: (id, turnId, body) =>
       json(hostId, "POST", "/conversations/" + encodeURIComponent(id) + "/turns/" + turnId + "/feedback", body),
-    // The admin review surfaces, on the leaf's own /admin group.
+    // The conversation review surfaces, on the leaf's own /admin group.
     reviewUsers: (opts) => json(hostId, "GET", "/admin/conversations/users", null, opts),
     reviewStats: (query, opts) => json(hostId, "GET", "/admin/conversations/stats" + (query || ""), null, opts),
     reviewConversations: (user, opts) =>

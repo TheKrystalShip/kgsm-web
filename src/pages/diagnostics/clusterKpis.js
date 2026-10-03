@@ -120,7 +120,7 @@ function gameServers(entries, servers) {
 //
 // A cluster speaks one protocol and a member on a different build is the reason a call that worked
 // yesterday stops. Read from whatever each member exposes: a connected node states its own build,
-// and a member reached only through the admin roster states the API version it answered with. A
+// and a member reached only through the full roster states the API version it answered with. A
 // member that states neither is counted as unknown rather than assumed to agree.
 function build(entries) {
   const seen = new Map();

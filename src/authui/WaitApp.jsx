@@ -2,8 +2,7 @@ import React from "react";
 import { PendingPage } from "../pages/auth/PendingPage.jsx";
 import { getJson } from "./api.js";
 
-// WaitApp — an account an administrator has not approved yet, returned to the client that asked once
-// they do.
+// WaitApp — an account not approved yet, returned to the client that asked once it is.
 //
 // The panel's own waiting screen. What it polls is the anchor's answer for the request in flight:
 // still waiting, or the client's address carrying a code — at which point it goes there.

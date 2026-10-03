@@ -2,8 +2,8 @@ import { Icon } from "./Icon.jsx";
 import { Modal } from "./Modal.jsx";
 
 // ConfirmRevokeDialog — the confirmation in front of ending a session, shared by the two surfaces
-// that end one: your own devices in Settings, and an administrator acting on somebody else from the
-// API leaf's Users tab. One component because it is one destructive act, and two implementations of
+// that end one: your own devices in Settings, and somebody holding auth:accounts.disable acting on
+// another person from the Accounts page. One component because it is one destructive act, and two implementations of
 // "are you sure" is how the two come to promise different things about what they do.
 //
 // Shaped like RemoveHostDialog (pages/diagnostics/diagHostCards.jsx) — it reuses that dialog's
@@ -15,7 +15,7 @@ import { Modal } from "./Modal.jsx";
 //   "admin-one" — one of another person's sessions
 //   "admin-all" — every one of another person's, on every device
 //
-// The admin variants take `targetName` so the copy names who is affected. A destructive action
+// The other-person variants take `targetName` so the copy names who is affected. A destructive action
 // against another person is never anonymous: whoever is about to sign somebody out is owed the name
 // they will have to explain it to.
 function ConfirmRevokeDialog({ mode, targetName, busy, onConfirm, onClose }) {

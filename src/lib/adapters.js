@@ -827,7 +827,7 @@ export function adaptMe(be) {
   if (!be) return be;
   return {
     user: be.user || null,
-    // "pending" is waiting on an administrator, "unknown" is a host that has no account for them —
+    // "pending" is waiting for approval, "unknown" is a host that has no account for them —
     // two different sentences for somebody who holds nothing. Anything unrecognised reads as unknown
     // rather than as a guess.
     status: be.status === "active" || be.status === "pending" || be.status === "disabled"

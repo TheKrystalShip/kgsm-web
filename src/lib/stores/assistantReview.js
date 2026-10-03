@@ -5,7 +5,7 @@
 // Deliberately plain fetchers rather than a reactive store. Every one of these is scoped to a host
 // AND to a user the reviewer picked, so there is no single "current" value for a store to hold, and
 // nothing here arrives over the realtime stream — the corpus only changes when someone talks to the
-// assistant, which no admin surface needs to watch live. The pages own the request state, exactly as
+// assistant, which no review surface needs to watch live. The pages own the request state, exactly as
 // the leaf-config page owns its own (fetchLeafConfig, same shape).
 //
 // Everything is gated by the leaf itself: its /admin group requires

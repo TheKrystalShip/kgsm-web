@@ -124,7 +124,7 @@ import { hostsStore } from "./stores.js";
     return client;
   }
 
-  // Where the cluster's accounts are administered: the provider's own origin, which serves the admin
+  // Where the cluster's accounts are administered: the provider's own origin, which serves the account
   // API beside the pages. Empty with no provider known.
   const anchorOrigin = () => { const p = readProvider(); return p ? originOf(p.issuer) : ""; };
   async function resolveAnchor() { return anchorOrigin(); }

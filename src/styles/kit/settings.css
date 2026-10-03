@@ -397,7 +397,7 @@
   }
 
   /* Inputs and the theme <Select> fill the second line; buttons keep their
-     natural width and sit at the start of it. The inline-width admin lookup
+     natural width and sit at the start of it. The inline-width account lookup
      input is overridden via flex-basis (wins over `width` in a flex row). */
   .settings-body .settings-row__controls > .settings-input,
   .settings-body .settings-row__controls > .k-select {

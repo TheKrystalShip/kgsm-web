@@ -330,7 +330,7 @@ predicted, what is armed, and what the nodes actually said.
   work already in flight (`verbGuard` reads status only, so a preflight that skipped this would report
   refusals as failures), and per-host permission (a selection can span nodes this person operates
   unevenly — those are refusals, not errors, and are dropped before dispatch because a node's batch
-  endpoint is Operator-gated for the whole request). It also holds the cumulative capacity forecast:
+  endpoint refuses the whole request when one member's action is not held). It also holds the cumulative capacity forecast:
   `capacityHint` answers for one server against a live `MemAvailable` reading and does not compose
   over a set, so each member is judged against what the ones before it have already committed.
 - **`SelectionBar.jsx`** — the bar that appears once something is picked. It states the count, the node

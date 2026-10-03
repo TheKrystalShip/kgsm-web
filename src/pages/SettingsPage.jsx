@@ -93,7 +93,7 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
               </div>
               <SettingsRow icon="at-sign" title="Account"
                 sub={sessionProvider === "local"
-                  ? "Your KGSM account name. An administrator changes it."
+                  ? "Your KGSM account name. Whoever manages accounts on this cluster changes it."
                   : `From your ${signInMethodLabel(sessionProvider)} account, and re-read each time you sign in.`}>
                 <span className="settings-value settings-value--mono">{(user && user.id) || "—"}</span>
               </SettingsRow>
@@ -117,7 +117,7 @@ function SettingsPage({ user, onLogout, tab, onTabChange }) {
                   nothing is the one thing a danger zone must never be. Until the endpoint exists,
                   the honest route is the one that actually works. */}
               <SettingsRow icon="trash-2" title="Delete account"
-                sub="Not available yet. An administrator can remove your account from the node's Users tab.">
+                sub="Not available yet. Whoever manages accounts on this cluster can remove it.">
                 <button className="settings-btn-danger" disabled title="No endpoint for this yet">
                   Delete account
                 </button>

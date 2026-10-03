@@ -52,7 +52,7 @@ function OrphanedCapabilities({ capabilities, canReassign, onReassign }) {
             <span>
               <b>{c.capability}</b> is assigned to <b>{c.memberId}</b>, which is no longer a member of
               this cluster. Nothing serves it until it is reassigned
-              {canReassign ? "." : ", which an administrator can do."}
+              {canReassign ? "." : ", which needs api:members.manage."}
             </span>
             {canReassign && (
               <button className="host-btn host-btn--sm" onClick={() => onReassign(c)}>Reassign</button>

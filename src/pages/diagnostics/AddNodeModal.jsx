@@ -158,7 +158,7 @@ function AddNodeModal({ federateHosts = [], canFederate, onClose }) {
           ) : (
             <div className="cluster-addnode-note">
               <Icon name="info" size={13} />
-              <span>Connect-only — federating a backend into the cluster needs admin on a member of it.</span>
+              <span>Connect-only — federating a backend into the cluster needs api:members.manage on a member of it.</span>
             </div>
           )}
 

@@ -331,7 +331,7 @@ function UserModal({ hostId, view, user, onClose, onSaved }) {
 }
 
 // Where this account is signed in, and ending any of it — inside the modal for the person it belongs
-// to, so an administrator acts on somebody they have already named rather than on an opaque id.
+// to, so whoever acts on somebody has already named them rather than an opaque id.
 //
 // Signing somebody out is deliberately NOT the same act as disabling them: the sessions end and the
 // account is untouched, so they can sign straight back in. The confirmation says so, because
