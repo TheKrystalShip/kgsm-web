@@ -10,7 +10,7 @@
 
 import React from "react";
 import { KPI } from "../../components/KPI.jsx";
-import { useStore } from "../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { serversStore } from "../../lib/stores.js";
 import { build, busiest, capabilities, gameServers, members, slowestLink } from "./clusterKpis.js";
 

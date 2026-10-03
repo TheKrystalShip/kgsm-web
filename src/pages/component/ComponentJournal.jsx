@@ -13,7 +13,7 @@
 import React from "react";
 
 import { ConsoleView } from "../../components/ConsoleView.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // What one console holds. The journal on disk is the durable record — a viewer that has been open
 // for a day does not need a day of lines in memory, and a reload re-reads the scrollback anyway.

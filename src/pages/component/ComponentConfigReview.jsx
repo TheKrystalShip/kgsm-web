@@ -8,8 +8,7 @@
 // person is being asked to accept.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
+import { Icon, Modal } from "@thekrystalship/krystal-ui";
 import { RiskBadge } from "./ComponentConfigRow.jsx";
 
 function shownValue(f, drafts) {

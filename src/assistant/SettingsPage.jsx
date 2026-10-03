@@ -1,9 +1,6 @@
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
-import { SubTabs } from "../components/SubTabs.jsx";
-import { ThemePicker } from "../components/ThemePicker.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection, SubTabs, ThemePicker, Toggle } from "@thekrystalship/krystal-ui";
 import { SettingsMemory } from "../components/SettingsMemory.jsx";
 import * as push from "./push.js";
 import { SETTINGS_TABS } from "./route.js";

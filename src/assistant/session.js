@@ -1,5 +1,5 @@
 import { createClient, discoverProvider, renew } from "../lib/oidc.js";
-import { createStore } from "../lib/store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // session.js — the standalone assistant's session: a client of the cluster's sign-in provider.
 //

@@ -1,6 +1,5 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
-import { Icon } from "../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { api } from "../lib/apiClient.js";
 import { apiOriginOf } from "../lib/config.js";
 import { awaitJob } from "../lib/stores.js";

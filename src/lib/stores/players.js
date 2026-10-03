@@ -1,5 +1,5 @@
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // stores/players.js — one server's player roster, keyed, shared by everything that wants it.
 //

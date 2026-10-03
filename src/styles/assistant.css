@@ -13,11 +13,14 @@
    in every desktop check and in the panel. Keep the order; add a partial in the
    place kit.css puts it, never at the end.
 
-   Add a partial when the chat starts using one, never a rule of its own. */
-@import "./tokens.css";
+   Add a partial when the chat starts using one, never a rule of its own. The design system's
+   sheets (@thekrystalship/krystal-ui) sit where kit.css places them. */
+@import "@thekrystalship/krystal-ui/styles/tokens.css";
+@import "@thekrystalship/krystal-ui/styles/motion.css";
 
 @import "./kit/base.css";
 /* page: the heading and the sub-tab strip the settings page is built from. */
+@import "@thekrystalship/krystal-ui/styles/subtabs.css";
 @import "./kit/page.css";
 /* Two settings widgets have their rules filed under other domains: the sign-in spinner
    (.oauth-spinner) sits in onboarding, and both the blueprint-draft card and the memory editor
@@ -28,16 +31,22 @@
    not one to make in passing. */
 @import "./kit/catalog.css";
 /* modal: the evidence cards' expanded chart and the memory editor use <Modal>. */
+@import "@thekrystalship/krystal-ui/styles/select.css";
+@import "@thekrystalship/krystal-ui/styles/portal.css";
 @import "./kit/modal.css";
 @import "./kit/onboarding.css";
 /* observability: the metric charts an evidence card renders. */
 @import "./kit/observability.css";
+@import "@thekrystalship/krystal-ui/styles/toolbar.css";
+@import "@thekrystalship/krystal-ui/styles/pagination.css";
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
+@import "@thekrystalship/krystal-ui/styles/brief.css";
 @import "./kit/chat.css";
-@import "./kit/toast.css";
+@import "@thekrystalship/krystal-ui/styles/toast.css";
 /* settings: the card, row and control family the settings page renders. */
+@import "@thekrystalship/krystal-ui/styles/settings.css";
 @import "./kit/settings.css";
-@import "./kit/theme-picker.css";
+@import "@thekrystalship/krystal-ui/styles/theme-picker.css";
 @import "./kit/states.css";
 @import "./kit/extras.css";

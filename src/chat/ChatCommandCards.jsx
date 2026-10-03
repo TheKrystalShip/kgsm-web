@@ -5,7 +5,7 @@
 // They stay in the conversation rather than opening a panel because looking something up is part of
 // what happened: scrolling back to what you were told is the point.
 
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 import { usageOf } from "./chatCommands.js";
 

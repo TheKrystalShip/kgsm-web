@@ -3,7 +3,7 @@
 // so the editor re-enters instantly on tab/page switches.
 
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 const _bpKey = (hostId, name) => (hostId || "_") + "/" + name;
 const _empty = () => ({

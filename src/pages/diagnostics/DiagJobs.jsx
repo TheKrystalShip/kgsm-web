@@ -31,12 +31,10 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { ordinal } from "../../lib/formatting.js";
-import { useStore } from "../../lib/store.js";
 import { batchesStore, serversStore } from "../../lib/stores.js";
 
 // Every verb a job can carry, including the four the lifecycle buttons do not offer — an install, an

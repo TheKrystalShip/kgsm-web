@@ -1,5 +1,5 @@
 import { serverMetricsFreshness } from "./HostCardBody.jsx";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { ServerActionButton, verbGuard } from "./ServerActions.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";

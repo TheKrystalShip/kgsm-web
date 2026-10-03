@@ -1,4 +1,4 @@
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { detectAnomalies } from "../../components/TimeSeriesChart.jsx";
 import { KiB, MiB, GiB, fmtBytes, fmtBps, seriesStats } from "./perfHelpers.js";
 import { MetricChartCard } from "./PerfCards.jsx";

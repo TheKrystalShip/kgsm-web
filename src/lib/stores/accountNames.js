@@ -10,7 +10,7 @@
 // never asked about again in this tab. Ids asked for in the same tick go out as one request.
 
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 const accountNamesStore = createStore({ byHost: {} });
 

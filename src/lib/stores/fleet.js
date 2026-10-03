@@ -12,7 +12,7 @@
 
 import { adaptServices } from "../adapters.js";
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { fetchLeafSchedules, fetchLeafSupervision } from "./diagnostics.js";
 import { hostsStore } from "./hosts.js";
 

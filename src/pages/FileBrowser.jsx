@@ -1,9 +1,6 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
-import { Icon } from "../components/Icon.jsx";
-import { ReversablePortal } from "../components/ReversablePortal.jsx";
+import { BriefCard, Icon, ReversablePortal, useStore } from "@thekrystalship/krystal-ui";
 import { serverCallRefusal } from "../lib/persona.js";
-import { useStore } from "../lib/store.js";
 import { filesKey, filesStore } from "../lib/stores.js";
 
 // Monaco is heavy + worker-backed, so it's lazy-loaded: the editor chunk +

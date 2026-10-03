@@ -1,9 +1,7 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
-import { SubTabs } from "../components/SubTabs.jsx";
+import { Icon, SubTabs, useStore } from "@thekrystalship/krystal-ui";
 import { can, mayCall } from "../lib/persona.js";
 import { instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
-import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 import { ROUTE_TABS } from "../lib/labels.js";

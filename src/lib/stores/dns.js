@@ -7,7 +7,7 @@
 // anchor's own open page must not fight each other over one fetch.
 
 import { dnsEvents, dnsStatus } from "../dnsClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // The one key every dns.* widget and the anchor's own page acquire this store under.
 const DNS_KEY = "dns";

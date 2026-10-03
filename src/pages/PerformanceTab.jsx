@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { detectAnomalies, ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
 import { PinButton } from "../components/widgets/PinButton.jsx";
 import { adaptServerMetrics, subscribeServerMetrics, fetchServerMetricsHistory, fetchServerEvents } from "../lib/stores.js";

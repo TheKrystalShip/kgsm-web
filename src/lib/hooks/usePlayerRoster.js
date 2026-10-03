@@ -1,5 +1,5 @@
 import { useKeyedResource } from "../keyedResource.js";
-import { useStore } from "../store.js";
+import { useStore } from "@thekrystalship/krystal-ui/lib/store";
 import { followPlayers, hydratePlayers, playersKey, playersStore } from "../stores/players.js";
 
 // usePlayerRoster — one server's players, live.

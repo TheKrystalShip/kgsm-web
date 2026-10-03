@@ -17,8 +17,7 @@
 // member anywhere lights it everywhere.
 
 import React from "react";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { compareNodeNames, formatLatency } from "../../lib/nodeLabel.js";
 import { membershipRowTone } from "./clusterBadges.jsx";
 import { EU_LAND, EU_VIEWBOX, euInFrame, euProject } from "./euMap.js";

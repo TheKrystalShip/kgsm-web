@@ -1,6 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
-import { Select } from "./Select.jsx";
+import { Icon, Select } from "@thekrystalship/krystal-ui";
 
 // LogConsole — a reusable log viewer dressed in the standard card chrome
 // (.chat-brief). ONE source is shown at a time, chosen from a dropdown — we do

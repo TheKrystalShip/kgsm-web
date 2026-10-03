@@ -1,4 +1,4 @@
-import { createStore } from "./store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // assistantSession.js — which credential an assistant is spoken to with, and where it is.
 //

@@ -8,7 +8,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 function BlueprintHostPicker({ hosts, selectedId, onSelect, title = "Which host to edit" }) {
   const [open, setOpen] = React.useState(false);

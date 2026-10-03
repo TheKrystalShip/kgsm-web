@@ -10,7 +10,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { DNS_WRITES, checkZoneNow, renewCertificate } from "../../../lib/dnsClient.js";
 import { useNav } from "../../../components/NavContext.jsx";

@@ -1,4 +1,4 @@
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { AuthShell } from "./AuthChrome.jsx";
 
 // BootFailed — signed in, and the first paint could not be settled.

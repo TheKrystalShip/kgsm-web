@@ -1,6 +1,5 @@
-import { Icon } from "../../../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { useNav } from "../../../components/NavContext.jsx";
-import { useStore } from "../../../lib/store.js";
 import { hostsStore } from "../../../lib/stores.js";
 import { QueuedJobs, RunningJobs } from "../../diagnostics/DiagJobs.jsx";
 import { DiagLogs } from "../../diagnostics/DiagLogs.jsx";

@@ -7,7 +7,7 @@
 // exported: a surface picking two of the three is how a departed member came to state its
 // departure three times, in three vocabularies, one of which read as a fault.
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // membership (a gossip/liveness axis) -> badge tone + label. Never invented —
 // an unrecognized/missing value falls back to the honest "unknown" tone.

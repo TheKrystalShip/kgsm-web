@@ -1,9 +1,8 @@
-import { Icon } from "./Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { alertHost } from "./ContextualAlerts.jsx";
 import { ServerActionButton, verbGuard } from "./ServerActions.jsx";
 import { useAssistantFor } from "./AssistantDockContext.jsx";
 import { serverOperable } from "../lib/persona.js";
-import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { jobPhaseOf } from "../lib/hooks/useJobPhase.js";

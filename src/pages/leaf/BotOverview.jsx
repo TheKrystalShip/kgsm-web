@@ -14,9 +14,8 @@
 // resolve, a channel it can't see (the per-guild channel table says which), or a switch that is off
 // (the announcement grid says which) — each one glance instead of a trawl through a settings page.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
-import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fetchLeafBotStatus } from "../../lib/stores.js";
 import {

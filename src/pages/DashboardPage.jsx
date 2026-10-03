@@ -1,11 +1,10 @@
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { ClusterReach } from "../components/host-helpers.jsx";
 import { DashboardSkeleton, Skel } from "../components/Skeletons.jsx";
 import { WidgetGrid } from "../components/widgets/WidgetGrid.jsx";
 import { fleetSummary } from "../lib/servers.js";
-import { useStore } from "../lib/store.js";
 import { serversStore } from "../lib/stores.js";
 import { dashboardStore } from "../lib/widgets/dashboardStore.js";
 import { AddWidgetSheet } from "./dashboard/AddWidgetSheet.jsx";

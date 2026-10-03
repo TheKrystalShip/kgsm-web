@@ -1,6 +1,5 @@
-import { Icon } from "./Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { api, connectionStore, realtimeStore } from "../lib/apiClient.js";
-import { useStore } from "../lib/store.js";
 
 // Lives apart from ErrorBoundary.jsx because it is the part that reads the NODE data layer — the
 // connection stores, the host roster, the reconnect action. An error boundary is needed by every

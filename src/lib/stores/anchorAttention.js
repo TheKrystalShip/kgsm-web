@@ -16,7 +16,7 @@
 import { api } from "../apiClient.js";
 import { isOwner } from "../persona.js";
 import { readProvider } from "../provider.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { authorityStore, editRefusal, userRefusal } from "./authority.js";
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const CADENCE_MS = 5 * 60 * 1000;

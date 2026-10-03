@@ -1,4 +1,4 @@
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // KrystalFooter — app-wide footer. Brand block + open-source repo links.
 // Deliberately lean: this is a private panel for a small Discord crew, not a

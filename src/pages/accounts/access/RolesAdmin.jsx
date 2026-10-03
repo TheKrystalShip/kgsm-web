@@ -10,8 +10,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { SettingsSection } from "../../../components/settings-primitives.jsx";
+import { Icon, SettingsSection } from "@thekrystalship/krystal-ui";
 import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { Locked, RefusalNote, authorityGate, useAuthority, useChecks } from "./accessKit.jsx";
 

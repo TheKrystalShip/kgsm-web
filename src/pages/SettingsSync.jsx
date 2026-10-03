@@ -1,9 +1,7 @@
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection, Toggle, useStore } from "@thekrystalship/krystal-ui";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
-import { useStore } from "../lib/store.js";
 import { prefsStore } from "../lib/stores/prefs.js";
 
 // SettingsSync — whether the things you arrange follow you between browsers.

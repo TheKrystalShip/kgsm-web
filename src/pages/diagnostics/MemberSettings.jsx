@@ -14,11 +14,9 @@
 // member in question and the page already says which.
 
 import React from "react";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { api } from "../../lib/apiClient.js";
 import { mayCall } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { CapabilityAssignDialog, MemberRemoveDialog, memberRemoval } from "./clusterActions.jsx";
 

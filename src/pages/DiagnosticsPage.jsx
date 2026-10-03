@@ -1,15 +1,13 @@
 import React from "react";
+import { Icon, SubTabs, useStore } from "@thekrystalship/krystal-ui";
 import { anchoredAlerts, alertsTone } from "../components/ContextualAlerts.jsx";
 import { HostConnection } from "../components/HostConnection.jsx";
 import { hostMetricsFreshness } from "../components/HostCardBody.jsx";
 import { HostDeniedNotice } from "../components/host-helpers.jsx";
-import { Icon } from "../components/Icon.jsx";
 import { FleetSkeleton } from "../components/Skeletons.jsx";
 import { useAlerts } from "../components/NeedsAttention.jsx";
-import { SubTabs } from "../components/SubTabs.jsx";
 import { can, nodeTabOffered } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
-import { useStore } from "../lib/store.js";
 import { clusterStore, hostsStore, subscribeHostMetrics } from "../lib/stores.js";
 import { pingStore, startPingLoop } from "../lib/stores/ui.js";
 import { ROUTE_TABS } from "../lib/labels.js";

@@ -37,7 +37,8 @@ resolved through a per-node policy and importing it would drag both in. Routes a
 404 on a refresh. Its chat gets the settings entry points through one prop (`onOpenSettings`); the
 panel passes none, since its shell already leads there.
 
-Static assets divide the same way: `public/` is the shared floor (fonts, brand mark) and each
+Static assets divide the same way: `public/` is the shared floor (the brand mark; the fonts come in
+with the design system's stylesheet and are emitted beside each bundle's assets) and each
 surface's own half — the manifest, service worker and icons that make it an **installable app in
 its own right** — is laid over the top from `public-panel/` / `public-assistant/` by
 `scripts/public-overlay.js`. Neither app's artwork ever ships in the other's bundle.
@@ -48,9 +49,25 @@ origin and has no notion of a node. `npm run check:assistant` walks the import g
 those roots, because tree-shaking will NOT save you: a static import of a module with side effects
 is retained whether or not its exports are read. When a shared component needs something from that
 layer, **cut the edge** — split the module or take the value as a prop — rather than widening the
-list. `components/AccountAvatar.jsx`, `components/HostConnection.jsx` and `lib/oidc.js` all exist
-because of exactly this: the standalone assistant holds its session through the same client of the
-cluster's sign-in provider as the panel, and that client imports nothing but the library.
+list. `components/HostConnection.jsx` and `lib/oidc.js` both exist because of exactly this: the
+standalone assistant holds its session through the same client of the cluster's sign-in provider as
+the panel, and that client imports nothing but the library.
+
+## The design system is a package
+
+The components, stores and stylesheets every Krystal site is drawn from — the briefing card, rail,
+toolbar, paginator, select, modal, sub-tabs, settings furniture, theme picker, toasts and their tray,
+icons, avatar, the assistant's mark, `createStore`/`useStore`, the theme preference, `copyText`, the
+Web Push browser mechanics, and every token — are `@thekrystalship/krystal-ui` (`krystal-ui/` in the
+workspace), a versioned package from GitHub Packages pinned in `package.json`. A change to one of
+them is made there, published, and reaches this repo by bumping the pin; nothing here edits a copy.
+
+Two rules about importing it. **Views import the barrel** (`"@thekrystalship/krystal-ui"`). **`lib/`,
+`hooks/` and the standalone surface's plain modules import its import-free subpaths**
+(`"@thekrystalship/krystal-ui/lib/store"`, `…/lib/toasts`, `…/lib/pushBrowser`, `…/lib/time`): the
+`check:*` scripts load the data layer in Node, outside any browser, and the barrel brings React DOM
+with it, which cannot load there. Both spellings reach the same module file, so a store has one
+instance whichever way it was imported.
 
 ## The layering (top → bottom, one direction)
 
@@ -60,7 +77,7 @@ main.jsx            boot: styles → theme → OAuth-fragment capture → mount 
       └ components/AppRouter.jsx   ROUTING ONLY — route.kind → lazy page + callbacks
           └ pages/  one file (or folder) per route/tab; pages read stores DIRECTLY
               └ lib/         the data layer + policy (apiClient, adapters, stores, persona, router)
-                  └ components/  presentational + shared UI primitives (Modal, KPI, cards…)
+                  └ components/  presentational + shared UI (KPI, cards…) over the design system's primitives
 ```
 
 Dependencies point **downward only**. A page imports from `lib/` and
@@ -157,7 +174,7 @@ is not prose and survives any such removal (`components/CLAUDE.md`, the `pin` sl
 
 ## Telling a person something: toasts, and two push surfaces
 
-`<Toasts>` + the sidebar tray (`lib/toasts.js`) report the outcome of something the **user just did**,
+`<Toasts>` + the sidebar tray (the design system's toast store) report the outcome of something the **user just did**,
 in an open browser (`components/CLAUDE.md`). **Web Push** reports what happened to the **fleet** while
 nothing was open, per device, opt-in, and gated by both the host's rule and the person's own
 preference. The ecosystem-wide map, including how both relate to kgsm-bot's Discord announcements, is
@@ -169,8 +186,9 @@ standalone assistant's (`assistant/push.js`, `assistant/SettingsPage.jsx`,
 `public-assistant/assistant-sw.js`) announces one thing — an action the leaf staged and is waiting on
 you to approve — and comes from the **leaf**, with the leaf's own VAPID key. A subscription carries
 exactly one application server key and belongs to one origin, so these can never share one. The
-browser mechanics they share live in `lib/pushBrowser.js`, which takes its transport as a parameter
-and **imports nothing** — a shared module reaching `apiClient` would fail `npm run check:assistant`.
+browser mechanics they share are the design system's `lib/pushBrowser`, which takes its transport as
+a parameter and **imports nothing** — a shared module reaching `apiClient` would fail
+`npm run check:assistant`.
 
 ## Directory guide
 
@@ -179,9 +197,9 @@ and **imports nothing** — a shared module reaching `apiClient` would fail `npm
 | `pages/` | Route + tab components; `pages/<name>/` folders for the split ones | `pages/CLAUDE.md` |
 | `lib/` | Data layer + policy: apiClient, adapters, stores, persona, router, config | `lib/CLAUDE.md` |
 | `lib/stores/` | Domain-split reactive stores; `lib/stores.js` re-exports them | `lib/stores/CLAUDE.md` |
-| `components/` | Shared/presentational UI + the `<Modal>` primitive | `components/CLAUDE.md` |
-| `hooks/` | `useRouteSync` (URL↔route sync), `useMobileSwipe` (drawer/dock gestures), `usePortalPopover` (portalled popovers — shared by chat and the panel), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the account screens move when an anchor joins or leaves) | — |
-| `styles/` | Plain CSS: `tokens.css` → `kit.css` (barrel over `kit/`) → `consumer.css` | `styles/CLAUDE.md` |
+| `components/` | The panel's shared UI over the design system's primitives | `components/CLAUDE.md` |
+| `hooks/` | `useRouteSync` (URL↔route sync), `useMobileSwipe` (drawer/dock gestures), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the account screens move when an anchor joins or leaves) | — |
+| `styles/` | Plain CSS: `kit.css` (barrel over the design system's sheets and `kit/`) → `consumer.css` | `styles/CLAUDE.md` |
 
 ## Guardrails (the ESLint gate)
 

@@ -1,5 +1,5 @@
 import { AuditActor } from "./AuditActor.jsx";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { auditTone, eventIcon, fmtRelative, fmtTime, humanizeAction, parseTs } from "../lib/formatting.js";
 
 // AuditEventRow — the single presentational row for one audit event. Shared by

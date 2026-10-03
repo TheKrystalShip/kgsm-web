@@ -2,7 +2,7 @@
 
 import { adaptService, adaptLeafConfigApply } from "../adapters.js";
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // ---- Host logs ----
 const LOGS_WINDOW = 300;

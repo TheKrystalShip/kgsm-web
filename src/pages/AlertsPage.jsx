@@ -1,12 +1,11 @@
 import React from "react";
 import { AlertCard, AlertSeverityTag } from "../components/AlertCard.jsx";
-import { Icon } from "../components/Icon.jsx";
+import {
+  Icon, Pagination, Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, useDebouncedValue, useStore,
+} from "@thekrystalship/krystal-ui";
 import { alertInScope } from "../components/ContextualAlerts.jsx";
 import { ClusterReach, nodeFilterOptions } from "../components/host-helpers.jsx";
 import { alertBuckets, useAlerts } from "../components/NeedsAttention.jsx";
-import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
-import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
-import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 
 // AlertsPage — the "what's wrong right now" board (Model A, condition-mirror).

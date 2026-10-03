@@ -1,9 +1,8 @@
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { ConsolePanel } from "../../../components/ConsolePanel.jsx";
-import { Icon } from "../../../components/Icon.jsx";
 import { useNav } from "../../../components/NavContext.jsx";
 import { ServerTile } from "../../../components/ServerCard.jsx";
 import { runServerAction } from "../../../lib/serverActions.js";
-import { useStore } from "../../../lib/store.js";
 import { serversStore } from "../../../lib/stores.js";
 import { PerformanceTab } from "../../PerformanceTab.jsx";
 import { PlayersTab } from "../../PlayersTab.jsx";

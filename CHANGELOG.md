@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the design system is a package (3.2.4)
+
+The tokens, themes, fonts and the primitives every screen is built from — the briefing card, rail,
+toolbar, paginator, select, modal, sub-tabs, settings furniture, theme picker, toasts and their tray,
+icons, avatar and the assistant's mark, with the store, theme preference, clipboard and Web Push
+helpers beneath them — come from `@thekrystalship/krystal-ui`, pinned in `package.json`, so Krystal
+Cinema draws from the same source. The panel renders identically: every element's computed style
+on every main route matches in both engines.
+
+- A refused or failed lifecycle command's row in the notifications tray opens the server it was about.
+- The theme picker's Tributes note says those themes change the shape of things as well as their
+  colours.
+
 ### Changed — no screen names an administrator (3.2.3)
 
 The waiting screen reads "Your account has to be approved."; Settings says whoever manages accounts on

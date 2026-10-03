@@ -1,6 +1,6 @@
 import React from "react";
 import { HostAuthBadge, HostDeniedNotice } from "../components/host-helpers.jsx";
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { addConnection, connectHost, registryEntry, setAppUser } from "../lib/connect.js";
 
 // HostAccess.jsx — UI for the per-host identity/session layer (Model A).

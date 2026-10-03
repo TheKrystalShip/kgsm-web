@@ -1,4 +1,4 @@
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { AuthShell } from "./AuthChrome.jsx";
 
 // ClusterUnavailable — the panel knows where to sign in, and cannot right now.

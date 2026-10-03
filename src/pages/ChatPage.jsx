@@ -5,7 +5,7 @@ import { ChatPage as SharedChatPage } from "../chat/ChatPage.jsx";
 import { useAssistantGate } from "../lib/assistantGate.js";
 import { usableTargets } from "../lib/assistants.js";
 import { canOperate } from "../lib/persona.js";
-import { useStore } from "../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { auditEventHost, fetchAssistantTranscript, hostsStore, serversStore } from "../lib/stores.js";
 
 // The Control Panel's chat: the shared conversation surface (`src/chat/`) wired to a CLUSTER.

@@ -25,11 +25,9 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
-import { SubTabs } from "../../components/SubTabs.jsx";
+import { Icon, SubTabs, useStore } from "@thekrystalship/krystal-ui";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { useNav } from "../../components/NavContext.jsx";
-import { useStore } from "../../lib/store.js";
 import { useKeyedResource } from "../../lib/keyedResource.js";
 import { clusterStore, fetchLeafCommands, fetchLeafReactorProposals, hostsStore, servicesStore, subscribeHostServices } from "../../lib/stores.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";

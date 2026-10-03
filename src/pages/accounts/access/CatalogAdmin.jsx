@@ -6,8 +6,7 @@
 
 import React from "react";
 
-import { SettingsSection } from "../../../components/settings-primitives.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Select, SettingsSection } from "@thekrystalship/krystal-ui";
 import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, authorityGate, componentOf, useAuthority } from "./accessKit.jsx";
 

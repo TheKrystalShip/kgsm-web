@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { sortByAccessor } from "../lib/sorting.js";
 
 // CardTable — tabular data dressed in the shared briefing-card chrome. It

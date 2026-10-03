@@ -1,12 +1,11 @@
 import React from "react";
 
-import { Icon } from "../Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { useNav } from "../NavContext.jsx";
 import { SERVER_ACTION } from "../ServerActions.jsx";
 import { cancelRun } from "../../lib/batchRun.js";
 import { fmtRelative, ordinal } from "../../lib/formatting.js";
 import { mayCall } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { batchesStore, hostsStore, runsFrom, serversStore } from "../../lib/stores.js";
 
 // RunsBoard — what the whole cluster is doing right now, and how it is going.

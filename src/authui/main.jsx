@@ -1,6 +1,5 @@
 import { createRoot } from "react-dom/client";
 
-import "../styles/tokens.css";
 import "../styles/kit.css";
 import "../styles/consumer.css";
 import "./authui.css";

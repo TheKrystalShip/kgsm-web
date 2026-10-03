@@ -2,7 +2,7 @@ import { anchorNamesTheFleet } from "./anchor.js";
 import { CONNECTIONS, REGISTRY_KEY, homeConn, originOfHost } from "./config.js";
 import { claimsOf, createClient, originOf, renew } from "./oidc.js";
 import { readProvider, writeProvider } from "./provider.js";
-import { createStore } from "./store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { hostsStore } from "./stores.js";
 
 // sessionStore.js — one session, for the whole cluster.

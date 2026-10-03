@@ -1,5 +1,5 @@
 import { batchesStore } from "../stores/batches.js";
-import { useStore } from "../store.js";
+import { useStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // useJobPhase — the three states a lifecycle control is drawn in: idle · queued · running.
 //

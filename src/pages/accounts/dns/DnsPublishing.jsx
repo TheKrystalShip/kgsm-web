@@ -5,8 +5,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../../components/BriefCard.jsx";
-import { Icon } from "../../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { DNS_WRITES, checkZoneNow } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";

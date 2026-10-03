@@ -9,9 +9,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { Modal } from "../../../components/Modal.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Icon, Modal, Select } from "@thekrystalship/krystal-ui";
 import { addAlias } from "../../../lib/dnsClient.js";
 
 function AddAliasModal({ targets, targetLabel, describe, suffix, placeholder, existingNames, onClose, onDone }) {

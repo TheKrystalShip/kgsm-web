@@ -5,11 +5,9 @@ import { widgetPermitted } from "../widgets/WidgetHost.jsx";
 import { ROUTE_TABS } from "../../lib/labels.js";
 import { leafIcon } from "../../lib/leaves.js";
 import { can, nodeTabOffered, serverCallRefusal, serverJoin, serverOperable, serverTabOffered, verbRefusal } from "../../lib/persona.js";
-import { copyText } from "../../lib/clipboard.js";
-import { toast } from "../../lib/toasts.js";
+import { THEME_OPTS, copyText, resolveTheme, themeStore, toast } from "@thekrystalship/krystal-ui";
 import { backupServer, runServerAction } from "../../lib/serverActions.js";
 import { moderatePlayer } from "../../lib/stores.js";
-import { THEME_OPTS, resolveTheme, themeStore } from "../../lib/theme.js";
 import { dashboardStore } from "../../lib/widgets/dashboardStore.js";
 import { allWidgets } from "../../lib/widgets/registry.js";
 
@@ -117,8 +115,8 @@ function copyAddressEntry(server, { id, title, weight }) {
     disabled: !!refusal, reason: refusal,
     chin: refusal ? refusal : "Copy " + join.address + " to the clipboard",
     run: () => copyText(join.address).then((ok) => (ok
-      ? toast.success("Address copied", { detail: join.address, serverId: server.id })
-      : toast.error("Your browser blocked the copy", { detail: "The address is " + join.address, serverId: server.id }))),
+      ? toast.success("Address copied", { detail: join.address, subject: server.id })
+      : toast.error("Your browser blocked the copy", { detail: "The address is " + join.address, subject: server.id }))),
   };
 }
 

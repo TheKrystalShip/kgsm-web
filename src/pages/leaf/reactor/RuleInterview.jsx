@@ -11,8 +11,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Icon, Select } from "@thekrystalship/krystal-ui";
 import { StepEditor, Sentence } from "./StepEditor.jsx";
 import {
   bindableSignals, blankRow, catalogAction, catalogOutcome, catalogSignal, catalogSource, ID_SHAPE,

@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { OAuthIcon, providerLabel } from "../../components/oauth-icons.jsx";
 
 // The furniture the three auth screens share — the shell, the brand, the provider

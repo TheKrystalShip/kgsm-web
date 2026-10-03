@@ -15,7 +15,7 @@
 //     address what actually needs retrying — a selection still holding the successes would re-run the
 //     verb against servers already done.
 
-import { createStore, useStore } from "../store.js";
+import { createStore, useStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // ids is ORDERED (click order); hostById answers which node each belongs to. Two fields rather than
 // a list of pairs so membership is a map lookup — a "select all matching" over a large fleet asks

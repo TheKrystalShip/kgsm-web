@@ -1,5 +1,4 @@
-import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection } from "@thekrystalship/krystal-ui";
 import { sessionStore } from "../lib/sessionStore.js";
 
 // SettingsSignIn — how this person signs in, which is the cluster's sign-in provider's business.

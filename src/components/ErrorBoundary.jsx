@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // ErrorBoundary.jsx — the resilience layer.
 //

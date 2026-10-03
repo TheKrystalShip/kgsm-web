@@ -3,7 +3,7 @@
 import { adaptPhantom } from "../adapters.js";
 import { api, realtimeStore } from "../apiClient.js";
 import * as merge from "../merge.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { libraryStore } from "./library.js";
 
 // ---- Game servers -------------------------------------------------------

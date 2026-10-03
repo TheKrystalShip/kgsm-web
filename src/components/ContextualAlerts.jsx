@@ -1,4 +1,4 @@
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { KrystalAlerts, alertHost, alertInScope } from "../lib/alertsApi.js";
 import { AlertCard } from "./AlertCard.jsx";
 

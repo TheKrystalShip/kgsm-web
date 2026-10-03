@@ -1,9 +1,8 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { StatusLed } from "./diagComponents.jsx";
 import { fetchSensorSummary, fetchGpuSummary } from "../../lib/stores/hosts.js";
 import { useHostThresholds, ruleLines } from "../../lib/hostThresholds.js";
-import { useStore } from "../../lib/store.js";
 import { hostsStore } from "../../lib/stores.js";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 

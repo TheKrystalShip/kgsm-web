@@ -1,9 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "./Icon.jsx";
-import { Modal } from "./Modal.jsx";
-import { Select } from "./Select.jsx";
-import { usePortalPopover } from "../hooks/usePortalPopover.js";
+import { Icon, Modal, Select, usePortalPopover } from "@thekrystalship/krystal-ui";
 
 // fmtClock — a wall-clock HH:MM:SS from an ISO string or epoch ms; "" for absent/garbage
 // (never a fabricated time). Game stdout lines carry no time, so the live feed stamps each

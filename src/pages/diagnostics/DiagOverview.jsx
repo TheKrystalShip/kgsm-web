@@ -4,7 +4,7 @@ import React from "react";
 import { KPI } from "../../components/KPI.jsx";
 import { NeedsAttention } from "../../components/NeedsAttention.jsx";
 import { RecentActivity } from "../../components/RecentActivity.jsx";
-import { useStore } from "../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { metricTone, uptimeShort } from "../../lib/formatting.js";
 import { useHostThresholds, ruleLines } from "../../lib/hostThresholds.js";
 import { useKeyedResource } from "../../lib/keyedResource.js";

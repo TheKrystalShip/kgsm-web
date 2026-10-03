@@ -16,7 +16,7 @@
 // Coverage is counted off the newest frame, not off configuration, so an enabled source finding nothing
 // and a source that is switched off are told apart by the flag beside the count.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtBytes, fmtRelative } from "../../lib/formatting.js";
 import { fetchLeafMonitorStats } from "../../lib/stores.js";

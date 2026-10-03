@@ -1,9 +1,7 @@
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
+import { Icon, Modal, useStore } from "@thekrystalship/krystal-ui";
 import { widgetPermitted } from "../../components/widgets/WidgetHost.jsx";
-import { useStore } from "../../lib/store.js";
 import { dashboardStore } from "../../lib/widgets/dashboardStore.js";
 import { allWidgets } from "../../lib/widgets/registry.js";
 

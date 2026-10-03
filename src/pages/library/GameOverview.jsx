@@ -1,4 +1,4 @@
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { GamePlacement, roomyNodes } from "./GamePlacement.jsx";
 import { fmtFootprintMb } from "../../lib/formatting.js";

@@ -1,8 +1,7 @@
 // ChatMessage — the message bubble dispatcher. Renders user bubbles,
 // assistant bubbles (with thinking, tools, evidence cards), and typing indicators.
 
-import { Icon } from "../components/Icon.jsx";
-import { AccountAvatar } from "../components/AccountAvatar.jsx";
+import { AccountAvatar, Icon } from "@thekrystalship/krystal-ui";
 import { VoiceNoteBubble } from "../components/VoiceNote.jsx";
 import { renderMarkdown } from "./chatUtils.jsx";
 import { ChatThinking, ChatContextPill, ChatSteps, ChatPending } from "./ChatMessageParts.jsx";

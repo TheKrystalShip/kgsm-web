@@ -1,5 +1,5 @@
 import { api } from "./apiClient.js";
-import { acquire, currentEndpoint, currentSubscription, release, support } from "./pushBrowser.js";
+import { acquire, currentEndpoint, currentSubscription, release, support } from "@thekrystalship/krystal-ui/lib/pushBrowser";
 
 // push.js — the PANEL's Web Push, which is this host's kgsm-api and its fleet events.
 //

@@ -2,8 +2,7 @@
 // Re-exported from diagComponents.jsx so consumers are unchanged. Pure render, no local state.
 // The leaf card itself is `components/LeafCard.jsx` — it is shared UI, not a diagnostics part.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { leafStatus } from "../../lib/leaves.js";
 
 function StatusLed({ live, label }) {

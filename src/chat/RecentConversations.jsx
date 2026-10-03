@@ -1,6 +1,5 @@
 import React from "react";
-import { BriefCard } from "../components/BriefCard.jsx";
-import { Icon } from "../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { fmtRelative } from "../lib/formatting.js";
 import { conversationTitle } from "./chatConstants.js";
 

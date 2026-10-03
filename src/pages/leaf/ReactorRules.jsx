@@ -23,9 +23,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { Toggle } from "../../components/settings-primitives.jsx";
+import { BriefCard, Icon, Toggle } from "@thekrystalship/krystal-ui";
 import {
   deleteLeafReactorRule, fetchLeafReactorCatalog, fetchLeafReactorStatus, fetchLeafReactorTriggers,
   previewLeafReactorRule, saveLeafReactorRule,

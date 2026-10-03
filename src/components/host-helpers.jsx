@@ -1,8 +1,7 @@
-import { Icon } from "./Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { OAuthIcon, providerLabel } from "./oauth-icons.jsx";
 import { reachStore } from "../lib/apiClient.js";
 import { CONNECTIONS } from "../lib/config.js";
-import { useStore } from "../lib/store.js";
 import { hostsStore } from "../lib/stores.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { statusTone } from "../lib/formatting.js";

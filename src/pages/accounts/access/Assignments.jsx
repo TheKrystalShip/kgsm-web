@@ -12,8 +12,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Icon, Select } from "@thekrystalship/krystal-ui";
 import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, parseInstance, roleName, useChecks, useScopeOptions, useScopeText } from "./accessKit.jsx";
 

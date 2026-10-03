@@ -1,6 +1,5 @@
-import { Icon } from "./Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { can } from "../lib/persona.js";
-import { useStore } from "../lib/store.js";
 import { hostsStore, serversStore } from "../lib/stores.js";
 import { artBg } from "../lib/art.js";
 import { fmtFootprintMb } from "../lib/formatting.js";

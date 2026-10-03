@@ -125,9 +125,10 @@ publishes a default over the stored value. `dashboardStore.hydrate` encodes the 
 `boot.js` hydrates preferences only after `hostsStore.refresh` has reconciled the connection's
 backend id, since the home node is addressed by that id.
 
-**Stores** — see `stores/CLAUDE.md`. `store.js` is the tiny reactive primitive
-(`createStore` + `useStore`, React 18 `useSyncExternalStore`). `stores.js`
-re-exports `stores/` — import from either.
+**Stores** — see `stores/CLAUDE.md`. The tiny reactive primitive (`createStore` + `useStore`,
+React 18 `useSyncExternalStore`) is the design system's, imported here from
+`@thekrystalship/krystal-ui/lib/store` — the import-free subpath, never the package barrel, because
+the `check:*` scripts load this layer in Node. `stores.js` re-exports `stores/` — import from either.
 
 **Connection / config / multi-host**
 - `config.js` — the connection model: `CONNECTIONS` (seeded from the localStorage
@@ -263,18 +264,10 @@ re-exports `stores/` — import from either.
 **Routing & presentation helpers**
 - `router.js` — pure URL-hash ↔ `route` object bridge (framework-free). Full URL
   scheme documented in-file.
-- `theme.js` — client-only theme preference; LIVE swap of `<html data-theme>`, no
-  reload. Owns `THEME_OPTS`, the offered themes as `{ id, label, mode }` — both
-  surfaces' pickers read it and `VALID` derives from it, so a theme is declared
-  once. `mode` (`dark｜light`, absent on `auto`) is the palette's own character,
-  **declared not derived**, and is what the swatch picker groups on. `cvd` names,
-  in words, the deficiency a colour-vision palette is built for; its presence —
-  not the `cvd-` id prefix — is what puts a theme in the picker's own badged
-  section, so the grouping survives a rename. `tribute` does the same job for a
-  palette quoting a screen from somewhere else and names what it quotes — the
-  picker's Tributes section and each swatch's tooltip. A theme carries at most one
-  of the two. Mirror the `index.html` / `assistant.html` boot scripts when you
-  change the list.
+- The theme preference — the LIVE swap of `<html data-theme>` and `THEME_OPTS`, the offered themes
+  every picker reads — is the design system's `lib/theme`, and its own comments describe the fields a
+  theme carries (`mode`, `cvd`, `tribute`). Mirror the `index.html` / `assistant.html` boot scripts
+  when a pin brings a changed list.
 - `formatting.js` — the pure formatters, and **the two bindings that turn an audit row
   into pixels**. Both key on a DIMENSION the row carries and never on the event's name:
   `auditTone` reads the severity its producer stamped (`info｜warn｜danger`, with `outcome`

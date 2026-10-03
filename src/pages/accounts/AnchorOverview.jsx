@@ -16,12 +16,10 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
 import { formatLatency } from "../../lib/nodeLabel.js";
-import { useStore } from "../../lib/store.js";
 import { authorityStore } from "../../lib/stores/authority.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";

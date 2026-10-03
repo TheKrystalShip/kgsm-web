@@ -6,7 +6,7 @@
 // first render, and a round trip would mean an empty grid on every cold load.
 
 import { can } from "../persona.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { accessStore } from "../stores/access.js";
 import { PREF_KEYS, prefsStore } from "../stores/prefs.js";
 import { getWidget, hasWidget } from "./registry.js";

@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { useConfirmAction } from "./ServerActions.jsx";
 import { serverCallRefusal } from "../lib/persona.js";
 

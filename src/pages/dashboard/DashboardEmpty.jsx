@@ -1,4 +1,4 @@
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // DashboardEmpty — a dashboard somebody has cleared.
 //

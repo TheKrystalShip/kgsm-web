@@ -7,11 +7,8 @@
 // confirmed, and folding it into a form's dirty state would make a Save button move a server.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { Select } from "../../components/Select.jsx";
-import { SettingsRow, SettingsSection } from "../../components/settings-primitives.jsx";
+import { Icon, Select, SettingsRow, SettingsSection, useStore } from "@thekrystalship/krystal-ui";
 import { hostsStore, moveServer } from "../../lib/stores.js";
-import { useStore } from "../../lib/store.js";
 import { fmtBytes } from "../../lib/formatting.js";
 import { serverCallRefusal } from "../../lib/persona.js";
 

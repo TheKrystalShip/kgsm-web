@@ -1,9 +1,8 @@
 import React from "react";
-import { Icon } from "../Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { BatchPreflight } from "./BatchPreflight.jsx";
 import { partitionSelection } from "./preflight.js";
 import { SERVER_ACTION } from "../ServerActions.jsx";
-import { useStore } from "../../lib/store.js";
 import { selectionStore, serversStore } from "../../lib/stores.js";
 
 // SelectionBar — what is picked, and the four verbs that can be applied to it.

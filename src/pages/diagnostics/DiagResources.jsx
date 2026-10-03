@@ -13,7 +13,7 @@
 // plumbing the ecosystem doesn't manage (raw disks, network interfaces) is deliberately not surfaced
 // here.
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtBytes, metricTone } from "../../lib/formatting.js";
 import { useHostThresholds, ruleLines } from "../../lib/hostThresholds.js";

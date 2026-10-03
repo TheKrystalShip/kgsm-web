@@ -1,5 +1,4 @@
-import { Icon } from "./Icon.jsx";
-import { AccountAvatar } from "./AccountAvatar.jsx";
+import { AccountAvatar, Icon } from "@thekrystalship/krystal-ui";
 import { LEAF_ICON, leafIcon, leafKind } from "../lib/leaves.js";
 
 // AuditActor — the avatar circle for an audit event's actor. Three cases, in this order:

@@ -2,8 +2,7 @@
 // No parent state awareness, no conversation/host coupling.
 
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
-import { ReversablePortal } from "../components/ReversablePortal.jsx";
+import { Icon, ReversablePortal } from "@thekrystalship/krystal-ui";
 import { commandMeta } from "./chatConstants.js";
 import { LEAF_COMMAND_VERBS } from "./chatConstants.js";
 

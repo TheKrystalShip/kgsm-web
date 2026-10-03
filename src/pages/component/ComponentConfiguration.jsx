@@ -14,12 +14,9 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
 import {
-  Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer,
-} from "../../components/Toolbar.jsx";
-import { copyText } from "../../lib/clipboard.js";
+  BriefCard, Icon, Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, copyText,
+} from "@thekrystalship/krystal-ui";
 import { callRefusal } from "../../lib/persona.js";
 import { ComponentConfigRow } from "./ComponentConfigRow.jsx";
 import { ComponentConfigReview } from "./ComponentConfigReview.jsx";

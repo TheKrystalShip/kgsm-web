@@ -12,7 +12,7 @@
 import { KPI } from "../../components/KPI.jsx";
 import { fmtBytes } from "../../lib/formatting.js";
 import { fetchEngineInfo, serversStore } from "../../lib/stores.js";
-import { useStore } from "../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { LeafFacts, LeafLoading, LeafNotice, LeafUnreadable, useLeafResource } from "./leafOverviewKit.jsx";
 
 function KgsmOverview({ hostId, host }) {

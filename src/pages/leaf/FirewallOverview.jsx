@@ -15,7 +15,7 @@
 // asked at the moment of the probe and answers or doesn't. "Inactive" on the System tab is its resting
 // state, not a fault, and nothing here contradicts that.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fetchHostDetail } from "../../lib/stores.js";

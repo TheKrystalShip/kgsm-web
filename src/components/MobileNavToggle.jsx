@@ -1,7 +1,7 @@
 // MobileNavToggle — slim handle pinned to the left edge on phones, matching
 // the swipe gesture position.
 
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 function MobileNavToggle({ onOpen }) {
   return (

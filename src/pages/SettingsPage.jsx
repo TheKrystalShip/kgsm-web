@@ -1,6 +1,4 @@
-import { SubTabs } from "../components/SubTabs.jsx";
-import { ThemePicker } from "../components/ThemePicker.jsx";
-import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { SettingsRow, SettingsSection, SubTabs, ThemePicker } from "@thekrystalship/krystal-ui";
 import { ResetLocalData } from "../components/ResetLocalData.jsx";
 import { SettingsMemory } from "../components/SettingsMemory.jsx";
 import { signInMethodLabel } from "../components/host-helpers.jsx";

@@ -1,8 +1,8 @@
 // DiagServices — the Services sub-tab: KGSM leaf control center.
 
-import { Icon } from "../../components/Icon.jsx";
-import { Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, useFilters } from "../../components/Toolbar.jsx";
-import { useStore } from "../../lib/store.js";
+import {
+  Icon, Toolbar, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, useFilters, useStore,
+} from "@thekrystalship/krystal-ui";
 import { leafStatus } from "../../lib/leaves.js";
 import { can } from "../../lib/persona.js";
 import { PinButton } from "../../components/widgets/PinButton.jsx";

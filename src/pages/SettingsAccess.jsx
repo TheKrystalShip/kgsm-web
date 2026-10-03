@@ -1,10 +1,8 @@
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection, useStore } from "@thekrystalship/krystal-ui";
 import { ANCHOR_SOURCE } from "../lib/access.js";
 import { nodeLabel } from "../lib/nodeLabel.js";
-import { useStore } from "../lib/store.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { accessStore, hostsStore, serversStore } from "../lib/stores.js";
 

@@ -9,8 +9,7 @@
 // run; this panel cannot verify that check, so it prints the action and whether the reader holds it,
 // and softens nothing.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { may } from "../../lib/persona.js";
 
 // Where a person types these. The subject differs per surface — the bot is spoken to in Discord, the

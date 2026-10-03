@@ -1,18 +1,14 @@
 // formatting.js — the shared pure formatters: time, bytes, uptime, metric tones, and the two
-// bindings that turn an audit row into something on screen. No React and no imports, so pages and
-// components both read it.
+// bindings that turn an audit row into something on screen. No React, and its one import is the
+// design system's own import-free time module, so pages, components and the offline checks all read
+// it. `fmtRelative` is that module's, so a relative time reads the same here as in the design
+// system's own components.
+
+import { fmtRelative } from "@thekrystalship/krystal-ui/lib/time";
 
 // ---------- Time helpers ----------
 
 function parseTs(ts) { return new Date(ts.replace(" ", "T")); }
-
-function fmtRelative(date, now = new Date()) {
-  const diff = (now - date) / 1000;
-  if (diff < 60)    return Math.max(0, Math.floor(diff)) + "s ago";
-  if (diff < 3600)  return Math.floor(diff / 60) + "m ago";
-  if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-  return Math.floor(diff / 86400) + "d ago";
-}
 
 // How long until something happens — the forward twin of fmtRelative, for a scheduled job rather than a
 // recorded event. A time that has already passed reads "due" rather than a negative duration: the

@@ -8,9 +8,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { SettingsSection } from "../../../components/settings-primitives.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Icon, Select, SettingsSection } from "@thekrystalship/krystal-ui";
 import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { RefusalNote, authorityGate, useAuthority, useScopeOptions, useScopeText } from "./accessKit.jsx";
 

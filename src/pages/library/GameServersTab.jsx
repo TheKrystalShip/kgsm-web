@@ -1,4 +1,4 @@
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { ServerTile } from "../../components/ServerCard.jsx";
 
 // GameServersTab — every server in the cluster running from this blueprint. Same

@@ -27,7 +27,7 @@ import { api } from "../apiClient.js";
 import { ANCHOR_SOURCE, anchorSource, nodeSource } from "../access.js";
 import { ANCHORED_NAMESPACES, readAnchorAccess, readAnchorOperations } from "../anchorAccess.js";
 import { readProvider } from "../provider.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { clusterStore } from "./cluster.js";
 import { hostsStore } from "./hosts.js";
 

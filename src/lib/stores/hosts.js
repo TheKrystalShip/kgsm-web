@@ -4,7 +4,7 @@ import { api } from "../apiClient.js";
 import { reconcileConnectionId } from "../config.js";
 import * as merge from "../merge.js";
 import { sortNodes } from "../nodeLabel.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 const hostsStore = createStore({
   list: [],

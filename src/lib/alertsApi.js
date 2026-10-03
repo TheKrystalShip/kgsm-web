@@ -1,6 +1,6 @@
 import { api } from "./apiClient.js";
 import * as merge from "./merge.js";
-import { createStore } from "./store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { serverHostId } from "./stores.js";
 
 // alertsApi.js — the alerts domain, on the shared store layer.

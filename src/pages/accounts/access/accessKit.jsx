@@ -7,10 +7,9 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { nodeLabel } from "../../../lib/nodeLabel.js";
 import { sessionStore } from "../../../lib/sessionStore.js";
-import { useStore } from "../../../lib/store.js";
 import { authorityStore } from "../../../lib/stores/authority.js";
 import { hostsStore, serversStore } from "../../../lib/stores.js";
 

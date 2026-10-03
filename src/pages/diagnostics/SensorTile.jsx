@@ -1,6 +1,6 @@
 import React from "react";
 import { KPI } from "../../components/KPI.jsx";
-import { useStore } from "../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { hostsStore } from "../../lib/stores.js";
 import {
   fetchSensorHistory, fetchSensorSummary, fetchGpuHistory, fetchGpuSummary,

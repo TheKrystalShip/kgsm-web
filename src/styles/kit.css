@@ -5,33 +5,48 @@
    later rules win on equal specificity, so keep these @imports in this exact
    sequence and add new rules to the partial that owns the domain (or a new
    partial appended here). `@import` must precede other rules, which this
-   imports-only file satisfies; Vite inlines them in order at build time. */
-@import "./tokens.css";
+   imports-only file satisfies; Vite inlines them in order at build time.
+
+   The design system's own sheets (@thekrystalship/krystal-ui) are interleaved
+   here rather than loaded as one block: each sits just before the partial that
+   restyles or places what it draws, so a panel rule still wins on equal
+   specificity. */
+@import "@thekrystalship/krystal-ui/styles/tokens.css";
+@import "@thekrystalship/krystal-ui/styles/motion.css";
 
 @import "./kit/base.css";
 @import "./kit/shell.css";
+@import "@thekrystalship/krystal-ui/styles/subtabs.css";
 @import "./kit/page.css";
 @import "./kit/server.css";
 @import "./kit/catalog.css";
+@import "@thekrystalship/krystal-ui/styles/select.css";
+@import "@thekrystalship/krystal-ui/styles/portal.css";
 @import "./kit/modal.css";
 @import "./kit/onboarding.css";
 @import "./kit/dashboard.css";
 @import "./kit/observability.css";
+@import "@thekrystalship/krystal-ui/styles/toolbar.css";
+@import "@thekrystalship/krystal-ui/styles/pagination.css";
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
+@import "@thekrystalship/krystal-ui/styles/brief.css";
 @import "./kit/chat.css";
+@import "@thekrystalship/krystal-ui/styles/rail.css";
 @import "./kit/rail.css";
 @import "./kit/widgets.css";
 @import "./kit/welcome.css";
-@import "./kit/toast.css";
+@import "@thekrystalship/krystal-ui/styles/toast.css";
+@import "@thekrystalship/krystal-ui/styles/settings.css";
 @import "./kit/settings.css";
+@import "@thekrystalship/krystal-ui/styles/assistant-icon.css";
 @import "./kit/dock.css";
 @import "./kit/hosts.css";
 @import "./kit/cluster.css";
 @import "./kit/dns.css";
 @import "./kit/leafconfig.css";
 @import "./kit/leaf.css";
-@import "./kit/theme-picker.css";
+@import "@thekrystalship/krystal-ui/styles/theme-picker.css";
 @import "./kit/states.css";
 @import "./kit/extras.css";
 @import "./kit/palette.css";

@@ -5,9 +5,8 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard, useStore } from "@thekrystalship/krystal-ui";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
-import { useStore } from "../../lib/store.js";
 import { anchorAttentionStore, startAnchorAttention, stopAnchorAttention } from "../../lib/stores/anchorAttention.js";
 import { LeafBriefEmpty, LeafBriefItem } from "../leaf/leafOverviewKit.jsx";
 

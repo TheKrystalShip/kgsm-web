@@ -12,7 +12,7 @@ import { CONNECTIONS } from "../config.js";
 import { reconcileRosterToRegistry } from "../connect.js";
 import { fleetStore, refreshFleetFromAnchor } from "../fleet.js";
 import { sessionStore } from "../sessionStore.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { hostsStore } from "./hosts.js";
 
 const clusterStore = createStore({

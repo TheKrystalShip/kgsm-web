@@ -1,17 +1,17 @@
 import React from "react";
+import {
+  Icon, Pagination, Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer,
+  useDebouncedValue, useStore,
+} from "@thekrystalship/krystal-ui";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
 import { ClusterReach, nodeFilterOptions } from "../components/host-helpers.jsx";
-import { Icon } from "../components/Icon.jsx";
-import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { SelectionBar } from "../components/batch/SelectionBar.jsx";
 import { ServerTile } from "../components/ServerCard.jsx";
 import { ServersSkeleton, Skel } from "../components/Skeletons.jsx";
-import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSort, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { can } from "../lib/persona.js";
 import { playerTally } from "../lib/servers.js";
 import { sortByAccessor } from "../lib/sorting.js";
-import { useStore } from "../lib/store.js";
 import { favoritesStore, hostsStore, selectionStore, serversStore, useSelectionIds } from "../lib/stores.js";
 
 // ServersPage — the dedicated home for every installed game server.

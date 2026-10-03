@@ -1,7 +1,6 @@
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
-import { Modal } from "../components/Modal.jsx";
+import { Icon, Modal } from "@thekrystalship/krystal-ui";
 
 // FirstRunWelcome — the one-time tour of what the dashboard can do.
 //

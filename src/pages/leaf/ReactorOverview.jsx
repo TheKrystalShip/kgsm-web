@@ -28,7 +28,7 @@
 // have, which on a page about what a daemon is permitted to do to your servers is the worst kind of
 // wrong.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtRelative, fmtUntil, parseTs } from "../../lib/formatting.js";

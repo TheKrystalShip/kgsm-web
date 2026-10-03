@@ -15,9 +15,7 @@
 
 import React from "react";
 import { ConsoleView } from "../../components/ConsoleView.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { SubTabs } from "../../components/SubTabs.jsx";
-import { useStore } from "../../lib/store.js";
+import { Icon, SubTabs, useStore } from "@thekrystalship/krystal-ui";
 import { leafSurface } from "../../lib/componentSurface.js";
 import {
   hostsStore, logSourcesStore, logsStore, servicesStore, subscribeHostLogs, subscribeHostServices,

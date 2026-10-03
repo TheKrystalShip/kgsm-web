@@ -24,7 +24,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtBytes, fmtRelative, fmtUntil, parseTs } from "../../lib/formatting.js";

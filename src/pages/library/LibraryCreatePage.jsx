@@ -14,12 +14,9 @@
 
 import React from "react";
 import { BlueprintHostPicker } from "./BlueprintHostPicker.jsx";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { ReversablePortal } from "../../components/ReversablePortal.jsx";
+import { BriefCard, Icon, ReversablePortal, useStore } from "@thekrystalship/krystal-ui";
 import { useAssistantFor } from "../../components/AssistantDockContext.jsx";
 import { mayCall } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { blueprintFileStore, hostsStore, libraryStore } from "../../lib/stores.js";
 
 const CodeEditor = React.lazy(() => import("../../components/CodeEditor.jsx"));

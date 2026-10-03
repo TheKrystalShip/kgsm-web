@@ -7,8 +7,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { fetchLeafConfig } from "../../lib/stores.js";
 
 // Which knobs are worth surfacing without being asked. Everything else is one click away in Settings;

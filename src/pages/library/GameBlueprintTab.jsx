@@ -1,5 +1,4 @@
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { SettingsRow } from "../../components/settings-primitives.jsx";
+import { BriefCard, SettingsRow } from "@thekrystalship/krystal-ui";
 import { fmtFootprintMb } from "../../lib/formatting.js";
 
 // GameBlueprintTab — everything the blueprint DECLARES, structured, so nobody has

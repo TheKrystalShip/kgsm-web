@@ -12,8 +12,9 @@ import "../styles/assistant.css";
 
 // Theme preference store (client-only): applies the saved theme to <html data-theme> and tracks the
 // OS scheme for "auto". The inline boot script in assistant.html already set the attribute
-// pre-paint; this keeps the store and the browser-chrome colour in sync.
-import "../lib/theme.js";
+// pre-paint; this keeps the store and the browser-chrome colour in sync. The package declares that
+// module side-effectful, so a bare import of it keeps the theme applied.
+import "@thekrystalship/krystal-ui";
 
 // This surface is served BY the assistant it talks to, so its address is simply where the page came
 // from — there is nothing to discover, and no host store to discover it in. The session is this

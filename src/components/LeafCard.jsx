@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { fmtBytes, uptimeShort } from "../lib/formatting.js";
 import { leafIcon, leafKind, leafStatus } from "../lib/leaves.js";
 import { servicesStore, setLeafProvisioned } from "../lib/stores.js";

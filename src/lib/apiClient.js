@@ -1,4 +1,4 @@
-import { createStore } from "./store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { apiV1Of, apiOriginOf, apiV1ForConn, streamUrlForConn, subscribeConnections, subscribeConnectionsRemoved, CONNECTIONS } from "./config.js";
 import { DEVICE_HEADER, deviceId } from "./device.js";
 import * as adapt from "./adapters.js";

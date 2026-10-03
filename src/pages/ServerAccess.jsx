@@ -5,7 +5,7 @@
 // reinstalled under the same id starts with none. Roles held more widely — at its node or the whole
 // cluster — are the Accounts page's.
 
-import { SettingsSection } from "../components/settings-primitives.jsx";
+import { SettingsSection } from "@thekrystalship/krystal-ui";
 import { Assignments } from "./accounts/access/Assignments.jsx";
 import { Brief, authorityGate, useAuthority } from "./accounts/access/accessKit.jsx";
 

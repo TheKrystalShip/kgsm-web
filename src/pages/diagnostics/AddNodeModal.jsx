@@ -1,7 +1,5 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
-import { Select } from "../../components/Select.jsx";
+import { Icon, Modal, Select } from "@thekrystalship/krystal-ui";
 import { api } from "../../lib/apiClient.js";
 import { addConnection, connectHost, normalizeHostUrl, registryEntry, setAppUser } from "../../lib/connect.js";
 import { clusterStore } from "../../lib/stores.js";

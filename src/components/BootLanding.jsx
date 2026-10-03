@@ -6,7 +6,7 @@
 // that keeps no node list has nothing to draw until the anchor answers, and saying "signing you in"
 // to somebody already signed in is a small lie that makes a slow cluster look like a slow login.
 
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 function BootLanding({ label }) {
   // Self-contained full-viewport hold — deliberately NOT the `.app` shell class,

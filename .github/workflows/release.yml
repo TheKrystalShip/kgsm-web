@@ -36,12 +36,18 @@ jobs:
           fi
           echo "version ${declared}"
 
+      # The @thekrystalship scope resolves from GitHub Packages, which wants a token even to install;
+      # setup-node writes the registry for the scope and reads the token from NODE_AUTH_TOKEN.
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@thekrystalship'
 
 
       - name: Build the SPA
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm ci
           VITE_API_BASE=self npm run build

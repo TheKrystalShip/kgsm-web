@@ -16,7 +16,7 @@
 
 import React from "react";
 
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 const NOTE_MAX = 400;
 

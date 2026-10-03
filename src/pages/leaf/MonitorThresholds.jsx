@@ -17,8 +17,7 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
-import { SettingsSection, Toggle } from "../../components/settings-primitives.jsx";
+import { Icon, SettingsSection, Toggle } from "@thekrystalship/krystal-ui";
 import { api } from "../../lib/apiClient.js";
 import { callRefusal } from "../../lib/persona.js";
 import { sessionStore } from "../../lib/sessionStore.js";

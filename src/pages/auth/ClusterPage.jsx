@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { discoverProvider, originOf } from "../../lib/oidc.js";
 import { AuthError, AuthShell } from "./AuthChrome.jsx";
 

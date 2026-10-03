@@ -1,13 +1,10 @@
 import React from "react";
-import { AccountAvatar } from "./AccountAvatar.jsx";
-import { Icon } from "./Icon.jsx";
-import { NotificationsPanel } from "./NotificationsPanel.jsx";
+import { AccountAvatar, Icon, NotificationsPanel, useStore } from "@thekrystalship/krystal-ui";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { coverArtBg } from "../lib/art.js";
 import { OAuthIcon, signInMethodLabel } from "./host-helpers.jsx";
-import { useStore } from "../lib/store.js";
 import { anchorAttentionStore, clusterStore, favoritesStore, serversStore, startAnchorAttention, stopAnchorAttention } from "../lib/stores.js";
 
 // Sidebar component — brand, primary nav, quick actions.
@@ -383,7 +380,8 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
             dashboard by whoever wants it — a second tray here would read as one list with this, and
             a run somebody else started would pass for something you did yourself. Both sit out of
             Monitoring, which is what the AlertEngine says about the fleet. */}
-        <NotificationsPanel onOpenServer={(id) => onNavigate && onNavigate({ kind: "server", id })} />
+        {/* A toast's subject is the id of the server it was about. */}
+        <NotificationsPanel onOpen={(id) => onNavigate && onNavigate({ kind: "server", id })} />
         <div className={"nav-item" + (isActive("settings") ? " nav-item--active" : "")} onClick={go("settings")} data-tip="Settings" aria-label="Settings">
           <Icon name="settings" size={16} />
           <span className="nav-item__label">Settings</span>

@@ -1,9 +1,8 @@
 // DiagLogs — the Logs sub-tab: aggregated leaf-service journals.
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { ConsoleView } from "../../components/ConsoleView.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
-import { useStore } from "../../lib/store.js";
 import { useKeyedResource } from "../../lib/keyedResource.js";
 import { logSourcesStore, logsStore, subscribeHostLogs } from "../../lib/stores.js";
 import { LOG_SOURCE_META } from "./diagHelpers.js";

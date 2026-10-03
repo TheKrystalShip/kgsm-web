@@ -30,7 +30,7 @@
 // lets a run narrow the selection to what still needs doing.
 
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 /// How many settled RUNS survive in the store. A tray follows live work; the settled ones below it
 /// are the tail an operator is still checking on, and beyond a screenful they are audit's job. The

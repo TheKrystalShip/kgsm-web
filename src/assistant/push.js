@@ -1,5 +1,5 @@
 import { assistant } from "../lib/assistantClient.js";
-import { acquire, currentEndpoint, release, support } from "../lib/pushBrowser.js";
+import { acquire, currentEndpoint, release, support } from "@thekrystalship/krystal-ui/lib/pushBrowser";
 import { SELF } from "./self.js";
 
 // The standalone assistant's Web Push: registering THIS browser with the leaf it is served by.

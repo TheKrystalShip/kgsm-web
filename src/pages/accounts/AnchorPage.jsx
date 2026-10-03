@@ -25,8 +25,7 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
-import { SubTabs } from "../../components/SubTabs.jsx";
+import { Icon, SubTabs } from "@thekrystalship/krystal-ui";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { anchorSurface } from "../../lib/componentSurface.js";
 import { anchorTabs } from "../../lib/labels.js";

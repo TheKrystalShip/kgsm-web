@@ -19,6 +19,10 @@ npm run preview      # serve the built dist/ locally
 npm run deploy:prod  # build + sync dist/ into the web root — nothing restarts
 ```
 
+The design system, `@thekrystalship/krystal-ui`, installs from GitHub Packages' npm registry
+(`.npmrc` maps the scope). The registry asks for a token even to install, so a workstation keeps one
+with `read:packages` in `~/.npmrc` as `//npm.pkg.github.com/:_authToken=…`.
+
 ## Deploying the frontend
 
 The panel is served by **no node**. It is a static artifact that belongs to no cluster — it holds no
@@ -87,10 +91,9 @@ kgsm-web/
     App.jsx               the shell: auth gate, hash routing, sidebar, assistant dock
     components/           shared components (Sidebar, ServerCard, ConsolePanel, …)
     pages/                routed pages (Dashboard, Servers, Library, Alerts, …)
-    lib/                  client data layer (see below) · theme.js (client-only theme pref)
+    lib/                  client data layer (see below)
     styles/
-      tokens.css          design tokens + @font-face — :root structural + [data-theme] color scopes
-      kit.css             BARREL: @imports kit/*.css in cascade order (do not grow a monolith)
+      kit.css             BARREL: the design system's sheets and kit/*.css, in cascade order
       kit/                domain partials (shell, server, catalog, dashboard, chat, hosts, …)
       consumer.css        app-level overrides
   scripts/                smoke-live.mjs (live-wiring smoke)
@@ -99,9 +102,9 @@ kgsm-web/
 
 ### The data layer (`src/lib/`)
 
-The reactive store layer:
+The reactive store layer, over the design system's `createStore` / `useStore` (React 18
+`useSyncExternalStore`):
 
-- `store.js` — `createStore` / `useStore` (React 18 `useSyncExternalStore`).
 - `apiClient.js` — the backend seam (`api`): `fetch` against `kgsm-api` (REST,
   translated by `adapters.js`) + fetch-based SSE per host (`liveStream.js`). The
   ONE place that talks to the backend; call sites only see `api`.
@@ -172,7 +175,7 @@ they are two origins with two manifests. The pieces, per surface:
 | artwork | `public-panel/icons/` + `splash/` | `public-assistant/icons/` + `splash/` |
 | served by | kgsm-api | the kgsm-assistant leaf |
 
-`public/` holds only what both share (fonts, brand mark) and Vite copies it into both bundles; each
+`public/` holds only what both share (the brand mark) and Vite copies it into both bundles; each
 surface's own half is laid over the top from `public-<surface>/` by `scripts/public-overlay.js`.
 Shared-by-default is the point — a new shared asset needs no edit, and only a difference is
 declared. `npm run check:assistant` fails the assistant build if its manifest, worker or any icon
@@ -192,7 +195,8 @@ it names is missing from `dist-assistant/`.
   `--krystal-teal-dim` over `--canvas`, the glyph 26/56 of the frame and its stroke the `1.7` every
   `<Icon>` uses. One drawing serves the favicon (SVG, plus a 32px PNG fallback), the
   `any`/`maskable`/apple-touch icons and the 13 iOS launch images. The script cannot read a CSS
-  custom property, so those colours and that geometry are **copied** from `styles/tokens.css` and
+  custom property, so those colours and that geometry are **copied** from the design system's
+  `styles/tokens.css` and
   `kit/chat.css` — change the element and you must change the script. Run it by hand after changing
   the artwork; it needs `rsvg-convert` and no build invokes it.
 - **The two service workers differ in what they may cache, and the difference is load-bearing.**

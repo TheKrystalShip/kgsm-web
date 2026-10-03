@@ -1,5 +1,4 @@
-import { Icon } from "../components/Icon.jsx";
-import { useStore } from "../lib/store.js";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { serversStore } from "../lib/stores.js";
 
 // ServerGate — the async-state gate for the server-detail route. `serverForRender`

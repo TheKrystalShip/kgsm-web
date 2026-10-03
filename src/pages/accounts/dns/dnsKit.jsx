@@ -5,7 +5,7 @@
 import { fmtRelative, fmtUntil } from "../../../lib/formatting.js";
 import { useKeyedResource } from "../../../lib/keyedResource.js";
 import { callRefusal } from "../../../lib/persona.js";
-import { useStore } from "../../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { DNS_KEY, dnsStore } from "../../../lib/stores/dns.js";
 
 // The one hydrate and one poll every dns.* card and the anchor's own page share, acquired under the

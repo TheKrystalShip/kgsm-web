@@ -1,9 +1,13 @@
 # src/styles/ — CSS, tokens, and the kit barrel
 
-Plain CSS — **no Tailwind, no CSS-modules.** Three files load in order (from
-`../main.jsx`): `tokens.css` → `kit.css` → `consumer.css`. Everything is driven
-by the CSS custom properties `tokens.css` defines. The theme *preference* (which palette is active,
-`THEME_OPTS`) is `../lib/theme.js`; this file is the CSS side.
+Plain CSS — **no Tailwind, no CSS-modules.** Two files load in order (from
+`../main.jsx`): `kit.css` → `consumer.css`. Everything is driven by the CSS custom properties
+`tokens.css` defines, and `tokens.css` is the **design system's** — `@thekrystalship/krystal-ui`
+(`krystal-ui/` in the workspace), along with the sheets of every component this panel takes from it:
+the briefing card, the rail, the toolbar, the paginator, the select, the sub-tabs, the settings row,
+the toasts, the theme picker and the assistant's mark. The theme *preference* (which palette is active,
+`THEME_OPTS`) is that package's `lib/theme.js`; this file is the panel's CSS side. A token or a theme
+changes there, is published, and arrives here with the version bump that pins it.
 
 ## The one rule
 
@@ -96,7 +100,7 @@ which `border-color: var(--typo)` silently becomes `currentColor` and
 `border-radius: var(--typo)` silently becomes `0`. It cannot catch a raw literal, though: a
 `border-radius: 4px` is valid CSS that simply will not follow a theme.
 
-## `tokens.css` — the design-token source of truth
+## `tokens.css` (in krystal-ui) — the design-token source of truth
 
 - Plain `:root` holds **structural** tokens (type, spacing, radius, edge, shadow,
   motion, layout). Most are invariant; a **closed subset** is re-valuable by a
@@ -105,8 +109,8 @@ which `border-color: var(--typo)` silently becomes `currentColor` and
   applies with no attribute) and `[data-theme="light"]`. Plus overlay tokens
   (`--veil-1/2/3`, `--scrim-base`, `--scrollbar-*`). **A theme = the FULL color
   set re-valued.**
-- Adding a theme: add a `[data-theme="x"]` block here, then one `{ id, label }`
-  entry in `../lib/theme.js`'s `THEME_OPTS` (`VALID` derives from it and every
+- Adding a theme: add a `[data-theme="x"]` block there, then one `{ id, label }`
+  entry in that package's `lib/theme.js` `THEME_OPTS` (`VALID` derives from it and every
   picker reads it), and the concrete-theme list in the `index.html` /
   `assistant.html` boot scripts, which cannot import.
 
@@ -200,15 +204,21 @@ follows a theme's palette but keeps the house geometry and font.
 
 ## `kit.css` is a BARREL — do not edit it, edit the partial
 
-`kit.css` **only `@import`s** the focused per-domain partials under `kit/` —
-read the barrel for the set and the order. Adding rules to `kit.css` itself
+`kit.css` **only `@import`s** the focused per-domain partials under `kit/`, interleaved with the
+design system's sheets — read the barrel for the set and the order. Adding rules to `kit.css` itself
 defeats the split; add a rule to the partial that owns the domain.
 
-`page` is the odd one and is deliberate: the page **heading** (`.dash-head`) and the
-in-page **tab strip** (`.subtabs`) are furniture every screen is built from rather
-than anything a screen is about, so they sit in their own partial. That is what lets
-the standalone assistant carry a settings page — it imports `page` + `settings`
-without also importing the partials that style servers and dashboards.
+**A design-system sheet sits just before the partial that restyles or places what it draws**
+(`brief.css` before `kit/chat.css`, `rail.css` before `kit/rail.css`, which is only the panel's
+per-shelf density), so a panel rule wins on equal specificity exactly as it would against a rule of
+its own. A component's base look is the package's; what a panel page does with it — a briefing card
+in the dashboard's feed band, a shelf's density — stays in the panel's partial. Never copy a package
+rule here to change it: restyle it by its class from the partial, or change it in the package.
+
+`page` is the odd one and is deliberate: the page **heading** (`.dash-head`) is furniture every
+screen is built from rather than anything a screen is about, so it sits in its own partial. That is
+what lets the standalone assistant carry a settings page — it imports `page` + `settings` without
+also importing the partials that style servers and dashboards.
 
 - **Import order is load-bearing** (later wins on equal specificity) — keep the
   `@import` sequence. A new domain gets a **new partial appended to the barrel**,
@@ -238,7 +248,7 @@ complains.
   re-cascades instantly). Both surfaces offer the same `<ThemePicker>` on a Settings page — the
   panel's under Profile, the standalone assistant's under Appearance.
 - **No-flash:** an inline boot script in `index.html` **and `assistant.html`** sets
-  `data-theme` before the stylesheet applies — both mirror `../lib/theme.js`;
+  `data-theme` before the stylesheet applies — both mirror the design system's `lib/theme.js`;
   keep the three in sync.
 - **Always-dark media surfaces** (cinematic hero over key-art) pin dark tokens
   **locally** (see `.hero--cinematic` in `kit/server.css`) rather than

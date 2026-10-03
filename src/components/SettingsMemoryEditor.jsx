@@ -1,6 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
-import { Modal } from "./Modal.jsx";
+import { Icon, Modal } from "@thekrystalship/krystal-ui";
 
 // SettingsMemoryEditor.jsx — reading one memory in full and correcting it, in a sheet over the
 // settings page. Opened by SettingsMemory for an existing memory or for a new one; it renders on

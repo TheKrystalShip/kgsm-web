@@ -1,5 +1,5 @@
 import { sessionStore } from "../lib/sessionStore.js";
-import { useStore } from "../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui/lib/store";
 import { clusterStore } from "../lib/stores/cluster.js";
 
 // useAccountHolder — whether this cluster's accounts belong to an anchor, and where this browser can

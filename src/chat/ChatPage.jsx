@@ -1,8 +1,7 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { VoiceComposerBar, useVoiceRecorder } from "../components/VoiceNote.jsx";
 import { createSpokenReply, armAudio } from "./spokenReply.js";
-import { useStore } from "../lib/store.js";
 import { assistant } from "../lib/assistantClient.js";
 import { assistantSession } from "../lib/assistantSession.js";
 

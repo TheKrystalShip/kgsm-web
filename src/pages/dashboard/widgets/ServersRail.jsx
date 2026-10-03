@@ -1,11 +1,9 @@
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
+import { Icon, Rail, useStore } from "@thekrystalship/krystal-ui";
 import { useNav } from "../../../components/NavContext.jsx";
-import { Rail } from "../../../components/Rail.jsx";
 import { ServerTile } from "../../../components/ServerCard.jsx";
 import { runServerAction } from "../../../lib/serverActions.js";
-import { useStore } from "../../../lib/store.js";
 import { favoritesStore, hostsStore, serversStore } from "../../../lib/stores.js";
 
 // ServersRail — the whole fleet on a rail, most-worth-a-glance first.

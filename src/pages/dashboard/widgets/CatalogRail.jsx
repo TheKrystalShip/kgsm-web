@@ -1,11 +1,10 @@
 import React from "react";
 
+import { Rail, useStore } from "@thekrystalship/krystal-ui";
 import { GameCard, libraryNow } from "../../../components/GameCard.jsx";
 import { useNav } from "../../../components/NavContext.jsx";
-import { Rail } from "../../../components/Rail.jsx";
 import { KRYSTAL_LABELS } from "../../../lib/labels.js";
 import { fleetHeadroom, instancesOfBlueprint } from "../../../lib/servers.js";
-import { useStore } from "../../../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../../../lib/stores.js";
 
 // CatalogRail — the whole installable library on a rail, ordered so the actionable half comes first:

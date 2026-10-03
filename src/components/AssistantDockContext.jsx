@@ -1,7 +1,7 @@
 import React from "react";
 import { answersFor, assistantForHost, assistantTargets, resolveTarget, usableTargets } from "../lib/assistants.js";
 import { PREF_KEYS, prefsStore } from "../lib/stores/prefs.js";
-import { useStore } from "../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { clusterStore } from "../lib/stores.js";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { serverHostId, serversStore } from "../lib/stores.js";

@@ -13,7 +13,7 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 /// The fetch behind a leaf Overview, with its own retry and optional polling.
 ///

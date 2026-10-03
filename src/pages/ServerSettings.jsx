@@ -1,6 +1,5 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection, Toggle } from "@thekrystalship/krystal-ui";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { serverCallRefusal } from "../lib/persona.js";
 import { fetchSettings, patchSettings, deleteServer } from "../lib/stores.js";

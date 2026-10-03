@@ -7,8 +7,7 @@
 // it away from the field it is about.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { SettingsRow, SettingsSection } from "../../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection } from "@thekrystalship/krystal-ui";
 import { serverCallRefusal } from "../../lib/persona.js";
 import { DISPLAY_NAME_MAX } from "../../lib/servers.js";
 import { setServerDisplayName } from "../../lib/stores.js";

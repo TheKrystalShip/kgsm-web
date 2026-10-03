@@ -1,5 +1,5 @@
 import React from "react";
-import { useStore } from "../store.js";
+import { useStore } from "@thekrystalship/krystal-ui/lib/store";
 import { accountNamesStore, resolveAccountNames } from "../stores/accountNames.js";
 
 // The username behind `accountId` on `hostId`, asking that node once. Returns the id itself until a

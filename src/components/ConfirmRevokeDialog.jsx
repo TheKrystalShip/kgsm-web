@@ -1,5 +1,4 @@
-import { Icon } from "./Icon.jsx";
-import { Modal } from "./Modal.jsx";
+import { Icon, Modal } from "@thekrystalship/krystal-ui";
 
 // ConfirmRevokeDialog — the confirmation in front of ending a session, shared by the two surfaces
 // that end one: your own devices in Settings, and somebody holding auth:accounts.disable acting on

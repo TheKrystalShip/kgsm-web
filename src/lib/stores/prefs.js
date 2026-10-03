@@ -17,7 +17,7 @@
 import { api } from "../apiClient.js";
 import { homeHostId } from "../config.js";
 import { deviceId } from "../device.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // The keys the panel stores. Declared rather than free-form so the set is greppable and the API's
 // per-slot cap is spent on things somebody chose.

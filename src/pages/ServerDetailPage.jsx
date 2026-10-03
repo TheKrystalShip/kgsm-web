@@ -1,9 +1,8 @@
 import React from "react";
+import { Icon, SubTabs } from "@thekrystalship/krystal-ui";
 import { ConsolePanel } from "../components/ConsolePanel.jsx";
 import { alertsTone, anchoredAlerts } from "../components/ContextualAlerts.jsx";
 import { DashBandList, loadBandOrder, saveBandOrder } from "../components/DashLayout.jsx";
-import { Icon } from "../components/Icon.jsx";
-import { SubTabs } from "../components/SubTabs.jsx";
 import { NeedsAttention, useAlerts } from "../components/NeedsAttention.jsx";
 import { RecentActivity } from "../components/RecentActivity.jsx";
 import { ServerHero } from "../components/ServerHero.jsx";

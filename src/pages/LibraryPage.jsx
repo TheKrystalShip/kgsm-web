@@ -1,15 +1,15 @@
 import React from "react";
+import {
+  Icon, Pagination, Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer, useDebouncedValue,
+  useStore,
+} from "@thekrystalship/krystal-ui";
 import { SurfaceError } from "../components/ErrorBoundary.jsx";
 import { GameCard, libraryNow, RECENT_WINDOW_DAYS } from "../components/GameCard.jsx";
-import { Icon } from "../components/Icon.jsx";
-import { Pagination, useDebouncedValue } from "../components/Pagination.jsx";
 import { LibrarySkeleton } from "../components/Skeletons.jsx";
-import { Toolbar, ToolbarButton, ToolbarCount, ToolbarFilters, ToolbarSearch, ToolbarSpacer } from "../components/Toolbar.jsx";
 import { fmtFootprintMb } from "../lib/formatting.js";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
 import { fleetHeadroom, instancesOfBlueprint, offeringHosts } from "../lib/servers.js";
-import { useStore } from "../lib/store.js";
 import { hostsStore, libraryStore, serversStore } from "../lib/stores.js";
 
 // Re-export from shared modules so existing consumers don't break.

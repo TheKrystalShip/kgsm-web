@@ -1,7 +1,6 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon, copyText } from "@thekrystalship/krystal-ui";
 import { serverJoin } from "../lib/persona.js";
-import { copyText } from "../lib/clipboard.js";
 
 // ServerConnect — the "go play on this server" surface. It does two things, and
 // the split is deliberate: a Steam title gets a one-click LAUNCH

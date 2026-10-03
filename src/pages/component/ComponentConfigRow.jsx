@@ -6,9 +6,7 @@
 // means the same thing wherever the component runs.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { Select } from "../../components/Select.jsx";
-import { Toggle } from "../../components/settings-primitives.jsx";
+import { Icon, Select, Toggle } from "@thekrystalship/krystal-ui";
 import { useAccountName } from "../../lib/hooks/useAccountName.js";
 import { SOURCE_TITLE, boolish, draftOf, isBlank, isDirty, isOverridden, valueText } from "./componentConfigHelpers.js";
 

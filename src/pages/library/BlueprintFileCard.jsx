@@ -1,11 +1,8 @@
 import React from "react";
 import { BlueprintHostPicker } from "./BlueprintHostPicker.jsx";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { ReversablePortal } from "../../components/ReversablePortal.jsx";
+import { BriefCard, Icon, ReversablePortal, useStore } from "@thekrystalship/krystal-ui";
 import { formatBytes } from "../../lib/formatting.js";
 import { mayCall } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { blueprintFileStore } from "../../lib/stores.js";
 
 // Monaco is heavy + worker-backed, lazy-loaded: the chunk downloads only when

@@ -1,6 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
-import { SettingsRow, SettingsSection } from "./settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection } from "@thekrystalship/krystal-ui";
 import { SettingsMemoryEditor } from "./SettingsMemoryEditor.jsx";
 import { assistant } from "../lib/assistantClient.js";
 import { fmtRelative, fmtTime, parseTs } from "../lib/formatting.js";

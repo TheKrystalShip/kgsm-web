@@ -13,7 +13,7 @@
 
 import { ANCHOR_PATHS, api } from "../apiClient.js";
 import { callRefusal } from "../persona.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 import { accessStore } from "./access.js";
 
 const authorityStore = createStore({

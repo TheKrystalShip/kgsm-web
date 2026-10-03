@@ -3,7 +3,7 @@
 
 import { api } from "../apiClient.js";
 import * as merge from "../merge.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 const libraryStore = createStore({
   list: [],

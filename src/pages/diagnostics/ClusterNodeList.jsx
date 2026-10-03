@@ -24,15 +24,13 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { alertsTone, anchoredAlerts } from "../../components/ContextualAlerts.jsx";
 import { hostHealth, hostMetricsFreshness } from "../../components/HostCardBody.jsx";
-import { Icon } from "../../components/Icon.jsx";
 import { useNav } from "../../components/NavContext.jsx";
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { formatLatency } from "../../lib/nodeLabel.js";
 import { playerTally } from "../../lib/servers.js";
-import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore, serversStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
 import { MemberState, membershipRowTone } from "./clusterBadges.jsx";

@@ -1,7 +1,5 @@
 import React from "react";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
+import { BriefCard, Icon, Modal } from "@thekrystalship/krystal-ui";
 import { TimeSeriesChart, ChartHoverProvider } from "../../components/TimeSeriesChart.jsx";
 import { RANGES } from "./perfHelpers.js";
 

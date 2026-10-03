@@ -1,10 +1,7 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../components/settings-primitives.jsx";
+import { Icon, SettingsRow, SettingsSection, Toggle, toast, useStore } from "@thekrystalship/krystal-ui";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { hostsStore } from "../lib/stores.js";
-import { useStore } from "../lib/store.js";
-import { toast } from "../lib/toasts.js";
 import {
   devices as fetchDevices, preferences as fetchPreferences,
   reassert, setPreference, setQuietHours, subscribe, support, unsubscribe,

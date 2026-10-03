@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { PinButton } from "./widgets/PinButton.jsx";
 import { ConsoleView } from "./ConsoleView.jsx";
 import { api } from "../lib/apiClient.js";

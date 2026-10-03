@@ -1,14 +1,12 @@
 import React from "react";
-import { BriefCard } from "./BriefCard.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { alertHost, alertInScope } from "../lib/alertsApi.js";
-import { Icon } from "./Icon.jsx";
 import { KrystalAlerts } from "../lib/alertsApi.js";
 import { useAlertActions } from "./AlertCard.jsx";
 import { ServerActionButton } from "./ServerActions.jsx";
 import { useAssistantFor } from "./AssistantDockContext.jsx";
 import { watchedRules } from "../lib/fleetOps.js";
 import { fmtRelative } from "../lib/formatting.js";
-import { useStore } from "../lib/store.js";
 import { serversStore } from "../lib/stores.js";
 import { fleetOpsStore } from "../lib/stores/fleet.js";
 

@@ -1,7 +1,7 @@
 import React from "react";
 import Editor from "@monaco-editor/react";
 import { loader } from "@monaco-editor/react";
-import { useResolvedTheme } from "../lib/theme.js";
+import { useResolvedTheme } from "@thekrystalship/krystal-ui";
 
 // Monaco code editor for the FileBrowser — replaces the bare <textarea> with
 // line numbers + syntax highlighting, while keeping the SAME contract the file

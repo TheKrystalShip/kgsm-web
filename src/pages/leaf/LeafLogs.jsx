@@ -10,7 +10,7 @@
 
 import { PinButton } from "../../components/widgets/PinButton.jsx";
 import { useKeyedResource } from "../../lib/keyedResource.js";
-import { useStore } from "../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { leafLogsKey, leafLogsStore, subscribeLeafLogs } from "../../lib/stores.js";
 import { ComponentJournal } from "../component/ComponentJournal.jsx";
 

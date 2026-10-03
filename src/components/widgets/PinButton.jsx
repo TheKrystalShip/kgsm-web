@@ -1,8 +1,7 @@
 import React from "react";
 
-import { Icon } from "../Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { useWidgetContext } from "./WidgetHost.jsx";
-import { useStore } from "../../lib/store.js";
 import { dashboardStore } from "../../lib/widgets/dashboardStore.js";
 import { getWidget } from "../../lib/widgets/registry.js";
 

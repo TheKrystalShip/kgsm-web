@@ -16,7 +16,7 @@
 import React from "react";
 
 import { CardTable } from "../../../components/CardTable.jsx";
-import { Icon } from "../../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { PinButton } from "../../../components/widgets/PinButton.jsx";
 import { DNS_WRITES, removeAlias } from "../../../lib/dnsClient.js";
 import { dnsStore } from "../../../lib/stores/dns.js";

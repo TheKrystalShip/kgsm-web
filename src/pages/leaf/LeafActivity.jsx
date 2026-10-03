@@ -33,8 +33,7 @@
 import React from "react";
 
 import { AuditEventRow } from "../../components/AuditEventRow.jsx";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { useStore } from "../../lib/store.js";
+import { BriefCard, useStore } from "@thekrystalship/krystal-ui";
 import { auditEventHost, auditInScope, auditStore, hostsStore } from "../../lib/stores.js";
 import { LeafBriefEmpty } from "./leafOverviewKit.jsx";
 

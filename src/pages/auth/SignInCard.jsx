@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { passwordOk, passwordStrength, usernameOk, usernameProblem } from "../../lib/credentialRules.js";
 import { AuthError, PasswordField, PasswordMeter, ProviderButtons } from "./AuthChrome.jsx";
 

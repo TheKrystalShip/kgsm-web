@@ -23,15 +23,11 @@
 import React from "react";
 
 import { ConfirmRevokeDialog } from "../../components/ConfirmRevokeDialog.jsx";
-import { Icon } from "../../components/Icon.jsx";
-import { Modal } from "../../components/Modal.jsx";
-import { Select } from "../../components/Select.jsx";
-import { SettingsSection } from "../../components/settings-primitives.jsx";
+import { Icon, Modal, Select, SettingsSection, useStore } from "@thekrystalship/krystal-ui";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { api } from "../../lib/apiClient.js";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";
 import { isOwner, mayAnythingAt } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { authorityStore, refusalOf, userRefusal } from "../../lib/stores/authority.js";
 import { Assignments } from "./access/Assignments.jsx";
 import { RefusalNote, roleName } from "./access/accessKit.jsx";

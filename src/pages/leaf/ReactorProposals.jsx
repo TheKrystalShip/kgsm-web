@@ -31,9 +31,8 @@
 import React from "react";
 
 import { AlertSeverityTag } from "../../components/AlertCard.jsx";
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
-import { Icon } from "../../components/Icon.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { useConfirmAction } from "../../components/ServerActions.jsx";
 import { fmtRelative, parseTs } from "../../lib/formatting.js";

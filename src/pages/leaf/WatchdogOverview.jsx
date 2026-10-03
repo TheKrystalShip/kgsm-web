@@ -14,7 +14,7 @@
 // The supervisor's own readiness is reported apart from the rows, because it is a different failure: a
 // daemon that is up but not in-slice holds a full table and can spawn none of it.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { fetchLeafSupervision } from "../../lib/stores.js";

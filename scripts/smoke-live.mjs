@@ -142,6 +142,10 @@ const stubMonaco = {
 const vite = await createServer({
   server: { middlewareMode: true }, appType: "custom", logLevel: "error",
   plugins: [stubMonaco],
+  // The design system runs inside Vite's module graph like the panel's own modules. Externalized,
+  // a module this script loads directly would be a second copy of the one the panel imports — a
+  // second toast store the panel never writes to.
+  ssr: { noExternal: ["@thekrystalship/krystal-ui"] },
 });
 
 let fail = 0;
@@ -1582,7 +1586,7 @@ try {
     "Not enough memory to start factorio-test: it needs 8192MB, the node has 2048MB available, "
     + "and starting it would leave -6144MB against a required floor of 1024MB.";
   const { runServerAction } = await vite.ssrLoadModule("/src/lib/serverActions.js");
-  const { toastStore } = await vite.ssrLoadModule("/src/lib/toasts.js");
+  const { toastStore } = await vite.ssrLoadModule("@thekrystalship/krystal-ui/lib/toasts");
 
   // An ACCEPTED command that then FAILS must say why. This is the engine-refusal path — the memory
   // gate is the live instance of it: kgsm refuses a start the node has no room for, which happens

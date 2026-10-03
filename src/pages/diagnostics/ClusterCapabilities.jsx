@@ -18,12 +18,10 @@
 // refusals nothing measured, so those cells say nothing at all.
 
 import React from "react";
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { CAP_ORDER, hostCapability } from "../../lib/capabilities.js";
 import { compareNodeNames } from "../../lib/nodeLabel.js";
 import { mayCall } from "../../lib/persona.js";
-import { useStore } from "../../lib/store.js";
 import { clusterStore, hostsStore } from "../../lib/stores.js";
 import { pingStore } from "../../lib/stores/ui.js";
 import { CapabilityAssignDialog } from "./clusterActions.jsx";

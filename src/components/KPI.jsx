@@ -1,4 +1,4 @@
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // KPI — the canonical glance card used across the panel: dashboard summary,
 // host diagnostics overview, and the server-detail overview stats. One

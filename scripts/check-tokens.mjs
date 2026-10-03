@@ -25,7 +25,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DIRS = ["src/styles", "src/styles/kit"];
+// The design system's sheets are read too: they define every token and are part of the cascade
+// this panel ships, so a panel rule reading a token defined there is a defined read.
+const DIRS = ["node_modules/@thekrystalship/krystal-ui/styles", "src/styles", "src/styles/kit"];
 
 const files = DIRS.flatMap((d) => {
   const abs = path.join(ROOT, d);

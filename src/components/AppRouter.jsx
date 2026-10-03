@@ -2,7 +2,7 @@
 // component, threading through all the callbacks and props.
 
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { ContentError, ErrorBoundary } from "../components/ErrorBoundary.jsx";
 import { KrystalRouter } from "../lib/router.js";
 import { serversStore } from "../lib/stores.js";

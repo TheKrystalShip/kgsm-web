@@ -1,8 +1,6 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
-import { Modal } from "../components/Modal.jsx";
+import { Icon, Modal, SettingsRow, SettingsSection } from "@thekrystalship/krystal-ui";
 import { OAuthIcon, providerLabel } from "../components/oauth-icons.jsx";
-import { SettingsRow, SettingsSection } from "../components/settings-primitives.jsx";
 import { fmtRelative, parseTs } from "../lib/formatting.js";
 import { passwordOk, passwordStrength } from "../lib/credentialRules.js";
 import { AuthError, PasswordField, PasswordMeter } from "../pages/auth/AuthChrome.jsx";

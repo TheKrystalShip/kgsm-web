@@ -1,11 +1,10 @@
 import React from "react";
 
-import { Icon } from "../Icon.jsx";
+import { Icon, useStore } from "@thekrystalship/krystal-ui";
 import { ErrorBoundary } from "../ErrorBoundary.jsx";
 import { can } from "../../lib/persona.js";
 import { getWidget, paramsComplete, widgetTitle } from "../../lib/widgets/registry.js";
 import { hostsStore, serversStore } from "../../lib/stores.js";
-import { useStore } from "../../lib/store.js";
 
 // WidgetHost — everything a pinned card should NOT have to own.
 //

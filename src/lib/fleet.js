@@ -2,7 +2,7 @@ import { adaptLocation } from "./adapters.js";
 import { clusterMembers } from "./anchor.js";
 import { reconcileRosterToRegistry } from "./connect.js";
 import { clusterCredential, sessionStore } from "./sessionStore.js";
-import { createStore } from "./store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 // Whether the cluster has told us who is in it yet. The shell needs this to tell "you have no
 // hosts" apart from "nobody has been asked" — a fresh load concluding the first when it means the

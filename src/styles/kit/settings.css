@@ -147,14 +147,6 @@
   filter: none;
 }
 
-/* SettingsRow controls — right-side slot in each row */
-.settings-row__controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
 /* Active sessions (SettingsSessions.jsx) — device name + "this device" badge.
    The device name is a raw user-agent string, which can run long; truncate it
    with an ellipsis rather than let it blow out the row. */

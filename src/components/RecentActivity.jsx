@@ -1,10 +1,8 @@
 import React from "react";
 import { AuditEventRow } from "./AuditEventRow.jsx";
 import { auditEventHost } from "../lib/stores.js";
-import { BriefCard } from "./BriefCard.jsx";
-import { Icon } from "./Icon.jsx";
+import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { parseTs } from "../lib/formatting.js";
-import { useStore } from "../lib/store.js";
 import { auditInScope, auditStore, hostsStore } from "../lib/stores.js";
 
 // RecentActivity.jsx — a compact, read-only window onto the audit feed,

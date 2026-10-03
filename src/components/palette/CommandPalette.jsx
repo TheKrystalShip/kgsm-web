@@ -1,18 +1,15 @@
 import React from "react";
 
-import { Icon } from "../Icon.jsx";
-import { Modal } from "../Modal.jsx";
+import { Icon, Modal, createStore, useStore, useThemePref } from "@thekrystalship/krystal-ui";
 import { useAssistantDock } from "../AssistantDockContext.jsx";
 import { useNav } from "../NavContext.jsx";
 import { buildEntries, previewTheme, restoreTheme } from "./sources.js";
 import { boostSnapshot, noteUse, recentIds } from "./recents.js";
 import { rank, segments } from "./score.js";
-import { createStore, useStore } from "../../lib/store.js";
 import { sessionStore } from "../../lib/sessionStore.js";
 import { hostsStore, libraryStore, servicesStore, serversStore } from "../../lib/stores.js";
 import { dashboardStore } from "../../lib/widgets/dashboardStore.js";
 import { usePlayerRoster } from "../../lib/hooks/usePlayerRoster.js";
-import { useThemePref } from "../../lib/theme.js";
 
 // CommandPalette — one key onto everything the panel can reach.
 //

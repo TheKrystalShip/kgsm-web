@@ -7,8 +7,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { Select } from "../../../components/Select.jsx";
+import { Icon, Select } from "@thekrystalship/krystal-ui";
 import {
   blankClause, operatorsFor, placeholdersFor, signalOfAlias,
 } from "./ruleModel.js";

@@ -6,17 +6,17 @@ import { noteSignInRefusal, writeStoredUser } from "./lib/authStorage.js";
 import { registerServiceWorker } from "./lib/registerSW.js";
 import { sessionStore } from "./lib/sessionStore.js";
 
-// Global styles. Order matters: design tokens (variables + @font-face) first,
-// then the component class library, then consumer overrides.
-import "./styles/tokens.css";
+// Global styles. Order matters: the component class library (which opens with the
+// design tokens — variables + @font-face), then consumer overrides.
 import "./styles/kit.css";
 import "./styles/consumer.css";
 
 // Theme preference store (client-only). Importing it applies the saved theme to
 // <html data-theme>, wires the meta tag, and live-tracks the OS scheme for "auto".
 // The index.html boot script already set the attribute pre-paint; this keeps the
-// store + browser-chrome color in sync. See src/lib/theme.js.
-import "./lib/theme.js";
+// store + browser-chrome color in sync. The package declares that module side-effectful,
+// so a bare import of it keeps the theme applied.
+import "@thekrystalship/krystal-ui";
 
 // The session is settled BEFORE anything mounts, so the gate knows on its first render whether this
 // browser holds one. The provider sending a browser back lands on its own path with a code in the

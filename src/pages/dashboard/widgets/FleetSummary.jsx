@@ -3,7 +3,7 @@ import React from "react";
 import { Kpi } from "../../../components/KPI.jsx";
 import { useNav } from "../../../components/NavContext.jsx";
 import { fmtUntil } from "../../../lib/formatting.js";
-import { useStore } from "../../../lib/store.js";
+import { useStore } from "@thekrystalship/krystal-ui";
 import { auditStore, hostsStore, serversStore } from "../../../lib/stores.js";
 import { AVAILABILITY_WINDOW, fleetOpsStore, startFleetOps, stopFleetOps } from "../../../lib/stores/fleet.js";
 import * as kpi from "../fleetKpis.js";

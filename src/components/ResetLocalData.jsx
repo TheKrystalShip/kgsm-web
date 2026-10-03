@@ -1,7 +1,6 @@
 import React from "react";
 
-import { Modal } from "./Modal.jsx";
-import { SettingsRow } from "./settings-primitives.jsx";
+import { Modal, SettingsRow } from "@thekrystalship/krystal-ui";
 import { clearLocalState } from "../lib/localState.js";
 
 // ResetLocalData — the way out when this browser is holding something wrong.

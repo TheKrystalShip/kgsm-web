@@ -10,7 +10,8 @@
 // pixel: lucide `bot` in --krystal-teal on a --krystal-teal-dim fill over --canvas, the glyph
 // 26/56 of the frame exactly as the 26px icon sits in the 56px box, its stroke the 1.7 every
 // <Icon> renders with. The tile fills the frame square, since a launcher applies its own mask.
-// The colours below are copied from src/styles/tokens.css and the geometry from
+// The colours below are copied from the design system's tokens (@thekrystalship/krystal-ui,
+// styles/tokens.css) and the geometry from
 // src/styles/kit/chat.css — an SVG cannot read a CSS custom property, so when either changes here
 // is where it has to be changed again.
 

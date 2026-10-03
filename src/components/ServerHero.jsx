@@ -1,4 +1,4 @@
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { ServerActionButton, verbGuard } from "./ServerActions.jsx";
 import { PinButton } from "./widgets/PinButton.jsx";
 import { ServerConnect } from "./ServerConnect.jsx";

@@ -44,7 +44,7 @@ cycle `sessionStore` → `stores.js` → `stores/index.js` → `boot.js` and bre
 
 ## Conventions
 
-- Every store is a `createStore(...)` from `../store.js`; components subscribe
+- Every store is a `createStore(...)` from the design system's `lib/store`; components subscribe
   with `useStore(store, selector)`. Stores start **empty** and populate on
   `refresh()` — never seed with fabricated defaults.
 - All data reaches a store through `../apiClient.js` → `../adapters.js` (the

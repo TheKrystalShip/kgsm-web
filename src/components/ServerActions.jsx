@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { serverCapUsable } from "../lib/capabilities.js";
 import { ordinal } from "../lib/formatting.js";
 import { verbRefusal } from "../lib/persona.js";

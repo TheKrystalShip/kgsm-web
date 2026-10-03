@@ -2,7 +2,7 @@
 
 import { api } from "../apiClient.js";
 import { CONNECTIONS } from "../config.js";
-import { createStore, useStore } from "../store.js";
+import { createStore, useStore } from "@thekrystalship/krystal-ui/lib/store";
 import { hostsStore } from "./hosts.js";
 import { PREF_KEYS, prefsStore } from "./prefs.js";
 

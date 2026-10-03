@@ -3,8 +3,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { Icon } from "../components/Icon.jsx";
-import { usePortalPopover } from "../hooks/usePortalPopover.js";
+import { Icon, usePortalPopover } from "@thekrystalship/krystal-ui";
 import { conversationTitle } from "./chatConstants.js";
 
 function ChatHistory({ convos, activeId, onPick, onDelete, onOpen, loading }) {

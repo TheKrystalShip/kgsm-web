@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { capUsable } from "../lib/capabilities.js";
 import { sessionStore } from "../lib/sessionStore.js";
 import { hostsStore } from "../lib/stores.js";

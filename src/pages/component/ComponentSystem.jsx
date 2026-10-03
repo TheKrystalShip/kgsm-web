@@ -11,8 +11,7 @@
 // node can answer — kgsm-monitor records that history per machine, and a component serving its own
 // row has none to offer. Two sources, two cadences, kept visibly apart.
 
-import { BriefCard } from "../../components/BriefCard.jsx";
-import { Icon } from "../../components/Icon.jsx";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { fmtBytes, uptimeShort } from "../../lib/formatting.js";
 import { leafIcon, leafStatus } from "../../lib/leaves.js";
 import { LeafFacts } from "../leaf/leafOverviewKit.jsx";

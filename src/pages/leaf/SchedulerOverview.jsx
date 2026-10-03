@@ -14,7 +14,7 @@
 
 import React from "react";
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { fmtRelative, fmtUntil } from "../../lib/formatting.js";
 import { fetchLeafSchedules } from "../../lib/stores.js";

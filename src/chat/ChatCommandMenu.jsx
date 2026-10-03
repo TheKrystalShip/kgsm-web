@@ -10,7 +10,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 function ChatCommandMenu({ items, active, onPick, anchorRef }) {
   const menuRef = React.useRef(null);

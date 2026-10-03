@@ -2,7 +2,7 @@
 // Self-contained: only depends on api.host(). No WS channel.
 
 import { api } from "../apiClient.js";
-import { createStore } from "../store.js";
+import { createStore } from "@thekrystalship/krystal-ui/lib/store";
 
 const filesKey = (hostId, serverId) => (hostId || "_") + "/" + serverId;
 const _emptyFilesEntry = () => ({ dirs: {}, expanded: {}, open: null, everLoaded: false });

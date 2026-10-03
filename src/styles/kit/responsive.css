@@ -362,58 +362,11 @@
     padding: 6px 10px;
   }
 
-  /* Sub-tabs: swap horizontal scroll for a native dropdown. The button row
-     is hidden, a styled <select> takes its place so iOS / Android show their
-     native picker. */
-  .subtabs {
-    display: none;
-  }
-
-  /* In the new subtabs-row flex container the dropdown is a flex item; let it
-     fill the row so the Customize controls wrap neatly to the next line. */
+  /* The sub-tab dropdown (the design system's, at this width) is a flex item in
+     the subtabs-row container; let it fill the row so the Customize controls wrap
+     neatly to the next line. */
   .subtabs-row .subtabs-mobile {
     flex: 1 1 100%;
-  }
-
-  .subtabs-mobile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--surface-1);
-    border: var(--edge);
-    border-radius: var(--r-sm);
-    padding: 0 12px;
-    height: 44px;
-    position: relative;
-    cursor: pointer;
-    color: var(--fg-1);
-  }
-
-  .subtabs-mobile__label {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-ui);
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--fg-1);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .subtabs-mobile select {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
-    border: none;
-    outline: none;
-    font-size: 16px;
-    /* avoid iOS zoom-on-focus */
   }
 
   /* Stat tiles */

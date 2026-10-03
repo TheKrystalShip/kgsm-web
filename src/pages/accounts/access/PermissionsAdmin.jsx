@@ -6,8 +6,7 @@
 
 import React from "react";
 
-import { Icon } from "../../../components/Icon.jsx";
-import { SettingsSection } from "../../../components/settings-primitives.jsx";
+import { Icon, SettingsSection } from "@thekrystalship/krystal-ui";
 import { authorityStore, editRefusal } from "../../../lib/stores/authority.js";
 import { DeleteButton } from "./RolesAdmin.jsx";
 import { Locked, RefusalNote, authorityGate, componentOf, roleName, useAuthority, useChecks } from "./accessKit.jsx";

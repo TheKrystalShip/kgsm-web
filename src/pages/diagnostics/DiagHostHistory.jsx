@@ -9,7 +9,7 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { ChartHoverProvider } from "../../components/TimeSeriesChart.jsx";
 import { fetchHostMetricsHistory } from "../../lib/stores.js";
 import { fmtBytes } from "../../lib/formatting.js";

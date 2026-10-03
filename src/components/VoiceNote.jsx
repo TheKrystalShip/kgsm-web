@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { toPcm16k, MAX_SECONDS } from "../lib/voicePcm.js";
 
 // VoiceNote — voice-message capture + playback for the assistant composer.

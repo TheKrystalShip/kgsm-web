@@ -10,7 +10,7 @@
 // SPA agrees to keep the distinction: an outage says "couldn't check" and offers a retry, a denial
 // says what it is, and only a genuinely unexplained failure gets the generic message.
 
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 
 // The leaf's wire code for "the access could not be checked". Matches AssistantActionFilter's
 // UnavailableCode; it is a stable part of that contract precisely so this branch can exist.

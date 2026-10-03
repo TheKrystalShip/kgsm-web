@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { AuthShell } from "./AuthChrome.jsx";
 
 // PendingPage — an account the anchor knows, waiting to be let in.

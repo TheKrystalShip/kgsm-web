@@ -1,12 +1,9 @@
 import React from "react";
-import { Icon } from "./Icon.jsx";
-import { Modal } from "./Modal.jsx";
-import { Select } from "./Select.jsx";
+import { Icon, Modal, Select, Toggle } from "@thekrystalship/krystal-ui";
 import { artBg } from "../lib/art.js";
 import { fmtBytes, fmtFootprintMb } from "../lib/formatting.js";
 import { FIT_LABEL, fitSummary, nodeFit, recommendedNode } from "../lib/placement.js";
 import { instanceIdSlug, isValidInstanceId, offeringHosts } from "../lib/servers.js";
-import { Toggle } from "./settings-primitives.jsx";
 
 // InstallModal — overlay form for spinning up a new game server.
 // Props:

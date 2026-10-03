@@ -8,8 +8,7 @@
 // than among the node's resource cards.
 
 import React from "react";
-import { Icon } from "../../components/Icon.jsx";
-import { Select } from "../../components/Select.jsx";
+import { Icon, Select } from "@thekrystalship/krystal-ui";
 import { addLibrary, removeLibrary, renameLibrary } from "../../lib/stores.js";
 import { fmtBytes } from "../../lib/formatting.js";
 import { mayCall } from "../../lib/persona.js";

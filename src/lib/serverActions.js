@@ -12,7 +12,7 @@
 import { api } from "./apiClient.js";
 import { sessionStore } from "./sessionStore.js";
 import { awaitJob, commandServer, serversStore } from "./stores.js";
-import { toast } from "./toasts.js";
+import { toast } from "@thekrystalship/krystal-ui/lib/toasts";
 
 // A verb that came back 401 after the seam already replayed it means that host's session is
 // genuinely gone rather than merely lapsed. Marking it expired is all this does — the seam's
@@ -26,7 +26,7 @@ function noteAuthFailure(hostId) {
 // a port clash, a command already in flight — and is worth saying out loud.
 function reportFailure(err, verb, server) {
   if (err && err.code === 401) noteAuthFailure(server.hostId);
-  else toast.fromError(err, "Couldn't " + verb + " " + (server.name || server.id));
+  else toast.fromError(err, "Couldn't " + verb + " " + (server.name || server.id), { subject: server.id });
 }
 
 /// A REPORTER is where a verb's outcome goes. One button pressed once wants a toast; twenty servers
@@ -42,7 +42,7 @@ const TOAST_REPORTER = {
   // The command ran and the engine turned it down. `detail` is the engine's own sentence.
   failed: (detail, verb, server) => toast.error("Couldn't " + verb + " " + (server.name || server.id), {
     detail: detail || "The engine gave no reason.",
-    serverId: server.id,
+    subject: server.id,
   }),
 };
 

@@ -1,7 +1,6 @@
 import React from "react";
+import { BriefCard, Icon } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../components/CardTable.jsx";
-import { BriefCard } from "../components/BriefCard.jsx";
-import { Icon } from "../components/Icon.jsx";
 import { PlayerModeration } from "../components/PlayerModeration.jsx";
 import { PinButton } from "../components/widgets/PinButton.jsx";
 import { usePlayerRoster } from "../lib/hooks/usePlayerRoster.js";

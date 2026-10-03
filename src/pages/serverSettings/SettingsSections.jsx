@@ -9,9 +9,7 @@
 
 import React from "react";
 
-import { Icon } from "../../components/Icon.jsx";
-import { Select } from "../../components/Select.jsx";
-import { SettingsRow, SettingsSection, Toggle } from "../../components/settings-primitives.jsx";
+import { Icon, Select, SettingsRow, SettingsSection, Toggle } from "@thekrystalship/krystal-ui";
 import { fmtUntil } from "../../lib/formatting.js";
 import { useAccountName } from "../../lib/hooks/useAccountName.js";
 import { previewMaintenanceWindow } from "../../lib/stores.js";

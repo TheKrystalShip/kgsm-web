@@ -1,10 +1,8 @@
 import React from "react";
-import { Icon } from "../components/Icon.jsx";
+import { Icon, Toasts, useStore } from "@thekrystalship/krystal-ui";
 import { ChatPage } from "../chat/ChatPage.jsx";
 import { assistant } from "../lib/assistantClient.js";
 import { useAssistantGate } from "../lib/assistantGate.js";
-import { useStore } from "../lib/store.js";
-import { Toasts } from "../components/Toasts.jsx";
 import { SettingsPage } from "./SettingsPage.jsx";
 import { useRoute } from "./route.js";
 import { SELF } from "./self.js";

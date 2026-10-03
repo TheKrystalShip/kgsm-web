@@ -12,7 +12,7 @@
 // The two sources degrade independently. Identity is the page; peers are additive, and say so when they
 // can't be read rather than rendering an empty list that would read as "this node stands alone".
 
-import { BriefCard } from "../../components/BriefCard.jsx";
+import { BriefCard } from "@thekrystalship/krystal-ui";
 import { CardTable } from "../../components/CardTable.jsx";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";

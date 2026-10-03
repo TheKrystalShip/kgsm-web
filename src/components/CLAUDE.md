@@ -1,17 +1,20 @@
 # src/components/ — shared UI & the shell pieces
 
-Reusable, mostly-presentational components. Two kinds live here: **UI primitives**
-shared across pages, and **shell pieces** the app frame composes.
-A component here should be view logic — it may read a store via `useStore`, but
-it doesn't own routing or fetch from the API directly.
+Reusable, mostly-presentational components. Two kinds live here: **the panel's own UI** shared
+across pages, and **shell pieces** the app frame composes. The primitives under them — `BriefCard`,
+`Rail`, `Toolbar`, `Pagination`, `Select`, `Modal`, `SubTabs`, the settings furniture,
+`ThemePicker`, `Toasts`, `NotificationsPanel`, `Icon`, `AccountAvatar`, `AssistantFabIcon` — are the
+design system's (`@thekrystalship/krystal-ui`, `../CLAUDE.md`), imported from the package and changed
+there. A component here should be view logic — it may read a store via `useStore`, but it doesn't
+own routing or fetch from the API directly.
 
 ## The `<Modal>` primitive — use it, don't hand-roll
 
-`Modal.jsx` is the shared dialog primitive. It owns the portal-to-body, scrim,
+`<Modal>` is the shared dialog primitive. It owns the portal-to-body, scrim,
 Esc-to-close, and focus/scroll handling. **New dialogs compose `<Modal>`; don't
-re-implement a backdrop + portal by hand.**
-`Select.jsx` is the shared portal-popover dropdown — reach for it over a raw
-`<select>` when you need the styled menu.
+re-implement a backdrop + portal by hand.** It is behaviour only: the scrim's look is the caller's
+class (`.modal-scrim`, `.k-backdrop`, …), which lives here in `kit/modal.css`.
+`<Select>` is the shared styled dropdown — reach for it over a raw `<select>`.
 
 ## Shell pieces — each its own module
 
@@ -204,7 +207,7 @@ full without crowding the row.
 
 ## `<Rail>` — the horizontal shelf
 
-`Rail.jsx` renders a brief card whose body is a scroll-snapped row of `items`: the
+`<Rail>` (the design system's) renders a brief card whose body is a scroll-snapped row of `items`: the
 dashboard's Servers and Catalog cards use it to reach their whole collection. It is
 a **real scroll container, not a transform carousel** — that is what makes a touch
 swipe native scrolling (no swipe-vs-tap ambiguity against cards that are themselves
@@ -212,7 +215,8 @@ click targets), keeps trackpad/shift-wheel working, and scrolls a tab-focused
 off-screen card into view. There is no slide index, so nothing can desync from what
 is on screen; the arrows only call `scrollBy`.
 
-Card width comes from `--rail-per-view` in **container query units** (`kit/rail.css`),
+Card width comes from `--rail-per-view` in **container query units** (the panel's per-shelf
+densities are `kit/rail.css`),
 so the rail follows the sidebar and the assistant dock, which resize it without
 resizing the viewport. It is deliberately fractional — the cut-off next card is the
 primary "there is more" affordance, with an edge fade behind it and the arrows third.
@@ -366,9 +370,10 @@ answered is reported **undispatched**, never counted as a failure.
 
 ## `<Toasts>` / `<NotificationsPanel>` — outcome reporting
 
-`lib/toasts.js` holds one store; `Toasts.jsx` renders the live cards (portalled to
-body, mounted once per surface) and `NotificationsPanel.jsx` renders the history
-from the sidebar's foot.
+The design system holds the toast store; `<Toasts>` renders the live cards (portalled to
+body, mounted once per surface) and `<NotificationsPanel>` renders the history
+from the sidebar's foot. A toast's `subject` is the id of the server it was about, and the sidebar's
+`onOpen` opens that server.
 
 **The rule: a toast reports the outcome of something the user DID, or a change to what
 THIS BROWSER may do — never something that merely happened to the fleet.** Fleet events
@@ -407,12 +412,11 @@ run somebody else started would pass for something you did yourself.
 
 ## The rest, by rough category
 
-- **Cards / lists:** `ServerCard`, `LeafCard`, `GameCard`, `AlertCard`, `BriefCard`,
+- **Cards / lists:** `ServerCard`, `LeafCard`, `GameCard`, `AlertCard`,
   `CardTable`, `HostCardBody`, `RecentActivity`, `NeedsAttention`,
-  `ContextualAlerts`, `Skeletons`, `Pagination`, `Rail`.
+  `ContextualAlerts`, `Skeletons`.
 - **Server surfaces:** `ServerHero`, `ServerActions`, `ServerConnect`,
-  `ServerNotice`, `ConsolePanel`, `ConsoleView`, `InstallModal`, `SubTabs`,
-  `Toolbar`.
+  `ServerNotice`, `ConsolePanel`, `ConsoleView`, `InstallModal`.
 - **Metrics / charts:** `KPI`, `StatTiles`, `TimeSeriesChart`, `DashLayout`.
 - **Editor / logs:** `CodeEditor` (Monaco), `LogConsole`, `VoiceNote`.
 
@@ -424,13 +428,12 @@ self-hosted panel to do with somebody's voice. The transcript comes back to the 
 becoming a turn: recognition is wrong often enough that sending it onward unseen would ask the
 assistant things nobody said. A failed transcription **keeps the recording** and the send button
 retries it.
-- **Primitives / helpers:** `Modal`, `Select`, `Icon`, `settings-primitives.jsx`,
-  `host-helpers.jsx`.
+- **Helpers:** `host-helpers.jsx`.
 
 ## Conventions
 
 - **Never hardcode a color** — every color comes from a CSS custom property
-  (`var(--…)`); add/extend a token in `../styles/tokens.css` instead. See
+  (`var(--…)`); add/extend a token in the design system's `styles/tokens.css` instead. See
   `../styles/CLAUDE.md`.
 - Monaco can't read CSS vars → `CodeEditor.jsx` samples resolved tokens at runtime
   and re-themes on theme flip. Follow that pattern for any canvas/3rd-party

@@ -2,7 +2,7 @@
 // assistant's answer. Each card deep-links to the full context. Pure
 // props-in, JSX-out — no local state, no parent coupling.
 
-import { Icon } from "../components/Icon.jsx";
+import { Icon } from "@thekrystalship/krystal-ui";
 import { AuditEventRow } from "../components/AuditEventRow.jsx";
 import { ChartHoverProvider } from "../components/TimeSeriesChart.jsx";
 import { MetricsChartGrid } from "../pages/performance/MetricsChartGrid.jsx";
