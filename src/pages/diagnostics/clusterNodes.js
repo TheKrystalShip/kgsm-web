@@ -13,7 +13,7 @@
 // across its connections, and carry capacity; the roster is what ONE node says the
 // cluster's membership is, and a member is never in its own roster. Only the client
 // holds both, which is why the join happens here — and why it stops being needed once
-// the panel takes its node set from the cluster (`../../cluster-panel-plan.md` §4·e).
+// the panel takes its node set from the cluster (`../../cluster-panel-plan.md` §4).
 //
 // A host that matches nothing still renders: federation data is enrichment, never a
 // gate. It is shown without a membership badge rather than with a guessed one.
