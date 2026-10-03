@@ -16,6 +16,7 @@
 
 @import "./kit/base.css";
 @import "@thekrystalship/krystal-ui/styles/shell.css";
+@import "@thekrystalship/krystal-ui/styles/footer.css";
 @import "./kit/shell.css";
 @import "@thekrystalship/krystal-ui/styles/subtabs.css";
 @import "./kit/page.css";

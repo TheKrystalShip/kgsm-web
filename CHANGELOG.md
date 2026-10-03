@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the footer comes from the design system (3.2.7)
+
+The footer is `@thekrystalship/krystal-ui` 0.4.0's `Footer`, which Krystal Cinema ends its pages with
+too; the panel fills it with its brand, tagline and repositories. Every element's box and computed
+style matches at desktop, tablet and phone widths, except that the bar keeps clear of the assistant
+launcher, which covered its GitHub link.
+
 ### Changed — the chat comes from the design system (3.2.6)
 
 The assistant chat — the conversation engine, the thread and its parts, the composer with its

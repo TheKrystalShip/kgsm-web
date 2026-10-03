@@ -62,7 +62,7 @@ the panel, and that client imports nothing but the library.
 
 The components, stores and stylesheets every Krystal site is drawn from — the application frame
 (`AppShell`, the sidebar and its rail and drawer, the dock and its launcher, the cinematic hero,
-the edge-swipe gesture), the assistant chat and its voice notes, the briefing card, rail,
+the edge-swipe gesture, the footer), the assistant chat and its voice notes, the briefing card, rail,
 toolbar, paginator, select, modal, sub-tabs, settings furniture, theme picker, toasts and their tray,
 icons, avatar, the assistant's mark, `createStore`/`useStore`, the theme preference, `copyText`, the
 Web Push browser mechanics, and every token — are `@thekrystalship/krystal-ui` (`krystal-ui/` in the
