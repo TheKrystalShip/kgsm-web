@@ -1,4 +1,4 @@
-import { readSseStream } from "./sse.js";
+import { readSseStream } from "@thekrystalship/krystal-ui/lib/sse";
 
 // authorizedFetch.js — the ONE place a bearer is attached to a request.
 //

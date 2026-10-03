@@ -28,7 +28,8 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   of every mode — that spends no request — and a refusal is still the authority, since a token can be
   refused for reasons its own `exp` knows nothing about. Answers `{ ok, status, body }` and throws
   nothing, so an unreachable host (`status: 0`) and a session that has ended (`unauthenticated`) stay
-  different sentences. **Imports nothing but `sse.js`**, which is what lets the standalone assistant
+  different sentences. **Imports nothing but the design system's `lib/sse`**, which is what lets the
+  standalone assistant
   use it. `npm run check:egress` covers every mode; the ESLint egress rules are what stop a second
   implementation appearing beside it.
 - `apiClient.js` — the **single** kgsm-api seam. `api.get/post/patch`, per-host
@@ -55,7 +56,6 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
 - `liveStream.js` — fetch-based SSE. One
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
-- `sse.js` — the low-level fetch-SSE reader used by `liveStream`.
 - `alertsApi.js` — alerts fetch/stream glue, plus `alertHost` / `alertInScope`: which node an
   alert belongs to and whether it falls under a scope. Those two live here rather than beside the
   components that render alerts because the capability layer asks the same question, and a library
@@ -71,7 +71,7 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   it can decline to re-apply its own change. The id is per-connection, not per-host: it is
   dropped when the stream ends, because stamping calls with a stream nothing is listening on
   would make a surface skip echoes it never received. Reconnection and the resync that must
-  follow a gap belong to `chat/useConversationStream.js`, not here — the seam carries one
+  follow a gap belong to the design system's `useConversationStream`, not here — the seam carries one
   stream and reports when it ends.
   Auth is reactive like the node seam, except the two non-replayable calls — a turn spends
   the user's prompt and a confirm burns a single-use token, so a lapsed access token is
@@ -298,14 +298,6 @@ the `check:*` scripts load this layer in Node. `stores.js` re-exports `stores/` 
   and treats `null`/`""`/an unparseable date as **missing**: pinned last in BOTH
   directions, never coerced to `0`. **A sort accessor returns the raw value —
   never `x || 0`, and never the formatted text the cell renders.**
-- `voicePcm.js` — a recorded voice note → the samples the speech leaf reads (16kHz mono signed
-  16-bit PCM), via the decoder the browser already has for what it just recorded. **Imports
-  nothing**, deliberately: both surfaces record notes and the standalone may not reach this layer's
-  networked half, so a shared module that pulled in `apiClient` would fail `npm run check:assistant`.
-  The rate is the leaf's contract and travels in no header — resampling to anything else transcribes
-  at the wrong speed rather than failing. Falls back to arithmetic here when a browser refuses an
-  `OfflineAudioContext` at 16kHz. Proven in Chromium against a live host by
-  `scripts/visual-harness/voice-note.mjs`; jsdom has no Web Audio, so the smoke cannot reach it.
 - `device.js` — this browser's id for the per-device half of the preference store (`krystal:device`,
   minted once, sent as `X-Krystal-Device` by every call). **A session id is not device identity**:
   sessions are per host and expire, so the same laptop signing in again would read as a new device

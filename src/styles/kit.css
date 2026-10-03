@@ -33,6 +33,7 @@
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
 @import "@thekrystalship/krystal-ui/styles/brief.css";
+@import "@thekrystalship/krystal-ui/styles/chat.css";
 @import "./kit/chat.css";
 @import "@thekrystalship/krystal-ui/styles/rail.css";
 @import "./kit/rail.css";

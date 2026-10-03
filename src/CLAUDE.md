@@ -22,12 +22,17 @@ style). They reuse the panel's sign-in card and settings furniture, which is why
 from that layer. Each page's document carries its own **floor** — a sign-in form that posts without
 script, a wait that refreshes only under `<noscript>` — and the application removes it on mount.
 
-`src/chat/` is the conversation, shared by both. A divergence between the dock and the standalone
-page would be a **bug, not a variant**, so there is nowhere for one to drift from the other:
-everything that differs between the surfaces is a PROP, with defaults describing the smaller one.
-`src/pages/ChatPage.jsx` is the panel's thin wrapper that injects its cluster wiring (host picker,
-server roster, per-host roles, review mode, node attribution); `src/assistant/` is the standalone
-shell and passes almost nothing.
+`src/chat/` is the conversation, shared by both. The chat itself — the conversation engine over the
+assistant wire contract, the thread, the composer, review mode — is the design system's `Chat`;
+`chat/ChatPage.jsx` binds it to a kgsm assistant: the client and its session, the evidence cards a
+kgsm tool's result becomes (`EvidenceCards.jsx`), the blueprint review card
+(`ChatBlueprintDraft.jsx`), the lifecycle verbs and their verdicts (`chatUtils.jsx`,
+`chatConstants.js`), the host picker, and the server-aware opening suggestions. A divergence between
+the dock and the standalone page would be a **bug, not a variant**, so there is nowhere for one to
+drift from the other: everything that differs between the surfaces is a PROP, with defaults
+describing the smaller one. `src/pages/ChatPage.jsx` is the panel's thin wrapper that injects its
+cluster wiring (host picker, server roster, per-host roles, review mode, node attribution);
+`src/assistant/` is the standalone shell and passes almost nothing.
 
 **`src/assistant/` is a two-screen app**, not just a chat mount: `App.jsx` (auth gate + shell),
 `SettingsPage.jsx` (Appearance / Notifications, built from the panel's own settings furniture) and
@@ -57,7 +62,7 @@ the panel, and that client imports nothing but the library.
 
 The components, stores and stylesheets every Krystal site is drawn from — the application frame
 (`AppShell`, the sidebar and its rail and drawer, the dock and its launcher, the cinematic hero,
-the edge-swipe gesture), the briefing card, rail,
+the edge-swipe gesture), the assistant chat and its voice notes, the briefing card, rail,
 toolbar, paginator, select, modal, sub-tabs, settings furniture, theme picker, toasts and their tray,
 icons, avatar, the assistant's mark, `createStore`/`useStore`, the theme preference, `copyText`, the
 Web Push browser mechanics, and every token — are `@thekrystalship/krystal-ui` (`krystal-ui/` in the

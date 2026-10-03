@@ -13,7 +13,7 @@
 // One SSE stream to one host's `/api/v1/stream`. Topics are fixed at connect
 // via ?topics=. Changing topics = open another stream / close this one.
 
-import { readSseStream } from "./sse.js";
+import { readSseStream } from "@thekrystalship/krystal-ui/lib/sse";
 
 const RECONNECT_BASE = 2500, RECONNECT_CAP = 12000;
 const backoff = (n) => Math.min(RECONNECT_BASE * Math.pow(2, n), RECONNECT_CAP);

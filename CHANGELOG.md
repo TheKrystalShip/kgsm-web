@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the chat comes from the design system (3.2.6)
+
+The assistant chat — the conversation engine, the thread and its parts, the composer with its
+commands, switches, read-aloud and voice notes, history, feedback and review mode — is
+`@thekrystalship/krystal-ui` 0.3.0's `Chat`. `src/chat/` binds it to a kgsm assistant: the client
+and its session, the evidence cards, the blueprint review card, the lifecycle verbs and their
+verdicts, the host picker and the opening suggestions. Every element's computed style matches on
+every main route with the dock open, and the chat harness scripts (commands, switches, naming,
+cross-surface sync) pass against the standalone surface.
+
+- The compact-context error reads "Session expired — sign in again to compact."
+- With several assistants and none chosen, the composer reads "Pick which assistant to talk to".
+- A proposed action the panel cannot run carries "Not available from the panel yet." as its tooltip.
+
 ### Changed — the frame comes from the design system (3.2.5)
 
 The sidebar with its collapsed rail and phone drawer, the assistant dock with its resize handle, pin

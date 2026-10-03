@@ -1,5 +1,5 @@
 import { assistantSession } from "./assistantSession.js";
-import { parseSseEvent, readSseStream } from "./sse.js";
+import { parseSseEvent, readSseStream } from "@thekrystalship/krystal-ui/lib/sse";
 
 // assistantClient.js — the seam onto an assistant, spoken directly.
 //

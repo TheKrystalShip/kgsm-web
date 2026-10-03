@@ -205,7 +205,7 @@ pieces live beside it.
 
 | Entry | Folder | Holds |
 |---|---|---|
-| `ChatPage.jsx` | `../chat/` (shared by both surfaces) | thread/message/parts, evidence cards, context meter, host picker, `chatUtils`/`chatConstants` |
+| `ChatPage.jsx` | `../chat/` (shared by both surfaces) | the binding of the design system's `Chat` to a kgsm assistant (`ChatPage`), evidence cards, the blueprint review card, host picker, `chatUtils`/`chatConstants` |
 | `DiagnosticsPage.jsx` | `diagnostics/` | the cluster's own tabs — `ClusterKpis` (over `clusterKpis.js`), the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `ClusterRail`, `ClusterMap` (over the generated `euMap.js`) and `ClusterCapabilities` — plus one member's: `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
