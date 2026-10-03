@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the sidebar's account row is the design system's (3.3.0)
+
+The signed-in person's row in the sidebar's foot, its upward menu and its collapsed-rail form are
+krystal-ui 0.7.0's `SidebarAccount`, given the panel's sign-in method and its menu; the
+`sidebar__account*` rules are the package's.
+
 ### Changed — the assistant's review and own surface at its new routes (3.3.0)
 
 The conversation review is asked of the assistant at `/review/conversations…` and an anchor

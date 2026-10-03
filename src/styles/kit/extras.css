@@ -6,23 +6,6 @@
    these rules are gated to wide viewports, as the design system's own rail rules are. */
 @media (min-width: 769px) {
 
-  /* Account → centered avatar; upward menu widened + anchored left */
-  .sidebar--rail .sidebar__account {
-    justify-content: center;
-    padding: 6px 0;
-  }
-
-  .sidebar--rail .sidebar__account__text,
-  .sidebar--rail .sidebar__account__caret {
-    display: none;
-  }
-
-  .sidebar--rail .sidebar__account-menu {
-    left: 0;
-    right: auto;
-    min-width: 232px;
-  }
-
   /* Collapse toggle stays a 32px icon button in the rail */
 
   /* Favourites in the rail: the cover art IS the row. A strip of game thumbnails is more

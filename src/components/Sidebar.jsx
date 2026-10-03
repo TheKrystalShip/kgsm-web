@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  AccountAvatar, Icon, NavItem, NotificationsPanel, Sidebar as SidebarFrame, SidebarGroup, useStore,
+  Icon, NavItem, NotificationsPanel, Sidebar as SidebarFrame, SidebarAccount, SidebarGroup, useStore,
 } from "@thekrystalship/krystal-ui";
 import { KRYSTAL_LABELS } from "../lib/labels.js";
 import { can } from "../lib/persona.js";
@@ -225,50 +225,21 @@ function SidebarAnchor({ activeHostId, onOpen }) {
   );
 }
 
-// SidebarAccount — the signed-in user, pinned in the sidebar foot above
-// Settings. Replaces the old top-bar account menu now that the top bar is
-// gone; its popover opens UPWARD (it lives at the very bottom of the panel).
-function SidebarAccount({ user, onSettings, onLogout, collapsed }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+// The signed-in user, pinned at the bottom of the foot: the design system's account row, saying how
+// they signed in, with the panel's own menu.
+function Account({ user, onSettings, onLogout, collapsed }) {
+  const method = "Signed in with " + signInMethodLabel(user.provider);
   return (
-    <div className="sidebar__account-wrap" ref={ref}>
-      {open && (
-        <div className="sidebar__account-menu" role="menu">
-          <div className="sidebar__account-menu__head">
-            <div className="sidebar__account-menu__name">{user.display || user.name}</div>
-            <div className="sidebar__account-menu__provider">
-              <OAuthIcon provider={user.provider} size={11} />
-              Signed in with {signInMethodLabel(user.provider)}
-            </div>
-          </div>
-          <button className="sidebar__account-menu__item" onClick={() => { setOpen(false); onSettings && onSettings(); }}><Icon name="key" size={14} />API tokens</button>
-          <button className="sidebar__account-menu__item"><Icon name="circle-help" size={14} />Help &amp; docs</button>
-          <button className="sidebar__account-menu__item sidebar__account-menu__item--danger" onClick={onLogout}><Icon name="log-out" size={14} />Sign out</button>
-        </div>
-      )}
-      <button
-        className={"sidebar__account" + (open ? " sidebar__account--open" : "")}
-        onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
-        data-tip={collapsed && !open ? (user.display || user.name) : undefined}>
-        <AccountAvatar user={user} size={28} />
-        {!collapsed && (
-          <>
-            <span className="sidebar__account__text">
-              <span className="sidebar__account__name">{user.display || user.name}</span>
-              <span className="sidebar__account__sub">Signed in with {signInMethodLabel(user.provider)}</span>
-            </span>
-            <Icon name="chevrons-up-down" size={14} className="sidebar__account__caret" />
-          </>
-        )}
-      </button>
-    </div>
+    <SidebarAccount
+      user={user}
+      sub={method}
+      detail={<><OAuthIcon provider={user.provider} size={11} />{method}</>}
+      collapsed={collapsed}
+      items={[
+        { icon: "key", label: "API tokens", onClick: onSettings },
+        { icon: "circle-help", label: "Help & docs" },
+        { icon: "log-out", label: "Sign out", danger: true, onClick: onLogout },
+      ]} />
   );
 }
 
@@ -314,7 +285,7 @@ function Sidebar({ route = {}, onNavigate, serversCount = 0, serversTone = "info
         {/* Last, because it is the heaviest thing here — an avatar and two lines — and it anchors the
             foot rather than sitting in the middle of it. Its popover opens upward for the same
             reason. */}
-        {user && <SidebarAccount user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
+        {user && <Account user={user} onSettings={go("settings")} onLogout={onLogout} collapsed={collapsed} />}
       </>}>
       {/* Four groups, separated by a hairline and named by nothing. A label costs a row to say what
           the icons beside it already say, and the collapsed rail hides labels anyway, so both modes

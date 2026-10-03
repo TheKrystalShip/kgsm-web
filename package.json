@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@thekrystalship/krystal-ui": "0.5.1",
+    "@thekrystalship/krystal-ui": "0.7.0",
     "lucide-react": "^0.460.0",
     "monaco-editor": "^0.55.1",
     "oidc-client-ts": "^3.5.0",

@@ -38,7 +38,7 @@ into `App.jsx`.
 - `Breadcrumb.jsx`, `BootLanding.jsx`, `Sidebar.jsx`,
   `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ContentError`/`AppCrash`),
   `HostConnection.jsx` — the layout chrome. The frame they sit in (`AppShell`, the sidebar's
-  `Sidebar`/`SidebarGroup`/`NavItem`, the dock, the cinematic `Hero`) is the design system's;
+  `Sidebar`/`SidebarGroup`/`NavItem`/`SidebarAccount`, the dock, the cinematic `Hero`) is the design system's;
   `Sidebar.jsx` and `ServerHero.jsx` fill it with what the panel shows.
 
   **Nothing in the chrome reports a connection.** A node's live channel is shown on that node's own
