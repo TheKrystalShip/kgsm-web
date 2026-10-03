@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a list's Filters and Sort on a phone (3.2.9)
+
+On a screen 600px or narrower, a list's Filters and Sort popovers hang from the toolbar and span it
+(`@thekrystalship/krystal-ui` 0.5.1), instead of running past the right edge from their button. The
+catalog cards measure identical to 3.2.8 on the Catalog page and the dashboard, at 1440 and 390 wide.
+
 ### Changed — the catalog card comes from the design system (3.2.8)
 
 The catalog card's look is `@thekrystalship/krystal-ui` 0.5.0's `ShowcaseCard`, which Krystal Cinema
