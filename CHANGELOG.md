@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — "Prove it's you" asks for the proof (3.3.1)
+
+An access page refused with `reauth_required` links to the account page at `#confirm`, which opens
+the confirmation — the password, or a round trip to a provider the account holds — the moment it
+loads, and says "Confirmed." once it is done. The link opened the account page bare, which asks for a
+proof only before changing a credential there, so it offered nothing to do.
+
 ### Changed — the sidebar's account row is the design system's (3.3.0)
 
 The signed-in person's row in the sidebar's foot, its upward menu and its collapsed-rail form are

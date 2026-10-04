@@ -16,6 +16,9 @@ import { deleteJson, getJson, postJson } from "./api.js";
 // good (`freshUntil`); inside that window a change goes straight through, outside it the page asks for
 // the password first — or, for an account with none, a round trip to a provider it already has. That
 // round trip leaves the page, so what was being done is remembered in this tab and resumed on return.
+//
+// The same proof gates `auth:*` actions on every surface. A surface refused with `reauth_required`
+// opens this page at `#confirm`, which asks for the proof straight away and changes nothing else.
 
 const RESUME_KEY = "kgsm:account:resume";
 
@@ -38,6 +41,7 @@ function takeOutcome() {
   const params = new URLSearchParams(hash);
   if (params.has("linked")) return { tone: "ok", text: providerLabel(params.get("linked")) + " connected." };
   if (params.has("proved")) return { tone: "proved" };
+  if (params.has("confirm")) return { tone: "confirm" };
   const linkError = params.get("link_error");
   if (linkError === "identity_taken") return { tone: "bad", text: "That account is already connected to someone else." };
   if (linkError) return { tone: "bad", text: "Connecting didn’t complete." };
@@ -92,6 +96,7 @@ function AccountApp() {
   // after it.
   const run = React.useCallback(async (action) => {
     setError(null);
+    if (action.kind === "confirm") { setOutcome({ tone: "ok", text: "Confirmed." }); return; }
     if (action.kind === "password") { setChangingPassword(true); return; }
     if (action.kind === "unlink") { setDisconnecting(action.identity); return; }
     if (action.kind === "link") {
@@ -116,6 +121,11 @@ function AccountApp() {
       if (outcome && outcome.tone === "proved") {
         setOutcome(null);
         if (resumed) run(resumed);
+      } else if (outcome && outcome.tone === "confirm") {
+        setOutcome(null);
+        const confirm = { kind: "confirm" };
+        if (isFresh(loaded)) run(confirm);
+        else setProving(confirm);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on the load a round trip returns to

@@ -127,8 +127,8 @@ the anchor's reason beside it — a role above the assigner's is offered, closed
 comes from `authorityStore.check`, which asks the anchor's own rules about edits nobody has made; a
 page that worked a refusal out for itself would be a second implementation of the rules, and the
 first to disagree with them. A change that is refused anyway shows the anchor's sentence where it was
-made (`RefusalNote`), and `reauth_required` links to the provider's account page, where the proof is
-asked for.
+made (`RefusalNote`), and `reauth_required` links to the provider's account page at `#confirm`, which
+asks for the proof the moment it opens.
 
 `accounts/AnchorPage.jsx` is a MEMBER page, not a route of its own. A cluster has members and a member
 is a node or an anchor, so both are reached at `#/cluster/member/<member>` and `DiagnosticsPage` picks the

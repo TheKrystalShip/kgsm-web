@@ -37,11 +37,13 @@ function useChecks(edits, key) {
 }
 
 // A refusal beside the control it is about. `reauth_required` is the one a person can clear here: the
-// provider's account page asks for their credential, and the change can be made again after.
+// provider's account page, opened at `#confirm`, asks for their credential, and the change can be made
+// again after.
 function RefusalNote({ refusal, compact }) {
   if (!refusal) return null;
   const reauth = refusal.code === "reauth_required";
-  const page = reauth ? sessionStore.accountPage() : "";
+  const account = reauth ? sessionStore.accountPage() : "";
+  const page = account ? account + "#confirm" : "";
   return (
     <div className={"access-refusal" + (compact ? " access-refusal--compact" : "")} role="alert">
       <Icon name={reauth ? "key-round" : "lock"} size={13} />
