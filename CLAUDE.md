@@ -75,7 +75,7 @@ tell you it works.
 
 **The harness is `/home/heisen/tks/scripts/visual-harness/`** — its own git repository, beside the
 `kgsm-*` checkouts rather than inside one, because it tests this panel but stands up kgsm-api and
-kgsm-auth to test it against. Commit a script you add there, in that repo. Its `.state*/` never is:
+tks-auth to test it against. Commit a script you add there, in that repo. Its `.state*/` never is:
 those hold a session signing key, account stores with password hashes and the bootstrap passwords a
 test signs in with. There is a script per thing worth seeing, and adding one (copying the nearest
 neighbour, since they share `_panel.mjs`) is the normal way to check a change; its `README.md` has the

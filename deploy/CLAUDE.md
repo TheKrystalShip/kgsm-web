@@ -29,7 +29,7 @@ produced by it, from this repo and the operator's values in the untracked `deplo
 written by hand: with `KGSM_PANEL_HOST` set it installs `packaging/static/`'s `:80` ACME server and
 the panel's rendered vhost, issues the certificate over the webroot, installs the renewal hook, and
 makes sure `nginx.conf` reads `conf.d`. Where the anchor runs here it writes
-`kgsm-auth-anchor.service.d/50-kgsm-web.conf` with `Anchor__UiPath` and `Anchor__PanelOrigins`, the
+`tks-auth.service.d/50-kgsm-web.conf` with `Anchor__UiPath` and `Anchor__PanelOrigins`, the
 way this repo's package tells kgsm-api where the panel is. Every file is compared before it is
 written, so a re-run changes nothing that already matches.
 

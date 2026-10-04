@@ -18,7 +18,7 @@ LIB=/usr/lib/kgsm-web-static
 BUNDLE=/usr/share/kgsm-web-static
 STATE=/var/lib/kgsm-web-static
 ACME_ROOT=/var/lib/letsencrypt
-ANCHOR_UNIT=kgsm-auth-anchor.service
+ANCHOR_UNIT=tks-auth.service
 
 log() { printf '%s\n' "$*"; }
 err() { printf '<3>%s\n' "$*" >&2; }

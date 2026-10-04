@@ -13,7 +13,7 @@ const USERNAME_MIN = 3;
 const USERNAME_MAX = 32;
 const PASSWORD_MIN = 12;
 
-// Mirrors kgsm-auth's `Usernames.IsValid`: ASCII letters, digits, '.', '_' or '-', beginning with a
+// Mirrors tks-auth's `Usernames.IsValid`: ASCII letters, digits, '.', '_' or '-', beginning with a
 // letter or a digit.
 function usernameProblem(username) {
   const v = (username || "").trim();

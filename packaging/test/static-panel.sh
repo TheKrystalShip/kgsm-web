@@ -44,9 +44,9 @@ pacman -Sy --noconfirm --needed nginx certbot openssl curl diffutils >/dev/null 
 pacman -U --noconfirm -dd /t/kgsm-web-static.pkg.tar.zst >/dev/null 2>&1 || { echo "!! install failed"; exit 1; }
 sed -i -E '0,/^[[:space:]]*http[[:space:]]*\{/s//&\n    include \/etc\/nginx\/conf.d\/*.conf;/' /etc/nginx/nginx.conf
 printf '[Service]\nExecStart=/bin/sh -c "env > /run/anchor-env; exec sleep infinity"\n' \
-    > /etc/systemd/system/kgsm-auth-anchor.service
+    > /etc/systemd/system/tks-auth.service
 systemctl daemon-reload
-systemctl start nginx kgsm-auth-anchor
+systemctl start nginx tks-auth
 
 echo "a blank name"
 check "serve-panel succeeds" systemctl start kgsm-web-static
@@ -75,9 +75,9 @@ check "http serves the ACME webroot" test "$(curl -s "${R[@]}" http://panel.test
 check "declares the origin to the anchor" grep -qx 'Anchor__PanelOrigins=https://panel.test' /var/lib/kgsm-web-static/anchor.env
 sleep 2
 check "the anchor restarted with the origin" grep -qx 'Anchor__PanelOrigins=https://panel.test' /run/anchor-env
-before="$(systemctl show -p InvocationID --value kgsm-auth-anchor)"
+before="$(systemctl show -p InvocationID --value tks-auth)"
 systemctl restart kgsm-web-static; sleep 2
-check "a run that changes nothing restarts nothing" test "$before" = "$(systemctl show -p InvocationID --value kgsm-auth-anchor)"
+check "a run that changes nothing restarts nothing" test "$before" = "$(systemctl show -p InvocationID --value tks-auth)"
 
 echo "a name that is not one"
 set_host 'bad;name'

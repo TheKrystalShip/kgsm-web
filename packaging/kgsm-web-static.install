@@ -36,7 +36,7 @@ post_remove() {
     cat <<'MSG'
 
   The panel's sites are no longer loaded; reload nginx to stop serving them, and restart
-  kgsm-auth-anchor to drop the panel's origin from its clients. The certificate is left in
+  tks-auth to drop the panel's origin from its clients. The certificate is left in
   /etc/letsencrypt and the rendered files in /var/lib/kgsm-web-static.
 
 MSG

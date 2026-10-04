@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the auth anchor is tks-auth (3.4.2)
+
+- `kgsm-web-static` installs its drop-in under `tks-auth.service.d/` and optionally depends on
+  `tks-auth`; `setup.sh` writes the anchor's drop-in there and restarts `tks-auth.service`.
+
 ### Changed — server settings show three kept backups by default (3.4.1)
 
 The "Keep backups" field reads 3 for an instance that reports no retention, matching the engine's

@@ -7,7 +7,7 @@
 #   kgsm-web       the Control Panel, served by kgsm-api same-origin, so the panel and the API it
 #                  talks to are one address.
 #   kgsm-web-auth  the auth anchor's own pages — sign-in, registration, the wait for approval and the
-#                  account page — which kgsm-auth-anchor serves at /ui/ from /usr/share/kgsm-web-auth,
+#                  account page — which tks-auth serves at /ui/ from /usr/share/kgsm-web-auth,
 #                  the path it reads by default.
 #   kgsm-web-static the Control Panel served as a static site at one public name, with no member behind
 #                  it: its own bundle, which seeds no host, the nginx site and certificate, and the
@@ -87,7 +87,7 @@ package_kgsm-web-auth() {
     pkgdesc="KGSM sign-in pages — the auth anchor's sign-in, registration and account pages"
     groups=('kgsm-node')
     depends=()
-    optdepends=('kgsm-auth-anchor: serves these pages at /ui/')
+    optdepends=('tks-auth: serves these pages at /ui/')
 
     # At the anchor's default Anchor__UiPath, so installing this needs no configuration and no
     # restart: the anchor reads the documents from disk on every request.
@@ -117,8 +117,8 @@ package_kgsm-web-static() {
     install -Dm644 "${src}/kgsm-web-static.service"      "${pkgdir}/usr/lib/systemd/system/kgsm-web-static.service"
     install -Dm644 "${src}/panel.env"                    "${pkgdir}/etc/kgsm-web/panel.env"
     install -Dm644 "${src}/00-kgsm-web-static-sites.conf" "${pkgdir}/etc/nginx/conf.d/00-kgsm-web-static-sites.conf"
-    install -Dm644 "${src}/kgsm-auth-anchor.dropin.conf" \
-        "${pkgdir}/usr/lib/systemd/system/kgsm-auth-anchor.service.d/50-kgsm-web-static.conf"
+    install -Dm644 "${src}/tks-auth.dropin.conf" \
+        "${pkgdir}/usr/lib/systemd/system/tks-auth.service.d/50-kgsm-web-static.conf"
 
     # nginx reads a certificate when it loads its configuration, so a renewal is served only after a
     # reload. certbot runs every executable in this directory once per renewed certificate.

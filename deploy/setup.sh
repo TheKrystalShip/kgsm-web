@@ -124,9 +124,9 @@ serve_panel() {
 # from this checkout says where, and a panel on a static host has no member to announce it. So both are
 # stated in a drop-in of this project's own beside the anchor's unit — the way the kgsm-web package tells
 # kgsm-api where the panel is.
-ANCHOR_DROPIN="/etc/systemd/system/kgsm-auth-anchor.service.d/50-kgsm-web.conf"
+ANCHOR_DROPIN="/etc/systemd/system/tks-auth.service.d/50-kgsm-web.conf"
 point_anchor() {
-    if ! systemctl cat kgsm-auth-anchor.service >/dev/null 2>&1; then
+    if ! systemctl cat tks-auth.service >/dev/null 2>&1; then
         log "no auth anchor on this machine — nothing to point at the pages"
         return 0
     fi
@@ -144,7 +144,7 @@ point_anchor() {
     if install_root_file "$rendered" "$ANCHOR_DROPIN" 0644; then
         log "pointed the auth anchor at ${AUTH_UI_ROOT}${PANEL_HOST:+ and the panel at https://${PANEL_HOST}}"
         $SUDO systemctl daemon-reload
-        $SUDO systemctl try-restart kgsm-auth-anchor.service
+        $SUDO systemctl try-restart tks-auth.service
     fi
     rm -f "$rendered"
 }
