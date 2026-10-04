@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the breadcrumb is the design system's (3.4.0)
+
+The trail above every page is drawn by `Breadcrumbs` from `@thekrystalship/krystal-ui` 0.8.0. Each
+ancestor is a real `#/...` link, so middle-click and copy-link work, and a plain click navigates in
+place as before. The trail stays on one line at every width, each crumb ellipsizing.
+
 ### Fixed — "Prove it's you" asks for the proof (3.3.1)
 
 An access page refused with `reauth_required` links to the account page at `#confirm`, which opens

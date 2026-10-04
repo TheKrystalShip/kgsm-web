@@ -2916,10 +2916,10 @@ try {
   // route, so a page drawing its own would stack a second one under it: assert the count, and that the
   // trail names every segment the hash carries down to the tab.
   const crumbsOf = (html) => {
-    const rows = (html.match(/content__breadcrumb/g) || []).length;
-    const text = (html.match(/class="content__breadcrumb">([\s\S]*?)<\/div>/) || ["", ""])[1]
-      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    return { rows, text };
+    const rows = (html.match(/<nav[^>]*class="crumbs\b/g) || []).length;
+    const items = [...html.matchAll(/<li class="crumbs__item">([\s\S]*?)<\/li>/g)]
+      .map((m) => m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    return { rows, text: items.join(" / ") };
   };
   const leafCrumb = crumbsOf(await nav(`#/cluster/member/${hmId}/services/monitor/logs`));
   assert(leafCrumb.rows === 1 && /Cluster \/ .+ \/ Services \/ Monitor \/ Logs$/.test(leafCrumb.text),

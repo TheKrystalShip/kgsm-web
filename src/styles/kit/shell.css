@@ -247,14 +247,6 @@
   gap: 16px;
 }
 
-.content__breadcrumb {
-  color: var(--fg-3);
-  font-size: 13px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
 /* The footer's org link in the bar reads as the address it is. */
 .kfoot__end .kfoot__org {
   font-family: var(--font-mono);

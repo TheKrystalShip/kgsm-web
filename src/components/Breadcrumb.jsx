@@ -1,5 +1,5 @@
-// Breadcrumb — a projection of the resolved route + the policy. The root
-// "Home" crumb appears only when the persona can reach the dashboard.
+// Breadcrumb — a projection of the resolved route + the policy, drawn by the design system's
+// `Breadcrumbs`. The root "Home" crumb appears only when the persona can reach the dashboard.
 //
 // This is the ONE breadcrumb: it is rendered by the shell above every page, so a page that draws its
 // own would sit under a second trail rather than replace it. A page that goes deeper adds its crumbs
@@ -20,7 +20,8 @@
 // Cluster page, so a crumb there would repeat the link beside it. It earns one the day
 // #/cluster/members becomes a page of its own.
 
-import React from "react";
+import { Breadcrumbs } from "@thekrystalship/krystal-ui";
+import { KrystalRouter } from "../lib/router.js";
 import { can, nodeTabOffered } from "../lib/persona.js";
 import { anchorOffersTab, tabLabel } from "../lib/labels.js";
 
@@ -105,28 +106,20 @@ function breadcrumbTrail(route, ctx) {
 }
 
 function Breadcrumb({ route, ctx, onNavigate }) {
-  const trail = breadcrumbTrail(route, ctx);
+  // Each ancestor is a real `#/...` link, the serialization the router writes into the address bar,
+  // so middle-click and copy-link land where a plain click does. A plain click is mapped back from
+  // the href to the crumb's route object, which is what the shell's `setRoute` takes.
+  const opens = new Map();
+  const items = breadcrumbTrail(route, ctx).map((c) => {
+    if (!c.to) return { label: c.label };
+    const href = KrystalRouter.routeToHash(c.to);
+    opens.set(href, c.to);
+    return { label: c.label, href };
+  });
   return (
-    <div className="content__breadcrumb">
-      {trail.map((c, i) => {
-        const last = i === trail.length - 1;
-        const clickable = !last && !!c.to;
-        return (
-          <React.Fragment key={i}>
-            {i > 0 && <span style={{ color: "var(--fg-4)" }}>/</span>}
-            <span
-              style={{
-                color: last ? "var(--fg-1)" : "var(--fg-3)",
-                fontWeight: last ? 600 : 500,
-                cursor: clickable ? "pointer" : "default",
-              }}
-              onClick={clickable ? () => onNavigate(c.to) : undefined}>
-              {c.label}
-            </span>
-          </React.Fragment>
-        );
-      })}
-    </div>
+    <Breadcrumbs
+      items={items}
+      onNavigate={(href) => { const to = opens.get(href); if (to) onNavigate(to); }} />
   );
 }
 

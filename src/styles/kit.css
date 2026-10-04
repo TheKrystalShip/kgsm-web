@@ -32,6 +32,7 @@
 @import "./kit/observability.css";
 @import "@thekrystalship/krystal-ui/styles/toolbar.css";
 @import "@thekrystalship/krystal-ui/styles/pagination.css";
+@import "@thekrystalship/krystal-ui/styles/breadcrumbs.css";
 @import "./kit/controls.css";
 @import "./kit/responsive.css";
 @import "@thekrystalship/krystal-ui/styles/brief.css";

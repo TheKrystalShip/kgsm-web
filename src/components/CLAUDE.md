@@ -37,7 +37,9 @@ into `App.jsx`.
   but is the routing layer, not a presentational component.
 - `Breadcrumb.jsx`, `BootLanding.jsx`, `Sidebar.jsx`,
   `Footer.jsx`, `ErrorBoundary.jsx` (+ `ColdStartDown`/`ContentError`/`AppCrash`),
-  `HostConnection.jsx` — the layout chrome. The frame they sit in (`AppShell`, the sidebar's
+  `HostConnection.jsx` — the layout chrome. `Breadcrumb.jsx` decides the crumbs and the design
+  system's `Breadcrumbs` draws them, each ancestor a real `#/...` link built by the router's
+  `routeToHash`. The frame they sit in (`AppShell`, the sidebar's
   `Sidebar`/`SidebarGroup`/`NavItem`/`SidebarAccount`, the dock, the cinematic `Hero`) is the design system's;
   `Sidebar.jsx` and `ServerHero.jsx` fill it with what the panel shows.
 
