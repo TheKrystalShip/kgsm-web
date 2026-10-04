@@ -145,7 +145,7 @@ function ScheduleSection({
               className="settings-input settings-input--num"
               min={1}
               max={100}
-              value={backupRetention ?? 5}
+              value={backupRetention ?? 3}
               onChange={e => setBackupRetention(Number(e.target.value))}
             />
           </SettingsRow>

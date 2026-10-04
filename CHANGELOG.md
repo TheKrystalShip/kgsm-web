@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — server settings show three kept backups by default (3.4.1)
+
+The "Keep backups" field reads 3 for an instance that reports no retention, matching the engine's
+default.
+
 ### Changed — the breadcrumb is the design system's (3.4.0)
 
 The trail above every page is drawn by `Breadcrumbs` from `@thekrystalship/krystal-ui` 0.8.0. Each

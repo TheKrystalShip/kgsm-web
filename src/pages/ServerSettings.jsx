@@ -29,7 +29,7 @@ function ServerSettings({ server, onDeleted }) {
   const [cpuPriority, setCpuPriority] = React.useState(null); // null = not loaded
   const [memoryCapMb, setMemoryCapMb] = React.useState(null); // null = not loaded (0 = uncapped is valid)
   const [timezone, setTimezone] = React.useState(null); // IANA string, "" = host-local
-  const [backupRetention, setBackupRetention] = React.useState(5);
+  const [backupRetention, setBackupRetention] = React.useState(3);
   // The windows being edited, and the node's own reading of the ones that are saved. The draft is a
   // list of fields; `savedWindows` keeps each saved window's leaf-computed next fire and verdict, which
   // the editor shows for a window nobody has touched and stops using the moment its schedule moves.
@@ -82,7 +82,7 @@ function ServerSettings({ server, onDeleted }) {
         setCpuPriority(data.cpuPriority ?? null);
         setMemoryCapMb(data.memoryCapMb ?? null);
         setTimezone(data.timezone ?? "");
-        setBackupRetention(data.backupRetention ?? 5);
+        setBackupRetention(data.backupRetention ?? 3);
         adoptWindows(data.maintenanceWindows);
         setWindowsAuthor(data.maintenanceWindowsAuthor || null);
         setLoadState("ready");
@@ -117,7 +117,7 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority);
           if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb);
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
-          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
+          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 3);
           if (data.settings.maintenanceWindows !== undefined) adoptWindows(data.settings.maintenanceWindows);
           setWindowsAuthor(data.settings.maintenanceWindowsAuthor || null);
         }
@@ -151,7 +151,7 @@ function ServerSettings({ server, onDeleted }) {
           if (data.settings.cpuPriority !== undefined) setCpuPriority(data.settings.cpuPriority ?? null);
           if (data.settings.memoryCapMb !== undefined) setMemoryCapMb(data.settings.memoryCapMb ?? null);
           if (data.settings.timezone !== undefined) setTimezone(data.settings.timezone ?? "");
-          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 5);
+          if (data.settings.backupRetention !== undefined) setBackupRetention(data.settings.backupRetention ?? 3);
           if (data.settings.maintenanceWindows !== undefined) adoptWindows(data.settings.maintenanceWindows);
           setWindowsAuthor(data.settings.maintenanceWindowsAuthor || null);
         }
