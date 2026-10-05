@@ -11,10 +11,10 @@
 // member's address with the cluster's credential, and they are the same bodies a node's leaf page
 // mounts. Only the transport differs, which is the whole of what `componentSurface` decides.
 //
-// **The capability's surface is the capability's.** The cluster's accounts belong to the `auth`
-// holder and are reached at the door this browser signed in through; a conversation corpus belongs
-// to the assistant; names and certificates to DNS. `anchorTabs` picks which of those this member
-// offers, so a strip can never point one member's page at another member's data.
+// **The capability's surface is the capability's.** A conversation corpus belongs to the assistant;
+// names and certificates to DNS. `anchorTabs` picks which of those this member offers, so a strip can
+// never point one member's page at another member's data. The cluster's accounts and who may do what
+// belong to the `auth` holder, which administers them on its own pages; its overview links there.
 //
 // The address is the member's, for the same reason. The door is this member's address only when this
 // member IS the door.
@@ -29,12 +29,7 @@ import { Icon, SubTabs } from "@thekrystalship/krystal-ui";
 import { useAccountHolder } from "../../hooks/useAccountHolder.js";
 import { anchorSurface } from "../../lib/componentSurface.js";
 import { anchorTabs } from "../../lib/labels.js";
-import { AccountsAdmin } from "./AccountsAdmin.jsx";
 import { AnchorOverview } from "./AnchorOverview.jsx";
-import { CatalogAdmin } from "./access/CatalogAdmin.jsx";
-import { PermissionsAdmin } from "./access/PermissionsAdmin.jsx";
-import { RolesAdmin } from "./access/RolesAdmin.jsx";
-import { ServiceRequests } from "./access/ServiceRequests.jsx";
 import { MemberSettings } from "../diagnostics/MemberSettings.jsx";
 import { ComponentCommands } from "../component/ComponentCommands.jsx";
 import { ComponentConfiguration } from "../component/ComponentConfiguration.jsx";
@@ -72,16 +67,6 @@ const CAPABILITY_BODIES = {
     names: () => <DnsNames />,
     certificates: () => <DnsCertificates />,
   },
-};
-
-// The `auth` holder's own surfaces: the cluster's accounts and who may do what, all behind the door
-// this browser signed in through.
-const DOOR_BODIES = {
-  users: () => <AccountsAdmin />,
-  roles: () => <RolesAdmin />,
-  permissions: () => <PermissionsAdmin />,
-  catalog: () => <CatalogAdmin />,
-  services: () => <ServiceRequests />,
 };
 
 // What this member going down costs, said in the review before a change restarts it. Only the holder
@@ -205,29 +190,10 @@ function AnchorPage({ member, tab, onSelectTab, onReviewConversation }) {
     if (active === "overview") {
       return (
         <>
-          <AnchorOverview member={member} address={address} showsAccounts={isDoor} onSelectTab={onSelectTab} />
+          <AnchorOverview member={member} address={address} showsAccounts={isDoor} />
           {own.overview ? own.overview(ownProps) : null}
         </>
       );
-    }
-
-    // The cluster's accounts and access, which are the `auth` holder's and behind the door this
-    // browser signed in through. A session opened at a node holds nothing for them: naming the holder
-    // is the whole of what it knows, since a member gives out an anchor's name and never its address.
-    if (DOOR_BODIES[active]) {
-      if (!anchor) {
-        return (
-          <div className="chat-brief">
-            <div className="chat-brief__empty chat-brief__empty--neutral">
-              <div className="chat-brief__empty-title">Signed in somewhere else</div>
-              <div className="chat-brief__empty-sub">
-                These accounts are {name}’s. Sign in there to reach them.
-              </div>
-            </div>
-          </div>
-        );
-      }
-      return DOOR_BODIES[active]();
     }
 
     if (own[active]) return own[active](ownProps);

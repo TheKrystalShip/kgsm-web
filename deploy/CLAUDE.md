@@ -28,12 +28,12 @@ will use it, since a mode bit is not a guarantee. **Everything the host needs to
 produced by it, from this repo and the operator's values in the untracked `deploy.local.env`** — never
 written by hand: with `KGSM_PANEL_HOST` set it installs `packaging/static/`'s `:80` ACME server and
 the panel's rendered vhost, issues the certificate over the webroot, installs the renewal hook, and
-makes sure `nginx.conf` reads `conf.d`. Where the anchor runs here it writes
-`tks-auth.service.d/50-kgsm-web.conf` with `Anchor__UiPath` and `Anchor__PanelOrigins`, the
-way this repo's package tells kgsm-api where the panel is. Every file is compared before it is
-written, so a re-run changes nothing that already matches.
+makes sure `nginx.conf` reads `conf.d`. Where the anchor runs here, it writes
+`tks-auth.service.d/50-kgsm-web.conf` with `Anchor__PanelOrigins` naming the panel's origin, the
+way this repo's package tells kgsm-api where the panel is; with no `KGSM_PANEL_HOST` there is no such
+drop-in. Every file is compared before it is written, so a re-run changes nothing that already
+matches.
 
 `deploy.sh` then builds and `rsync`s with **no sudo and no prompts**, and refuses up front with
 *"run `deploy/setup.sh`"* when the target isn't there. `deploy-assistant.sh` publishes the standalone
-assistant into the leaf's wwwroot and `deploy-auth.sh` the anchor's pages where its `Anchor__UiPath`
-points. The files here are self-contained, so a standalone clone deploys.
+assistant into the leaf's wwwroot. The files here are self-contained, so a standalone clone deploys.

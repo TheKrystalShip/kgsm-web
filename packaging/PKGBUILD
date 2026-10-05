@@ -2,13 +2,10 @@
 #
 # Build from this directory:  cd packaging && makepkg
 #
-# Three built bundles of static files from one checkout, as three packages.
+# Two built bundles of static files from one checkout, as two packages.
 #
 #   kgsm-web       the Control Panel, served by kgsm-api same-origin, so the panel and the API it
 #                  talks to are one address.
-#   kgsm-web-auth  the auth anchor's own pages — sign-in, registration, the wait for approval and the
-#                  account page — which tks-auth serves at /ui/ from /usr/share/kgsm-web-auth,
-#                  the path it reads by default.
 #   kgsm-web-static the Control Panel served as a static site at one public name, with no member behind
 #                  it: its own bundle, which seeds no host, the nginx site and certificate, and the
 #                  panel's origin declared to the auth anchor on the same machine. One admin value,
@@ -19,7 +16,7 @@
 # without its pages by simply not installing them.
 
 pkgbase=kgsm-web
-pkgname=('kgsm-web' 'kgsm-web-auth' 'kgsm-web-static')
+pkgname=('kgsm-web' 'kgsm-web-static')
 # A placeholder: pkgver() below replaces it with what deploy/version.sh reports, so the number is
 # declared in exactly one place and this file never carries a copy that can fall behind.
 pkgver=1.230.0
@@ -39,11 +36,10 @@ pkgver() {
 
 build() {
     local stage; stage="$(_stage)"
-    [[ -f "${stage}/dist/index.html" && -f "${stage}/dist-auth/auth-sign-in.html" \
-        && -f "${stage}/dist-static/index.html" ]] || {
+    [[ -f "${stage}/dist/index.html" && -f "${stage}/dist-static/index.html" ]] || {
         printf '\n  no built bundles under %s\n' "$stage" >&2
-        printf '  build them first:  VITE_API_BASE=self npm run build && npm run build:auth && npm run build:static\n' >&2
-        printf '  or point KGSM_STAGE at a directory holding dist/, dist-auth/ and dist-static/.\n\n' >&2
+        printf '  build them first:  VITE_API_BASE=self npm run build && npm run build:static\n' >&2
+        printf '  or point KGSM_STAGE at a directory holding dist/ and dist-static/.\n\n' >&2
         return 1
     }
 }
@@ -81,19 +77,6 @@ Environment=ASPNETCORE_WEBROOT=/usr/share/kgsm-web
 DROPIN
 
     install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web/LICENSE"
-}
-
-package_kgsm-web-auth() {
-    pkgdesc="KGSM sign-in pages — the auth anchor's sign-in, registration and account pages"
-    groups=('kgsm-node')
-    depends=()
-    optdepends=('tks-auth: serves these pages at /ui/')
-
-    # At the anchor's default Anchor__UiPath, so installing this needs no configuration and no
-    # restart: the anchor reads the documents from disk on every request.
-    _install_tree "$(_stage)/dist-auth" "${pkgdir}/usr/share/kgsm-web-auth"
-
-    install -Dm644 "${startdir}/../LICENSE" "${pkgdir}/usr/share/licenses/kgsm-web-auth/LICENSE"
 }
 
 package_kgsm-web-static() {

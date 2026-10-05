@@ -6,17 +6,16 @@
 #
 # Idempotent: safe to re-run any time.
 #
-# Creates the directories the SPA and the auth anchor's pages are published into and hands them to
-# you, so every deploy after this one is a plain unprivileged file copy. Override the locations with
-# KGSM_WEB_ROOT and KGSM_WEB_AUTH_ROOT.
+# Creates the directory the SPA is published into and hands it to you, so every deploy after this one
+# is a plain unprivileged file copy. Override the location with KGSM_WEB_ROOT.
 #
 # With KGSM_PANEL_HOST set in deploy/deploy.local.env, it also serves the panel at that name through
 # nginx: the machine's plain-HTTP surface (the ACME webroot and the https upgrade), the panel's vhost,
 # its Let's Encrypt certificate and the hook that reloads nginx on renewal. Without it the panel is a
 # static artifact for whatever web server, object store or CDN publishes it.
 #
-# Where the auth anchor runs on this machine, it points the anchor at the pages published here, and at
-# the panel's origin as a client of its sign-in.
+# Where the auth anchor runs on this machine, it tells the anchor the panel's origin as a client of its
+# sign-in.
 #
 # Asks for sudo once. Everything it writes comes from this repo and deploy.local.env, so re-running it
 # reproduces the host.
@@ -56,9 +55,8 @@ provision() {
     rm -f "$probe"
 }
 
-# The panel, and the auth anchor's own pages.
+# The panel.
 provision "$WEBROOT"
-provision "$AUTH_UI_ROOT"
 
 # install_root_file <source> <destination> <mode> — returns 1 when the destination already says the same.
 install_root_file() {
@@ -119,15 +117,24 @@ serve_panel() {
     $SUDO systemctl reload nginx
 }
 
-# The auth anchor on this machine reads its pages from wherever it is told, and issues codes only to
-# clients it knows. A package puts the pages where the anchor looks by default; a host publishing them
-# from this checkout says where, and a panel on a static host has no member to announce it. So both are
-# stated in a drop-in of this project's own beside the anchor's unit — the way the kgsm-web package tells
-# kgsm-api where the panel is.
+# The auth anchor on this machine issues codes only to clients it knows, and a panel on a static host
+# has no member to announce it. So its origin is stated in a drop-in of this project's own beside the
+# anchor's unit — the way the kgsm-web package tells kgsm-api where the panel is. With no panel host
+# there is nothing to state, and no drop-in.
 ANCHOR_DROPIN="/etc/systemd/system/tks-auth.service.d/50-kgsm-web.conf"
 point_anchor() {
     if ! systemctl cat tks-auth.service >/dev/null 2>&1; then
-        log "no auth anchor on this machine — nothing to point at the pages"
+        log "no auth anchor on this machine — nothing to tell it"
+        return 0
+    fi
+
+    if [[ -z "$PANEL_HOST" ]]; then
+        if [[ -e "$ANCHOR_DROPIN" ]]; then
+            $SUDO rm -f "$ANCHOR_DROPIN"
+            log "no panel host — removed ${ANCHOR_DROPIN}"
+            $SUDO systemctl daemon-reload
+            $SUDO systemctl try-restart tks-auth.service
+        fi
         return 0
     fi
 
@@ -135,14 +142,11 @@ point_anchor() {
     rendered="$(mktemp)"
     {
         printf '# Written by kgsm-web deploy/setup.sh. Re-running it rewrites this file.\n[Service]\n'
-        printf 'Environment=Anchor__UiPath=%s\n' "$AUTH_UI_ROOT"
-        if [[ -n "$PANEL_HOST" ]]; then
-            printf 'Environment=Anchor__PanelOrigins=https://%s\n' "$PANEL_HOST"
-        fi
+        printf 'Environment=Anchor__PanelOrigins=https://%s\n' "$PANEL_HOST"
     } > "$rendered"
 
     if install_root_file "$rendered" "$ANCHOR_DROPIN" 0644; then
-        log "pointed the auth anchor at ${AUTH_UI_ROOT}${PANEL_HOST:+ and the panel at https://${PANEL_HOST}}"
+        log "told the auth anchor the panel is at https://${PANEL_HOST}"
         $SUDO systemctl daemon-reload
         $SUDO systemctl try-restart tks-auth.service
     fi
@@ -154,7 +158,6 @@ point_anchor
 
 printf '\n\033[1;32m✓ %s is provisioned\033[0m\n' "$PROJECT"
 printf '   web root:   %s (writable by %s)\n' "$WEBROOT" "$DEPLOY_USER"
-printf '   auth pages: %s\n' "$AUTH_UI_ROOT"
 if [[ -n "$PANEL_HOST" ]]; then
     printf '   served at:  https://%s\n' "$PANEL_HOST"
 fi

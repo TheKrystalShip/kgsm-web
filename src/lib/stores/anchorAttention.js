@@ -54,7 +54,7 @@ function itemsFrom({ accounts, view, approvals }) {
   if (accounts && approves()) {
     for (const a of accounts.filter((x) => x.status === "pending")) {
       items.push({
-        key: "pending:" + (a.id || a.username), tab: "users", tone: "warn", icon: "hourglass",
+        key: "pending:" + (a.id || a.username), page: "accounts", tone: "warn", icon: "hourglass",
         title: (a.username || a.displayName || a.id) + " awaits approval",
         detail: a.displayName && a.displayName !== a.username ? a.displayName : null,
       });
@@ -64,7 +64,7 @@ function itemsFrom({ accounts, view, approvals }) {
     const unmapped = view.catalog.filter((c) => c.unmapped);
     if (unmapped.length) {
       items.push({
-        key: "unmapped", tab: "catalog", tone: "warn", icon: "list-checks",
+        key: "unmapped", page: "catalog", tone: "warn", icon: "list-checks",
         title: unmapped.length + " unmapped action" + (unmapped.length === 1 ? "" : "s"),
         detail: unmapped.slice(0, 4).map((c) => c.action).join(", ") + (unmapped.length > 4 ? ", …" : ""),
       });
@@ -75,7 +75,7 @@ function itemsFrom({ accounts, view, approvals }) {
       const waiting = (svc.requirements || []).filter((q) => q.state === "waiting");
       if (!waiting.length) continue;
       items.push({
-        key: "waiting:" + svc.id, tab: "services", tone: "warn", icon: "bot",
+        key: "waiting:" + svc.id, page: "services", tone: "warn", icon: "bot",
         title: svc.username + " waits on " + waiting.length + " requirement" + (waiting.length === 1 ? "" : "s"),
         detail: waiting.map((q) => q.action).join(", "),
       });
@@ -83,7 +83,7 @@ function itemsFrom({ accounts, view, approvals }) {
   }
   for (const e of approvals || []) {
     items.push({
-      key: "auto:" + e.id, tab: "services", tone: "info", icon: "shield-check",
+      key: "auto:" + e.id, page: "services", tone: "info", icon: "shield-check",
       title: e.summary || ((e.meta.service || "a service") + " allowed " + e.meta.action),
       at: e.ts,
     });

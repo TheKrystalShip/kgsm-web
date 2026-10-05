@@ -21,7 +21,7 @@ export { DNS_KEY, dnsStore } from "./dns.js";
 export { PREF_KEYS, prefsStore } from "./prefs.js";
 export { AVAILABILITY_WINDOW, fleetOpsStore, startFleetOps, stopFleetOps } from "./fleet.js";
 export { accessStore } from "./access.js";
-export { authorityStore, refusalOf } from "./authority.js";
+export { authorityStore } from "./authority.js";
 export { accountNamesStore, resolveAccountNames } from "./accountNames.js";
 export { anchorAttentionStore, startAnchorAttention, stopAnchorAttention } from "./anchorAttention.js";
 

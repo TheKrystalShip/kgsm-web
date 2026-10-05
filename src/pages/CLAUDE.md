@@ -74,8 +74,8 @@ so they answer to no `route.kind` and no persona: `ClusterPage` (the address of 
 panel whose own origin names no provider) and `ClusterUnavailable` (the panel knows where to sign in
 and cannot right now — nothing answered, no provider yet, a session that ended while the panel was
 open, a provider that sent the browser back without one, or an account the cluster grants nothing).
-Nobody signs in on either: that is the provider's own pages. `AuthChrome.jsx` holds what these share
-with those pages, which reuse `SignInCard.jsx` and `PendingPage.jsx` from here.
+Nobody signs in on either: that is the provider's own pages, tks-auth's. `AuthChrome.jsx` holds the
+shell and the refusal these share.
 
 **`AuthGate` is everything in front of the app** — finding the provider, and going there — and
 `App.jsx` renders it *instead of* the shell, so none of the shell's hooks and none of the data layer
@@ -87,48 +87,29 @@ was doing.
 **The panel holds no credential settings.** A password, connected accounts and the list of where
 somebody is signed in are changed on the provider's account page, behind a recent proof only those
 pages can ask for; Settings links there (`SettingsSignIn.jsx`). Administering OTHER people's accounts
-stays in the panel, through the provider's account API with the bearer it holds.
+is the provider's too, on its admin pages.
 
 **One address, and what answers decides the rest.** Any member of the cluster names its provider,
 and so does the provider itself, so the page does not ask which was typed — `discoverProvider`
 asks. What was typed is checked before it is kept, so a refusal is what something answered.
 
-## Administering accounts — one screen, two homes
+## Administering access is the provider's
 
-`accounts/AccountsAdmin.jsx` answers "who may do what". Where it is MOUNTED is the cluster's answer,
-not the screen's, and `useAccountHolder()` is the one question that decides it.
+"Who may do what" — accounts and their approval, roles, permissions, the catalog, assignments,
+service accounts' requests, the applications the provider signs people in to — is administered on
+tks-auth's own admin pages, on the provider's origin, and nowhere in the panel. The panel links there
+with the page and the scope filled in (`sessionStore.adminPage`): a server's Access tab
+(`ServerAccess.jsx`) opens the roles held on that install, the auth anchor's overview carries a row per
+admin page, and each item it is waiting on a person for opens the page that deals with it.
 
-Held by an **anchor**, the accounts are the cluster's: one list, each account's roles at their scopes, and
-`accounts/AnchorPage.jsx` carries the screen — the anchor holds them and is the only writer, so a
-node keeps a read-only replica and refuses every write against it. No node's API leaf offers the tab
-at all, and a link to one made before the cluster existed lands on the leaf's overview. Held by a
-**node**, they are that node's, the screen sits on its API leaf beside the service's logs and its
-configuration, and the node is named — a list that did not name it would imply an account exists
-somewhere it does not.
+What the panel reads at the provider it reads to REPORT, never to change: the anchor's overview
+figures (accounts, waiting approvals, active Owners, unmapped actions) and its "Needs a look" items,
+each counted only for somebody whose request the anchor's published operations say they may make
+(`editRefusal` and `userRefusal` in `../lib/stores/authority.js`). No screen decides where those calls
+go; `accountDoor` in `../lib/apiClient.js` does, once.
 
-The hook reports two facts and they are not the same one. `anchored` says the accounts belong to an
-anchor, which is what decides where the screen lives; `anchor` says where THIS browser can reach
-them, which is empty for a session opened at a node. They disagree exactly once — a node that held
-its own accounts joins a cluster with an anchor — and the anchor's page renders that honestly by
-naming the holder rather than offering a table whose every write the node refuses. Because the
-capability assignment is re-read on the roster's own cadence, the tab moves with no reload and
-nothing redeployed.
-
-The other question — "how do I prove who I am", and where am I signed in — is not the panel's. It is
-the provider's account page, behind a recent proof only those pages can ask for, and
-`SettingsSignIn.jsx` links there.
-
-No screen decides where its calls go; `accountDoor` in `../lib/apiClient.js` does, once.
-
-**The access pages hold no copy of the rules.** Every control on them is gated on the request it would
-send to the anchor — an edit by its kind, an account change by its method and body (`editRefusal` and
-`userRefusal` in `../lib/stores/authority.js`, over the anchor's published operations) — and a control the rules would refuse stays on screen with
-the anchor's reason beside it — a role above the assigner's is offered, closed, saying so. The reason
-comes from `authorityStore.check`, which asks the anchor's own rules about edits nobody has made; a
-page that worked a refusal out for itself would be a second implementation of the rules, and the
-first to disagree with them. A change that is refused anyway shows the anchor's sentence where it was
-made (`RefusalNote`), and `reauth_required` links to the provider's account page at `#confirm`, which
-asks for the proof the moment it opens.
+The other question — "how do I prove who I am", and where am I signed in — is the provider's account
+page, behind a recent proof only those pages can ask for, and `SettingsSignIn.jsx` links there.
 
 `accounts/AnchorPage.jsx` is a MEMBER page, not a route of its own. A cluster has members and a member
 is a node or an anchor, so both are reached at `#/cluster/member/<member>` and `DiagnosticsPage` picks the
@@ -144,21 +125,19 @@ and Settings are the roster's and the cluster's answers about that member — wh
 holds, how far away it is, and whether it is still one — so they render from a session opened
 anywhere.
 
-What ONE capability adds is the surface that capability IS: the cluster's accounts belong to the
-`auth` holder and to nobody else, a conversation corpus and its command list to the assistant, names
-and certificates to DNS. `ROUTE_TABS.anchor` is the vocabulary those names come from; what is on
-screen is `anchorTabs(capability)`, and a capability earns a tab by gaining a row in
-`ANCHOR_CAPABILITY_TABS` once the member behind it serves one.
+What ONE capability adds is the surface that capability IS: a conversation corpus and its command
+list to the assistant, names and certificates to DNS. `ROUTE_TABS.anchor` is the vocabulary those
+names come from; what is on screen is `anchorTabs(capability)`, and a capability earns a tab by gaining
+a row in `ANCHOR_CAPABILITY_TABS` once the member behind it serves one. The `auth` holder earns none:
+the accounts and who may do what are administered on its own admin pages, which its overview links to.
 
 **The ADDRESS follows the same rule.** The door's origin is this member's address only when this
 member is the door (`holder === member.nodeId`); otherwise it is the member's own, from the roster.
+Only on the door does the overview show the accounts' figures and the way into the admin pages.
 
-**One place is reached at the DOOR, and only one.** The cluster's accounts and who may do what belong
-to the `auth` holder, so its Accounts, Roles, Permissions, Catalog and Services tabs (`DOOR_BODIES`)
-are guarded on holding a session with it and say so when there is none. Everything
-else on the page is reached at THIS member's own origin with the cluster's credential — an anchor
-holding anything other than `auth` has its sign-in shut, so it verifies the session this browser
-already carries and there is nothing to sign in to. The assistant's bodies are therefore the leaf
+Everything on the page is reached at THIS member's own origin with the cluster's credential — an
+anchor holding anything other than `auth` has its sign-in shut, so it verifies the session this
+browser already carries and there is nothing to sign in to. The assistant's bodies are therefore the leaf
 page's own components, unchanged and taking the same single id: what differs is which machine
 answers. `CAPABILITY_BODIES`' `overview` renders UNDER the membership card rather than instead of it,
 because the two answer different questions — what this member is, and what the capability it holds is
@@ -209,7 +188,7 @@ pieces live beside it.
 | `DiagnosticsPage.jsx` | `diagnostics/` | the cluster's own tabs — `ClusterKpis` (over `clusterKpis.js`), the two member cards (`ClusterNodeList`, `ClusterAnchorList` — both pinnable), `ClusterRail`, `ClusterMap` (over the generated `euMap.js`) and `ClusterCapabilities` — plus one member's: `DiagOverview/Resources/Services/Logs`, `DiagJobs` (the node's `JobQueue`), a node's own rename control, `LeafConfigModal`, `diagHelpers` (the leaf card itself is `components/LeafCard.jsx`; the placement libraries live on the engine's leaf page — `leaf/KgsmLibraries.jsx`) |
 | `PerformanceTab.jsx` | `performance/` | `PerfCards`, `perfHelpers` |
 | `ServerSettings.jsx` | `serverSettings/` | `SettingsSections` |
-| `accounts/AnchorPage.jsx` | `accounts/` | the member page's capability-scoped tab strip over `AnchorOverview`, the `auth` holder's accounts (`AccountsAdmin` — the roster, the create/edit modal with its roles and sessions) and the access pages in `access/` (`RolesAdmin`, `PermissionsAdmin`, `CatalogAdmin`, `ServiceRequests`, the shared `Assignments` editor a server's Access tab also mounts, and `accessKit`), the component's own four from `component/` read at this member's address, and `CAPABILITY_BODIES`, which mounts the holder's own surfaces against its member id (the assistant's `AssistantOverview` and `AssistantConversations`, from `leaf/`) |
+| `accounts/AnchorPage.jsx` | `accounts/` | the member page's capability-scoped tab strip over `AnchorOverview` (with the `auth` holder's figures, `AnchorAttention` and its links into the provider's admin pages), the component's own four from `component/` read at this member's address, `CAPABILITY_BODIES`, which mounts the holder's own surfaces against its member id (the assistant's `AssistantOverview` and `AssistantConversations`, from `leaf/`), and `dns/` |
 | `DashboardPage.jsx` | `dashboard/` | `catalog.js` (the widget registrations), `widgets/` (the pinnable bodies), `fleetKpis.js` (the fleet KPI figures), `AddWidgetSheet`, `DashboardEmpty` |
 | `leafConfig/LeafConfigPage.jsx` | `leafConfig/` | the node's half — which of its leaves publish a surface, which is open, that leaf's unit facts and the host journal beside them; the settings themselves are `component/ComponentConfiguration` |
 | — | `component/` | a component's own bodies, mounted by both the leaf page and the anchor page: `ComponentConfiguration`, `ComponentSystem`, `ComponentJournal`, `ComponentCommands`, `ComponentConfigRow`, `ComponentConfigReview`, `componentConfigHelpers` |

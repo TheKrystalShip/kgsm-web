@@ -41,11 +41,6 @@ export const ROUTE_TABS = {
   anchor: [
     { id: "overview", label: "Overview", icon: "layout-grid" },
     { id: "conversations", label: "Conversations", icon: "messages-square" },
-    { id: "users",    label: "Accounts", icon: "users" },
-    { id: "roles",    label: "Roles",    icon: "shield" },
-    { id: "permissions", label: "Permissions", icon: "key-round" },
-    { id: "catalog",  label: "Catalog",  icon: "list-checks" },
-    { id: "services", label: "Services", icon: "bot" },
     { id: "names",        label: "Names",        icon: "globe" },
     { id: "certificates", label: "Certificates", icon: "badge-check" },
     { id: "commands", label: "Commands", icon: "terminal" },
@@ -114,7 +109,6 @@ export const ROUTE_DEFAULT_TAB = {
 const TAB_LABEL_FALLBACK = {
   library: "Library",
   conversations: "Conversations",
-  users: "Users",
   thresholds: "Thresholds",
   windows: "Windows",
   commands: "Commands",
@@ -133,12 +127,11 @@ const TAB_LABEL_FALLBACK = {
 // what it is, what it holds, how far away it is, and whether it is still one — so they render from a
 // session opened anywhere.
 //
-// **What one capability adds** is the surface that capability IS: the cluster's accounts belong to
-// the `auth` holder and to nobody else, a conversation corpus to the assistant, names and
-// certificates to DNS. A capability gains a tab by gaining a row here, once the member behind it
-// actually serves one.
+// **What one capability adds** is the surface that capability IS: a conversation corpus to the
+// assistant, names and certificates to DNS. A capability gains a tab by gaining a row here, once the
+// member behind it actually serves one. The accounts and who may do what are administered on the
+// `auth` holder's own pages, which its overview links to.
 const ANCHOR_CAPABILITY_TABS = {
-  auth: ["users", "roles", "permissions", "catalog", "services"],
   assistant: ["conversations", "commands"],
   dns: ["names", "certificates"],
 };

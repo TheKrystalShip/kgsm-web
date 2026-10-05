@@ -854,26 +854,6 @@ export function adaptMePatch(be) {
   };
 }
 
-// ---- Sessions (GET /auth/sessions, root-routed) ------------------------
-// A caller's (or another person's, for whoever may manage their account) active session list. Hardens
-// every row against a partial/missing field — honest null, never invented —
-// and guards the envelope itself so a malformed/empty response renders as no
-// sessions instead of crashing the settings UI.
-export function adaptSessions(json) {
-  const rows = json && Array.isArray(json.data) ? json.data : [];
-  return {
-    sessions: rows.map((r) => ({
-      sid: r.sid,
-      userId: r.userId,
-      created: r.created ?? null,
-      lastSeen: r.lastSeen ?? null,
-      expires: r.expires ?? null,
-      userAgent: r.userAgent ?? null,
-      current: !!r.current,
-    })),
-  };
-}
-
 // One integration provider's config (GET /integrations/{provider}). The API view
 // is already FE-shaped (camelCase); this only hardens it — `events` always an
 // array, `webhook` always present — so the settings UI never crashes on a partial.

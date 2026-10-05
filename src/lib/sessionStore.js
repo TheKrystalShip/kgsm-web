@@ -142,6 +142,17 @@ import { hostsStore } from "./stores.js";
   // The account page, where everything about a person's own credentials is changed.
   const accountPage = () => { const o = anchorOrigin(); return o ? o + "/account" : ""; };
 
+  // One of the provider's admin pages — accounts, roles, permissions, catalog, assignments, services,
+  // applications — with its parameters filled in: `adminPage("assignments", { scope, label })` opens
+  // the roles held at one scope. Who may do what is administered there, never here. Empty with no
+  // provider known.
+  const adminPage = (page, params) => {
+    const o = anchorOrigin();
+    if (!o) return "";
+    const query = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v != null && v !== "")).toString();
+    return o + "/admin/#/" + page + (query ? "?" + query : "");
+  };
+
   // ---- the nodes this browser drives --------------------------------------
   // Addresses, never identity: one session is presented to all of them. WHERE the list comes from is
   // the cluster's answer. Named by the provider, it is held in memory for the life of the page and
@@ -396,6 +407,7 @@ import { hostsStore } from "./stores.js";
   store.forgetNode = forgetNode;
   store.anchorOrigin = anchorOrigin;
   store.accountPage = accountPage;
+  store.adminPage = adminPage;
   store.setProvider = setProvider;
   store.provider = readProvider;
   store.resolveAnchor = resolveAnchor;

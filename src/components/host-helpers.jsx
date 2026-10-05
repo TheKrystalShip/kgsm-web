@@ -240,8 +240,8 @@ function HostDeniedNotice({ host, onBack, onManage, embedded }) {
 
 // ---------- OAuth providers ----------
 //
-// The marks and names themselves are oauth-icons.jsx, which imports nothing; they are re-exported here
-// for the panel's own callers.
+// The marks and names themselves are oauth-icons.jsx; they are re-exported here for the panel's own
+// callers.
 
 // How somebody signed in, in words. `local` is not a provider — it is the KGSM password — and the
 // derived handle prefix says `local` for it, so every surface that renders the raw value tells the

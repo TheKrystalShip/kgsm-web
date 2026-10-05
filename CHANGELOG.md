@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — signing in and administering access are tks-auth's own pages (3.5.0)
+
+- The sign-in, registration, wait and account pages are built and shipped by tks-auth. This repo no
+  longer builds them: `src/authui/`, `vite.auth.config.js`, `npm run build:auth` / `check:auth` /
+  `deploy:auth`, `deploy/deploy-auth.sh` and the `kgsm-web-auth` package are gone, and `setup.sh`
+  creates no pages root and points the anchor at none — its drop-in carries only the panel's origin,
+  and exists only with `KGSM_PANEL_HOST`.
+- The access pages — Accounts, Roles, Permissions, Catalog, Services, and a server's assignments —
+  are tks-auth's admin pages. The auth anchor's page drops those tabs; its overview keeps the figures
+  and "Needs a look", each item opening the admin page that deals with it, and gains a row per admin
+  page. A server's Access tab opens tks-auth's Assignments at that install's scope
+  (`sessionStore.adminPage`). The API leaf's Users tab is gone.
+- The panel reads the accounts and the authority at the provider only to report on the anchor: the
+  account writes, the session revocations and the authority edits and checks leave `apiClient`.
+
 ### Changed — the auth anchor is tks-auth (3.4.2)
 
 - `kgsm-web-static` installs its drop-in under `tks-auth.service.d/` and optionally depends on

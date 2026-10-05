@@ -1,14 +1,14 @@
-// Where an account call goes — the one question apiClient answers in one place, measured.
+// Where an account call goes — the one question apiClient answers in one place, measured — and where
+// administering one is opened.
 //
-// A cluster's accounts are administered at its sign-in provider: a write that landed in a member's
-// read-only replica would be overwritten by the next thing the provider published, so it would look
-// like it worked and then quietly not have. A panel that knows of no provider — a host run with auth
-// switched off — has nowhere to send one, and refuses the call rather than guessing a member. The
-// live smoke runs against an AUTH-DISABLED backend, which reports no provider and exercises no
-// account surface at all, so this is the only place the first half is covered.
+// A cluster's accounts are read at its sign-in provider and administered on the provider's own pages:
+// a member holds only a read-only replica. A panel that knows of no provider — a host run with auth
+// switched off — has nowhere to send a call, and refuses it rather than guessing a member. The live
+// smoke runs against an AUTH-DISABLED backend, which reports no provider and exercises no account
+// surface at all, so this is the only place the first half is covered.
 //
-// Every fetch is recorded with its ORIGIN, so "no account write reached a member" is a measured
-// zero rather than an assertion about an absence.
+// Every fetch is recorded with its ORIGIN, so "nothing was asked of the member" is a measured zero
+// rather than an assertion about an absence.
 //
 // The two states run as separate PROCESSES, because "no provider" is not a state the module graph
 // can be talked back into.
@@ -90,34 +90,17 @@ if (known) {
     String(since(mark).map((c) => c.u)));
   check(at(NODE, since(mark)).length === 0, "with nothing asked of the member", String(at(NODE, since(mark)).length));
 
-  mark = calls.length;
-  await api.users("hotrod").update("usr_1", { status: "disabled" });
-  await api.users("hotrod").remove("usr_1");
-  await api.users("hotrod").setPassword("usr_1", "hunter2");
-  check(at(NODE, since(mark)).length === 0, "no account WRITE reaches a member, whatever node a screen names",
-    String(at(NODE, since(mark)).map((c) => c.method + " " + c.u)));
-  check(since(mark).filter((c) => c.method === "DELETE").length === 1, "a delete is sent as DELETE");
   check(since(mark).every((c) => c.credentials === null),
     "and nothing is credentialed — the provider admits client origins without them");
 
-  mark = calls.length;
-  const sess = await api.sessions().list("usr_1");
-  check(sess.sessions.length === 1, "somebody's sessions read");
-  check(since(mark).some((c) => c.u === ANCHOR + "/auth/cluster/users/usr_1/sessions"),
-    "scoped under their account at the provider", String(since(mark).map((c) => c.u)));
-
-  mark = calls.length;
-  await api.sessions().revokeUser("usr_1");
-  const all = since(mark).find((c) => c.u.includes("revoke-all"));
-  check(all && all.u === ANCHOR + "/auth/cluster/users/usr_1/sessions/revoke-all",
-    "signing somebody out everywhere is scoped under their account", all && all.u);
-
-  mark = calls.length;
-  await api.sessions().revokeSid("usr_1", "sid_1");
-  const one = since(mark).find((c) => c.u.includes("/revoke"));
-  check(one && one.u === ANCHOR + "/auth/cluster/users/usr_1/sessions/sid_1/revoke",
-    "and ending one of them names whose it is", one && one.u);
+  // Administering is the provider's own pages, opened at the page and scope a surface means.
+  const scope = "instance:hotrod/factorio#n1";
+  const page = sessionStore.adminPage("assignments", { scope, label: "Factorio" });
+  check(page === ANCHOR + "/admin/#/assignments?scope=instance%3Ahotrod%2Ffactorio%23n1&label=Factorio",
+    "a server's access opens the provider's assignments at that install's scope", page);
+  check(new URLSearchParams(page.split("?")[1]).get("scope") === scope, "and the scope reads back whole");
 } else {
+  check(sessionStore.adminPage("accounts") === "", "with no provider known, there is no admin page to open");
   let refused = null;
   try { await api.users("hotrod").list(); } catch (e) { refused = e; }
   check(refused && refused.status === 503, "with no provider known, an account call is refused",

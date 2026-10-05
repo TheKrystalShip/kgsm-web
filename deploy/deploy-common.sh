@@ -48,12 +48,6 @@ AUTH_ANCHOR="${KGSM_AUTH_ANCHOR:-}"
 # publishes to both; they are separate builds, and each host gets only its own bundle.
 ASSISTANT_WWWROOT="${KGSM_ASSISTANT_WWWROOT:-/opt/kgsm-assistant/service/wwwroot}"
 
-# The auth anchor's own pages — sign-in, registration, the wait and the account page. The anchor
-# serves them from wherever its Anchor__UiPath names; a package installs them at
-# /usr/share/kgsm-web-auth, and a development host publishes them here and points the anchor at it.
-# Outside every other deploy's prefix, because each of those syncs with --delete.
-AUTH_UI_ROOT="${KGSM_WEB_AUTH_ROOT:-/srv/kgsm-web-auth}"
-
 # OPTIONAL: the public name this host serves the panel at, e.g. kgsm.example.com. Set, setup.sh serves
 # the web root there through nginx on a Let's Encrypt certificate and tells the auth anchor on this
 # machine that a panel lives at that origin. A name only the operator can choose, so it lives in

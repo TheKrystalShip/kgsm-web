@@ -8,7 +8,8 @@
 // The account figures are the exception and `showsAccounts` is the gate. They are the accounts of
 // whichever member holds `auth`, read at the door this browser signed in through — so they belong on
 // that member's page and nowhere else. Drawn on another anchor's page they would report one member's
-// accounts under a second member's name, which is the one reading this page must never give.
+// accounts under a second member's name, which is the one reading this page must never give. The same
+// member's page carries the way into its own admin pages, where all of it is changed.
 //
 // Every figure here is measured or absent. The counts come from the accounts the anchor lists, so a
 // browser that cannot read them shows no count rather than a zero — an anchor with no accounts and an
@@ -20,12 +21,24 @@ import { BriefCard, Icon, useStore } from "@thekrystalship/krystal-ui";
 import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
 import { formatLatency } from "../../lib/nodeLabel.js";
+import { sessionStore } from "../../lib/sessionStore.js";
 import { authorityStore } from "../../lib/stores/authority.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
-import { LeafFacts } from "../leaf/leafOverviewKit.jsx";
+import { LeafBriefItem, LeafFacts } from "../leaf/leafOverviewKit.jsx";
 import { AnchorAttention } from "./AnchorAttention.jsx";
 
-function AnchorOverview({ member, address, showsAccounts, onSelectTab }) {
+// The provider's admin pages, in the order its own strip draws them.
+const ADMIN_PAGES = [
+  { page: "accounts", icon: "users", title: "Accounts" },
+  { page: "roles", icon: "shield", title: "Roles" },
+  { page: "permissions", icon: "key-round", title: "Permissions" },
+  { page: "catalog", icon: "list-checks", title: "Catalog" },
+  { page: "assignments", icon: "user-check", title: "Assignments" },
+  { page: "services", icon: "bot", title: "Services" },
+  { page: "applications", icon: "app-window", title: "Applications" },
+];
+
+function AnchorOverview({ member, address, showsAccounts }) {
   const [accounts, setAccounts] = React.useState(null);   // null = not read
   const [reachable, setReachable] = React.useState(true);
 
@@ -77,7 +90,18 @@ function AnchorOverview({ member, address, showsAccounts, onSelectTab }) {
         </div>
       )}
 
-      {showsAccounts && <AnchorAttention onSelectTab={onSelectTab} />}
+      {showsAccounts && <AnchorAttention />}
+
+      {showsAccounts && sessionStore.adminPage("accounts") && (
+        <BriefCard icon="shield" title="Access">
+          <div className="chat-brief__list">
+            {ADMIN_PAGES.map((p) => (
+              <LeafBriefItem key={p.page} icon={p.icon} title={p.title} action="Open"
+                onClick={() => window.open(sessionStore.adminPage(p.page), "_blank", "noopener")} />
+            ))}
+          </div>
+        </BriefCard>
+      )}
 
       <BriefCard icon="anchor" title="Membership">
         <LeafFacts rows={[

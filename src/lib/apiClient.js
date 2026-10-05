@@ -29,8 +29,8 @@ import("./stores.js").then((m) => {
   }
 });
 
-// The auth anchor's routes this panel writes to, named once: the calls below send them, and a page asks
-// whether one may be made (`persona.callRefusal("auth", …)`) with the same path.
+// The auth anchor's routes, named once: the account list below reads one, and a surface asks whether
+// somebody may act there (`persona.callRefusal("auth", …)`) with the same path.
 const ANCHOR_PATHS = {
   users: "/auth/cluster/users",
   edits: "/auth/cluster/authority/edits",
@@ -769,62 +769,27 @@ const ANCHOR_PATHS = {
     };
   }
 
-  // api.sessions() — somebody else's sessions, at the provider, which
-  // mints every session and so holds every row. Funneled (not the meWith bypass) because every call
-  // site here wants the live cluster bearer plus the same 401→expire→replay heal hostScoped gives
-  // REST calls. A person's OWN sessions are the account page's, not this panel's.
-  function sessionsScoped() {
-    const withRetry = (call) => call().catch(err => {
-      if (!err || err.code !== 401 || err.preflight || !sessionStore) throw err;
-      sessionStore.expire();
-      return call();
-    });
-    const under = (d, userId, suffix) => d.users + "/" + encodeURIComponent(userId) + "/sessions" + suffix;
-    return {
-      list: (userId) => withRetry(() => accountDoor().then((d) => doorFetch("GET", under(d, userId, ""), null, d)))
-        .then(adapt.adaptSessions),
-      // End ONE of somebody's sessions — a different decision from signing them out everywhere, and
-      // the narrow one is the one to reach for with a single suspicious session. Scoped under the
-      // account, which makes the question "is this session that person's" rather than "does this
-      // session exist": somebody with the wrong account open is told so instead of being shown a
-      // stranger's row.
-      revokeSid: (userId, sid) => withRetry(() => accountDoor().then((d) =>
-        doorFetch("POST", under(d, userId, "/" + encodeURIComponent(sid) + "/revoke"), {}, d))),
-      // Sign somebody out everywhere.
-      revokeUser: (userId) => withRetry(() => accountDoor().then((d) =>
-        doorFetch("POST", under(d, userId, "/revoke-all"), {}, d))),
-    };
-  }
-
-  // api.users() — the cluster's accounts, at the provider. Root-routed (these live at the bare
-  // origin, not under /api/v1), each request gated on its own `auth:*` action there.
+  // api.users() — the cluster's accounts as the provider lists them, for what the panel reports about
+  // the anchor. Root-routed (these live at the bare origin, not under /api/v1). Changing an account is
+  // the provider's own admin pages'.
   //
-  // Deliberately NOT behind a reactive store. Every other domain here is polled or
-  // streamed because something else changes it; accounts change only when somebody
-  // changes them, on this screen, and a cached list is then a list that can be stale
-  // about who may do what. Each screen reads, and re-reads after it writes.
+  // Deliberately NOT behind a reactive store: accounts change only when somebody changes them, and a
+  // cached list is a list that can be stale about who may sign in. Each surface reads when it opens.
   function usersScoped() {
     const withRetry = (call) => call().catch((e) => {
       if (!(e && e.status === 401)) throw e;
       sessionStore.expire();
       return call();
     });
-    const at = (method, suffix, body) =>
-      accountDoor().then((d) => doorFetch(method, d.users + suffix, body, d));
-    const one = (userId) => "/" + encodeURIComponent(userId);
     return {
-      list: () => withRetry(() => at("GET", "")).then((r) => (r && r.data) || []),
-      create: (body) => withRetry(() => at("POST", "", body || {})),
-      update: (userId, body) => withRetry(() => at("PATCH", one(userId), body || {})),
-      remove: (userId) => withRetry(() => at("DELETE", one(userId))),
-      setPassword: (userId, password) => withRetry(() => at("POST", one(userId) + "/password", { password })),
+      list: () => withRetry(() => accountDoor().then((d) => doorFetch("GET", d.users, null, d)))
+        .then((r) => (r && r.data) || []),
     };
   }
 
-  // api.authority() — who may do what, at the provider: the authority the management pages read, one
-  // change at a time against the version it was read at, the rules' verdict on edits nobody has made,
-  // and the caller's own `auth:*` actions. Not behind a store for the same reason the accounts are not.
-  // A change made against an older version is refused with the authority as it stands (`e.body`).
+  // api.authority() — who may do what, at the provider: the authority as it stands, and the caller's
+  // own `auth:*` actions with the operations they gate. Not behind a store for the same reason the
+  // accounts are not.
   function authorityScoped() {
     const withRetry = (call) => call().catch((e) => {
       if (!(e && e.status === 401)) throw e;
@@ -835,9 +800,6 @@ const ANCHOR_PATHS = {
       accountDoor().then((d) => doorFetch(method, path, body, d));
     return {
       read: () => withRetry(() => at("GET", "/auth/cluster/authority")),
-      edit: (version, edit) => withRetry(() => at("POST", ANCHOR_PATHS.edits, { ...edit, version })),
-      check: (edits) => withRetry(() => at("POST", "/auth/cluster/authority/checks", { edits }))
-        .then((r) => (r && r.results) || []),
       access: () => withRetry(() => at("GET", "/me/access")),
       // Which action each of the anchor's gated requests needs (`../operations.js`).
       operations: () => withRetry(() => at("GET", "/auth/cluster/operations")),
@@ -847,8 +809,8 @@ const ANCHOR_PATHS = {
   // api.members(id) — the cluster membership surface (/api/v1/members…): managing this
   // host's peer roster + the converged roster. v1-routed (get/
   // post/patch/del, not rootGet/rootPost) because these live under /api/v1, not
-  // at the bare origin. Mirrors sessionsScoped's withRetry verbatim (see its
-  // comment) rather than sharing it — each scoped surface owns its own closure.
+  // at the bare origin. Its own withRetry closure — each scoped surface owns one rather
+  // than sharing it.
   function membersScoped(id) {
     if (!id) throw new Error("api.members() requires a concrete host id (got " + id + ")");
     const withRetry = (call) => call().catch(err => {
@@ -904,7 +866,6 @@ const ANCHOR_PATHS = {
   const api = {
     get, post, patch, put, del, stream, fanOut, meWith, pingHost,
     host: hostScoped,
-    sessions: sessionsScoped,
     users: usersScoped,
     authority: authorityScoped,
     members: membersScoped,

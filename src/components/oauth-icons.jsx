@@ -1,8 +1,5 @@
-// oauth-icons.jsx — how a sign-in provider is named and drawn.
-//
-// Its own module, importing nothing, because the anchor's sign-in pages draw these too and that bundle
-// may not reach the Control Panel's data layer: host-helpers.jsx, where the panel's host furniture
-// lives, pulls in the stores the moment it is imported.
+// oauth-icons.jsx — how a sign-in provider is named and drawn. Imports nothing; host-helpers.jsx
+// re-exports it for the panel's own callers.
 
 // What each provider is called in a sentence. Presentation only — a host names its providers and
 // says nothing about how to write them, so an unknown name falls through to the name itself rather

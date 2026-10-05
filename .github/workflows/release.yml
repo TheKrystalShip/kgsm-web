@@ -53,13 +53,6 @@ jobs:
           VITE_API_BASE=self npm run build
           test -f dist/index.html
 
-      # The auth anchor's pages, packaged as kgsm-web-auth from the same checkout. The check refuses a
-      # page the anchor's content security policy would break and one reaching the panel's sessions.
-      - name: Build the auth anchor's pages
-        run: |
-          npm run build:auth
-          npm run check:auth
-
       # The panel as a static site, packaged as kgsm-web-static: no host seed and no anchor.
       - name: Build the static panel
         run: |
@@ -67,7 +60,7 @@ jobs:
           test -f dist-static/index.html
 
       - name: Pack the stage, modes included
-        run: tar -cf stage.tar dist dist-auth dist-static
+        run: tar -cf stage.tar dist dist-static
 
       - uses: actions/upload-artifact@v7
         with:

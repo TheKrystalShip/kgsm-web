@@ -41,18 +41,13 @@ realtime: liveStream.js (fetch-SSE) ──adaptStreamMessage──▶ same store
   listener never has to guess which node produced an event.
 
   **`accountDoor()` is where an account call is addressed**, and the only place that decides it:
-  the cluster's sign-in provider, under `/auth/cluster/users`. A write that landed in a member's
-  read-only replica would be overwritten by the next thing the provider published, so it would
-  appear to work and then quietly not have — and every member refuses those calls on that basis. A
-  panel knowing no provider refuses the call rather than guessing a member. `api.users` and
-  `api.sessions` resolve through it per call; `api.sessions` is the `auth:accounts.disable` view of somebody
-  else's sessions, scoped under their account, so ending one asks "is this session that person's"
-  rather than "does this session exist". A person's OWN sessions are the provider's account page's.
-  `api.authority` goes through the same door: the authority the management pages read, one edit at a
-  time against the version it was read at (a stale one answers `409` with the authority as it stands,
-  on `e.body`), the rules' verdict on edits nobody has made (`check`), and the caller's own `auth:*`
-  answer. A call to the provider leaves the connection signal alone: it is not a node this panel
-  drives, and its reachability is not a node's.
+  the cluster's sign-in provider, under `/auth/cluster/users`. A member holds only a read-only replica,
+  so the provider is the one place the accounts are read from; a panel knowing no provider refuses the
+  call rather than guessing a member. `api.users().list()` and `api.authority()` — the authority as it
+  stands, and the caller's own `auth:*` answer with the operations it gates — resolve through it per
+  call, and read only: changing anything is the provider's own admin pages', which
+  `sessionStore.adminPage` opens. A call to the provider leaves the connection signal alone: it is not
+  a node this panel drives, and its reachability is not a node's.
 - `liveStream.js` — fetch-based SSE. One
   primary stream per host + per-view dynamic streams; drives `realtimeStore` via
   `onMode`.
@@ -201,7 +196,8 @@ the `check:*` scripts load this layer in Node. `stores.js` re-exports `stores/` 
   issues this browser a credential or extends one — a member that could would be a second door to the
   same session on every machine in the cluster, permanently. `restore` and `completeSignIn` settle it
   at boot, `signIn` and `signOut` leave for the provider, `anchorOrigin()` is the provider's origin the
-  account surfaces address, and `accountPage()` is where a person changes their own credentials.
+  account surfaces address, `accountPage()` is where a person changes their own credentials, and
+  `adminPage(page, params)` is one of the provider's admin pages with its parameters filled in.
   **A session proves who, never what.** It holds where the account stands (`accountOf`: active,
   pending, unknown) and nothing about what it may do. A provider session is active by construction —
   the provider gives one to nothing else — so a member's own view of the account never turns the panel

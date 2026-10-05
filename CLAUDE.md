@@ -2,12 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel**, the **standalone
-assistant** served by the kgsm-assistant leaf, and the **auth anchor's own pages** — sign-in,
-registration, the wait for approval and the account page — shipped as `kgsm-web-auth`. Three Vite
-builds over one source tree. The panel and the assistant share `src/chat/`, and the anchor's pages
-share the panel's sign-in card; everything that differs is a prop. Neither of the other two surfaces
-may reach the panel's data layer (`npm run check:assistant`, `npm run check:auth`). The Control Panel
+`kgsm-web` builds the KGSM ecosystem's **web surfaces**: the **Control Panel** and the **standalone
+assistant** served by the kgsm-assistant leaf. Two Vite builds over one source tree; they share
+`src/chat/`, and everything that differs is a prop. The standalone surface may not reach the panel's
+data layer (`npm run check:assistant`). Signing in, the account page and administering who may do
+what are tks-auth's own pages, which the panel links to (`sessionStore.accountPage`,
+`sessionStore.adminPage`). The Control Panel
 is a Vite + React 18 (JSX) single-page app and a **runtime multi-host client**: it reads a
 localStorage registry of `kgsm-api` hosts, grows it from the cluster's roster, and talks to them over
 `fetch` + SSE. The workspace root `../CLAUDE.md` carries the ecosystem rules, including the
@@ -29,16 +29,13 @@ npm run dev:assistant     # http://localhost:5174 — the STANDALONE assistant s
 npm run build:assistant   # → dist-assistant/
 npm run check:assistant   # the standalone bundle contains no Control Panel, and is fully styled
 npm run deploy:assistant  # = deploy/deploy-assistant.sh — publish it into the leaf's wwwroot
-npm run build:auth        # → dist-auth/ — the auth anchor's pages, under base /ui/
-npm run check:auth        # they reach no data layer, and every document is within the anchor's CSP
-npm run deploy:auth       # = deploy/deploy-auth.sh — publish them where the anchor's Anchor__UiPath points
 npm run preview      # serve the built dist/
-./deploy/setup.sh    # ONCE per host — the web roots; with KGSM_PANEL_HOST, nginx + certificate + anchor drop-in (sudo once)
+./deploy/setup.sh    # ONCE per host — the web root; with KGSM_PANEL_HOST, nginx + certificate + anchor drop-in (sudo once)
 npm run deploy:prod  # = deploy/deploy.sh — build + rsync dist/ into the web root, nothing restarts
 
 npm run check:entry  # where an address says its cluster signs in, and the client id an origin is
 npm run check:session # one session for the cluster: restored, renewed at the provider, ended there
-npm run check:door   # where an account call goes: the provider, or nowhere when none is known
+npm run check:door   # where an account call goes, and where administering opens: the provider, or nowhere
 npm run check:origin # a roster address this page cannot fetch never becomes a connection
 npm run check:reset  # clearing local data clears all of it, and nothing else on the origin
 npm run check:assistants # which assistants exist: a node's leaf, the cluster's anchor, or both

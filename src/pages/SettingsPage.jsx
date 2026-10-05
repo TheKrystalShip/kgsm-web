@@ -28,10 +28,9 @@ import { SettingsSync } from "./SettingsSync.jsx";
 // land where they should. `profile` is the default and is omitted, so the plain `#/settings` the
 // sidebar produces is the landing tab's canonical address.
 //
-// The subject is the person reading it. Administering other people's accounts is
-// `accounts/AccountsAdmin.jsx`, wherever the cluster keeps them — the anchor's page when one holds
-// them, the node's API leaf when it holds its own. A page about who you are is the wrong place to
-// decide what everybody else may do.
+// The subject is the person reading it. Administering other people's accounts is the sign-in
+// provider's own admin pages, which the auth anchor's overview links to. A page about who you are is
+// the wrong place to decide what everybody else may do.
 //
 // Your name and username are shown, not edited. They come from whichever door you signed in
 // through: a password sign-in carries the account's own display name, a provider sign-in carries

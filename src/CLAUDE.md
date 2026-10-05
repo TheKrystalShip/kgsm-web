@@ -5,22 +5,20 @@ boundaries to keep — plus the rules that hold across every area: the shell, a 
 what a component may say, and the notification surfaces. Each area's own rules are in its directory's
 `CLAUDE.md`.
 
-## Three surfaces, one source tree
+## Two surfaces, one source tree
 
-This repo builds **three**. `index.html` → the Control Panel; `assistant.html` → the standalone
-assistant served by the kgsm-assistant leaf; `auth-sign-in.html`, `auth-wait.html` and
-`auth-account.html` → the auth anchor's own pages (`src/authui/`), built under `base: "/ui/"` and
-shipped as `kgsm-web-auth`. Separate Vite configs, separate `dist*/`s, separate deploy scripts — so
-each host serves only its own bundle — over one source tree.
+This repo builds **two**. `index.html` → the Control Panel; `assistant.html` → the standalone
+assistant served by the kgsm-assistant leaf. Separate Vite configs, separate `dist*/`s, separate
+deploy scripts — so each host serves only its own bundle — over one source tree.
 
-**The anchor's pages hold no credential.** They are served by the anchor on its own origin, every
-call they make is same-origin and authenticated by the anchor's cookie, and nothing they hold can call
-a member — so they may reach none of the panel's session or data layer (`npm run check:auth`, which
-also holds each built document to the anchor's content security policy: no inline script, no inline
-style). They reuse the panel's sign-in card and settings furniture, which is why
-`pages/auth/SignInCard.jsx`, `components/oauth-icons.jsx` and `lib/credentialRules.js` import nothing
-from that layer. Each page's document carries its own **floor** — a sign-in form that posts without
-script, a wait that refreshes only under `<noscript>` — and the application removes it on mount.
+**Signing in and administering access are not this repo's.** The sign-in, registration, wait and
+account pages, and the admin pages — accounts and approval, roles, permissions, the catalog,
+assignments, service requests, applications — are tks-auth's own, served on the provider's origin. The
+panel links into them with the scope filled in: `sessionStore.accountPage()` for a person's own
+credentials, `sessionStore.adminPage(page, params)` for everything else (a server's Access tab opens
+`assignments` at that install's scope). What the panel still reads at the provider — the anchor's
+overview figures, what it is waiting on a person for — it reads with the cluster session and writes
+nothing.
 
 `src/chat/` is the conversation, shared by both. The chat itself — the conversation engine over the
 assistant wire contract, the thread, the composer, review mode — is the design system's `Chat`;
@@ -204,7 +202,7 @@ a parameter and **imports nothing** — a shared module reaching `apiClient` wou
 | `lib/` | Data layer + policy: apiClient, adapters, stores, persona, router, config | `lib/CLAUDE.md` |
 | `lib/stores/` | Domain-split reactive stores; `lib/stores.js` re-exports them | `lib/stores/CLAUDE.md` |
 | `components/` | The panel's shared UI over the design system's primitives | `components/CLAUDE.md` |
-| `hooks/` | `useRouteSync` (URL↔route sync), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the account screens move when an anchor joins or leaves) | — |
+| `hooks/` | `useRouteSync` (URL↔route sync), `useAccountHolder` (whether an anchor holds this cluster's accounts, and where this browser can reach them — read live from the cluster's capability assignment, so the anchor's page shows its account figures on the member that holds them) | — |
 | `styles/` | Plain CSS: `kit.css` (barrel over the design system's sheets and `kit/`) → `consumer.css` | `styles/CLAUDE.md` |
 
 ## Guardrails (the ESLint gate)

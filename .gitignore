@@ -1,7 +1,6 @@
 node_modules
 dist
 dist-assistant
-dist-auth
 dist-static
 dist-ssr
 *.local
