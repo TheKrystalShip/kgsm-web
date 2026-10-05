@@ -22,7 +22,7 @@ import { KPI } from "../../components/KPI.jsx";
 import { api } from "../../lib/apiClient.js";
 import { formatLatency } from "../../lib/nodeLabel.js";
 import { sessionStore } from "../../lib/sessionStore.js";
-import { authorityStore } from "../../lib/stores/authority.js";
+import { authorityStore, clusterUnmapped } from "../../lib/stores/authority.js";
 import { MemberState } from "../diagnostics/clusterBadges.jsx";
 import { LeafBriefItem, LeafFacts } from "../leaf/leafOverviewKit.jsx";
 import { AnchorAttention } from "./AnchorAttention.jsx";
@@ -66,7 +66,7 @@ function AnchorOverview({ member, address, showsAccounts }) {
       .map(a => a.accountId)
       .filter(id => (view.accounts.find(x => x.id === id) || {}).status === "active")).size
     : null;
-  const unmapped = view ? view.catalog.filter(a => a.unmapped).length : null;
+  const unmapped = view ? clusterUnmapped(view).length : null;
 
   // A figure that could not be read is a dash. Rendering 0 would say this anchor holds no accounts,
   // which for the thing that holds every account in the cluster is the worst thing it could say.

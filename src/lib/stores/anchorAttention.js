@@ -2,7 +2,8 @@
 //
 // Four things the cluster's access does not settle on its own, each counted only for somebody who
 // can act on it — asked as the request that acts on it: accounts awaiting approval (approving one),
-// actions nobody has filed into a permission yet (filing one — until then only an Owner performs it),
+// the cluster's own actions nobody has filed into a permission yet (filing one — until then only an
+// Owner performs it; an outside application's are not the panel's, `clusterUnmapped`),
 // service requirements waiting for a person (deciding one), and the requirements the anchor approved on
 // its own this past week (Owners — a grant nobody chose is still a grant somebody sees).
 //
@@ -17,7 +18,7 @@ import { api } from "../apiClient.js";
 import { isOwner } from "../persona.js";
 import { readProvider } from "../provider.js";
 import { createStore } from "@thekrystalship/krystal-ui/lib/store";
-import { authorityStore, editRefusal, userRefusal } from "./authority.js";
+import { authorityStore, clusterUnmapped, editRefusal, userRefusal } from "./authority.js";
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 const CADENCE_MS = 5 * 60 * 1000;
 const APPROVED = "auth.service.requirement.approved";
@@ -61,7 +62,7 @@ function itemsFrom({ accounts, view, approvals }) {
     }
   }
   if (view && files()) {
-    const unmapped = view.catalog.filter((c) => c.unmapped);
+    const unmapped = clusterUnmapped(view);
     if (unmapped.length) {
       items.push({
         key: "unmapped", page: "catalog", tone: "warn", icon: "list-checks",

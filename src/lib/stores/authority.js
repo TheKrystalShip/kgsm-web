@@ -39,4 +39,14 @@ function userRefusal(method, sub, body) {
   return callRefusal("auth", method, ANCHOR_PATHS.users + (sub || ""), { body });
 }
 
-export { authorityStore, editRefusal, userRefusal };
+// The cluster's own unmapped actions: those a member declares — a KGSM component's, or the anchor's
+// `auth:*` — and no permission holds yet. An outside application reports its manifest as the declarer
+// `application:<id>`, and nothing about one is the panel's to count: its actions are filed on the
+// anchor's own pages, by whoever administers that application.
+const APPLICATION_DECLARER = "application:";
+function clusterUnmapped(view) {
+  return view.catalog.filter((c) => c.unmapped
+    && (c.declaredBy || []).some((d) => !String(d.member).startsWith(APPLICATION_DECLARER)));
+}
+
+export { authorityStore, clusterUnmapped, editRefusal, userRefusal };

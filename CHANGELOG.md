@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the anchor counts only the cluster's unmapped actions (3.5.1)
+
+- The auth anchor's "Unmapped actions" figure and its "Needs a look" item count an action only when a
+  cluster member declares it — a KGSM component's or the anchor's own `auth:*` — and leave out an
+  outside application's, which the catalog names as declared by `application:<id>`
+  (`clusterUnmapped` in `lib/stores/authority.js`).
+
 ### Changed — signing in and administering access are tks-auth's own pages (3.5.0)
 
 - The sign-in, registration, wait and account pages are built and shipped by tks-auth. This repo no
